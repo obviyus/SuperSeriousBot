@@ -2,6 +2,7 @@ import logging
 
 from telegram.ext import (Updater, CommandHandler)
 
+from api.translate import translate
 from api.ud import ud
 from chat_management.kick import kick
 
@@ -21,10 +22,12 @@ def main():
     start_handler = CommandHandler('start', start)
     kick_handler = CommandHandler('kick', kick)
     ud_handler = CommandHandler('ud', ud)
+    translate_handler = CommandHandler('tl', translate)
 
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(kick_handler)
     dispatcher.add_handler(ud_handler)
+    dispatcher.add_handler(translate_handler)
 
     updater.start_polling()
     updater.idle()
