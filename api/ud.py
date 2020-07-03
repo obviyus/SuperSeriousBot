@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import requests
-import json
-from requests.models import Response
 from telegram import Bot, Update
 
 
@@ -15,7 +13,7 @@ def ud(bot: Bot, update: Update):
 
     # Split after /ud command to get first argument
     word = message.text.strip().split(' ', 1)
-    url = "http://api.urbandictionary.com/v0/define?term=flump" + word
+    url = "http://api.urbandictionary.com/v0/define?term=" + word
 
     res = requests.get(url)
     result = res.json()
