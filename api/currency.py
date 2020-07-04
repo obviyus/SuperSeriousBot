@@ -10,7 +10,7 @@ def currency(bot: Bot, update: Update):
     except IndexError:
         bot.send_message(
             chat_id=message.chat_id,
-            text="*Usage:* `/convert {amount} {from} {to}`\n*Example:* `/convert 300 USD EUR`",
+            text="*Usage:* `/convert {AMOUNT} {FROM} {TO}`\n*Example:* `/convert 300 USD EUR` \n\nDefaults to `INR` if `TO` parameter not provided.",
             reply_to_message_id=message.message_id,
             parse_mode='Markdown'
         )
@@ -26,7 +26,18 @@ def currency(bot: Bot, update: Update):
         )
         return
 
-    src_currency = word[1].upper()
+    try:
+        src_currency = word[1].upper()
+    except IndexError:
+        if amount.is_integer():
+            amount = int(amount)
+        output = f'{amount}? {amount} of what? Use /convert for usage.'
+        bot.send_message(
+            chat_id=message.chat_id,
+            text=output,
+            reply_to_message_id=message.message_id,
+        )
+        return
 
     if len(word) == 2:
         dest_currency = 'INR'
@@ -55,6 +66,13 @@ def currency(bot: Bot, update: Update):
         bot.send_message(
             chat_id=message.chat_id,
             text="No entry found.",
+            reply_to_message_id=message.message_id,
+        )
+        return
+    except:
+        bot.send_message(
+            chat_id=message.chat_id,
+            text="Value too large :(",
             reply_to_message_id=message.message_id,
         )
         return
