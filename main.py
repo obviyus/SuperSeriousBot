@@ -4,17 +4,23 @@ from telegram.ext import (Updater, CommandHandler)
 
 from api.translate import translate
 from api.ud import ud
+from api.currency import currency
 from chat_management.kick import kick
 
 
+TELEGRAM_BOT_TOKEN = "743193671:AAEBo4aW2VnLcQDIjIuIN3rxRiq4lA_HDPE"
+
 def start(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="Hi.")
+    bot.send_message(
+        chat_id=update.message.chat_id, 
+        text="Hi."
+        )
 
 
 def main():
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    updater = Updater(token="743193671:AAEBo4aW2VnLcQDIjIuIN3rxRiq4lA_HDPE")
+    updater = Updater(token=TELEGRAM_BOT_TOKEN)
 
     dispatcher = updater.dispatcher
 
@@ -23,11 +29,13 @@ def main():
     kick_handler = CommandHandler('kick', kick)
     ud_handler = CommandHandler('ud', ud)
     translate_handler = CommandHandler('tl', translate)
+    currency_handler = CommandHandler('convert', currency)
 
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(kick_handler)
     dispatcher.add_handler(ud_handler)
     dispatcher.add_handler(translate_handler)
+    dispatcher.add_handler(currency_handler)
 
     updater.start_polling()
     updater.idle()
