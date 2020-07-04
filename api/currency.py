@@ -4,9 +4,28 @@ from babel import numbers
 
 def currency(bot: Bot, update: Update):
     message = update.message
-    word = message.text.strip().split(' ', 1)[1].strip().split(' ', 3)
 
-    amount = float(word[0])
+    try:
+        word = message.text.strip().split(' ', 1)[1].strip().split(' ', 3)
+    except IndexError:
+        bot.send_message(
+            chat_id=message.chat_id,
+            text="*Usage:* `/convert {amount} {from} {to}`\n*Example:* `/convert 300 USD EUR`",
+            reply_to_message_id=message.message_id,
+            parse_mode='Markdown'
+        )
+        return
+
+    try:
+        amount = float(word[0])
+    except ValueError:
+        bot.send_message(
+            chat_id=message.chat_id,
+            text="Not a number.",
+            reply_to_message_id=message.message_id,
+        )
+        return
+
     src_currency = word[1].upper()
 
     if len(word) == 2:
