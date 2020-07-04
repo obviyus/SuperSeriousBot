@@ -1,5 +1,6 @@
 import requests
 from telegram import Bot, Update
+from babel import numbers
 
 def currency(bot: Bot, update: Update):
     message = update.message
@@ -25,11 +26,11 @@ def currency(bot: Bot, update: Update):
     rate = result['rates'][dest_currency]
     converted = rate * amount
 
-    output = f'{converted:,.2f} {dest_currency}'
+    dest_symbol = numbers.format_currency(converted, dest_currency)
 
     bot.send_message(
         chat_id=message.chat_id,
-        text=output,
+        text=dest_symbol,
         reply_to_message_id=message.message_id,
         parse_mode='Markdown',
     )
