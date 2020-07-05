@@ -5,6 +5,8 @@ from telegram.ext import (Updater, CommandHandler)
 from api.translate import translate
 from api.ud import ud
 from api.currency import currency
+from api.hltb import hltb
+from api.steamprice import steamprice
 from chat_management.kick import kick
 
 
@@ -30,12 +32,16 @@ def main():
     ud_handler = CommandHandler('ud', ud)
     translate_handler = CommandHandler('tl', translate)
     currency_handler = CommandHandler('convert', currency)
+    steam_handler = CommandHandler('steam', steamprice)
+    hltb_handler = CommandHandler('hltb', hltb)
 
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(kick_handler)
     dispatcher.add_handler(ud_handler)
     dispatcher.add_handler(translate_handler)
     dispatcher.add_handler(currency_handler)
+    dispatcher.add_handler(steam_handler)
+    dispatcher.add_handler(hltb_handler)
 
     updater.start_polling()
     updater.idle()
