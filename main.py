@@ -5,16 +5,17 @@ from telegram.ext import (Updater, CommandHandler)
 from api.translate import translate
 from api.ud import ud
 from api.currency import currency
+from api.hltb import hltb
 from chat_management.kick import kick
-
 
 TELEGRAM_BOT_TOKEN = "743193671:AAEBo4aW2VnLcQDIjIuIN3rxRiq4lA_HDPE"
 
+
 def start(bot, update):
     bot.send_message(
-        chat_id=update.message.chat_id, 
+        chat_id=update.message.chat_id,
         text="Hi."
-        )
+    )
 
 
 def main():
@@ -30,12 +31,14 @@ def main():
     ud_handler = CommandHandler('ud', ud)
     translate_handler = CommandHandler('tl', translate)
     currency_handler = CommandHandler('convert', currency)
+    hltb_handler = CommandHandler('hltb', hltb)
 
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(kick_handler)
     dispatcher.add_handler(ud_handler)
     dispatcher.add_handler(translate_handler)
     dispatcher.add_handler(currency_handler)
+    dispatcher.add_handler(hltb_handler)
 
     updater.start_polling()
     updater.idle()
