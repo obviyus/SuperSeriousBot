@@ -38,7 +38,7 @@ def hltb(bot: Bot, update: Update):
     else:
         bot.send_message(
             chat_id=message.chat_id,
-            text="No entry found.",
+            text="No hours recorded.",
             reply_to_message_id=message.message_id,
         )
         return
