@@ -33,4 +33,4 @@ jobs:
       run: |
         python main.py
         sleep 5
-        exit 1
+        exit 0
