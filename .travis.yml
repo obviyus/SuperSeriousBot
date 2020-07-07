@@ -24,6 +24,6 @@ jobs:
       deploy:
         provider: script
         skip_cleanup: true
-        script: scp -r $TRAVIS_BUILD_DIR root@$HOSTNAME:/root/bot_travis
+        script: scp -r $TRAVIS_BUILD_DIR root@$HOSTNAME:/root/
         on:
           branch: master
