@@ -5,6 +5,7 @@ from telegram.ext import (Updater, CommandHandler)
 from api.translate import translate
 from api.ud import ud
 from api.currency import currency
+from api.tts import tts
 from api.hltb import hltb
 from chat_management.kick import kick
 
@@ -32,6 +33,7 @@ def main():
     translate_handler = CommandHandler('tl', translate)
     currency_handler = CommandHandler('convert', currency)
     hltb_handler = CommandHandler('hltb', hltb)
+    tts_handler = CommandHandler('tts', tts)
 
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(kick_handler)
@@ -39,6 +41,7 @@ def main():
     dispatcher.add_handler(translate_handler)
     dispatcher.add_handler(currency_handler)
     dispatcher.add_handler(hltb_handler)
+    dispatcher.add_handler(tts_handler)
 
     updater.start_polling()
     updater.idle()
