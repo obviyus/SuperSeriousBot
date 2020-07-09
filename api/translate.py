@@ -1,5 +1,5 @@
-from telegram import Update, Bot
 from googletrans import Translator
+from telegram import Update, Bot
 
 
 def translate(bot: Bot, update: Update):
@@ -11,18 +11,25 @@ def translate(bot: Bot, update: Update):
         bot.send_message(
             chat_id=message.chat_id,
             # blame Udit for this example
-            text="*Usage:* `/tl {DEST} - {SENTENCE}`\n*Example:* `/tl en -watashi wa anato no suki desu`\nDefaults to "
+            text="*Usage:* `/tl {DEST} - {SENTENCE}`\n*Example:* `/tl en - watashi wa anato no suki desu`\nDefaults to "
                  "`en` if none provided.",
             reply_to_message_id=message.message_id,
             parse_mode='Markdown'
         )
 
-    if '-' in sentence.split(' '):
-        to_translate = sentence.split(' ', 2)[2]
-        dest = sentence.split(' ', 2)[0]
-    else:
-        to_translate = sentence.split(' ', 2)[0]
-
+    try:
+        if '-' in sentence.split(' '):
+            to_translate = sentence.split(' ', 2)[2]
+            dest = sentence.split(' ', 2)[0]
+        else:
+            to_translate = sentence.split(' ', 2)[0]
+    except IndexError:
+        bot.send_message(
+            chat_id=message.chat_id,
+            text="No value provided.",
+            reply_to_message_id=message.message_id,
+        )
+        return
     translator = Translator()
     if dest == "":
         translated = translator.translate(to_translate)
