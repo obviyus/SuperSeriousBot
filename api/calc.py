@@ -8,7 +8,7 @@ def calc(bot: Bot, update: Update):
     except IndexError:
         bot.send_message(
             chat_id=message.chat_id,
-            text="*Usage:* `/calc {QUERY}`\n*Example:* `/calc 1 cherry ro grams`",
+            text="*Usage:* `/calc {QUERY}`\n*Example:* `/calc 1 cherry to grams`",
             reply_to_message_id=message.message_id,
             parse_mode='Markdown'
         )
