@@ -7,6 +7,7 @@ from api.ud import ud
 from api.currency import currency
 from api.tts import tts
 from api.hltb import hltb
+from api.countdown import countdown
 from chat_management.kick import kick
 
 TELEGRAM_BOT_TOKEN = "743193671:AAEBo4aW2VnLcQDIjIuIN3rxRiq4lA_HDPE"
@@ -33,6 +34,7 @@ def main():
     translate_handler = CommandHandler('tl', translate)
     currency_handler = CommandHandler('convert', currency)
     hltb_handler = CommandHandler('hltb', hltb)
+    countdown_handler = CommandHandler('countdown', countdown)
     tts_handler = CommandHandler('tts', tts)
 
     dispatcher.add_handler(start_handler)
@@ -41,6 +43,7 @@ def main():
     dispatcher.add_handler(translate_handler)
     dispatcher.add_handler(currency_handler)
     dispatcher.add_handler(hltb_handler)
+    dispatcher.add_handler(countdown_handler)
     dispatcher.add_handler(tts_handler)
 
     updater.start_polling()
