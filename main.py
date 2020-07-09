@@ -5,6 +5,7 @@ from telegram.ext import (Updater, CommandHandler)
 from api.translate import translate
 from api.ud import ud
 from api.currency import currency
+from api.calc import calc
 from api.tts import tts
 from api.hltb import hltb
 from api.countdown import countdown
@@ -35,8 +36,9 @@ def main():
     currency_handler = CommandHandler('convert', currency)
     hltb_handler = CommandHandler('hltb', hltb)
     countdown_handler = CommandHandler('countdown', countdown)
+    calc_hanlder = CommandHandler('calc', calc)
     tts_handler = CommandHandler('tts', tts)
-
+    
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(kick_handler)
     dispatcher.add_handler(ud_handler)
@@ -44,6 +46,7 @@ def main():
     dispatcher.add_handler(currency_handler)
     dispatcher.add_handler(hltb_handler)
     dispatcher.add_handler(countdown_handler)
+    dispatcher.add_handler(calc_hanlder)
     dispatcher.add_handler(tts_handler)
 
     updater.start_polling()
