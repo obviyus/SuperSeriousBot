@@ -14,8 +14,8 @@ from api.countdown import countdown
 
 from chat_management.kick import kick
 
+from configuration import config
 
-TELEGRAM_BOT_TOKEN = "743193671:AAEBo4aW2VnLcQDIjIuIN3rxRiq4lA_HDPE"
 
 def start(bot, update):
     bot.send_message(
@@ -27,7 +27,7 @@ def start(bot, update):
 def main():
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    updater = Updater(token=TELEGRAM_BOT_TOKEN)
+    updater = Updater(token=config["TELEGRAM_BOT_TOKEN"])
 
     dispatcher = updater.dispatcher
 
