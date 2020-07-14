@@ -1,5 +1,6 @@
 from telegram import Bot, Update
 import wolframalpha
+from configuration import config
 
 def calc(bot: Bot, update: Update):
     message = update.message
@@ -13,10 +14,8 @@ def calc(bot: Bot, update: Update):
             parse_mode='Markdown'
         )
         return
-    
-    APP_ID = "GG7ARW-884TAXG48V"
 
-    client = wolframalpha.Client(APP_ID)
+    client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
     res = client.query(query)
 
     try:

@@ -2,8 +2,7 @@ from requests import get
 import pprint
 import datetime
 
-
-pp = pprint.PrettyPrinter(indent=4)
+from configuration import config
 
 
 def time(bot, update):
@@ -14,7 +13,7 @@ def time(bot, update):
 	if len(text)>1:
 		place = text[1]
 
-		key = "fe35b3d7dc4f24468b3b376776035cfd"
+		key = config["OPENWEATHER_API_KEY"]
 		url = f"http://api.openweathermap.org/data/2.5/weather?id=524901&APPID={key}&q={place}"
 
 		response = get(url)
