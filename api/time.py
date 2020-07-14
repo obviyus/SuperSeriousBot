@@ -51,3 +51,4 @@ def time(bot, update):
 					 parse_mode = 'Markdown',
 					 reply_to_message_id = msg.message_id
 					 )
+	
