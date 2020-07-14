@@ -2,6 +2,7 @@ from telegram import Bot, Update
 import wolframalpha
 from configuration import config
 
+
 def calc(bot: Bot, update: Update):
     message = update.message
     try:
@@ -9,7 +10,8 @@ def calc(bot: Bot, update: Update):
     except IndexError:
         bot.send_message(
             chat_id=message.chat_id,
-            text="*Usage:* `/calc {QUERY}`\n*Example:* `/calc 1 cherry to grams`",
+            text="*Usage:* `/calc {QUERY}`\n"
+                 "*Example:* `/calc 1 cherry to grams`",
             reply_to_message_id=message.message_id,
             parse_mode='Markdown'
         )
@@ -25,5 +27,5 @@ def calc(bot: Bot, update: Update):
             reply_to_message_id=message.message_id,
         )
         return
-    except AttributeError as e:
+    except AttributeError:
         pass

@@ -11,8 +11,9 @@ def translate(bot: Bot, update: Update):
         bot.send_message(
             chat_id=message.chat_id,
             # blame Udit for this example
-            text="*Usage:* `/tl {DEST} - {SENTENCE}`\n*Example:* `/tl en - watashi wa anato no suki desu`\nDefaults to "
-                 "`en` if none provided.",
+            text="*Usage:* `/tl {DEST} - {SENTENCE}`\n"
+                 "*Example:* `/tl en - watashi wa anato no suki desu`\n"
+                 "Defaults to `en` if none provided.",
             reply_to_message_id=message.message_id,
             parse_mode='Markdown'
         )

@@ -8,23 +8,31 @@ def kick(bot, update):
         if update.message.reply_to_message:
             user_to_kick = update.message.reply_to_message.from_user
         else:
-            bot.send_message(chat_id=chat_id,
-                             text="Reply to the person who you want to kick.",
-                             reply_to_message_id=msg.message_id)
+            bot.send_message(
+                chat_id=chat_id,
+                text="Reply to the person who you want to kick.",
+                reply_to_message_id=msg.message_id
+            )
             return
     else:
-        bot.send_message(chat_id=chat_id,
-                         text=f"Fuck off.",
-                         reply_to_message_id=msg.message_id)
+        bot.send_message(
+            chat_id=chat_id,
+            text="Fuck off.",
+            reply_to_message_id=msg.message_id
+        )
         return
 
     try:
         bot.kick_chat_member(chat_id, user_to_kick.id)
         bot.unban_chat_member(chat_id, user_to_kick.id)
-        bot.send_message(chat_id=chat_id,
-                         text=f"Kicked {user_to_kick.first_name}.",
-                         reply_to_message_id=msg.message_id)
-    except:
-        bot.send_message(chat_id=chat_id,
-                         text="Couldn't kick, either I'm not an admin or the other user is.",
-                         reply_to_message_id=msg.message_id)
+        bot.send_message(
+            chat_id=chat_id,
+            text=f"Kicked {user_to_kick.first_name}.",
+            reply_to_message_id=msg.message_id
+        )
+    except Exception:
+        bot.send_message(
+            chat_id=chat_id,
+            text="Couldn't kick, either I'm not an admin or the other user is.",
+            reply_to_message_id=msg.message_id
+        )

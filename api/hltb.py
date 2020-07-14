@@ -10,7 +10,8 @@ def hltb(bot: Bot, update: Update):
     else:
         bot.send_message(
             chat_id=message.chat_id,
-            text="*Usage:* `/hltb {GAME_NAME}`\n*Example:* `/hltb horizon zero dawn`",
+            text="*Usage:* `/hltb {GAME_NAME}`\n"
+                 "*Example:* `/hltb horizon zero dawn`",
             reply_to_message_id=message.message_id,
             parse_mode='Markdown'
         )
@@ -31,10 +32,13 @@ def hltb(bot: Bot, update: Update):
 
     # check if non-zero value exists for gameplay_main
     if best_guess.gameplay_main != -1:
-        output = f'<b>{best_guess.gameplay_main_label}</b>: {best_guess.gameplay_main} {best_guess.gameplay_main_unit} '
+        output = f"<b>{best_guess.gameplay_main_label}</b>:"\
+                 "{best_guess.gameplay_main} {best_guess.gameplay_main_unit}"
     # check if non-zero value exists for gameplay_extra
     elif best_guess.gameplay_main_extra != -1:
-        output = f'{best_guess.gameplay_main_extra_label}: {best_guess.gameplay_main_extra} {best_guess.gameplay_main_extra_unit} '
+        output = f"{best_guess.gameplay_main_extra_label}:"\
+                 "{best_guess.gameplay_main_extra}"\
+                 "{best_guess.gameplay_main_extra_unit}"
     else:
         bot.send_message(
             chat_id=message.chat_id,

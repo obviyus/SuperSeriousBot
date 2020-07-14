@@ -11,8 +11,9 @@ def tts(bot: Bot, update: Update):
     else:
         bot.send_message(
             chat_id=message.chat_id,
-            text="*Usage:* `/tts {LANG} - {SENTENCE}`\n*Example:* `/tts ru - cyka blyat`\nDefaults to "
-                 "`ja` if none provided.",
+            text="*Usage:* `/tts {LANG} - {SENTENCE}`\n"
+                 "*Example:* `/tts ru - cyka blyat`\n"
+                 "Defaults to `ja` if none provided.",
             reply_to_message_id=message.message_id,
             parse_mode='Markdown'
         )
@@ -24,7 +25,7 @@ def tts(bot: Bot, update: Update):
             lang = sentence.split(' ', 2)[0]
         else:
             to_speak = sentence
-    except (IndexError, AssertionError) as e:
+    except (IndexError, AssertionError):
         bot.send_message(
             chat_id=message.chat_id,
             text='No value provided.',
