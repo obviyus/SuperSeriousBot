@@ -2,6 +2,7 @@ import requests
 from telegram import Bot, Update
 from babel import numbers
 
+
 def currency(bot: Bot, update: Update):
     message = update.message
 
@@ -10,7 +11,9 @@ def currency(bot: Bot, update: Update):
     except IndexError:
         bot.send_message(
             chat_id=message.chat_id,
-            text="*Usage:* `/convert {AMOUNT} {FROM} {TO}`\n*Example:* `/convert 300 USD EUR` \n\nDefaults to `INR` if `TO` parameter not provided.",
+            text="*Usage:* `/convert {AMOUNT} {FROM} {TO}`\n"
+                 "*Example:* `/convert 300 USD EUR` \n\n"
+                 "Defaults to `INR` if `TO` parameter not provided.",
             reply_to_message_id=message.message_id,
             parse_mode='Markdown'
         )
@@ -52,7 +55,7 @@ def currency(bot: Bot, update: Update):
     try:
         rate = result['rates'][dest_currency]
         converted = rate * amount
-        
+
         dest_symbol = numbers.format_currency(converted, dest_currency)
 
         bot.send_message(
@@ -69,7 +72,7 @@ def currency(bot: Bot, update: Update):
             reply_to_message_id=message.message_id,
         )
         return
-    except:
+    except Exception:
         bot.send_message(
             chat_id=message.chat_id,
             text="Value too large :(",

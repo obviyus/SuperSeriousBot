@@ -10,7 +10,6 @@ from api.tts import tts
 from api.hltb import hltb
 from api.countdown import countdown
 from api.time import time
-from api.countdown import countdown
 
 from chat_management.kick import kick
 
@@ -25,8 +24,10 @@ def start(bot, update):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
     updater = Updater(token=config["TELEGRAM_BOT_TOKEN"])
 
     dispatcher = updater.dispatcher
@@ -45,7 +46,7 @@ def main():
     countdown_handler = CommandHandler('countdown', countdown)
     calc_hanlder = CommandHandler('calc', calc)
     tts_handler = CommandHandler('tts', tts)
-    
+
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(kick_handler)
     dispatcher.add_handler(ud_handler)
