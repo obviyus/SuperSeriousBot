@@ -1,53 +1,35 @@
 from requests import get
-import datetime
-
+from datetime import datetime
 from configuration import config
 
 
-def time(bot, update):
-    msg = update.message
+def time(update, context):
+    """Command to tell time at a place."""
+    message = update.message
+    place = ' '.join(context.args)
 
-    text = msg.text.split(' ', 1)
-
-    if len(text) > 1:
-        place = text[1]
-
+    if not place:
+        text = "*Usage:* `/time {PLACE}`\n"\
+               "*Example:* `/time katowice`"\
+               "Add the data code for the specific country for better results."
+    else:
         key = config["OPENWEATHER_API_KEY"]
-        url = f"http://api.openweathermap.org/data/2.5/weather?id=524901&APPID={key}&q={place}"
+        response = get(
+            f"http://api.openweathermap.org/data/2.5/weather?id=524901&APPID={key}&q={place}"
+        )
 
-        response = get(url)
-        data = response.json()
-
-        if data['cod'] != "404":
+        if response.ok:
+            data = response.json()
             timezone = data['timezone']
-            current_unix_time = datetime.datetime.utcnow().timestamp() + timezone
+            current_unix_time = datetime.utcnow().timestamp() + timezone
 
             full_time = (
-                datetime.datetime.fromtimestamp(
-                    int(current_unix_time)
-                ).strftime('%H:%M %d-%m-%Y')
+                datetime.fromtimestamp(int(current_unix_time)).strftime("%I:%M %p|%d-%m-%Y")
             )
-            full_time = full_time.split(' ')
-            time = full_time[0]
-            date = full_time[1]
+            time, date = full_time.split('|')
 
-            hour = int(time[:2])
-            if hour > 12:
-                hour = hour - 12
-                meridiem = "pm"
-            else:
-                meridiem = "am"
-
-            text = f"*{hour}{time[2:]}{meridiem}*\n_{date}_"
-
+            text = f"*{time}*\n_{date}_"
         else:
-            text = "No entry found"
-    else:
-        text = "*Format*: `/time {PLACE}`\n"\
-               "Add the data code for the specific country for better results."
-    bot.send_message(
-        chat_id=msg.chat_id,
-        text=text,
-        parse_mode='Markdown',
-        reply_to_message_id=msg.message_id
-    )
+            text = "No entry found."
+
+    context.bot.send_message(chat_id=message.chat_id, text=text)

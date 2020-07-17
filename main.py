@@ -1,26 +1,34 @@
 import logging
 
-from telegram.ext import (Updater, CommandHandler)
+from telegram import ParseMode
+from telegram.ext import Updater, CommandHandler, Defaults
 
-from api.translate import translate
-from api.ud import ud
-from api.currency import currency
-from api.calc import calc
-from api.tts import tts
-from api.hltb import hltb
-from api.countdown import countdown
-from api.time import time
-
-from chat_management.kick import kick
-
+import api
+import chat_management
 from configuration import config
 
 
-def start(bot, update):
-    bot.send_message(
-        chat_id=update.message.chat_id,
+def start(update, context):
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
         text="Hi."
     )
+
+
+commands = {
+    # "command": function
+    "ban": chat_management.ban,
+    "calc": api.calc,
+    "countdown": api.countdown,
+    "convert": api.currency,
+    "hltb": api.hltb,
+    "kick": chat_management.kick,
+    "start": start,
+    "time": api.time,
+    "tl": api.translate,
+    "tts": api.tts,
+    "ud": api.ud,
+}
 
 
 def main():
@@ -28,38 +36,13 @@ def main():
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    updater = Updater(token=config["TELEGRAM_BOT_TOKEN"])
 
+    defaults = Defaults(parse_mode=ParseMode.MARKDOWN)
+    updater = Updater(token=config["TELEGRAM_BOT_TOKEN"], use_context=True, defaults=defaults)
     dispatcher = updater.dispatcher
 
-    # Handlers
-    start_handler = CommandHandler('start', start)
-    kick_handler = CommandHandler('kick', kick)
-    ud_handler = CommandHandler('ud', ud)
-    translate_handler = CommandHandler('tl', translate)
-    currency_handler = CommandHandler('convert', currency)
-    hltb_handler = CommandHandler('hltb', hltb)
-    countdown_handler = CommandHandler('countdown', countdown)
-    calc_hanlder = CommandHandler('calc', calc)
-    tts_handler = CommandHandler('tts', tts)
-    time_handler = CommandHandler('time', time)
-    countdown_handler = CommandHandler('countdown', countdown)
-    calc_hanlder = CommandHandler('calc', calc)
-    tts_handler = CommandHandler('tts', tts)
-
-    dispatcher.add_handler(start_handler)
-    dispatcher.add_handler(kick_handler)
-    dispatcher.add_handler(ud_handler)
-    dispatcher.add_handler(translate_handler)
-    dispatcher.add_handler(currency_handler)
-    dispatcher.add_handler(hltb_handler)
-    dispatcher.add_handler(countdown_handler)
-    dispatcher.add_handler(calc_hanlder)
-    dispatcher.add_handler(tts_handler)
-    dispatcher.add_handler(time_handler)
-    dispatcher.add_handler(countdown_handler)
-    dispatcher.add_handler(calc_hanlder)
-    dispatcher.add_handler(tts_handler)
+    for cmd, func in commands.items():
+        dispatcher.add_handler(CommandHandler(cmd, func))
 
     updater.start_polling()
     updater.idle()

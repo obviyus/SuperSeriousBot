@@ -1,31 +1,22 @@
-from telegram import Bot, Update
 import wolframalpha
 from configuration import config
 
 
-def calc(bot: Bot, update: Update):
+def calc(update, context):
+    """Command to calculate anything using wolframalpha."""
     message = update.message
-    try:
-        query = message.text.strip().split(' ', 1)[1]
-    except IndexError:
-        bot.send_message(
-            chat_id=message.chat_id,
-            text="*Usage:* `/calc {QUERY}`\n"
-                 "*Example:* `/calc 1 cherry to grams`",
-            reply_to_message_id=message.message_id,
-            parse_mode='Markdown'
-        )
-        return
+    query = ' '.join(context.args)
 
-    client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
-    res = client.query(query)
+    if not query:
+        text = "*Usage:* `/calc {QUERY}`\n"\
+               "*Example:* `/calc 1 cherry to grams`"
+    else:
+        client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
+        result = client.query(query)
 
-    try:
-        bot.send_message(
-            chat_id=message.chat_id,
-            text=next(res.results).text,
-            reply_to_message_id=message.message_id,
-        )
-        return
-    except AttributeError:
-        pass
+        if result.success:
+            text = next(result.results).text
+        else:
+            text = f"Invalid query\n{result.tips['tip']['@text']}"
+
+    context.bot.send_message(chat_id=message.chat_id, text=text)
