@@ -6,8 +6,7 @@ def tts(update, context):
     message = update.message
 
     if not context.args:
-        context.bot.send_message(
-            chat_id=message.chat_id,
+        message.reply_text(
             text="*Usage:* `/tts {LANG} - {SENTENCE}`\n"
                  "*Example:* `/tts ru - cyka blyat`\n"
                  "Defaults to `ja` if none provided.",
@@ -22,19 +21,10 @@ def tts(update, context):
             sentence = ' '.join(context.args)
 
         if not sentence:
-            context.bot.send_message(
-                chat_id=message.chat_id,
-                text="No value provided."
-            )
+            message.reply_text(text="No value provided.")
         else:
             try:
                 tts = gTTS(sentence, lang=lang)
-                context.bot.send_audio(
-                    chat_id=message.chat_id,
-                    audio=tts.get_urls()[0]
-                )
+                message.reply_audio(audio=tts.get_urls()[0])
             except ValueError:
-                context.bot.send_message(
-                    chat_id=message.chat_id,
-                    text="Invalid language."
-                )
+                message.reply_text(text="Invalid language.")

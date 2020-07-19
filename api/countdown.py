@@ -19,4 +19,4 @@ def countdown(update, context):
         else:
             text = "Invalid date format"
 
-    context.bot.send_message(chat_id=message.chat_id, text=text)
+    message.reply_text(text=text)

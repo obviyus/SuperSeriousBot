@@ -37,7 +37,7 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    defaults = Defaults(parse_mode=ParseMode.MARKDOWN, quote=True)
+    defaults = Defaults(parse_mode=ParseMode.MARKDOWN)
     updater = Updater(token=config["TELEGRAM_BOT_TOKEN"], use_context=True, defaults=defaults)
     dispatcher = updater.dispatcher
 

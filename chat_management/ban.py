@@ -20,4 +20,4 @@ def ban(update, context):
     else:
         text = "Fuck off."
 
-    context.bot.send_message(chat_id=chat_id, text=text)
+    message.reply_text(text=text)

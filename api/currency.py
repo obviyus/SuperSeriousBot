@@ -18,7 +18,7 @@ def currency(update, context):
             if amount.is_integer():
                 amount = int(amount)
         except ValueError:
-            context.bot.send_message(chat_id=message.chat_id, text="Not a number.")
+            message.reply_text(text="Not a number.")
             return
 
         if not currency:
@@ -41,4 +41,4 @@ def currency(update, context):
             except Exception:
                 text = "Value too large :("
 
-    context.bot.send_message(chat_id=message.chat_id, text=text)
+    message.reply_text(text=text)

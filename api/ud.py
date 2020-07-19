@@ -33,7 +33,4 @@ def ud(update, context):
         else:
             text = "No entry found."
 
-    context.bot.send_message(
-        chat_id=message.chat_id,
-        text=text,
-    )
+    message.reply_text(text=text)
