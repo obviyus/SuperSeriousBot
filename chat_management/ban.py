@@ -12,12 +12,12 @@ def ban(update, context):
             user_to_ban = update.message.reply_to_message.from_user
             try:
                 context.bot.kick_chat_member(chat_id, user_to_ban.id)
-                text = f"Banned {user_to_ban.first_name}.",
+                text = f"Banned {user_to_ban.first_name}."
             except Exception:
-                text = "Couldn't ban, either I'm not an admin or the other user is.",
+                text = "Couldn't ban, either I'm not an admin or the other user is."
         else:
-            text = "Reply to the person who you want to ban.",
+            text = "Reply to the person who you want to ban."
     else:
-        text = "Fuck off.",
+        text = "Fuck off."
 
     context.bot.send_message(chat_id=chat_id, text=text)

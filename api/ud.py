@@ -31,7 +31,7 @@ def ud(update, context):
 
             text = f"*{heading}*\n\n{definition}\n\n_{example}_\n\n`{thumbs}`"
         else:
-            text = "No entry found.",
+            text = "No entry found."
 
     context.bot.send_message(
         chat_id=message.chat_id,

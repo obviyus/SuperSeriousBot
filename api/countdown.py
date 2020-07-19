@@ -15,7 +15,7 @@ def countdown(update, context):
 
         if future:
             delta = future - datetime.now()
-            text = f"{abs(delta.days)} days {'a' if delta.days < 0 else 'to '}go",
+            text = f"{abs(delta.days)} days {'a' if delta.days < 0 else 'to '}go"
         else:
             text = "Invalid date format"
 

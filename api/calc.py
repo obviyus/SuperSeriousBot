@@ -14,9 +14,9 @@ def calc(update, context):
         client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
         result = client.query(query)
 
-        if result.success:
+        if result.success == 'true':
             text = next(result.results).text
         else:
-            text = f"Invalid query\n{result.tips['tip']['@text']}"
+            text = "Invalid query"
 
     context.bot.send_message(chat_id=message.chat_id, text=text)
