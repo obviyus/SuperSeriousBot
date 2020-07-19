@@ -45,6 +45,7 @@ def main():
         dispatcher.add_handler(CommandHandler(cmd, func))
 
     updater.start_polling()
+    print("Started bot")
     updater.idle()
 
 

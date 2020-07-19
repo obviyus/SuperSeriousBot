@@ -13,6 +13,7 @@ def tts(update, context):
                  "Defaults to `ja` if none provided.",
         )
     else:
+        # [1:2] will return first item or empty list if the index doesn't exist
         if context.args[1:2] == ['-']:
             lang = context.args[0]
             sentence = ' '.join(context.args[2:])
