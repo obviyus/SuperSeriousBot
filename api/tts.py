@@ -1,43 +1,30 @@
-from telegram import Update, Bot
 from gtts import gTTS
 
 
-def tts(bot: Bot, update: Update):
-    lang, to_speak, sentence = "ja", "", ""
+def tts(update, context):
+    """Command to convert text to speech in a given language using Google TTS."""
     message = update.message
 
-    if len(message.text.strip().split(' ', 2)) >= 2:
-        sentence = message.text.strip().split(' ', 1)[1]
-    else:
-        bot.send_message(
-            chat_id=message.chat_id,
+    if not context.args:
+        message.reply_text(
             text="*Usage:* `/tts {LANG} - {SENTENCE}`\n"
                  "*Example:* `/tts ru - cyka blyat`\n"
                  "Defaults to `ja` if none provided.",
-            reply_to_message_id=message.message_id,
-            parse_mode='Markdown'
         )
-        return
-
-    try:
-        if '-' in sentence.split(' '):
-            to_speak = sentence.split(' ', 2)[2]
-            lang = sentence.split(' ', 2)[0]
+    else:
+        # [1:2] will return first item or empty list if the index doesn't exist
+        if context.args[1:2] == ['-']:
+            lang = context.args[0]
+            sentence = ' '.join(context.args[2:])
         else:
-            to_speak = sentence
-    except (IndexError, AssertionError):
-        bot.send_message(
-            chat_id=message.chat_id,
-            text='No value provided.',
-            reply_to_message_id=message.message_id
-        )
-        return
+            lang = "ja"
+            sentence = ' '.join(context.args)
 
-    tts = gTTS(to_speak, lang=lang)
-
-    bot.send_audio(
-        chat_id=message.chat_id,
-        audio=tts.get_urls()[0],
-        reply_to_message_id=message.message_id,
-        parse_mode='Markdown',
-    )
+        if not sentence:
+            message.reply_text(text="No value provided.")
+        else:
+            try:
+                tts = gTTS(sentence, lang=lang)
+                message.reply_audio(audio=tts.get_urls()[0])
+            except ValueError:
+                message.reply_text(text="Invalid language.")

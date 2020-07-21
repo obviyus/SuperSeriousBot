@@ -1,81 +1,44 @@
-import requests
-from telegram import Bot, Update
+from requests import get
 from babel import numbers
 
 
-def currency(bot: Bot, update: Update):
+def currency(update, context):
     message = update.message
 
-    try:
-        word = message.text.strip().split(' ', 1)[1].strip().split(' ', 3)
-    except IndexError:
-        bot.send_message(
-            chat_id=message.chat_id,
-            text="*Usage:* `/convert {AMOUNT} {FROM} {TO}`\n"
-                 "*Example:* `/convert 300 USD EUR` \n\n"
-                 "Defaults to `INR` if `TO` parameter not provided.",
-            reply_to_message_id=message.message_id,
-            parse_mode='Markdown'
-        )
-        return
-
-    try:
-        amount = float(word[0])
-    except ValueError:
-        bot.send_message(
-            chat_id=message.chat_id,
-            text="Not a number.",
-            reply_to_message_id=message.message_id,
-        )
-        return
-
-    try:
-        src_currency = word[1].upper()
-    except IndexError:
-        if amount.is_integer():
-            amount = int(amount)
-        output = f'{amount}? {amount} of what? Use /convert for usage.'
-        bot.send_message(
-            chat_id=message.chat_id,
-            text=output,
-            reply_to_message_id=message.message_id,
-        )
-        return
-
-    if len(word) == 2:
-        dest_currency = 'INR'
+    if not context.args:
+        text = "*Usage:* `/convert {AMOUNT} {FROM} {TO}`\n"\
+               "*Example:* `/convert 300 USD EUR` \n\n"\
+               "Defaults to `INR` if `TO` parameter not provided."
     else:
-        dest_currency = word[2].upper()
+        amount, *currency = context.args
 
-    url = f'https://api.exchangeratesapi.io/latest?base={src_currency}'
+        try:
+            amount = float(amount)
+            # if its a number like 5.0 convert to 5
+            if amount.is_integer():
+                amount = int(amount)
+        except ValueError:
+            message.reply_text(text="Not a number.")
+            return
 
-    res = requests.get(url)
-    result = res.json()
+        if not currency:
+            text = f'{amount}? {amount} of what? Send /convert for usage.'
+        else:
+            src, *dest = currency
+            dest, *_ = dest or ["INR"]  # magic
 
-    try:
-        rate = result['rates'][dest_currency]
-        converted = rate * amount
+            result = get(f"https://api.exchangeratesapi.io/latest?base={src.upper()}")
+            result = result.json()
 
-        dest_symbol = numbers.format_currency(converted, dest_currency)
+            try:
+                if dest.upper() in result["rates"]:
+                    rate = result['rates'][dest.upper()]
+                    converted = rate * amount
 
-        bot.send_message(
-            chat_id=message.chat_id,
-            text=dest_symbol,
-            reply_to_message_id=message.message_id,
-            parse_mode='Markdown',
-        )
+                    text = numbers.format_currency(converted, dest.upper())
+                else:
+                    text = "No entry found."
+            except Exception:
+                text = "Value too large :("
 
-    except KeyError:
-        bot.send_message(
-            chat_id=message.chat_id,
-            text="No entry found.",
-            reply_to_message_id=message.message_id,
-        )
-        return
-    except Exception:
-        bot.send_message(
-            chat_id=message.chat_id,
-            text="Value too large :(",
-            reply_to_message_id=message.message_id,
-        )
-        return
+    message.reply_text(text=text)

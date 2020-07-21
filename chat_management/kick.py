@@ -1,38 +1,24 @@
-def kick(bot, update):
-    msg = update.message
-    chat_id = msg.chat_id
+def kick(update, context):
+    """Command to kick deep from group."""
+    message = update.message
+    chat_id = message.chat_id
 
-    kicker = bot.get_chat_member(chat_id, msg.from_user.id)
+    kicker = context.bot.get_chat_member(chat_id, message.from_user.id)
 
+    # status can be ‘creator’, ‘administrator’, ‘member’, ‘restricted’, ‘left’
+    # or ‘kicked’. Latter 3 can't send a message
     if kicker['status'] != "member":
         if update.message.reply_to_message:
             user_to_kick = update.message.reply_to_message.from_user
+            try:
+                context.bot.kick_chat_member(chat_id, user_to_kick.id)
+                context.bot.unban_chat_member(chat_id, user_to_kick.id)
+                text = f"Kicked {user_to_kick.first_name}."
+            except Exception:
+                text = "Couldn't kick, either I'm not an admin or the other user is."
         else:
-            bot.send_message(
-                chat_id=chat_id,
-                text="Reply to the person who you want to kick.",
-                reply_to_message_id=msg.message_id
-            )
-            return
+            text = "Reply to the person who you want to kick."
     else:
-        bot.send_message(
-            chat_id=chat_id,
-            text="Fuck off.",
-            reply_to_message_id=msg.message_id
-        )
-        return
+        text = "Fuck off."
 
-    try:
-        bot.kick_chat_member(chat_id, user_to_kick.id)
-        bot.unban_chat_member(chat_id, user_to_kick.id)
-        bot.send_message(
-            chat_id=chat_id,
-            text=f"Kicked {user_to_kick.first_name}.",
-            reply_to_message_id=msg.message_id
-        )
-    except Exception:
-        bot.send_message(
-            chat_id=chat_id,
-            text="Couldn't kick, either I'm not an admin or the other user is.",
-            reply_to_message_id=msg.message_id
-        )
+    message.reply_text(text=text)
