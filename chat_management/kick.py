@@ -8,8 +8,8 @@ def kick(update, context):
     # status can be ‘creator’, ‘administrator’, ‘member’, ‘restricted’, ‘left’
     # or ‘kicked’. Latter 3 can't send a message
     if kicker['status'] != "member":
-        if update.message.reply_to_message:
-            user_to_kick = update.message.reply_to_message.from_user
+        if message.reply_to_message:
+            user_to_kick = message.reply_to_message.from_user
             try:
                 context.bot.kick_chat_member(chat_id, user_to_kick.id)
                 context.bot.unban_chat_member(chat_id, user_to_kick.id)

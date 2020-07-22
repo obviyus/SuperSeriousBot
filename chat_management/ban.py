@@ -8,8 +8,8 @@ def ban(update, context):
     # status can be ‘creator’, ‘administrator’, ‘member’, ‘restricted’, ‘left’
     # or ‘kicked’. Latter 3 can't send a message
     if banner["status"] != "member":
-        if update.message.reply_to_message:
-            user_to_ban = update.message.reply_to_message.from_user
+        if message.reply_to_message:
+            user_to_ban = message.reply_to_message.from_user
             try:
                 context.bot.kick_chat_member(chat_id, user_to_ban.id)
                 text = f"Banned {user_to_ban.first_name}."

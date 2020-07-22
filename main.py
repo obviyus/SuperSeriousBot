@@ -1,7 +1,7 @@
 import logging
 
 from telegram import ParseMode
-from telegram.ext import Updater, CommandHandler, Defaults
+from telegram.ext import Updater, CommandHandler, MessageHandler, Defaults, Filters
 
 import api
 import chat_management
@@ -44,7 +44,11 @@ def main():
     for cmd, func in commands.items():
         dispatcher.add_handler(CommandHandler(cmd, func))
 
-    updater.start_polling()
+    dispatcher.add_handler(MessageHandler(
+        Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"), api.sed
+    ))
+
+    updater.start_polling(clean=True)
     print("Started bot")
     updater.idle()
 
