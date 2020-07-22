@@ -12,4 +12,4 @@ def sed(update, context):
     result = regex.sub(search, replace, string, regex.POSIX)
 
     reply = f"{result}" if result else ""
-    message.reply_text(text=reply)
+    message.reply_to_message.reply_text(text=reply)
