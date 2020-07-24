@@ -24,8 +24,6 @@ jobs:
       skip_cleanup: true
       script: 
         scp -r $TRAVIS_BUILD_DIR TG-bot@$HOSTNAME:/home/TG-bot/travis-testing
-        ssh TG-bot@$HOSTNAME
-        cd travis-testing
-        python3 main.py
+        ssh -i /tmp/deploy_rsa TG-bot@$HOSTNAME "cd travis-testing && python3 main.py"
       on:
         branch: travis-testing
