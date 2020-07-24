@@ -24,4 +24,4 @@ jobs:
       skip_cleanup: true
       script: scp -r $TRAVIS_BUILD_DIR root@$HOSTNAME:/root/
       on:
-        branch: master
+        branch: travis-testing
