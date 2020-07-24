@@ -25,6 +25,3 @@ jobs:
       script: scp -r $TRAVIS_BUILD_DIR root@$HOSTNAME:/root/
       on:
         branch: master
-before_install:
-- openssl aes-256-cbc -K $encrypted_05d4d4358b2c_key -iv $encrypted_05d4d4358b2c_iv
-  -in deploy_rsa.enc -out ~\/deploy_rsa -d
