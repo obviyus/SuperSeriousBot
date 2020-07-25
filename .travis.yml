@@ -28,13 +28,13 @@ jobs:
       provider: script
       skip_cleanup: true
       script: 
-        bash scripts/deploy_master.sh
+        bash scripts/deploy.sh bot superseriousbot
       on:
         branch: master
     deploy:
       provider: script
       skip_cleanup: true
       script:
-        bash scripts/deploy_testing.sh
+        bash scripts/deploy.sh travis-testing weirdindianbot
       on:
         branch: travisci-testing

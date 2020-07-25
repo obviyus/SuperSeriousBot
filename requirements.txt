@@ -1,13 +1,13 @@
 Babel==2.8.0
 dateparser==0.7.6
 emoji==0.5.4
+flake8==3.8.3
 googletrans==3.0.0
 gtts==2.1.1
 howlongtobeatpy==0.1.12
 pre-commit==2.6.0
 python-telegram-bot==12.8
 pyyaml==5.3.1
-requests==2.21.0
-urllib3==1.24.2
+requests==2.24.0
+urllib3==1.25.10
 wolframalpha==4.0.0
-flake8==3.8.3
