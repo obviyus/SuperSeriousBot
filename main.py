@@ -29,6 +29,7 @@ commands = {
     "tts": api.tts,
     "ud": api.ud,
     "gr": api.goodreads,
+    "shiba": api.shiba,
 }
 
 

@@ -9,3 +9,4 @@ from .translate import translate
 from .tts import tts
 from .ud import ud
 from .goodreads import goodreads
+from .shiba import shiba
