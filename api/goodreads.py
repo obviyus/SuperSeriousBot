@@ -17,7 +17,7 @@ def goodreads(update, context):
         root = ET.fromstring(response.content)
         id = root.findtext("search/results/work/best_book/id")
 
-        if id is not None:
+        if id:
             text = make_result(id)
             parse_mode = 'HTML'
         else:
@@ -49,7 +49,7 @@ def make_result(goodreads_id):
     url = node.find('url').text
     stars = f"⭐ {node.find('average_rating').text}"
 
-    return  f"<b>{title}</b> - ({year})\n"\
-            f"<a href='{cover_url}'>&#8205;</a>"\
-            f"{author}\n{stars} 📖 {pages} pages 🔗 <a href='{url}'>Goodreads</a>\n"\
-            f"\n{description}"
+    return f"<b>{title}</b> - ({year})\n"\
+           f"<a href='{cover_url}'>&#8205;</a>"\
+           f"{author}\n{stars} 📖 {pages} pages 🔗 <a href='{url}'>Goodreads</a>\n"\
+           f"\n{description}"
