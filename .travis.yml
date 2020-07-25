@@ -10,9 +10,11 @@ addons:
   - "$HOSTNAME"
 before_script:
 - echo -e "Host $HOSTNAME\n\tStrictHostKeyChecking no" >> ~/.ssh/config
-- flake8 .
 jobs:
   include:
+  - stage: flake8 test
+    if: type = pull_request
+    script: flake8 .
   - stage: deploy
     if: branch = master OR branch = travisci-testing AND type != pull_request
     script: skip
