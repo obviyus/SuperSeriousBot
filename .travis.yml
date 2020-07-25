@@ -26,14 +26,12 @@ jobs:
     - ssh-add /tmp/deploy_rsa
     deploy:
       - provider: script
-      skip_cleanup: true
-      script: 
-        bash scripts/deploy.sh bot superseriousbot
-      on:
-        branch: master
-      - provider: script
-      skip_cleanup: true
-      script:
-        bash scripts/deploy.sh travis-testing weirdindianbot
-      on:
-        branch: travisci-testing
+        skip_cleanup: true
+        script: bash scripts/deploy.sh bot superseriousbot
+        on:
+          branch: master
+        - provider: script
+          skip_cleanup: true
+          script: bash scripts/deploy.sh travis-testing weirdindianbot
+          on:
+            branch: travisci-testing
