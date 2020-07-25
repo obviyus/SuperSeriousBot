@@ -28,6 +28,7 @@ commands = {
     "tl": api.translate,
     "tts": api.tts,
     "ud": api.ud,
+    "gr": api.goodreads,
 }
 
 
