@@ -11,7 +11,7 @@ before_script:
 jobs:
   include:
   - stage: deploy
-    if: branch = travisci-testing AND type != pull_request
+    if: branch = master AND type != pull_request
     script: skip
     before_deploy:
     - openssl aes-256-cbc -K $encrypted_05d4d4358b2c_key -iv $encrypted_05d4d4358b2c_iv
@@ -25,4 +25,4 @@ jobs:
       script: 
         bash deploy.sh
       on:
-        branch: travisci-testing
+        branch: master
