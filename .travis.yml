@@ -30,8 +30,8 @@ jobs:
         script: bash scripts/deploy.sh bot superseriousbot
         on:
           branch: master
-        - provider: script
-          skip_cleanup: true
-          script: bash scripts/deploy.sh travis-testing weirdindianbot
-          on:
-            branch: travisci-testing
+      - provider: script
+        skip_cleanup: true
+        script: bash scripts/deploy.sh travis-testing weirdindianbot
+        on:
+          branch: travisci-testing
