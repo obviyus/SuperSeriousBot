@@ -61,6 +61,14 @@ commands = {
     "ud": api.ud,
     "weather": api.weather,
     "wink": api.wink,
+    "stats": api.stats,
+    "gr": api.goodreads,
+    "shiba": api.shiba,
+    "fox": api.fox,
+    "cat": api.cat,
+    "catfact": api.catfact,
+    "joke": api.joke,
+    "pokemon": api.pokemon
 }
 
 

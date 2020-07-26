@@ -19,3 +19,5 @@ from .qr import make
 from .jogi import jogi
 from .pfp import pad_image
 from .spurdo import spurdo
+from .joke import joke
+from .pokemon import pokemon
