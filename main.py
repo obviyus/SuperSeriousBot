@@ -36,6 +36,7 @@ commands = {
     "fox": api.fox,
     "cat": api.cat,
     "catfact": api.catfact,
+    "insult": api.insult,
 }
 
 
