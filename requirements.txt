@@ -1,6 +1,7 @@
 Babel==2.8.0
 dateparser==0.7.6
 emoji==0.5.4
+geopy==2.0.0
 googletrans==3.0.0
 gtts==2.1.1
 howlongtobeatpy==0.1.12

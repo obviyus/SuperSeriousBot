@@ -30,6 +30,7 @@ commands = {
     "ud": api.ud,
     "gr": api.goodreads,
     "shiba": api.shiba,
+    "weather": api.weather,
 }
 
 

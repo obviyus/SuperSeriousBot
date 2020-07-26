@@ -10,3 +10,4 @@ from .tts import tts
 from .ud import ud
 from .goodreads import goodreads
 from .shiba import shiba
+from .weather import weather
