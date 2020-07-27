@@ -65,7 +65,7 @@ def main():
     ))
 
     j.run_daily(
-        api.clear, time=datetime.time(5, 30)
+        api.clear, time=datetime.time(18, 30)
     )
 
     updater.start_polling(clean=True)
