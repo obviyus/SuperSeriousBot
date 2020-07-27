@@ -1,100 +1,78 @@
-from pickle import load, dump
 from time import gmtime, strftime
+from pickle import load, dump
+from copy import deepcopy
+
 
 def load_dict():
-	stats_dict = {}
-	stats_db = open('api/stats.db', 'rb')
-	try:
-		stats_dict = load(stats_db)
-		return stats_dict
-	except:
-		return {}
+    stats_db = open('api/stats.db', 'rb')
+    try:
+        stats_dict = load(stats_db)
+        return stats_dict
+    except EOFError:
+        return {}
+
 
 stats_dict = load_dict()
 
-def clear(update, job_queue):
-	global stats_dict
-	stats_dict = {}
-	print("cleared")
+
+def clear(update):
+    global stats_dict
+    stats_dict = {}
+
 
 def stats_check(update, context):
-	global stats_dict
-	#from global_stats import global_stats_dict
+    global stats_dict
+    # from global_stats import global_stats_dict
 
-	msg = update.message
-	user = msg.from_user.id
-	chat_id = update.message.chat_id
-	user_object = msg.from_user
+    msg = update.message
+    chat_id = update.message.chat_id
+    user_object = msg.from_user
 
-	increment(stats_dict, chat_id, user_object)
-	#increment(global_stats_dict, chat_id, user_object)
+    increment(stats_dict, chat_id, user_object)
+    # increment(global_stats_dict, chat_id, user_object)
 
-	with open('api/stats.db', 'wb') as stats_db:
-	        dump(stats_dict, stats_db)
+    with open('api/stats.db', 'wb') as stats_db:
+        dump(stats_dict, stats_db)
 
-	#global_stats_db = open('global_stats.db','wb')
-	#dump(global_stats_dict, global_stats_db)
-	#global_stats_db.close()
+    # global_stats_db = open('global_stats.db','wb')
+    # dump(global_stats_dict, global_stats_db)
+    # global_stats_db.close()
+
 
 def increment(stats_dict, chat_id, user_object):
+    if chat_id not in stats_dict.keys():
+        stats_dict[chat_id] = {}
+        stats_dict[chat_id]['generated'] = strftime('%d-%m-%Y', gmtime())
 
-	if chat_id not in stats_dict.keys():
-		stats_dict[chat_id] = {}
-		stats_dict[chat_id]['generated'] = strftime('%d-%m-%Y', gmtime())
+    if user_object not in stats_dict[chat_id]:
+        stats_dict[chat_id][user_object] = 1
 
-	if user_object not in stats_dict[chat_id]:
-		stats_dict[chat_id][user_object] = 1
+    else:
+        stats_dict[chat_id][user_object] += 1
 
-	else:
-		stats_dict[chat_id][user_object] += 1
-
-def dict_sort(stats_dict, chat_id):
-	
-	copy_dict = stats_dict 
-	try:
-		del copy_dict[chat_id]['generated']
-	except:
-		pass
-
-	keys = list(copy_dict[chat_id].keys())
-	values = list(copy_dict[chat_id].values())
-	values.sort(reverse = True)
-
-	key_list = [] 
-	value_list = []
-	used_list = []
-
-	for value in values:
-		for key in keys:
-			if key != 'generated' and key not in used_list:
-				if copy_dict[chat_id][key] == value:
-					key_list.append(key)
-					value_list.append(value)
-					used_list.append(key)
-	return key_list, value_list
 
 def stats(update, context):
-	global stats_dict
-	msg = update.message
-	chat_id = msg.chat_id
-	chat_title = msg.chat.title
+    global stats_dict
+    msg = update.message
+    chat_id = msg.chat_id
+    chat_title = msg.chat.title
 
-	if chat_id in stats_dict.keys():
-		text = f'Stats for {chat_title} \n'
-		user_list, value_list = dict_sort(stats_dict, chat_id)
+    if chat_id in stats_dict.keys():
+        text = f'Stats for {chat_title} \n'
 
-		total_messages = 0
-		for user in user_list:
-			total_messages = total_messages + stats_dict[chat_id][user]
+        sorted_dict = deepcopy(stats_dict[chat_id])
+        del sorted_dict['generated']
+        sorted_dict = {k: sorted_dict[k] for k in sorted(sorted_dict, key=sorted_dict.get, reverse=True)}
 
-		for index, user in enumerate(user_list, 0):
-			percentage = round((value_list[index]/total_messages)*100, 2)
-			text += f'_{user.first_name} - {percentage}%_\n'
-			
-			if index == 9:
-				break
+        total_messages = 0
+        for user in sorted_dict.keys():
+            total_messages += sorted_dict[user]
 
-		text = text + f'\nTotal messages - {total_messages}'
-		msg.reply_text(text = text)
-	else:
-		msg.reply_text(text = 'No messages here')
+        for user in list(sorted_dict.keys())[:10]:
+            percentage = round((sorted_dict[user] / total_messages) * 100, 2)
+            text += f'_{user.first_name} - {percentage}%_\n'
+
+        text = text + f'\nTotal messages - {total_messages}'
+        msg.reply_text(text=text)
+    else:
+        msg.reply_text(text='No messages here')
