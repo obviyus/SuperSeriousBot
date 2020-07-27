@@ -30,7 +30,7 @@ commands = {
     "tl": api.translate,
     "tts": api.tts,
     "ud": api.ud,
-    "stats": api.stats
+    "stats": api.stats,
     "gr": api.goodreads,
     "shiba": api.shiba,
     "fox": api.fox,
@@ -48,7 +48,7 @@ def main():
     defaults = Defaults(parse_mode=ParseMode.MARKDOWN)
     updater = Updater(
         token=config["TELEGRAM_BOT_TOKEN"], use_context=True, defaults=defaults
-        )
+    )
     dispatcher = updater.dispatcher
     j = updater.job_queue
 
@@ -65,7 +65,7 @@ def main():
     ))
 
     j.run_daily(
-        api.clear, time = datetime.time(hour=5, minute=30, second=0, microsecond=0, tzinfo=None, fold=0)
+        api.clear, time=datetime.time(5, 30)
     )
 
     updater.start_polling(clean=True)
