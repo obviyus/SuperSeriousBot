@@ -98,12 +98,3 @@ def stats(update, context):
 		msg.reply_text(text = text)
 	else:
 		msg.reply_text(text = 'No messages here')
-'''
-def time_until_12():
-
-	a = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-	time = (a.split(" ",1)[1].split(":",2))
-	totaltime = int(time[0])*3600+int(time[1])*60+int(time[2])+5*3600+30*60 
-	totaltime = 86400 - totaltime
-	return totaltime
-'''
