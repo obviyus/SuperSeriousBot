@@ -23,11 +23,11 @@ before_deploy:
 deploy:
   - provider: script
     skip_cleanup: true
-    script: bash scripts/deploy.sh bot superseriousbot
+    script: bash scripts/deploy.sh bot superseriousbot master
     on:
       branch: master
   - provider: script
     skip_cleanup: true
-    script: bash scripts/deploy.sh travis-testing weirdindianbot
+    script: bash scripts/deploy.sh travis-testing weirdindianbot travisci-testing
     on:
       branch: travisci-testing
