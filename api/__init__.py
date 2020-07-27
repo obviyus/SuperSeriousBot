@@ -9,3 +9,5 @@ from .translate import translate
 from .tts import tts
 from .ud import ud
 from .stats import stats, stats_check, clear
+from .goodreads import goodreads
+from .shiba import shiba

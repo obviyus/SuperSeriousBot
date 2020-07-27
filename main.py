@@ -31,6 +31,8 @@ commands = {
     "tts": api.tts,
     "ud": api.ud,
     "stats": api.stats
+    "gr": api.goodreads,
+    "shiba": api.shiba,
 }
 
 
