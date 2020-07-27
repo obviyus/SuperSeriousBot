@@ -8,5 +8,6 @@ from .time import time
 from .translate import translate
 from .tts import tts
 from .ud import ud
+from .stats import stats, stats_check, clear
 from .goodreads import goodreads
 from .animals import shiba, fox, cat, catfact
