@@ -1,12 +1,13 @@
 import logging
 
 from telegram import ParseMode
-from telegram.ext import (Updater, CommandHandler, MessageHandler,
-                          Defaults, Filters)
+from telegram.ext import (Updater, CommandHandler, MessageHandler, Defaults, Filters)
 
 import api
 import chat_management
 from configuration import config
+
+import datetime
 
 
 def start(update, context):
@@ -40,8 +41,9 @@ def main():
     )
 
     defaults = Defaults(parse_mode=ParseMode.MARKDOWN)
-    updater = Updater(token=config["TELEGRAM_BOT_TOKEN"],
-                      use_context=True, defaults=defaults)
+    updater = Updater(
+        token=config["TELEGRAM_BOT_TOKEN"], use_context=True, defaults=defaults
+        )
     dispatcher = updater.dispatcher
     j = updater.job_queue
 
@@ -55,9 +57,11 @@ def main():
     dispatcher.add_handler(MessageHandler(
         Filters.text,
         api.stats_check
-        ))
+    ))
 
-    j.run_repeating(api.clear, interval=86400, first=api.time_until_12())
+    j.run_daily(
+        api.clear, time = datetime.time(hour=5, minute=30, second=0, microsecond=0, tzinfo=None, fold=0)
+    )
 
     updater.start_polling(clean=True)
     print("Started bot")

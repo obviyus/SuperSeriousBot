@@ -1,5 +1,7 @@
-def load():
-	from pickle import load
+from pickle import load, dump
+from time import gmtime, strftime
+
+def load_dict():
 	stats_dict = {}
 	stats_db = open('api/stats.db', 'rb')
 	try:
@@ -8,7 +10,7 @@ def load():
 	except:
 		return {}
 
-stats_dict = load()
+stats_dict = load_dict()
 
 def clear(update, job_queue):
 	global stats_dict
@@ -18,7 +20,6 @@ def clear(update, job_queue):
 def stats_check(update, context):
 	global stats_dict
 	#from global_stats import global_stats_dict
-	from time import gmtime, strftime
 
 	msg = update.message
 	user = msg.from_user.id
@@ -28,17 +29,14 @@ def stats_check(update, context):
 	increment(stats_dict, chat_id, user_object)
 	#increment(global_stats_dict, chat_id, user_object)
 
-	from pickle import dump
-	stats_db = open('api/stats.db', 'wb')
-	dump(stats_dict, stats_db)
-	stats_db.close()
+	with open('api/stats.db', 'wb') as stats_db:
+	        dump(stats_dict, stats_db)
 
 	#global_stats_db = open('global_stats.db','wb')
 	#dump(global_stats_dict, global_stats_db)
 	#global_stats_db.close()
 
 def increment(stats_dict, chat_id, user_object):
-	from time import gmtime, strftime
 
 	if chat_id not in stats_dict.keys():
 		stats_dict[chat_id] = {}
@@ -100,12 +98,12 @@ def stats(update, context):
 		msg.reply_text(text = text)
 	else:
 		msg.reply_text(text = 'No messages here')
-
+'''
 def time_until_12():
-	from time import gmtime, strftime
 
 	a = strftime("%Y-%m-%d %H:%M:%S", gmtime())
 	time = (a.split(" ",1)[1].split(":",2))
 	totaltime = int(time[0])*3600+int(time[1])*60+int(time[2])+5*3600+30*60 
 	totaltime = 86400 - totaltime
 	return totaltime
+'''
