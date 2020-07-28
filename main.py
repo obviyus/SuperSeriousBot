@@ -37,6 +37,7 @@ commands = {
     "cat": api.cat,
     "catfact": api.catfact,
     "joke": api.joke,
+    "qr": api.make,
 }
 
 
