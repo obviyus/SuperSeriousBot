@@ -1,6 +1,7 @@
 from geopy.geocoders import Nominatim
 from requests import get
 from configuration import config
+from urllib.parse import urlencode
 
 
 def weather(update, context):
@@ -17,7 +18,8 @@ def weather(update, context):
         location = geolocator.geocode(query)
 
         try:
-            response = get(f'http://api.airvisual.com/v2/nearest_city?lat={location.latitude}&lon={location.longitude}&key={config["AIRVISUAL_API_KEY"]}')
+            payload = {'lat': location.latitude, 'lon': location.longitude, 'key': config["AIRVISUAL_API_KEY"]}
+            response = get('http://api.airvisual.com/v2/nearest_city?' + urlencode(payload))
             response = response.json()
 
             if response['status'] == "success":
