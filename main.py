@@ -39,6 +39,8 @@ commands = {
     "wink": api.wink,
     "pat": api.pat,
     "hug": api.hug,
+    "joke": api.joke,
+    "qr": api.make,
 }
 
 
