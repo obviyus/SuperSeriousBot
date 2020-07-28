@@ -10,5 +10,9 @@ from .tts import tts
 from .ud import ud
 from .stats import stats, stats_check, clear
 from .goodreads import goodreads
+from .weather import weather
 from .animals import shiba, fox, cat, catfact
 from .insult import insult
+from .response import wink, pat, hug
+from .joke import joke
+from .qr import make
