@@ -33,6 +33,7 @@ commands = {
     "stats": api.stats,
     "gr": api.goodreads,
     "shiba": api.shiba,
+    "weather": api.weather,
     "fox": api.fox,
     "cat": api.cat,
     "catfact": api.catfact,
