@@ -1,3 +1,6 @@
+from urllib.parse import urlencode
+
+
 def make(update, context):
     """ Command to generate QR code from given data"""
     message = update.message
@@ -10,6 +13,8 @@ def make(update, context):
         )
 
     else:
+        payload = {'data': data}
+        result = "https://api.qrserver.com/v1/create-qr-code?" + urlencode(payload)
         message.reply_photo(
-            photo=f'https://api.qrserver.com/v1/create-qr-code/?data={data}',
+            photo=result,
         )
