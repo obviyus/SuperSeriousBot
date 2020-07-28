@@ -11,4 +11,5 @@ from .ud import ud
 from .stats import stats, stats_check, clear
 from .goodreads import goodreads
 from .animals import shiba, fox, cat, catfact
+from .joke import joke
 from .qr import make
