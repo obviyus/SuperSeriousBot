@@ -36,6 +36,9 @@ commands = {
     "fox": api.fox,
     "cat": api.cat,
     "catfact": api.catfact,
+    "wink": api.wink,
+    "pat": api.pat,
+    "hug": api.hug,
     "joke": api.joke,
     "qr": api.make,
 }
