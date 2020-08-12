@@ -1,3 +1,6 @@
+from configuration import config
+
+
 def jogi(update, context):
     message = update.message
     data = context.bot_data
