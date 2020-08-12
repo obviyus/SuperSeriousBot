@@ -4,13 +4,18 @@ from gtts import gTTS
 def tts(update, context):
     """Command to convert text to speech in a given language using Google TTS."""
     message = update.message
-
     if not context.args:
-        message.reply_text(
-            text="*Usage:* `/tts {LANG} - {SENTENCE}`\n"
-                 "*Example:* `/tts ru - cyka blyat`\n"
-                 "Defaults to `ja` if none provided.",
-        )
+        try:
+            args = message.reply_to_message.text or message.reply_to_message.caption
+            tts = gTTS(args, lang='ja')
+            message.reply_audio(audio=tts.get_urls()[0])
+        except AttributeError:
+            message.reply_text(
+                text="*Usage:* `/tts {LANG} - {SENTENCE}`\n"
+                     "*Example:* `/tts ru - cyka blyat`\n"
+                     "Defaults to `ja` if none provided.",
+            )
+            return
     else:
         # [1:2] will return first item or empty list if the index doesn't exist
         if context.args[1:2] == ['-']:
