@@ -13,8 +13,8 @@ def tts(update, context):
             message.reply_text(
                 text="*Usage:* `/tts {LANG} - {SENTENCE}`\n"
                      "*Example:* `/tts ru - cyka blyat`\n"
-                     "Reply with `/tts` to a message to speak it in Japanese."
-                     "Defaults to `ja` if none provided.",
+                     "Defaults to `ja` if none provided.\n"
+                     "Reply with `/tts` to a message to speak it in Japanese.",
             )
             return
     else:

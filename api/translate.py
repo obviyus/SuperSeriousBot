@@ -15,8 +15,8 @@ def translate(update, context):
             # blame Udit for this example
             text = "*Usage:* `/tl {DEST} - {SENTENCE}`\n"\
                    "*Example:* `/tl en - watashi wa anato no suki desu`\n"\
-                   "Defaults to `en` if none provided."
-                   "Reply with `/tl` to a message to translate it to english." 
+                   "Defaults to `en` if none provided.\n"\
+                   "Reply with `/tl` to a message to translate it to english."
 
     else:
         # [1:2] will return first item or empty list if the index doesn't exist
