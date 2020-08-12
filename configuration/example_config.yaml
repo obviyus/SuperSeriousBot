@@ -5,3 +5,7 @@
 # OPENWEATHER_API_KEY: "apikey"
 # GOODREADS_API_KEY: "apikey"
 # AIRVISUAL_API_KEY: "apikey"
+# JOGI_FILE_ID: "fileid"
+# JOGI_FILE_RESTORE_USERS:
+#   - "username1"
+#   - "username2"
