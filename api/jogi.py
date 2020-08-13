@@ -11,6 +11,6 @@ def jogi(update, context):
     # Failsafe since I'm not certain how long file_ids persist If they do forever we can keep this for pranks
     if message.from_user.username in config["JOGI_FILE_RESTORE_USERS"] and update.effective_chat.type == "private" and message.reply_to_message:
         data["jogi_file_id"] = message.reply_to_message.voice.file_id
-        message.reply_text("Jogi file ID set")
+        message.reply_text(f"Jogi file ID set to: {data['jogi_file_id']}")
     else:
         message.reply_voice(voice=data["jogi_file_id"])
