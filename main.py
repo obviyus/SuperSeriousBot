@@ -43,6 +43,7 @@ commands = {
     "hug": api.hug,
     "joke": api.joke,
     "qr": api.make,
+    "jogi": api.jogi,
 }
 
 
