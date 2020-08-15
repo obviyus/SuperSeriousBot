@@ -17,3 +17,4 @@ from .response import wink, pat, hug
 from .joke import joke
 from .qr import make
 from .jogi import jogi
+from .pfp import pad_image

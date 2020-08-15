@@ -44,6 +44,7 @@ commands = {
     "joke": api.joke,
     "qr": api.make,
     "jogi": api.jogi,
+    "pfp": api.pad_image,
 }
 
 
