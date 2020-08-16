@@ -25,7 +25,9 @@ def help_cmd(update, context):
     help_text = "*Commands for Super Serious Bot:\n*Send a command with no arguments to get its usage\n\n"
     help_text += ''.join(sorted(f"/{cmd}: {desc}\n\n" for cmd, desc in cmds))
 
-    update.message.reply_text("Message sent in DM")
+    if not update.effective_chat.type == "private":
+        update.message.reply_text("Message sent in DM")
+
     update.message.from_user.send_message(help_text)
 
 
