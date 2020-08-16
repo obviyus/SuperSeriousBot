@@ -4,7 +4,7 @@ import random
 
 
 def joke(update, context):
-    """ Command to return a random joke"""
+    """Get a random joke"""
 
     # Randomly choose between these two APIs
     if random.random() < 0.5:

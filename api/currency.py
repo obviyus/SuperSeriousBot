@@ -3,6 +3,7 @@ from babel import numbers
 
 
 def currency(update, context):
+    """Convert currencies"""
     message = update.message
 
     if not context.args:

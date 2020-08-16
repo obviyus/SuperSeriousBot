@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 
 
 def goodreads(update, context):
-    """ Command to query GoodReads for a book"""
+    """Query GoodReads for a book"""
     message = update.message
     query = ' '.join(context.args)
     parse_mode = 'Markdown'
@@ -31,7 +31,7 @@ def goodreads(update, context):
 
 
 def make_result(goodreads_id):
-    """ Search using Goodreads ID of item """
+    """Search using Goodreads ID of item"""
     r = get(f'https://www.goodreads.com/book/show.xml?key={config["GOODREADS_API_KEY"]}&id={goodreads_id}')
     root = ET.fromstring(r.content)
 

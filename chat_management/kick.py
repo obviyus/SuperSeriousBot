@@ -1,5 +1,5 @@
 def kick(update, context):
-    """Command to kick deep from group."""
+    """Kick deep from group"""
     message = update.message
     chat_id = message.chat_id
 

@@ -1,5 +1,5 @@
 def ban(update, context):
-    """Command to ban deep from group."""
+    """Ban deep from group"""
     message = update.message
     chat_id = message.chat_id
 

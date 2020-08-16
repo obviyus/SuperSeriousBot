@@ -3,7 +3,7 @@ from requests import get
 
 
 def ud(update, context):
-    """Command to query UD for word definition."""
+    """Query Urban Dictionary for word definition"""
     message = update.message
     word = ' '.join(context.args)
 

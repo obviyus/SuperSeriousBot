@@ -2,7 +2,7 @@ from googletrans import Translator
 
 
 def translate(update, context):
-    """Command to translate text in a given language using Google translate."""
+    """Translate text to a given language using Google translate"""
     message = update.message
 
     if not context.args:

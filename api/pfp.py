@@ -4,7 +4,7 @@ from PIL.ImageColor import colormap
 
 
 def pad_image(update, context):
-    """Pad images to 1:1 for use in profile pictures."""
+    """Pad images to 1:1 for use in profile pictures"""
 
     message = update.message
 

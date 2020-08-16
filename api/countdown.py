@@ -3,7 +3,7 @@ import dateparser
 
 
 def countdown(update, context):
-    """Command to show days left till a date."""
+    """Show days left till a date"""
     message = update.message
     countdown_to = ' '.join(context.args)
 

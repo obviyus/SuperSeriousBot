@@ -2,7 +2,7 @@ from howlongtobeatpy import HowLongToBeat
 
 
 def hltb(update, context):
-    """Command to find how long a game takes to beat."""
+    """Find how long a game takes to beat"""
     message = update.message
     game = ' '.join(context.args)
 

@@ -2,7 +2,7 @@ from gtts import gTTS
 
 
 def tts(update, context):
-    """Command to convert text to speech in a given language using Google TTS."""
+    """Convert text to speech in a given language using Google TTS"""
     message = update.message
     if not context.args:
         try:

@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 
 
 def weather(update, context):
+    """Show weather at a location"""
     message = update.message
     query = ' '.join(context.args)
     parse_mode = 'Markdown'
