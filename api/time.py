@@ -4,7 +4,7 @@ from configuration import config
 
 
 def time(update, context):
-    """Command to tell time at a place."""
+    """Tell time at a place"""
     message = update.message
     place = ' '.join(context.args)
 

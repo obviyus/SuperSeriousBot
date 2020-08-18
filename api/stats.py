@@ -52,6 +52,7 @@ def increment(stats_dict, chat_id, user_object):
 
 
 def stats(update, context):
+    """Get daily chat stats"""
     global stats_dict
     msg = update.message
     chat_id = msg.chat_id

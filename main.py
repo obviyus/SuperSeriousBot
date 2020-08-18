@@ -11,40 +11,55 @@ import datetime
 
 
 def start(update, context):
+    """Start bot"""
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Hi."
     )
 
 
+def help_cmd(update, context):
+    """Show list of commands"""
+    cmds = context.bot.commands
+
+    help_text = "*Commands for Super Serious Bot:\n*Send a command with no arguments to get its usage\n\n"
+    help_text += ''.join(sorted(f"/{cmd}: {desc}\n\n" for cmd, desc in cmds))
+
+    if not update.effective_chat.type == "private":
+        update.message.reply_text("Message sent in DM")
+
+    update.message.from_user.send_message(help_text)
+
+
 commands = {
     # "command": function
     "ban": chat_management.ban,
     "calc": api.calc,
-    "countdown": api.countdown,
+    "cat": api.cat,
+    "catfact": api.catfact,
     "convert": api.currency,
+    "countdown": api.countdown,
+    "fox": api.fox,
+    "gr": api.goodreads,
+    "help": help_cmd,
     "hltb": api.hltb,
+    "hug": api.hug,
+    "insult": api.insult,
+    "jogi": api.jogi,
+    "joke": api.joke,
     "kick": chat_management.kick,
+    "pat": api.pat,
+    "pfp": api.pad_image,
+    "qr": api.make,
+    "shiba": api.shiba,
     "start": start,
+    "stats": api.stats,
     "time": api.time,
     "tl": api.translate,
     "tts": api.tts,
     "ud": api.ud,
-    "stats": api.stats,
-    "gr": api.goodreads,
-    "shiba": api.shiba,
     "weather": api.weather,
-    "fox": api.fox,
-    "cat": api.cat,
-    "catfact": api.catfact,
-    "insult": api.insult,
     "wink": api.wink,
-    "pat": api.pat,
-    "hug": api.hug,
-    "joke": api.joke,
-    "qr": api.make,
-    "jogi": api.jogi,
-    "pfp": api.pad_image,
 }
 
 
@@ -76,6 +91,8 @@ def main():
     j.run_daily(
         api.clear, time=datetime.time(18, 30)
     )
+
+    dispatcher.bot.set_my_commands([(cmd, func.__doc__) for cmd, func in commands.items()])
 
     updater.start_polling(clean=True)
     print("Started bot")

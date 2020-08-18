@@ -2,6 +2,7 @@ from configuration import config
 
 
 def jogi(update, context):
+    """Post jogi"""
     message = update.message
     data = context.bot_data
 

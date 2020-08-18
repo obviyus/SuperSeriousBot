@@ -2,7 +2,7 @@ from requests import get
 
 
 def insult(update, context):
-    """ Command to return a random insult"""
+    """Get a random insult"""
 
     response = get('https://evilinsult.com/generate_insult.php?lang=en&type=json')
     response = response.json()

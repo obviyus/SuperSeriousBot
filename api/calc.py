@@ -3,7 +3,7 @@ from configuration import config
 
 
 def calc(update, context):
-    """Command to calculate anything using wolframalpha."""
+    """Calculate anything using wolframalpha"""
     message = update.message
     query = ' '.join(context.args)
 
