@@ -2,7 +2,7 @@ from requests import get
 
 
 def shiba(update, context):
-    """ Command to return a random Shiba Inu image"""
+    """Get a random Shiba Inu image"""
 
     response = get('http://shibe.online/api/shibes?count=1&urls=true&httpsUrls=false')
     response = response.json()
@@ -14,7 +14,7 @@ def shiba(update, context):
 
 
 def fox(update, context):
-    """ Command to return a random Fox image"""
+    """Get a random Fox image"""
 
     response = get('https://randomfox.ca/floof/')
     response = response.json()
@@ -26,7 +26,7 @@ def fox(update, context):
 
 
 def cat(update, context):
-    """ Command to return a random Cat image"""
+    """Get a random Cat image"""
 
     response = get('https://api.thecatapi.com/v1/images/search')
     response = response.json()
@@ -38,7 +38,7 @@ def cat(update, context):
 
 
 def catfact(update, context):
-    """ Command to return a random Cat Fact"""
+    """Get a random Cat Fact"""
 
     response = get('https://cat-fact.herokuapp.com/facts/random')
     response = response.json()

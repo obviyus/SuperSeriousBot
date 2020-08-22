@@ -2,7 +2,7 @@ from urllib.parse import urlencode
 
 
 def make(update, context):
-    """ Command to generate QR code from given data"""
+    """Generate QR code from given data"""
     message = update.message
     data = ' '.join(context.args)
 
