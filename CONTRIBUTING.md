@@ -32,7 +32,7 @@ We use GitHub issues to track public bugs. Report a bug by [opening a new issue]
 ## Use a Consistent Coding Style
 I'm again borrowing these from [Facebook's Guidelines](https://github.com/facebook/draft-js/blob/a9316a723f9e918afde44dea68b5f9f39b7d9b00/CONTRIBUTING.md)
 
-- 2 spaces for indentation rather than tabs
+- 4 spaces for indentation rather than tabs
 - You can (and should) [run flake8](https://flake8.pycqa.org/en/latest/user/invocation.html) before you commit
 - We also highly recommend you run `pre-commit install` to avoid failing builds on your PR.
 
