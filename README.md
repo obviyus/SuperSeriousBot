@@ -1,5 +1,4 @@
-# Super Serious Bot
-[![Build Status](https://travis-ci.com/Super-Serious/bot.svg?branch=master)](https://travis-ci.com/Super-Serious/bot)
+# Super Serious Bot [![Build Status](https://travis-ci.com/Super-Serious/bot.svg?branch=master)](https://travis-ci.com/Super-Serious/bot)
 
 ## Introduction
 The Super Serious Bot is a modular, highly-configurable, plug and play Telegram bot.
