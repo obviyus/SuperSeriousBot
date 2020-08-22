@@ -2,7 +2,7 @@ from gtts import gTTS
 
 
 def tts(update, context):
-    """Command to convert text to speech in a given language using Google TTS."""
+    """Convert text to speech in a given language using Google TTS"""
     message = update.message
     if not context.args:
         try:
@@ -13,7 +13,8 @@ def tts(update, context):
             message.reply_text(
                 text="*Usage:* `/tts {LANG} - {SENTENCE}`\n"
                      "*Example:* `/tts ru - cyka blyat`\n"
-                     "Defaults to `ja` if none provided.",
+                     "Defaults to `ja` if none provided.\n"
+                     "Reply with `/tts` to a message to speak it in Japanese.",
             )
             return
     else:
