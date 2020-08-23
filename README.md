@@ -26,7 +26,7 @@ $ pip3 install -r requirements.txt
 
 ## Getting Started
 
-Before you can begin, you'll need to get a token for your bot. You can get one from [@BotFather](https://github.com/Super-Serious/bot).  Place your token in a `config.yaml` in `/bot`. You can find an example `config.yaml` file in `bot/configuration`. 
+Before you can begin, you'll need to get a token for your bot. You can get one from [@BotFather](https://t.me/botfather).  Place your token in a `config.yaml` in `bot/`. You can find an `example_config.yaml` file in `bot/configuration`.
 
 To run the bot:
 ```bash
