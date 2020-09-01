@@ -18,3 +18,4 @@ from .joke import joke
 from .qr import make
 from .jogi import jogi
 from .pfp import pad_image
+from .spurdo import spurdo

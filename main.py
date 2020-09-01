@@ -60,6 +60,7 @@ commands = {
     "ud": api.ud,
     "weather": api.weather,
     "wink": api.wink,
+    "spurdo": api.spurdo,
 }
 
 
