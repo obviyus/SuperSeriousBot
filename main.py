@@ -52,6 +52,7 @@ commands = {
     "pfp": api.pad_image,
     "qr": api.make,
     "shiba": api.shiba,
+    "spurdo": api.spurdo,
     "start": start,
     "stats": api.stats,
     "time": api.time,
