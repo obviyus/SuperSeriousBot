@@ -50,6 +50,7 @@ commands = {
     "kick": chat_management.kick,
     "pat": api.pat,
     "pfp": api.pad_image,
+    "pic": api.pic,
     "qr": api.make,
     "shiba": api.shiba,
     "spurdo": api.spurdo,
