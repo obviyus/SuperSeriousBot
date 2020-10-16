@@ -49,6 +49,7 @@ commands = {
     "joke": api.joke,
     "kick": chat_management.kick,
     "pat": api.pat,
+    "pic": api.pic,
     "pfp": api.pad_image,
     "qr": api.make,
     "shiba": api.shiba,
