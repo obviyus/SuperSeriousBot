@@ -1,4 +1,5 @@
 """Commands for general use."""
+from .audio import jogi, forwhat, pon
 from .calc import calc
 from .countdown import countdown
 from .currency import currency
@@ -16,7 +17,6 @@ from .insult import insult
 from .response import wink, pat, hug
 from .joke import joke
 from .qr import make
-from .jogi import jogi
 from .pic import pic
 from .pfp import pad_image
 from .spurdo import spurdo
