@@ -1,7 +1,7 @@
 Babel==2.8.0
 dateparser==0.7.6
 emoji==0.6.0
-flake8==3.8.3
+flake8==3.8.4
 geopy==2.0.0
 googletrans==3.0.0
 gtts==2.2.1
