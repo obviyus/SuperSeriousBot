@@ -13,6 +13,8 @@ try:
     config["JOGI_FILE_ID"] = os.environ["JOGI_FILE_ID"]
     config["FOR_WHAT_ID"] = os.environ["FOR_WHAT_ID"]
     config["PUNYA_SONG_ID"] = os.environ["PUNYA_SONG_ID"]
+
+    config["FILE_RESTORE_USERS"] = os.environ["FILE_RESTORE_USERS"].split()
 except KeyError:
     try:
         with open("config.yaml", 'r') as config:
