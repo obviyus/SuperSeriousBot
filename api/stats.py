@@ -4,7 +4,7 @@ from copy import deepcopy
 
 
 def load_dict():
-    stats_db = open('api/stats.db', 'rb')
+    stats_db = open('api/stats.db', 'wb+')
     try:
         stats_dict = load(stats_db)
         return stats_dict

@@ -14,7 +14,10 @@ def jogi(update, context):
         data["jogi_file_id"] = message.reply_to_message.voice.file_id
         message.reply_text(f"Jogi file ID set to: {data['jogi_file_id']}")
     else:
-        message.reply_voice(voice=data["jogi_file_id"])
+        if message.reply_to_message:
+            message.reply_to_message.reply_voice(voice=data["jogi_file_id"])
+        else:
+            message.reply_voice(voice=data["jogi_file_id"])
 
 
 def forwhat(update, context):
@@ -30,7 +33,10 @@ def forwhat(update, context):
         data["for_what_id"] = message.reply_to_message.voice.file_id
         message.reply_text(f"Jogi file ID set to: {data['for_what_id']}")
     else:
-        message.reply_voice(voice=data["for_what_id"])
+        if message.reply_to_message:
+            message.reply_to_message.reply_voice(voice=data["for_what_id"])
+        else:
+            message.reply_voice(voice=data["for_what_id"])
 
 
 def pon(update, context):
@@ -46,4 +52,7 @@ def pon(update, context):
         data["punya_song_id"] = message.reply_to_message.voice.file_id
         message.reply_text(f"Jogi file ID set to: {data['punya_song_id']}")
     else:
-        message.reply_voice(voice=data["punya_song_id"])
+        if message.reply_to_message:
+            message.reply_to_message.reply_voice(voice=data["punya_song_id"])
+        else:
+            message.reply_voice(voice=data["punya_song_id"])

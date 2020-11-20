@@ -22,6 +22,10 @@ def joke(update, context):
     except KeyError:
         punchline = response["punchline"]
 
+    # Workaround to prevent last letter being replaced
+    if punchline[-1] != '.':
+        punchline += '.'
+        
     context.bot.send_message(
         text=punchline[:-1] + " 😆",
         chat_id=update.message.chat_id

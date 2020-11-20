@@ -17,7 +17,6 @@ def pic(update, context):
         if img.size[0] != 161:
             break
 
-    context.bot.send_photo(
+    update.message.reply_photo(
         photo=address,
-        chat_id=update.message.chat_id
     )
