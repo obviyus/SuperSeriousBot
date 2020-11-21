@@ -1,6 +1,7 @@
 # Add tokens, keys, passwords, API creds, IDs and other personal info to this file
 
 TELEGRAM_BOT_TOKEN: "tokentokentoken"
+MYSQL_USERNAME: "bot"
 MYSQL_PW: "password"
 WOLFRAM_APP_ID: "appid"
 OPENWEATHER_API_KEY: "apikey"

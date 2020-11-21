@@ -1,28 +1,32 @@
 import mysql.connector
+from mysql.connector import errorcode
+
 from configuration import config
 
-mydb = mysql.connector.connect(
-    host="127.0.0.1",
-    user="bot",
-    passwd=config["MYSQL_PW"],
-    database="chat_stats"
-)
-cursor = mydb.cursor()
+try:
+    conn = mysql.connector.connect(
+        host="127.0.0.1",
+        user=config["MYSQL_USERNAME"],
+        passwd=config["MYSQL_PW"],
+        database="chat_stats"
+    )
+    cursor = conn.cursor()
+except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+        raise errorcode.ER_ACCESS_DENIED_ERROR("Something is wrong with your user name or password")
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+        raise errorcode.ER_BAD_DB_ERROR("Database does not exist")
+    else:
+        raise RuntimeError(err)
 
 
-def check_table_exists(dbcon, tablename):
-    dbcur = dbcon.cursor()
-    dbcur.execute(f"""
+def check_table_exists(table_name):
+    cursor.execute(f"""
         SELECT COUNT(*)
         FROM information_schema.tables
-        WHERE table_name = {tablename}
+        WHERE table_name = {table_name}
         """)
-    if dbcur.fetchone()[0] == 1:
-        dbcur.close()
-        return True
-
-    dbcur.close()
-    return False
+    return cursor.fetchone()[0] == 1
 
 
 def print_stats(update, context):
@@ -30,17 +34,19 @@ def print_stats(update, context):
     chat_id = update.message.chat_id
     chat_title = update.message.chat.title
 
+    # Query to get top 10 users by message count
     formula = f"SELECT * FROM `{chat_id}` ORDER BY message_count DESC LIMIT 10"
 
-    if check_table_exists(mydb, chat_id):
+    if check_table_exists(table_name=chat_id):
         cursor.execute(formula)
         rows = cursor.fetchall()
         total_messages = sum(row[1] for row in rows)
 
         if total_messages == 0:
-            text = "No messages here."
+            text = "No messages found."
         else:
-            text = f'Stats for {chat_title} \n'
+            text = f'Stats for **{chat_title}** \n'
+
             for user, count in rows:
                 percentage = round((count / total_messages) * 100, 2)
                 text += f'_{user} - {percentage}%_\n'
@@ -53,25 +59,27 @@ def print_stats(update, context):
 
 
 def clear(update):
+    """"Reset message count to 0 for a chat"""
     print_stats(update, None)
 
-    formula = f'UPDATE `{update.message.chat_id}` SET message_count = 0'    
+    formula = f'UPDATE `{update.message.chat_id}` SET message_count = 0'
     cursor.execute(formula)
 
 
 def increment(update, context):
+    """Increment message count for a user"""
     chat_id = update.message.chat_id
     user_object = update.message.from_user
 
-    if not check_table_exists(mydb, chat_id):
+    if not check_table_exists(table_name=chat_id):
         formula = f"CREATE TABLE `{chat_id}` ( " \
                   "`user_name` VARCHAR(255) NOT NULL UNIQUE, " \
                   "`message_count` INT unsigned NOT NULL DEFAULT '0', " \
                   "PRIMARY KEY (`user_name`))"
+
         cursor.execute(formula)
 
     increment_formula = f"INSERT INTO `{chat_id}` (user_name, message_count) " \
                         f"VALUES ('{user_object.first_name}', 1) " \
                         "ON DUPLICATE KEY UPDATE message_count = message_count + 1"
     cursor.execute(increment_formula)
-
