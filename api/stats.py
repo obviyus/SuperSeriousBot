@@ -31,7 +31,6 @@ def print_stats(update, context):
     chat_title = update.message.chat.title
 
     formula = f"SELECT * FROM `{chat_id}` ORDER BY message_count DESC LIMIT 10"
-    print(formula)
 
     if check_table_exists(mydb, chat_id):
         cursor.execute(formula)
@@ -54,7 +53,9 @@ def print_stats(update, context):
 
 
 def clear(update):
-    formula = f'UPDATE `{update.message.chat_id}` SET message_count = 0'
+    print_stats(update, None)
+
+    formula = f'UPDATE `{update.message.chat_id}` SET message_count = 0'    
     cursor.execute(formula)
 
 
