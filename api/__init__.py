@@ -9,7 +9,7 @@ from .time import time
 from .translate import translate
 from .tts import tts
 from .ud import ud
-from .stats import stats, stats_check, clear
+from .stats import print_stats, increment, clear
 from .goodreads import goodreads
 from .weather import weather
 from .animals import shiba, fox, cat, catfact

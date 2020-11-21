@@ -1,79 +1,75 @@
-from time import gmtime, strftime
-from pickle import load, dump
-from copy import deepcopy
+import mysql.connector
+
+mydb = mysql.connector.connect(
+    host="127.0.0.1",
+    user="root",
+    passwd="password",
+    database="chat_stats"
+)
+cursor = mydb.cursor()
 
 
-def load_dict():
-    stats_db = open('api/stats.db', 'wb+')
-    try:
-        stats_dict = load(stats_db)
-        return stats_dict
-    except EOFError:
-        return {}
+def check_table_exists(dbcon, tablename):
+    dbcur = dbcon.cursor()
+    dbcur.execute(f"""
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_name = {tablename}
+        """)
+    if dbcur.fetchone()[0] == 1:
+        dbcur.close()
+        return True
+
+    dbcur.close()
+    return False
 
 
-stats_dict = load_dict()
+def print_stats(update, context):
+    """Get daily chat stats"""
+    chat_id = update.message.chat_id
+    chat_title = update.message.chat.title
+
+    formula = f"SELECT * FROM `{chat_id}` ORDER BY message_count DESC LIMIT 10"
+    print(formula)
+
+    if check_table_exists(mydb, chat_id):
+        cursor.execute(formula)
+        rows = cursor.fetchall()
+        total_messages = sum(row[1] for row in rows)
+
+        if total_messages == 0:
+            text = "No messages here."
+        else:
+            text = f'Stats for {chat_title} \n'
+            for user, count in rows:
+                percentage = round((count / total_messages) * 100, 2)
+                text += f'_{user} - {percentage}%_\n'
+
+            text = text + f'\nTotal messages - {total_messages}'
+    else:
+        text = "No messages found."
+
+    update.message.reply_text(text=text)
 
 
 def clear(update):
-    global stats_dict
-    stats_dict = {}
+    formula = f'UPDATE `{update.message.chat_id}` SET message_count = 0'
+    cursor.execute(formula)
 
 
-def stats_check(update, context):
-    global stats_dict
-    # from global_stats import global_stats_dict
-
-    msg = update.message
+def increment(update, context):
     chat_id = update.message.chat_id
-    user_object = msg.from_user
+    user_object = update.message.from_user
 
-    increment(stats_dict, chat_id, user_object)
-    # increment(global_stats_dict, chat_id, user_object)
+    if not check_table_exists(mydb, chat_id):
+        formula = f"CREATE TABLE `{chat_id}` ( " \
+                  "`user_name` VARCHAR(255) NOT NULL UNIQUE, " \
+                  "`message_count` INT unsigned NOT NULL DEFAULT '0', " \
+                  "PRIMARY KEY (`user_name`))"
+        cursor.execute(formula)
 
-    with open('api/stats.db', 'wb') as stats_db:
-        dump(stats_dict, stats_db)
+    increment_formula = f"INSERT INTO `{chat_id}` (user_name, message_count) " \
+                        f"VALUES ('{user_object.first_name}', 1) " \
+                        "ON DUPLICATE KEY UPDATE message_count = message_count + 1"
+    cursor.execute(increment_formula)
 
-    # global_stats_db = open('global_stats.db','wb')
-    # dump(global_stats_dict, global_stats_db)
-    # global_stats_db.close()
-
-
-def increment(stats_dict, chat_id, user_object):
-    if chat_id not in stats_dict.keys():
-        stats_dict[chat_id] = {}
-        stats_dict[chat_id]['generated'] = strftime('%d-%m-%Y', gmtime())
-
-    if user_object not in stats_dict[chat_id]:
-        stats_dict[chat_id][user_object] = 1
-
-    else:
-        stats_dict[chat_id][user_object] += 1
-
-
-def stats(update, context):
-    """Get daily chat stats"""
-    global stats_dict
-    msg = update.message
-    chat_id = msg.chat_id
-    chat_title = msg.chat.title
-
-    if chat_id in stats_dict.keys():
-        text = f'Stats for {chat_title} \n'
-
-        sorted_dict = deepcopy(stats_dict[chat_id])
-        del sorted_dict['generated']
-        sorted_dict = {k: sorted_dict[k] for k in sorted(sorted_dict, key=sorted_dict.get, reverse=True)}
-
-        total_messages = 0
-        for user in sorted_dict.keys():
-            total_messages += sorted_dict[user]
-
-        for user in list(sorted_dict.keys())[:10]:
-            percentage = round((sorted_dict[user] / total_messages) * 100, 2)
-            text += f'_{user.first_name} - {percentage}%_\n'
-
-        text = text + f'\nTotal messages - {total_messages}'
-        msg.reply_text(text=text)
-    else:
-        msg.reply_text(text='No messages here')
