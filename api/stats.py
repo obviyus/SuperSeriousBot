@@ -1,9 +1,10 @@
 import mysql.connector
+from configuration import config
 
 mydb = mysql.connector.connect(
     host="127.0.0.1",
-    user="root",
-    passwd="password",
+    user="bot",
+    passwd=config["MYSQL_PW"],
     database="chat_stats"
 )
 cursor = mydb.cursor()

@@ -6,6 +6,7 @@ try:
     # By default, try to look for API keys in environment variables
     config = {}
     config["TELEGRAM_BOT_TOKEN"] = os.environ["TELEGRAM_BOT_TOKEN"]
+    config["MYSQL_PW"] = os.environ["MYSQL_PW"]
     config["WOLFRAM_APP_ID"] = os.environ["WOLFRAM_APP_ID"]
     config["OPENWEATHER_API_KEY"] = os.environ["OPENWEATHER_API_KEY"]
     config["GOODREADS_API_KEY"] = os.environ["GOODREADS_API_KEY"]
