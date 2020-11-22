@@ -30,7 +30,7 @@ def check_table_exists(table_name):
 
 
 def print_stats(update, context):
-    """Get daily chat stats"""
+    """Get daily chat stats starting 0:00 IST"""
     chat_id = update.message.chat_id
     chat_title = update.message.chat.title
 
