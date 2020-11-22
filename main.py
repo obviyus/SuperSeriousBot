@@ -55,9 +55,8 @@ commands = {
     "pon": api.pon,
     "qr": api.make,
     "shiba": api.shiba,
-    "spurdo": api.spurdo,
     "start": start,
-    "stats": api.stats,
+    "stats": api.print_stats,
     "time": api.time,
     "tl": api.translate,
     "tts": api.tts,
@@ -89,7 +88,7 @@ def main():
 
     dispatcher.add_handler(MessageHandler(
         Filters.text,
-        api.stats_check
+        api.increment,
     ))
 
     j.run_daily(

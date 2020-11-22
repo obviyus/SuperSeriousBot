@@ -1,79 +1,83 @@
-from time import gmtime, strftime
-from pickle import load, dump
-from copy import deepcopy
+import mysql.connector
+from mysql.connector import errorcode
+
+from configuration import config
+
+try:
+    conn = mysql.connector.connect(
+        host="127.0.0.1",
+        user=config["MYSQL_USERNAME"],
+        passwd=config["MYSQL_PW"],
+        database="chat_stats"
+    )
+    cursor = conn.cursor()
+except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+        raise errorcode.ER_ACCESS_DENIED_ERROR("Something is wrong with your user name or password")
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+        raise errorcode.ER_BAD_DB_ERROR("Database does not exist")
+    else:
+        raise RuntimeError(err)
 
 
-def load_dict():
-    stats_db = open('api/stats.db', 'wb+')
-    try:
-        stats_dict = load(stats_db)
-        return stats_dict
-    except EOFError:
-        return {}
+def check_table_exists(table_name):
+    cursor.execute(f"""
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_name = {table_name}
+        """)
+    return cursor.fetchone()[0] == 1
 
 
-stats_dict = load_dict()
-
-
-def clear(update):
-    global stats_dict
-    stats_dict = {}
-
-
-def stats_check(update, context):
-    global stats_dict
-    # from global_stats import global_stats_dict
-
-    msg = update.message
+def print_stats(update, context):
+    """Get daily chat stats starting 0:00 IST"""
     chat_id = update.message.chat_id
-    user_object = msg.from_user
+    chat_title = update.message.chat.title
 
-    increment(stats_dict, chat_id, user_object)
-    # increment(global_stats_dict, chat_id, user_object)
+    # Query to get top 10 users by message count
+    formula = f"SELECT * FROM `{chat_id}` ORDER BY message_count DESC LIMIT 10"
 
-    with open('api/stats.db', 'wb') as stats_db:
-        dump(stats_dict, stats_db)
+    if check_table_exists(table_name=chat_id):
+        cursor.execute(formula)
+        rows = cursor.fetchall()
+        total_messages = sum(row[1] for row in rows)
 
-    # global_stats_db = open('global_stats.db','wb')
-    # dump(global_stats_dict, global_stats_db)
-    # global_stats_db.close()
+        if total_messages == 0:
+            text = "No messages found."
+        else:
+            text = f'Stats for **{chat_title}** \n'
 
+            for user, count in rows:
+                percentage = round((count / total_messages) * 100, 2)
+                text += f'_{user} - {percentage}%_\n'
 
-def increment(stats_dict, chat_id, user_object):
-    if chat_id not in stats_dict.keys():
-        stats_dict[chat_id] = {}
-        stats_dict[chat_id]['generated'] = strftime('%d-%m-%Y', gmtime())
-
-    if user_object not in stats_dict[chat_id]:
-        stats_dict[chat_id][user_object] = 1
-
+            text = text + f'\nTotal messages - {total_messages}'
     else:
-        stats_dict[chat_id][user_object] += 1
+        text = "No messages found."
+
+    update.message.reply_text(text=text)
 
 
-def stats(update, context):
-    """Get daily chat stats"""
-    global stats_dict
-    msg = update.message
-    chat_id = msg.chat_id
-    chat_title = msg.chat.title
+def clear(context):
+    """"Reset message count to 0 for a chat"""
+    for (table_name,) in cursor.execute("SHOW TABLES"):
+        cursor.execute(f"TRUNCATE TABLE `{table_name}`")
 
-    if chat_id in stats_dict.keys():
-        text = f'Stats for {chat_title} \n'
 
-        sorted_dict = deepcopy(stats_dict[chat_id])
-        del sorted_dict['generated']
-        sorted_dict = {k: sorted_dict[k] for k in sorted(sorted_dict, key=sorted_dict.get, reverse=True)}
+def increment(update, context):
+    """Increment message count for a user"""
+    chat_id = update.message.chat_id
+    user_object = update.message.from_user
 
-        total_messages = 0
-        for user in sorted_dict.keys():
-            total_messages += sorted_dict[user]
+    if not check_table_exists(table_name=chat_id):
+        formula = f"CREATE TABLE `{chat_id}` ( " \
+                  "`user_name` VARCHAR(255) NOT NULL UNIQUE, " \
+                  "`message_count` INT unsigned NOT NULL DEFAULT '0', " \
+                  "PRIMARY KEY (`user_name`))"
 
-        for user in list(sorted_dict.keys())[:10]:
-            percentage = round((sorted_dict[user] / total_messages) * 100, 2)
-            text += f'_{user.first_name} - {percentage}%_\n'
+        cursor.execute(formula)
 
-        text = text + f'\nTotal messages - {total_messages}'
-        msg.reply_text(text=text)
-    else:
-        msg.reply_text(text='No messages here')
+    increment_formula = f"INSERT INTO `{chat_id}` (user_name, message_count) " \
+                        f"VALUES ('{user_object.first_name}', 1) " \
+                        "ON DUPLICATE KEY UPDATE message_count = message_count + 1"
+    cursor.execute(increment_formula)
