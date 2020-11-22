@@ -33,6 +33,7 @@ def help_cmd(update, context):
 
 commands = {
     # "command": function
+    "age": api.age,
     "ban": chat_management.ban,
     "calc": api.calc,
     "cat": api.cat,
@@ -61,6 +62,7 @@ commands = {
     "tl": api.translate,
     "tts": api.tts,
     "ud": api.ud,
+    "wait": api.wait,
     "weather": api.weather,
     "wink": api.wink,
 }

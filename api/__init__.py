@@ -1,4 +1,5 @@
 """Commands for general use."""
+from .age import age
 from .audio import jogi, forwhat, pon
 from .calc import calc
 from .countdown import countdown
@@ -19,3 +20,4 @@ from .joke import joke
 from .qr import make
 from .pic import pic
 from .pfp import pad_image
+from .wait import wait

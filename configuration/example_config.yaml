@@ -3,6 +3,7 @@
 TELEGRAM_BOT_TOKEN: "tokentokentoken"
 MYSQL_USERNAME: "bot"
 MYSQL_PW: "password"
+CLOUDMERSIVE_API_KEY: "apikey"
 WOLFRAM_APP_ID: "appid"
 OPENWEATHER_API_KEY: "apikey"
 GOODREADS_API_KEY: "apikey"

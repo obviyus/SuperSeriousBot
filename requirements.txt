@@ -14,3 +14,4 @@ requests==2.24.0
 urllib3==1.25.10
 wolframalpha==4.0.0
 mysql-connector-python~=8.0.22
+cloudmersive_image_api_client==3.0.1
