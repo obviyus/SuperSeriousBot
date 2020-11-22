@@ -19,4 +19,3 @@ from .joke import joke
 from .qr import make
 from .pic import pic
 from .pfp import pad_image
-from .spurdo import spurdo

@@ -58,12 +58,10 @@ def print_stats(update, context):
     update.message.reply_text(text=text)
 
 
-def clear(update):
+def clear(context):
     """"Reset message count to 0 for a chat"""
-    print_stats(update, None)
-
-    formula = f'UPDATE `{update.message.chat_id}` SET message_count = 0'
-    cursor.execute(formula)
+    for (table_name,) in cursor.execute("SHOW TABLES"):
+        cursor.execute(f"TRUNCATE TABLE `{table_name}`")
 
 
 def increment(update, context):
