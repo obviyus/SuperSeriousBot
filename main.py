@@ -36,6 +36,7 @@ commands = {
     "age": api.age,
     "ban": chat_management.ban,
     "calc": api.calc,
+    "caption": api.caption,
     "cat": api.cat,
     "catfact": api.catfact,
     "convert": api.currency,
@@ -76,13 +77,13 @@ def main():
 
     defaults = Defaults(parse_mode=ParseMode.MARKDOWN)
     updater = Updater(
-        token=config["TELEGRAM_BOT_TOKEN"], use_context=True, defaults=defaults
+        token=config["TELEGRAM_BOT_TOKEN"], defaults=defaults
     )
     dispatcher = updater.dispatcher
     j = updater.job_queue
 
     for cmd, func in commands.items():
-        dispatcher.add_handler(CommandHandler(cmd, func))
+        dispatcher.add_handler(CommandHandler(cmd, func, run_async=True))
 
     dispatcher.add_handler(MessageHandler(
         Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"), api.sed

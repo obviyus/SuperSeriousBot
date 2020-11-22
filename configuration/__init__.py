@@ -6,6 +6,7 @@ try:
     config = {"TELEGRAM_BOT_TOKEN": os.environ["TELEGRAM_BOT_TOKEN"],
               "MYSQL_USERNAME": os.environ["MYSQL_USERNAME"],
               "MYSQL_PW": os.environ["MYSQL_PW"],
+              "CLOUDMERSIVE_API_KEY": os.environ["CLOUDMERSIVE_API_KEY"],
               "WOLFRAM_APP_ID": os.environ["WOLFRAM_APP_ID"],
               "OPENWEATHER_API_KEY": os.environ["OPENWEATHER_API_KEY"],
               "GOODREADS_API_KEY": os.environ["GOODREADS_API_KEY"],
