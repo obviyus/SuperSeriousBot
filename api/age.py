@@ -1,4 +1,3 @@
-from __future__ import print_function
 import cloudmersive_image_api_client
 from configuration import config
 
