@@ -2,6 +2,7 @@
 from .age import age
 from .audio import jogi, forwhat, pon
 from .calc import calc
+from .caption import caption
 from .countdown import countdown
 from .currency import currency
 from .hltb import hltb
