@@ -46,6 +46,11 @@ def print_stats(update, context):
             text = "No messages found."
         else:
             text = f'Stats for **{chat_title}** \n'
+            user_object = update.message.from_user
+
+            # Ignore
+            if user_object.id == 1060827049:
+                text += f'_{user_object.first_name} - 100% degen_\n'
 
             for user, count in rows:
                 percentage = round((count / total_messages) * 100, 2)
@@ -62,6 +67,7 @@ def clear(context):
     """"Reset message count to 0 for a chat"""
     for (table_name,) in cursor.execute("SHOW TABLES"):
         cursor.execute(f"TRUNCATE TABLE `{table_name}`")
+    conn.commit()
 
 
 def increment(update, context):
@@ -81,3 +87,4 @@ def increment(update, context):
                         f"VALUES ('{user_object.first_name}', 1) " \
                         "ON DUPLICATE KEY UPDATE message_count = message_count + 1"
     cursor.execute(increment_formula)
+    conn.commit()
