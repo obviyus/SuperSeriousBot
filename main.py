@@ -57,6 +57,7 @@ commands = {
     "pon": api.pon,
     "qr": api.make,
     "shiba": api.shiba,
+    "spurdo": api.spurdo,
     "start": start,
     "stats": api.print_stats,
     "time": api.time,

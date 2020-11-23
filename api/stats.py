@@ -65,8 +65,11 @@ def print_stats(update, context):
 
 def clear(context):
     """"Reset message count to 0 for a chat"""
-    for (table_name,) in cursor.execute("SHOW TABLES"):
-        cursor.execute(f"TRUNCATE TABLE `{table_name}`")
+    cursor.execute("SHOW TABLES")
+    for (table_name,) in cursor.fetchall():
+        formula = f"TRUNCATE TABLE `{table_name}`"
+        cursor.execute(formula)
+
     conn.commit()
 
 
