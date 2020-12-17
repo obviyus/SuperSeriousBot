@@ -13,6 +13,6 @@ pyyaml==5.3.1
 requests==2.25.0
 spurdify==0.3.0
 urllib3==1.26.2
-wolframalpha==4.1.0
+wolframalpha==4.1.1
 mysql-connector-python~=8.0.22
 cloudmersive_image_api_client==3.0.1
