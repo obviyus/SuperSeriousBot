@@ -5,7 +5,7 @@ flake8==3.8.4
 geopy==2.0.0
 googletrans==3.0.0
 gtts==2.2.1
-howlongtobeatpy==0.1.13
+howlongtobeatpy==0.1.15
 pillow==8.0.1
 pre-commit==2.9.0
 python-telegram-bot==13.0
