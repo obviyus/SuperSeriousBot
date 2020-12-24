@@ -55,25 +55,21 @@ def weather(update, context):
     if not query:
         text = "*Usage:* `/weather {LOCATION}`\n" \
                "*Example:* `/weather NIT Rourkela`"
-
     else:
         geolocator = Nominatim(user_agent="SuperSeriousBot")
         location = geolocator.geocode(query)
 
         try:
-            time_now = datetime.datetime.now()
             payload = {
                 'location': f'{location.latitude},{location.longitude}',
                 'apikey': config["CLIMACELL_API_KEY"],
                 'fields': "cloudCover,temperature,humidity,"
                           "windSpeed,weatherCode",
-                'startTime': time_now.replace(microsecond=0).isoformat() + 'Z',
-                'endTime': (time_now + datetime.timedelta(hours=1)).replace(
+                'endTime': (datetime.datetime.now() + datetime.timedelta(hours=1)).replace(
                     microsecond=0).isoformat() + 'Z'
             }
 
-            response = get('https://data.climacell.co/v4/timelines?' +
-                           urlencode(payload))
+            response = get('https://data.climacell.co/v4/timelines?' + urlencode(payload))
 
             if response.status_code == 200:
                 data = response.json()['data']
@@ -93,18 +89,19 @@ def weather(update, context):
 
                 zoom = 5
                 x, y = coords_to_tile(location.latitude, location.longitude, zoom)
-                map = f'https://data.climacell.co/v4/map/tile/{zoom}/{x}/{y}/humidity?apikey={config["CLIMACELL_API_KEY"]}'
+                map_image = f'https://data.climacell.co/v4/map/tile/{zoom}/{x}/{y}/humidity?' \
+                            f'apikey={config["CLIMACELL_API_KEY"]} '
 
                 message.reply_photo(
-                    photo=map,
+                    photo=map_image,
                     caption=text,
                     parse_mode=parse_mode
                 )
                 return
             else:
-                text = f'{response}'
-        except AttributeError as e:
-            text = f'{e}'
+                text = 'No entry found.'
+        except AttributeError:
+            text = 'No entry found.'
 
     message.reply_text(
         text=text,

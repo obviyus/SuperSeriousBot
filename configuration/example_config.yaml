@@ -1,14 +1,14 @@
 # Add tokens, keys, passwords, API creds, IDs and other personal info to this file
 
-TELEGRAM_BOT_TOKEN: "tokentokentoken"
-MYSQL_USERNAME: "bot"
-MYSQL_PW: "password"
+CLIMACELL_API_KEY: "apikey"
 CLOUDMERSIVE_API_KEY: "apikey"
-WOLFRAM_APP_ID: "appid"
-OPENWEATHER_API_KEY: "apikey"
 GOODREADS_API_KEY: "apikey"
-AIRVISUAL_API_KEY: "apikey"
 JOGI_FILE_ID: "fileid"
+MYSQL_PW: "password"
+MYSQL_USERNAME: "bot"
+OPENWEATHER_API_KEY: "apikey"
+TELEGRAM_BOT_TOKEN: "tokentokentoken"
+WOLFRAM_APP_ID: "appid"
 JOGI_FILE_RESTORE_USERS:
   - "username1"
   - "username2"
