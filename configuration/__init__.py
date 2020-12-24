@@ -10,7 +10,7 @@ try:
               "WOLFRAM_APP_ID": os.environ["WOLFRAM_APP_ID"],
               "OPENWEATHER_API_KEY": os.environ["OPENWEATHER_API_KEY"],
               "GOODREADS_API_KEY": os.environ["GOODREADS_API_KEY"],
-              "AIRVISUAL_API_KEY": os.environ["AIRVISUAL_API_KEY"],
+              "CLIMACELL_API_KEY": os.environ["CLIMACELL_API_KEY"],
               "JOGI_FILE_ID": os.environ["JOGI_FILE_ID"],
               "FOR_WHAT_ID": os.environ["FOR_WHAT_ID"],
               "PUNYA_SONG_ID": os.environ["PUNYA_SONG_ID"],
