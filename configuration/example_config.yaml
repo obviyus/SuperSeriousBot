@@ -9,6 +9,8 @@ MYSQL_USERNAME: "bot"
 OPENWEATHER_API_KEY: "apikey"
 TELEGRAM_BOT_TOKEN: "tokentokentoken"
 WOLFRAM_APP_ID: "appid"
-JOGI_FILE_RESTORE_USERS:
+FOR_WHAT_ID: "fileid"
+PUNYA_SONG_ID: "fileid"
+AUDIO_RESTORE_USERS:
   - "username1"
   - "username2"
