@@ -21,6 +21,7 @@ except mysql.connector.Error as err:
 
 
 def check_table_exists(table_name):
+    conn.ping(reconnect=True)
     cursor.execute(f"""
         SELECT COUNT(*)
         FROM information_schema.tables
@@ -31,6 +32,7 @@ def check_table_exists(table_name):
 
 def print_stats(update, context):
     """Get daily chat stats starting 0:00 IST"""
+    conn.ping(reconnect=True)
     chat_id = update.message.chat_id
     chat_title = update.message.chat.title
 
@@ -65,6 +67,7 @@ def print_stats(update, context):
 
 def clear(context):
     """"Reset message count to 0 for a chat"""
+    conn.ping(reconnect=True)
     cursor.execute("SHOW TABLES")
     for (table_name,) in cursor.fetchall():
         formula = f"TRUNCATE TABLE `{table_name}`"
@@ -75,6 +78,7 @@ def clear(context):
 
 def increment(update, context):
     """Increment message count for a user"""
+    conn.ping(reconnect=True)
     chat_id = update.message.chat_id
     user_object = update.message.from_user
 
