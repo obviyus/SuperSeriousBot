@@ -1,7 +1,49 @@
+import datetime
+import math
+from urllib.parse import urlencode
+
 from geopy.geocoders import Nominatim
 from requests import get
+
 from configuration import config
-from urllib.parse import urlencode
+
+
+def coords_to_tile(lat_deg, lon_deg, zoom):
+    lat_rad = math.radians(lat_deg)
+    n = 2.0 ** zoom
+    xtile = int((lon_deg + 180.0) / 360.0 * n)
+    ytile = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+    return xtile, ytile
+
+
+weather_codes = {
+    "1000": "Clear",
+    "1001": "Cloudy",
+    "1100": "Mostly Clear",
+    "1101": "Partly Cloudy",
+    "1102": "Mostly Cloudy",
+    "2000": "Fog",
+    "2100": "Light Fog",
+    "3000": "Light Wind",
+    "3001": "Wind",
+    "3002": "Strong Wind",
+    "4000": "Drizzle",
+    "4001": "Rain",
+    "4200": "Light Rain",
+    "4201": "Heavy Rain",
+    "5000": "Snow",
+    "5001": "Flurries",
+    "5100": "Light Snow",
+    "5101": "Heavy Snow",
+    "6000": "Freezing Drizzle",
+    "6001": "Freezing Rain",
+    "6200": "Light Freezing Rain",
+    "6201": "Heavy Freezing Rain",
+    "7000": "Ice Pellets",
+    "7101": "Heavy Ice Pellets",
+    "7102": "Light Ice Pellets",
+    "8000": "Thunderstorm",
+}
 
 
 def weather(update, context):
@@ -11,32 +53,51 @@ def weather(update, context):
     parse_mode = 'Markdown'
 
     if not query:
-        text = "*Usage:* `/aqi {LOCATION}`\n"\
-               "*Example:* `/aqi NIT Rourkela`"
-
+        text = "*Usage:* `/weather {LOCATION}`\n" \
+               "*Example:* `/weather NIT Rourkela`"
     else:
         geolocator = Nominatim(user_agent="SuperSeriousBot")
         location = geolocator.geocode(query)
 
         try:
-            payload = {'lat': location.latitude, 'lon': location.longitude, 'key': config["AIRVISUAL_API_KEY"]}
-            response = get('http://api.airvisual.com/v2/nearest_city?' + urlencode(payload))
-            response = response.json()
+            payload = {
+                'location': f'{location.latitude},{location.longitude}',
+                'apikey': config["CLIMACELL_API_KEY"],
+                'fields': "cloudCover,temperature,humidity,"
+                          "windSpeed,weatherCode",
+                'endTime': (datetime.datetime.now() + datetime.timedelta(hours=1)).replace(
+                    microsecond=0).isoformat() + 'Z'
+            }
 
-            if response['status'] == "success":
-                data = response['data']
-                current = data['current']
+            response = get('https://data.climacell.co/v4/timelines?' + urlencode(payload))
 
-                aqi_us = current['pollution']['aqius']
-                tp = current['weather']['tp']
-                pressure = current['weather']['pr']
-                humidity = current['weather']['hu']
-                wind_speed = current['weather']['ws']
+            if response.status_code == 200:
+                data = response.json()['data']
+                current = data['timelines'][0]['intervals'][0]['values']
 
-                text = f"<b>{data['city']}, {data['country']}</b>\n"\
-                    f"<b>🎐 AQI</b>: {aqi_us}\n"\
-                    f"<b>🌡️ Temperate</b>: {tp}° C\n<b>📊 Pressure</b>: {pressure} hPa\n<b>💦 Humidity</b>: {humidity}%\n\n💨 Wind gusts up to {wind_speed} m/s"
+                temperature = current['temperature']
+                cloud_cover = current['cloudCover']
+                humidity = current['humidity']
+                wind_speed = current['windSpeed']
+                conditions = current['weatherCode']
+
+                text = f"<b>{location.address}</b>\n" \
+                       f"<b>🌡️ Temperate</b>: {temperature}° C\n<b>☁ Cloud Cover</b>: {cloud_cover}%\n<b>💦 " \
+                       f"Humidity</b>: {humidity}%\n<b>🛰️ Weather</b>: {weather_codes[str(conditions)]}\n\n💨 Wind " \
+                       f"gusts up to {wind_speed} m/s "
                 parse_mode = 'HTML'
+
+                zoom = 5
+                x, y = coords_to_tile(location.latitude, location.longitude, zoom)
+                map_image = f'https://data.climacell.co/v4/map/tile/{zoom}/{x}/{y}/humidity?' \
+                            f'apikey={config["CLIMACELL_API_KEY"]} '
+
+                message.reply_photo(
+                    photo=map_image,
+                    caption=text,
+                    parse_mode=parse_mode
+                )
+                return
             else:
                 text = 'No entry found.'
         except AttributeError:
