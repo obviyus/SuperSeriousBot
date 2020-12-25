@@ -4,8 +4,9 @@ import os
 try:
     # By default, try to look for API keys in environment variables
     config = {"TELEGRAM_BOT_TOKEN": os.environ["TELEGRAM_BOT_TOKEN"],
-              "MYSQL_USERNAME": os.environ["MYSQL_USERNAME"],
-              "MYSQL_PW": os.environ["MYSQL_PW"],
+              "MYSQL_USER": os.environ["MYSQL_USER"],
+              "MYSQL_IP_ALIAS": os.environ["MYSQL_IP_ALIAS"],
+              "MYSQL_PASSWORD": os.environ["MYSQL_PASSWORD"],
               "CLOUDMERSIVE_API_KEY": os.environ["CLOUDMERSIVE_API_KEY"],
               "WOLFRAM_APP_ID": os.environ["WOLFRAM_APP_ID"],
               "OPENWEATHER_API_KEY": os.environ["OPENWEATHER_API_KEY"],

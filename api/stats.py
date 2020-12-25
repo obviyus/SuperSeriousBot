@@ -5,9 +5,9 @@ from configuration import config
 
 try:
     conn = mysql.connector.connect(
-        host="127.0.0.1",
-        user=config["MYSQL_USERNAME"],
-        passwd=config["MYSQL_PW"],
+        host=config["MYSQL_IP_ALIAS"],
+        user=config["MYSQL_USER"],
+        passwd=config["MYSQL_PASSWORD"],
         database="chat_stats"
     )
     cursor = conn.cursor()
