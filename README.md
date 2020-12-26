@@ -26,11 +26,29 @@ $ pip3 install -r requirements.txt
 
 ## Getting Started
 
-Before you can begin, you'll need to get a token for your bot. You can get one from [@BotFather](https://t.me/botfather).  Place your token in a `config.yaml` in `bot/`. You can find an `example_config.yaml` file in `bot/configuration`.
+Before you can begin, you'll need to get a token for your bot. You can get one from [@BotFather](https://t.me/botfather).
 
-To run the bot:
+Place your bot token and other tokens in a `config.yaml` in the project root. You can find an `example_config.yaml` file in `bot/configuration`. Alternatively you can use environment variables for each of the fields with the same name.
+
+Besides this the bot uses MySQL for the `/stats` feature. Set up MySQL as you wish and put in the appropriate creds in the config file
+
+### From Source
+
+Make sure either `config.yaml` or environment variables are set up and run the bot with:
+
 ```bash
 $ python3 main.py
+```
+
+### Docker
+
+Use the `Dockerfile` to build an image for the bot. You can use `example-compose.yaml` as a reference for docker compose. It uses watchtower to update the image from DockerHub and another container for the MySQL DB.
+
+The config for the docker image uses environment variables in a file called `ssgbot.env` you can find the example env_file in `configuration/example.env`
+
+Run with docker-compose as:
+```bash
+$ docker-compose up -df example-compose.yaml
 ```
 
 To test if the bot is running, simply send a `/start` message to it.

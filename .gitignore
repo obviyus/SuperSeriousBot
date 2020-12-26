@@ -1,5 +1,7 @@
 # project specific
 config.yaml
+ssgbot.env
+docker-compose.yaml
 .vscode
 
 # Byte-compiled / optimized / DLL files

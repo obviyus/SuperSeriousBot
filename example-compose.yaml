@@ -1,0 +1,28 @@
+version: "3.8"
+services:
+  watchtower:
+    image: v2tec/watchtower
+    restart: always
+    command: --label-enable --cleanup --interval 300 
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  ssgbot:
+    image: superserious/bot
+    # for dev
+    # build: .
+    # volumes:
+    #   - ./:/code/
+    env_file: ssgbot.env
+    depends_on:
+      - "mysql"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    command: ["./wait-for-it.sh", "--strict", "--timeout=60", "mysql:3306", "--", "python", "./main.py"]
+  mysql:
+    image: mysql
+    env_file: ssgbot.env
+    volumes:
+      - db-data:/var/lib/mysql
+
+volumes:
+  db-data:
