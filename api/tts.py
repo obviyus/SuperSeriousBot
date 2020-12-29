@@ -31,6 +31,8 @@ def tts(update, context):
         else:
             try:
                 tts = gTTS(sentence, lang=lang)
-                message.reply_audio(audio=tts.get_urls()[0])
+                tts.save('tts.ogg')
+
+                message.reply_audio(audio=open('tts.ogg', 'rb'))
             except ValueError:
                 message.reply_text(text="Invalid language.")
