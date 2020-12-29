@@ -39,7 +39,7 @@ def print_stats(update, context):
     # Query to get top 10 users by message count
     formula = f"SELECT * FROM `{chat_id}` ORDER BY message_count DESC LIMIT 10"
 
-    if check_table_exists(table_name=chat_id):
+    if check_table_exists(table_name=chat_id) and update.effective_chat.type != 'private':
         cursor.execute(formula)
         rows = cursor.fetchall()
         total_messages = sum(row[1] for row in rows)
