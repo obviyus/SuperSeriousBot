@@ -1,4 +1,5 @@
 from gtts import gTTS
+from io import BytesIO
 
 
 def tts(update, context):
@@ -31,8 +32,10 @@ def tts(update, context):
         else:
             try:
                 tts = gTTS(sentence, lang=lang)
-                tts.save('tts.ogg')
-
-                message.reply_audio(audio=open('tts.ogg', 'rb'))
+                with BytesIO() as fp:
+                    tts.write_to_fp(fp)
+                    fp.name = f'tts__{sentence[:10]}.ogg'
+                    fp.seek(0)
+                    message.reply_audio(audio=fp)
             except ValueError:
                 message.reply_text(text="Invalid language.")
