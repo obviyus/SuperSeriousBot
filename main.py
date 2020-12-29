@@ -91,7 +91,7 @@ def main():
     ))
 
     dispatcher.add_handler(MessageHandler(
-        Filters.text,
+        Filters.text & ~Filters.command & ~Filters.update.edited_message & ~Filters.chat_type.private,
         api.increment,
     ))
 
