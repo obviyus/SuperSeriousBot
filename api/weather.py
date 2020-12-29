@@ -65,6 +65,7 @@ def weather(update, context):
                 'apikey': config["CLIMACELL_API_KEY"],
                 'fields': "cloudCover,temperature,humidity,"
                           "windSpeed,weatherCode",
+                'startTime': datetime.datetime.now().replace(microsecond=0).isoformat() + 'Z',
                 'endTime': (datetime.datetime.now() + datetime.timedelta(hours=1)).replace(
                     microsecond=0).isoformat() + 'Z'
             }
