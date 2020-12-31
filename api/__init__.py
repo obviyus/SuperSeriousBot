@@ -14,6 +14,7 @@ from .pfp import pad_image
 from .pic import pic
 from .qr import make
 from .response import wink, pat, hug
+from .search import search, search_button
 from .sed import sed
 from .spurdo import spurdo
 from .stats import print_stats, increment, clear

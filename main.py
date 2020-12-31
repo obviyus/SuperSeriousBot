@@ -1,7 +1,7 @@
 import logging
 
 from telegram import ParseMode
-from telegram.ext import (Updater, CommandHandler, MessageHandler, Defaults, Filters)
+from telegram.ext import (Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Defaults, Filters)
 
 import api
 import chat_management
@@ -57,6 +57,7 @@ commands = {
     "pon": api.pon,
     "qr": api.make,
     "shiba": api.shiba,
+    "search": api.search,
     "spurdo": api.spurdo,
     "start": start,
     "stats": api.print_stats,
@@ -94,6 +95,8 @@ def main():
         Filters.text & ~Filters.command & ~Filters.update.edited_message & ~Filters.chat_type.private,
         api.increment,
     ))
+
+    dispatcher.add_handler(CallbackQueryHandler(api.search_button))
 
     j.run_daily(
         api.clear, time=datetime.time(18, 30)
