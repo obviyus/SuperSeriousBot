@@ -12,7 +12,8 @@ services:
     # build: .
     # volumes:
     #   - ./:/code/
-    env_file: ssgbot.env
+    env_file: 
+      - ssgbot.env
     depends_on:
       - "mysql"
     labels:
@@ -20,9 +21,14 @@ services:
     command: ["./wait-for-it.sh", "--strict", "--timeout=60", "mysql:3306", "--", "python", "./main.py"]
   mysql:
     image: mysql
-    env_file: ssgbot.env
+    env_file:
+      - ssgbot.env
+    depends_on:
+      - "qbt"
     volumes:
       - db-data:/var/lib/mysql
+  qbt:
+    image: ghcr.io/linuxserver/qbittorrent
 
 volumes:
   db-data:
