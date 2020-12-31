@@ -12,13 +12,20 @@ total_items = 24
 
 
 def construct_message(magnet_list, desc_list, min_offset):
-    max_offset = min(min_offset + items_per_page, len(magnet_list))
+    max_offset = min(
+        min_offset + items_per_page,
+        len(magnet_list)
+    )
+
     kb_menu = [
         InlineKeyboardButton(text=f'Torrent {i+1}', callback_data=f'{i}')
         for i in range(min_offset, max_offset)
     ]
 
-    kb_menu = [kb_menu[i:i + cols_per_page] for i in range(0, min(items_per_page, len(kb_menu)), cols_per_page)]
+    kb_menu = [
+        kb_menu[i:i + cols_per_page]
+        for i in range(0, min(items_per_page, len(kb_menu)), cols_per_page)
+    ]
 
     if len(kb_menu[-1]) % 2 == 1:
         kb_menu[-1].insert(0, InlineKeyboardButton(text='<', callback_data='-2'))
@@ -47,12 +54,22 @@ def search(update, context):
         return
 
     context.chat_data.clear()
-    sent_message = message.reply_text(text="Fetching results...", quote=True, parse_mode='HTML')
+    sent_message = message.reply_text(
+        text="Fetching results...",
+        quote=True,
+        parse_mode='HTML'
+    )
     context.chat_data['search_msg_id'] = sent_message.message_id
 
-    search_job = qbt_client.search_start(pattern=query, category='all', plugins='all')
+    search_job = qbt_client.search_start(
+        pattern=query,
+        category='all',
+        plugins='all'
+    )
+
     while search_job.status()[0].total <= total_items and search_job.status()[0].status != 'Stopped':
         time.sleep(.1)
+
     search_job.stop()
     # first result is jackett error, disabling or uninstalling doesn't work
     search_results = list(search_job.results(limit=total_items, offset=1).results)
@@ -141,7 +158,11 @@ def search_button(update, context):
         if not magnet_list[index].startswith('https'):
             magnet = magnet.replace('\n\n', '\n\n<code>') + '</code>'
 
-        query.message.reply_to_message.reply_text(magnet, quote=True, parse_mode='HTML')
+        query.message.reply_to_message.reply_text(
+            magnet,
+            quote=True,
+            parse_mode='HTML'
+        )
         return
 
     query.edit_message_text(text=text, reply_markup=kb, parse_mode='HTML')
