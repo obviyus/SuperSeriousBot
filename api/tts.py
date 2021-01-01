@@ -7,9 +7,13 @@ def tts(update, context):
     message = update.message
     if not context.args:
         try:
-            args = message.reply_to_message.text or message.reply_to_message.caption
-            tts = gTTS(args, lang='ja')
-            message.reply_audio(audio=tts.get_urls()[0])
+            sentence = message.reply_to_message.text or message.reply_to_message.caption
+            tts = gTTS(sentence, lang='ja')
+            with BytesIO() as fp:
+                tts.write_to_fp(fp)
+                fp.name = f'tts__{sentence[:10]}.ogg'
+                fp.seek(0)
+                message.reply_audio(audio=fp)
         except AttributeError:
             message.reply_text(
                 text="*Usage:* `/tts {LANG} - {SENTENCE}`\n"
