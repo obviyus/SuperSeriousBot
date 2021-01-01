@@ -1,4 +1,6 @@
-# Super Serious Bot [![Build Status](https://travis-ci.com/Super-Serious/bot.svg?branch=master)](https://travis-ci.com/Super-Serious/bot)
+# Super Serious Bot
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/Super-Serious/bot/Python%20Build/master?label=Python%20Build&logo=github)](https://github.com/Super-Serious/bot/actions?query=workflow%3A%22Python+Build%22)
+[![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/superserious/bot?label=Docker%20Build&logo=docker)](https://hub.docker.com/r/superserious/bot)
 
 ## Introduction
 The Super Serious Bot is a modular, highly-configurable, plug and play Telegram bot built using the fantastic [`python-telegram-bot`](https://github.com/python-telegram-bot/python-telegram-bot) library.
@@ -41,6 +43,8 @@ $ python3 main.py
 ```
 
 ### Docker
+
+You can find the latest image built on the master branch on [Docker Hub](https://hub.docker.com/r/superserious/bot), or alternatively build it yourself:
 
 Use the `Dockerfile` to build an image for the bot. You can use `example-compose.yaml` as a reference for docker compose. It uses watchtower to update the image from DockerHub and another container for the MySQL DB.
 
