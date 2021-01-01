@@ -1,5 +1,5 @@
 # Super Serious Bot
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/Super-Serious/bot/Python%20Build/master?label=Python%20Build&logo=github)
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/Super-Serious/bot/Python%20Build/master?label=Python%20Build&logo=github)](https://github.com/Super-Serious/bot/actions?query=workflow%3A%22Python+Build%22)
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/superserious/bot?label=Docker%20Build&logo=docker)](https://hub.docker.com/r/superserious/bot)
 
 ## Introduction
