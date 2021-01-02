@@ -48,7 +48,7 @@ def search(update, context):
     if not query:
         message.reply_text(
             "*Usage:* `/search {QUERY}`\n"
-            "*Example:* `/convert mr brightside` \n\n"
+            "*Example:* `/search mr brightside` \n\n"
             "Shows 24 results max"
         )
         return
