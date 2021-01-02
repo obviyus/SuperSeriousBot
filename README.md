@@ -32,7 +32,7 @@ Before you can begin, you'll need to get a token for your bot. You can get one f
 
 Place your bot token and other tokens in a `config.yaml` in the project root. You can find an `example_config.yaml` file in `bot/configuration`. Alternatively you can use environment variables for each of the fields with the same name.
 
-Besides this the bot uses MySQL for the `/stats` feature. Set up MySQL as you wish and put in the appropriate creds in the config file
+Besides this the bot uses MySQL for the `/stats` feature and QBittorrent for the `/search` feature. Set up MySQL and QBittorrent WebUI as you wish and put in the appropriate creds in the config file.
 
 ### From Source
 
@@ -46,7 +46,7 @@ $ python3 main.py
 
 You can find the latest image built on the master branch on [Docker Hub](https://hub.docker.com/r/superserious/bot), or alternatively build it yourself:
 
-Use the `Dockerfile` to build an image for the bot. You can use `example-compose.yaml` as a reference for docker compose. It uses watchtower to update the image from DockerHub and another container for the MySQL DB.
+Use the `Dockerfile` to build an image for the bot. You can use `example-compose.yaml` as a reference for docker compose. It uses watchtower to update the image from DockerHub, a container for the MySQL DB and another for QBittorrent.
 
 The config for the docker image uses environment variables in a file called `ssgbot.env` you can find the example env_file in `configuration/example.env`
 
