@@ -4,6 +4,9 @@ import time
 
 
 qbt_client = qbittorrentapi.Client()  # uses env vars
+qbt_client.search.install_plugin(sources=[
+    "https://raw.githubusercontent.com/libellula/qbt-plugins/c81ccd168f3d8e4e8d8492bcef19e1740cc18aa7/nyaapantsu.py"  # Nyaa.net
+])
 qbt_client.search.update_plugins()
 
 items_per_page = 3
@@ -78,8 +81,17 @@ def search(update, context):
     context.chat_data['desc_list'] = []
     context.chat_data['offset'] = 0
     for result in search_results[:]:
-        # TPB returns a placeholder result if nothing is found
-        if result.fileName == "No results returned" and result.nbSeeders == 0 and result.nbLeechers == 0 and result.fileSize == 0:
+        if (
+            # TPB returns a placeholder result if nothing is found
+            (
+                result.fileName == "No results returned"
+                and result.nbSeeders == 0
+                and result.nbLeechers == 0
+                and result.fileSize == 0
+            )
+            # Jackett error still shows up sometimes
+            or result.fileName.startswith("Jackett: api key error!")
+        ):
             search_results.remove(result)
         else:
             # markdown doesn't work
