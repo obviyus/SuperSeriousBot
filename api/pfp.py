@@ -27,6 +27,6 @@ def pad_image(update, context):
                 padded_image.save(dp, 'JPEG')
 
                 dp.seek(0)
-                message.reply_photo(photo=dp, quote=True)
+                message.reply_photo(photo=dp)
             except ValueError:
-                message.reply_text(text="Invalid color", quote=True)
+                message.reply_text(text="Invalid color")
