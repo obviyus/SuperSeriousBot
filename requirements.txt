@@ -3,7 +3,7 @@ cloudmersive_image_api_client==3.0.1
 dateparser==1.0.0
 emoji>=0.6.0
 flake8>=3.8.4
-geopy==2.0.0
+geopy==2.1.0
 googletrans==3.0.0
 gtts==2.2.1
 howlongtobeatpy==0.1.15
