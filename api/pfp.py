@@ -1,6 +1,5 @@
 from io import BytesIO
 from PIL import Image, ImageOps
-from PIL.ImageColor import colormap
 
 
 def pad_image(update, context):
@@ -8,7 +7,7 @@ def pad_image(update, context):
 
     message = update.message
 
-    if not message.reply_to_message or not message.reply_to_message.photo:
+    if not (message.reply_to_message and message.reply_to_message.photo):
         message.reply_text(
             "*Usage:* \nReply to a photo with `/pfp {COLOR}`\n"
             "*Example:* `/pfp red`\n"
@@ -18,14 +17,16 @@ def pad_image(update, context):
     else:
         pic = message.reply_to_message.photo[-1]
         size = (max(pic.width, pic.height), max(pic.width, pic.height))
-        color = ''.join(context.args)
-        color = color if color in colormap else "black"
+        color = ''.join(context.args) or 'black'
 
         with BytesIO(pic.get_file().download_as_bytearray()) as pic_file, BytesIO() as dp:
-            padded_image = ImageOps.pad(
-                image=Image.open(pic_file), size=size, color=color
-            )
-            padded_image.save(dp, 'JPEG')
+            try:
+                padded_image = ImageOps.pad(
+                    image=Image.open(pic_file), size=size, color=color
+                )
+                padded_image.save(dp, 'JPEG')
 
-            dp.seek(0)
-            message.reply_photo(photo=dp, quote=True)
+                dp.seek(0)
+                message.reply_photo(photo=dp, quote=True)
+            except ValueError:
+                message.reply_text(text="Invalid color", quote=True)
