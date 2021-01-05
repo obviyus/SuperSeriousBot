@@ -12,7 +12,11 @@ COPY / .
 
 # install dependencies
 RUN apk update \
-    && apk add --no-cache gcc libressl-dev musl-dev libffi-dev jpeg-dev zlib-dev bash \
+    && apk add --no-cache \
+        # cloudmersive
+        gcc libressl-dev musl-dev libffi-dev \
+        # pillow
+        jpeg-dev zlib-dev bash \
     && pip3 install --no-cache-dir -r requirements.txt \
     && apk del gcc musl-dev
 
