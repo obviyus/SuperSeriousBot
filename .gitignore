@@ -2,6 +2,7 @@
 config.yaml
 ssgbot.env
 docker-compose.yaml
+classify.jpg
 .vscode
 
 # Byte-compiled / optimized / DLL files

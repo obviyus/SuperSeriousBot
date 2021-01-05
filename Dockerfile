@@ -1,5 +1,5 @@
 # set base image (host OS)
-FROM python:3.8
+FROM python:3.8-alpine
 
 # set the working directory in the container
 WORKDIR /code
@@ -11,7 +11,10 @@ COPY requirements.txt .
 COPY / .
 
 # install dependencies
-RUN pip install -r requirements.txt
+RUN apk update \
+    && apk add --no-cache gcc libressl-dev musl-dev libffi-dev jpeg-dev zlib-dev bash \
+    && pip3 install --no-cache-dir -r requirements.txt \
+    && apk del gcc musl-dev
 
 # command to run on container start
 CMD [ "python", "./main.py" ]
