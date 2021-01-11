@@ -1,37 +1,44 @@
 import logging
 
 from telegram import ParseMode
-from telegram.ext import (Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Defaults, Filters)
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Defaults, Filters
 
 import api
 import chat_management
 from configuration import config
 
 import datetime
+from typing import TYPE_CHECKING, List, Dict, Callable
+
+if TYPE_CHECKING:
+    import telegram
 
 
-def start(update, context):
+def start(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Start bot"""
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Hi."
-    )
+    if update and update.effective_chat:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Hi."
+        )
 
 
-def help_cmd(update, context):
+def help_cmd(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Show list of commands"""
-    cmds = context.bot.commands
+    cmds: List['telegram.BotCommand'] = context.bot.commands
 
-    help_text = "*Commands for Super Serious Bot:\n*Send a command with no arguments to get its usage\n\n"
-    help_text += ''.join(sorted(f"/{cmd}: {desc}\n\n" for cmd, desc in cmds))
+    help_text: str = "*Commands for Super Serious Bot:\n*Send a command with no arguments to get its usage\n\n"
+    help_text += ''.join(sorted(f"/{cmd.command}: {cmd.description}\n\n" for cmd in cmds))
 
-    if not update.effective_chat.type == "private":
-        update.message.reply_text("Message sent in DM")
+    if update.message:
+        if update.effective_chat and not update.effective_chat.type == "private":
+            update.message.reply_text("Message sent in DM")
 
-    update.message.from_user.send_message(help_text)
+        if update.message.from_user:
+            update.message.from_user.send_message(help_text)
 
 
-commands = {
+commands: Dict[str, Callable] = {
     # "command": function
     "age": api.age,
     "ban": chat_management.ban,
@@ -78,12 +85,12 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    defaults = Defaults(parse_mode=ParseMode.MARKDOWN)
-    updater = Updater(
+    defaults: 'telegram.ext.Defaults' = Defaults(parse_mode=ParseMode.MARKDOWN)
+    updater: 'telegram.ext.Updater' = Updater(
         token=config["TELEGRAM_BOT_TOKEN"], defaults=defaults
     )
-    dispatcher = updater.dispatcher
-    j = updater.job_queue
+    dispatcher: 'telegram.ext.Dispatcher' = updater.dispatcher
+    job_queue: 'telegram.ext.JobQueue' = updater.job_queue
 
     for cmd, func in commands.items():
         dispatcher.add_handler(CommandHandler(cmd, func, run_async=True))
@@ -99,7 +106,7 @@ def main():
 
     dispatcher.add_handler(CallbackQueryHandler(api.search_button))
 
-    j.run_daily(
+    job_queue.run_daily(
         api.clear, time=datetime.time(18, 30)
     )
 

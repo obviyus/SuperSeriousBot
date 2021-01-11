@@ -19,8 +19,8 @@ try:
               "AUDIO_RESTORE_USERS": os.environ["AUDIO_RESTORE_USERS"].split()}
 except KeyError:
     try:
-        with open("config.yaml", 'r') as config:
-            config = yaml.safe_load(config)
+        with open("config.yaml", 'r') as config_file:
+            config = yaml.safe_load(config_file)
     except FileNotFoundError:
         raise FileNotFoundError(
             "\nPlease create a 'config.yaml' file and put the credentials needed for the bot in it.\n"
