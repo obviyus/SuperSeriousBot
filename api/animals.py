@@ -1,48 +1,37 @@
 from requests import get
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import telegram
 
 
-def shiba(update, context):
+def shiba(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Get a random Shiba Inu image"""
 
-    response = get('http://shibe.online/api/shibes?count=1&urls=true&httpsUrls=false')
-    response = response.json()
-
-    context.bot.send_photo(
-        photo=response[0],
-        chat_id=update.message.chat_id
-    )
+    response: list = get('http://shibe.online/api/shibes?count=1&urls=true&httpsUrls=false').json()
+    if update.message:
+        update.message.reply_photo(response[0])
 
 
-def fox(update, context):
+def fox(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Get a random Fox image"""
 
-    response = get('https://randomfox.ca/floof/')
-    response = response.json()
-
-    context.bot.send_photo(
-        photo=response['image'],
-        chat_id=update.message.chat_id
-    )
+    response: dict = get('https://randomfox.ca/floof/').json()
+    if update.message:
+        update.message.reply_photo(response['image'])
 
 
-def cat(update, context):
+def cat(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Get a random Cat image"""
 
-    response = get('https://api.thecatapi.com/v1/images/search')
-    response = response.json()
-
-    context.bot.send_photo(
-        photo=response[0]['url'],
-        chat_id=update.message.chat_id
-    )
+    response: list = get('https://api.thecatapi.com/v1/images/search').json()
+    if update.message:
+        update.message.reply_photo(response[0]['url'])
 
 
-def catfact(update, context):
+def catfact(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Get a random Cat Fact"""
 
-    response = get('https://cat-fact.herokuapp.com/facts/random')
-    response = response.json()
-
-    update.message.reply_text(
-        text=response["text"]
-    )
+    response: dict = get('https://cat-fact.herokuapp.com/facts/random').json()
+    if update.message:
+        update.message.reply_text(response["text"])
