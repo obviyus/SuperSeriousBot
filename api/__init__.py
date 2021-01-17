@@ -1,6 +1,6 @@
 """Commands for general use."""
 from .age import age
-from .animals import shiba, fox, cat, catfact
+from .animals import animal
 from .audio import jogi, forwhat, pon
 from .calc import calc
 from .caption import caption
