@@ -1,7 +1,7 @@
 """Commands for general use."""
 from .age import age
 from .animals import animal
-from .audio import jogi, forwhat, pon
+from .audio import audio
 from .calc import calc
 from .caption import caption
 from .countdown import countdown
