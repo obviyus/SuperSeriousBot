@@ -9,15 +9,15 @@ if TYPE_CHECKING:
 def animal(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Get animal"""
     if update.message:
-        message = update.message
+        message: 'telegram.Message' = update.message
     else:
         return
 
     animal: str
     if update.message.caption:
-        animal = list(update.message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values())[0]
+        animal = list(message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values())[0]
     elif update.message.text:
-        animal = list(update.message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
+        animal = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
 
     urls: Dict[str, Tuple[str, Callable]] = {
         "/shiba": (
