@@ -1,10 +1,17 @@
 from urllib.parse import urlencode
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import telegram
 
 
-def make(update, context):
+def make(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Generate QR code from given data"""
-    message = update.message
-    data = ' '.join(context.args)
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
+    data: str = ' '.join(context.args) if context.args else ''
 
     if not data:
         message.reply_text(
@@ -13,8 +20,5 @@ def make(update, context):
         )
 
     else:
-        payload = {'data': data}
-        result = "https://api.qrserver.com/v1/create-qr-code?" + urlencode(payload)
-        message.reply_photo(
-            photo=result,
-        )
+        result: str = "https://api.qrserver.com/v1/create-qr-code?" + urlencode({'data': data})
+        message.reply_photo(photo=result)

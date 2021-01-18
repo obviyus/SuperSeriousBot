@@ -1,13 +1,21 @@
 from spurdify import spurdify
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import telegram
 
 
-def spurdo(update, context):
+def spurdo(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Spurdify text"""
-    message = update.message
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
 
+    text: str
     if not context.args:
         try:
-            args = message.reply_to_message.text or message.reply_to_message.caption
+            args: str = message.reply_to_message.text or message.reply_to_message.caption  # type: ignore
             text = spurdify(args)
         except AttributeError:
             text = "*Usage:* `/spurdo {TEXT}`\n"\
@@ -16,7 +24,7 @@ def spurdo(update, context):
     else:
         text = spurdify(' '.join(context.args))
 
-    try:
+    if message.reply_to_message:
         message.reply_to_message.reply_text(text=text)
-    except AttributeError:
+    else:
         message.reply_text(text=text)
