@@ -15,5 +15,5 @@ pyyaml==5.3.1
 qbittorrent-api==2020.12.15
 requests==2.25.1
 spurdify==0.3.0
-urllib3==1.26.2
+urllib3==1.26.3
 wolframalpha==4.1.1
