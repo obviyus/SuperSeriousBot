@@ -13,4 +13,3 @@ def gif(update, context):
     update.message.reply_animation(
         animation=url,
     )
-    
