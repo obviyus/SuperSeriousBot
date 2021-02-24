@@ -12,6 +12,7 @@ COPY / .
 
 # install dependencies
 RUN apt-get update \
+    && apt-get upgrade -y \
     && pip3 install --no-cache-dir -r requirements.txt \
     && apt-get autoremove -y
 
