@@ -6,6 +6,7 @@ from .calc import calc
 from .caption import caption
 from .countdown import countdown
 from .currency import currency
+from .gif import gif
 from .goodreads import goodreads
 from .hltb import hltb
 from .insult import insult
