@@ -6,7 +6,7 @@ flake8>=3.8.4
 geopy==2.1.0
 googletrans==3.0.0
 gtts==2.2.1
-howlongtobeatpy==0.1.15
+howlongtobeatpy==0.1.17
 mysql-connector-python~=8.0.22
 pillow==8.1.0
 pre-commit>=2.9.3
