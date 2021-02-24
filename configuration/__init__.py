@@ -9,6 +9,7 @@ try:
               "MYSQL_PASSWORD": os.environ["MYSQL_PASSWORD"],
               "CLOUDMERSIVE_API_KEY": os.environ["CLOUDMERSIVE_API_KEY"],
               "WOLFRAM_APP_ID": os.environ["WOLFRAM_APP_ID"],
+              "GIPHY_API_KEY": os.environ["GIPHY_API_KEY"],
               "OPENWEATHER_API_KEY": os.environ["OPENWEATHER_API_KEY"],
               "GOODREADS_API_KEY": os.environ["GOODREADS_API_KEY"],
               "CLIMACELL_API_KEY": os.environ["CLIMACELL_API_KEY"],
