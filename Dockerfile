@@ -1,5 +1,5 @@
 # set base image (host OS)
-FROM python:3.8-alpine
+FROM python:3.9-slim
 
 # set the working directory in the container
 WORKDIR /code
@@ -10,15 +10,17 @@ COPY requirements.txt .
 # copy the content of the local src directory to the working directory
 COPY / .
 
+
 # install dependencies
-RUN apk update \
-    && apk add --no-cache \
+RUN apt-get update \
+    && apt-get install -y \
         # cloudmersive
-        gcc libressl-dev musl-dev libffi-dev \
+        gcc musl-dev libffi-dev \
         # pillow
-        jpeg-dev zlib-dev bash \
+        bash \
     && pip3 install --no-cache-dir -r requirements.txt \
-    && apk del gcc musl-dev
+    && apt-get remove gcc musl-dev -y \
+    && apt-get autoremove -y
 
 # command to run on container start
 CMD [ "python", "./main.py" ]
