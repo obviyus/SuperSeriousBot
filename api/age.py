@@ -1,10 +1,23 @@
+from typing import TYPE_CHECKING
+
 import cloudmersive_image_api_client
+
 from configuration import config
 
+if TYPE_CHECKING:
+    import telegram
+    import telegram.ext
 
-def age(update, context):
+
+def age(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Guesses age and gender of people in an image."""
+    text: str
     try:
+        if update.message:
+            message: 'telegram.Message' = update.message
+        else:
+            return
+        
         message = update.message.reply_to_message
 
         file = context.bot.getFile(message.photo[-1].file_id)

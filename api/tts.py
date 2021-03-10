@@ -1,16 +1,27 @@
-from gtts import gTTS
 from io import BytesIO
+from typing import TYPE_CHECKING
+
+from gtts import gTTS
+
+if TYPE_CHECKING:
+    import telegram
+    import telegram.ext
 
 
-def tts(update, context):
+def tts(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Convert text to speech in a given language using Google TTS"""
-    message = update.message
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
+
+    text: str
     if not context.args:
         try:
-            sentence = message.reply_to_message.text or message.reply_to_message.caption
-            tts = gTTS(sentence, lang='ja')
+            sentence: str = message.reply_to_message.text or message.reply_to_message.caption
+            speech: gTTS = gTTS(sentence, lang='ja')
             with BytesIO() as fp:
-                tts.write_to_fp(fp)
+                speech.write_to_fp(fp)
                 fp.name = f'tts__{sentence[:10]}.ogg'
                 fp.seek(0)
                 message.reply_audio(audio=fp)
@@ -35,9 +46,9 @@ def tts(update, context):
             message.reply_text(text="No value provided.")
         else:
             try:
-                tts = gTTS(sentence, lang=lang)
+                speech = gTTS(sentence, lang=lang)
                 with BytesIO() as fp:
-                    tts.write_to_fp(fp)
+                    speech.write_to_fp(fp)
                     fp.name = f'tts__{sentence[:10]}.ogg'
                     fp.seek(0)
                     message.reply_audio(audio=fp)

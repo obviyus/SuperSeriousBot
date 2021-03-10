@@ -1,8 +1,10 @@
+from typing import TYPE_CHECKING, Optional, Dict
+
 from requests import get
-from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     import telegram
+    import telegram.ext
 
 
 def wink(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -25,9 +27,9 @@ def response(message: Optional['telegram.Message'], action: str):
     if not message:
         return
 
-    response = get(f'https://some-random-api.ml/animu/{action}').json()
+    r: Dict = get(f'https://some-random-api.ml/animu/{action}').json()
 
     if message.reply_to_message:
-        message.reply_to_message.reply_animation(animation=response['link'])
+        message.reply_to_message.reply_animation(animation=r['link'])
     else:
-        message.reply_animation(animation=response['link'])
+        message.reply_animation(animation=r['link'])

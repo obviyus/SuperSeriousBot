@@ -1,4 +1,6 @@
+import datetime
 import logging
+from typing import TYPE_CHECKING, List, Dict, Callable
 
 from telegram import ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Defaults, Filters
@@ -6,9 +8,6 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 import api
 import chat_management
 from configuration import config
-
-import datetime
-from typing import TYPE_CHECKING, List, Dict, Callable
 
 if TYPE_CHECKING:
     import telegram
@@ -46,10 +45,9 @@ commands: Dict[str, Callable] = {
     "caption": api.caption,
     "cat": api.animal,
     "catfact": api.animal,
-    "convert": api.currency,
-    "countdown": api.countdown,
     "fox": api.animal,
     "fw": api.audio,
+    "gif": api.gif,
     "gr": api.goodreads,
     "help": help_cmd,
     "hltb": api.hltb,
@@ -62,14 +60,11 @@ commands: Dict[str, Callable] = {
     "pfp": api.pad_image,
     "pic": api.pic,
     "pon": api.audio,
-    "qr": api.make,
-    "shiba": api.animal,
     "search": api.search,
-    "shiba": api.shiba,
+    "shiba": api.animal,
     "spurdo": api.spurdo,
     "start": start,
     "stats": api.print_stats,
-    "time": api.time,
     "tl": api.translate,
     "tts": api.tts,
     "ud": api.ud,

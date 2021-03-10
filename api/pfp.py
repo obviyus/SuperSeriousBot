@@ -1,19 +1,27 @@
 from io import BytesIO
+from typing import TYPE_CHECKING
+
 from PIL import Image, ImageOps
 
+if TYPE_CHECKING:
+    import telegram
+    import telegram.ext
 
-def pad_image(update, context):
+
+def pad_image(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Pad images to 1:1 for use in profile pictures"""
 
-    message = update.message
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
 
     if not (message.reply_to_message and message.reply_to_message.photo):
         message.reply_text(
-            "*Usage:* \nReply to a photo with `/pfp {COLOR}`\n"
-            "*Example:* `/pfp red`\n"
-            "Defaults to black if none provided"
+            text="*Usage:* \nReply to a photo with `/pfp {COLOR}`\n"
+                 "*Example:* `/pfp red`\n"
+                 "Defaults to black if none provided"
         )
-
     else:
         pic = message.reply_to_message.photo[-1]
         size = (max(pic.width, pic.height), max(pic.width, pic.height))

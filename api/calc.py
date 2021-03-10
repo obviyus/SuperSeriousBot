@@ -1,9 +1,12 @@
-import wolframalpha
-from configuration import config
 from typing import TYPE_CHECKING
+
+import wolframalpha
+
+from configuration import config
 
 if TYPE_CHECKING:
     import telegram
+    import telegram.ext
 
 
 def calc(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -22,9 +25,9 @@ def calc(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
         client: wolframalpha.Client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
         result: wolframalpha.Result = client.query(query)
 
-        if result.success == 'true':
+        try:
             text = next(result.results).text
-        else:
-            text = "Invalid query"
+        except StopIteration:
+            text = "Invalid query."
 
     message.reply_text(text=text)

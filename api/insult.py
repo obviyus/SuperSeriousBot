@@ -1,8 +1,10 @@
-from requests import get
 from typing import TYPE_CHECKING
+
+from requests import get
 
 if TYPE_CHECKING:
     import telegram
+    import telegram.ext
 
 
 def insult(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -12,6 +14,7 @@ def insult(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
         message: 'telegram.Message' = update.message
     else:
         return
+
     response: dict = get('https://evilinsult.com/generate_insult.php?lang=en&type=json').json()
 
     if message.reply_to_message:

@@ -1,6 +1,7 @@
-import yaml
 import os
 from typing import Dict, Union
+
+import yaml
 
 try:
     # By default, try to look for API keys in environment variables
@@ -17,7 +18,7 @@ try:
         "JOGI_FILE_ID": os.environ["JOGI_FILE_ID"],
         "FOR_WHAT_ID": os.environ["FOR_WHAT_ID"],
         "PUNYA_SONG_ID": os.environ["PUNYA_SONG_ID"],
-        "AUDIO_RESTORE_USERS": os.environ["AUDIO_RESTORE_USERS"].split()
+        "AUDIO_RESTORE_USERS": os.environ["AUDIO_RESTORE_USERS"].split(),
     }
 except KeyError:
     try:

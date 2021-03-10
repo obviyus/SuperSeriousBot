@@ -1,15 +1,17 @@
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-import qbittorrentapi
 import time
 from typing import TYPE_CHECKING, Optional, Tuple, List
 
+import qbittorrentapi
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+
 if TYPE_CHECKING:
     import telegram
-
+    import telegram.ext
 
 qbt_client: qbittorrentapi.Client = qbittorrentapi.Client()  # uses env vars
 qbt_client.search.install_plugin(sources=[
-    "https://raw.githubusercontent.com/libellula/qbt-plugins/c81ccd168f3d8e4e8d8492bcef19e1740cc18aa7/nyaapantsu.py"  # Nyaa.net
+    "https://raw.githubusercontent.com/libellula/qbt-plugins/c81ccd168f3d8e4e8d8492bcef19e1740cc18aa7/nyaapantsu.py"
+    # Nyaa.net
 ])
 qbt_client.search.update_plugins()
 
@@ -19,18 +21,17 @@ total_items: int = 24
 
 
 def construct_message(
-    magnet_list: List[str],
-    desc_list: List[str],
-    min_offset: int
+        magnet_list: List[str],
+        desc_list: List[str],
+        min_offset: int
 ) -> Tuple[str, InlineKeyboardMarkup]:
-
     max_offset: int = min(
         min_offset + items_per_page,
         len(magnet_list)
     )
 
     kb: list = [
-        InlineKeyboardButton(text=f'Torrent {i+1}', callback_data=f'{i}')
+        InlineKeyboardButton(text=f'Torrent {i + 1}', callback_data=f'{i}')
         for i in range(min_offset, max_offset)
     ]
 
@@ -97,15 +98,15 @@ def search(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
         context.chat_data['offset'] = 0
         for result in search_results[:]:
             if (
-                # TPB returns a placeholder result if nothing is found
-                (
-                    result.fileName == "No results returned"
-                    and result.nbSeeders == 0
-                    and result.nbLeechers == 0
-                    and result.fileSize == 0
-                )
-                # Jackett error still shows up sometimes
-                or result.fileName.startswith("Jackett: api key error!")
+                    # TPB returns a placeholder result if nothing is found
+                    (
+                            result.fileName == "No results returned"
+                            and result.nbSeeders == 0
+                            and result.nbLeechers == 0
+                            and result.fileSize == 0
+                    )
+                    # Jackett error still shows up sometimes
+                    or result.fileName.startswith("Jackett: api key error!")
             ):
                 search_results.remove(result)
             else:
@@ -113,7 +114,7 @@ def search(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
                 context.chat_data['desc_list'].append(
                     f"<b>Name:</b> <i>{result.fileName}</i>\n"
                     f"<b>Seeders:</b> <i>{result.nbSeeders}</i>\n"
-                    f"<b>Size:</b> <i>{round(result.fileSize/(1024**3),2)} GB</i>"
+                    f"<b>Size:</b> <i>{round(result.fileSize / (1024 ** 3), 2)} GB</i>"
                 )
 
         context.chat_data['magnet_list'] = [
@@ -139,7 +140,6 @@ def search(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
 
 
 def search_button(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
-
     query: Optional['telegram.CallbackQuery'] = update.callback_query
     if not query or not query.message or not query.message.reply_to_message:
         return
@@ -150,9 +150,9 @@ def search_button(update: 'telegram.Update', context: 'telegram.ext.CallbackCont
         return
 
     if (
-        not context.chat_data
-        or 'search_msg_id' not in context.chat_data
-        or query.message.message_id != context.chat_data['search_msg_id']
+            not context.chat_data
+            or 'search_msg_id' not in context.chat_data
+            or query.message.message_id != context.chat_data['search_msg_id']
     ):
         query.answer('Search expired')
         query.edit_message_text(text='Search expired')

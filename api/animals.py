@@ -1,9 +1,11 @@
-from telegram import MessageEntity
-from requests import get
 from typing import TYPE_CHECKING, Dict, Tuple, Callable, Union
+
+from requests import get
+from telegram import MessageEntity
 
 if TYPE_CHECKING:
     import telegram
+    import telegram.ext
 
 
 def animal(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:

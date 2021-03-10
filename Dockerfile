@@ -13,6 +13,7 @@ COPY / .
 # install dependencies
 RUN apt-get update \
     && apt-get upgrade -y \
+    && apt-get install gcc musl-dev -y \
     && pip3 install --no-cache-dir -r requirements.txt \
     && apt-get autoremove -y
 

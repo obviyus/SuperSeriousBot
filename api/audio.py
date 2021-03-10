@@ -1,9 +1,12 @@
-from telegram import MessageEntity
-from configuration import config
 from typing import TYPE_CHECKING
+
+from telegram import MessageEntity
+
+from configuration import config
 
 if TYPE_CHECKING:
     import telegram
+    import telegram.ext
 
 
 def audio(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -19,6 +22,8 @@ def audio(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
         audio = list(message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values())[0]
     elif update.message.text:
         audio = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
+    else:
+        return
 
     file_id_names: dict = {
         "/jogi": "jogi_file_id",
@@ -31,12 +36,12 @@ def audio(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
 
     # Failsafe since I'm not certain how long file_ids persist If they do forever we can keep this for pranks
     if (
-        message.from_user
-        and message.from_user.username in config["AUDIO_RESTORE_USERS"]
-        and update.effective_chat
-        and update.effective_chat.type == "private"
-        and message.reply_to_message
-        and message.reply_to_message.voice
+            message.from_user
+            and message.from_user.username in config["AUDIO_RESTORE_USERS"]
+            and update.effective_chat
+            and update.effective_chat.type == "private"
+            and message.reply_to_message
+            and message.reply_to_message.voice
     ):
         data[file_id_names[audio]] = message.reply_to_message.voice.file_id
         message.reply_text(f"Jogi file ID set to: {data[file_id_names[audio]]}")
