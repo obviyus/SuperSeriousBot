@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 
 def pad_image(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Pad images to 1:1 for use in profile pictures"""
-    text: str
     if update.message:
         message: 'telegram.Message' = update.message
         if not (message.reply_to_message and message.reply_to_message.photo):
@@ -20,9 +19,9 @@ def pad_image(update: 'telegram.Update', context: 'telegram.ext.CallbackContext'
                      "Defaults to black if none provided"
             )
         else:
-            pic = message.reply_to_message.photo[-1]
+            pic: telegram.PhotoSize = message.reply_to_message.photo[-1]
             size: Tuple[int, int] = (max(pic.width, pic.height), max(pic.width, pic.height))
-            color: str = ''.join(context.args) or 'black'
+            color: str = ''.join(context.args) if context.args else 'black'
 
             with BytesIO(pic.get_file().download_as_bytearray()) as pic_file, BytesIO() as dp:
                 try:

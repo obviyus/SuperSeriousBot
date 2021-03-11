@@ -48,7 +48,7 @@ def weather(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
     else:
         return
 
-    query: str = ' '.join(context.args)
+    query: str = ' '.join(context.args) if context.args else ''
     parse_mode: str = 'Markdown'
     text: str
 
@@ -62,7 +62,7 @@ def weather(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
         try:
             payload: Dict[str, str] = {
                 'location': f'{location.latitude},{location.longitude}',
-                'apikey': config["CLIMACELL_API_KEY"],
+                'apikey': config["CLIMACELL_API_KEY"],  # type: ignore
                 'fields': "cloudCover,temperature,humidity,"
                           "windSpeed,weatherCode",
                 'startTime': datetime.datetime.now().replace(microsecond=0).isoformat() + 'Z',

@@ -11,6 +11,10 @@ if TYPE_CHECKING:
 
 def joke(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Get a random joke"""
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
 
     # Randomly choose between these two APIs
     response: Dict
@@ -22,7 +26,7 @@ def joke(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
     text: str
     punchline: str
 
-    update.message.reply_text(text=response["setup"])
+    message.reply_text(text=response["setup"])
     time.sleep(2.0)
 
     try:
@@ -36,7 +40,7 @@ def joke(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
 
     context.bot.send_message(
         text=punchline[:-1] + " 😆",
-        chat_id=update.message.chat_id
+        chat_id=message.chat_id
     )
 
     time.sleep(2.0)
@@ -45,5 +49,5 @@ def joke(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
     if random.random() < 0.01:
         context.bot.send_message(
             text="Please don’t kick me 👉👈",
-            chat_id=update.message.chat_id
+            chat_id=message.chat_id
         )

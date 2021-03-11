@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 import cloudmersive_image_api_client
 from cloudmersive_image_api_client import Configuration, FaceApi
@@ -20,10 +20,10 @@ def age(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
             raise AttributeError
 
         file: telegram.File = context.bot.getFile(message.photo[-1].file_id)
-        configuration: Configuration = cloudmersive_image_api_client.Configuration()
-        configuration.api_key['Apikey']: Dict = config["CLOUDMERSIVE_API_KEY"]
+        configuration: Configuration = Configuration()
+        configuration.api_key['Apikey'] = config["CLOUDMERSIVE_API_KEY"]
 
-        api_instance: FaceApi = cloudmersive_image_api_client.FaceApi(
+        api_instance: FaceApi = FaceApi(
             cloudmersive_image_api_client.ApiClient(configuration))
         file.download('classify.jpg')
 

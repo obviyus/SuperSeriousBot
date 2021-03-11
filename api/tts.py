@@ -16,9 +16,10 @@ def tts(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
         return
 
     text: str
+    lang: str
     if not context.args:
         try:
-            sentence: str = message.reply_to_message.text or message.reply_to_message.caption
+            sentence: str = message.reply_to_message.text or message.reply_to_message.caption  # type: ignore
             speech: gTTS = gTTS(sentence, lang='ja')
             with BytesIO() as fp:
                 speech.write_to_fp(fp)

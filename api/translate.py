@@ -16,11 +16,15 @@ def translate(update: 'telegram.Update', context: 'telegram.ext.CallbackContext'
         return
 
     text: str
+    sentence: str
+    translator: Translator
+    translated: Translated
+
     if not context.args:
         try:
-            args: str = message.reply_to_message.text or message.reply_to_message.caption
-            translator: Translator = Translator()
-            translated: Translated = translator.translate(args, dest='en')
+            args: str = message.reply_to_message.text or message.reply_to_message.caption  # type: ignore
+            translator = Translator()
+            translated = translator.translate(args, dest='en')
             text = translated.__dict__()["text"]
         except AttributeError:
             text = "*Usage:* `/tl {DEST} - {SENTENCE}`\n" \

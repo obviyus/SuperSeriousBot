@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import mysql.connector
-from mysql.connector import errorcode, MySQLConnection, CMySQLConnection
+from mysql.connector import errorcode
 
 from configuration import config
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     import telegram.ext
 
 try:
-    conn: Union[CMySQLConnection, MySQLConnection] = mysql.connector.connect(
+    conn = mysql.connector.connect(
         host=config["MYSQL_IP_ALIAS"],
         user=config["MYSQL_USER"],
         passwd=config["MYSQL_PASSWORD"],

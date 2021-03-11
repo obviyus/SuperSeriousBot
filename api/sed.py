@@ -22,8 +22,8 @@ def sed(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
         string: str = message.reply_to_message.text or message.reply_to_message.caption  # type: ignore
         _, search, replace = message.text.split('/', 2)  # type: ignore
 
-        result = regex.sub(search, replace, string, regex.POSIX)
+        result: str = regex.sub(search, replace, string, regex.POSIX)
 
-        reply = f"{result}" if result else ""
+        reply: str = f"{result}" if result else ""
 
         message.reply_to_message.reply_text(text=reply)

@@ -25,6 +25,8 @@ def audio(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
     else:
         return
 
+    audio = audio.partition('@')[0]
+
     file_id_names: dict = {
         "/jogi": "jogi_file_id",
         "/pon": "punya_song_id",

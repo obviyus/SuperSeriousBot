@@ -100,10 +100,10 @@ def search(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
             if (
                     # TPB returns a placeholder result if nothing is found
                     (
-                            result.fileName == "No results returned"
-                            and result.nbSeeders == 0
-                            and result.nbLeechers == 0
-                            and result.fileSize == 0
+                        result.fileName == "No results returned"
+                        and result.nbSeeders == 0
+                        and result.nbLeechers == 0
+                        and result.fileSize == 0
                     )
                     # Jackett error still shows up sometimes
                     or result.fileName.startswith("Jackett: api key error!")

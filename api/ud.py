@@ -15,9 +15,9 @@ def ud(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> No
     else:
         return
 
-    word: str = ' '.join(context.args)
-
     text: str
+    word: str = ' '.join(context.args) if context.args else ''
+
     if not word:
         text = "*Usage:* `/ud {QUERY}`\n" \
                "*Example:* `/ud boomer`\n"
@@ -26,7 +26,7 @@ def ud(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> No
 
         if result['list']:
             # Sort to get result with most thumbs up
-            result: Dict = max(result, key=lambda x: x['thumbs_up'])
+            result = max(result['list'], key=lambda x: x['thumbs_up'])
 
             text = f"""*{result["word"]}*\n\n{result["definition"]}\n\n_{result["example"]}_\n\n`""" \
                    f"""{emoji.emojize(f":thumbs_up: × {result['thumbs_up']}")}`"""
