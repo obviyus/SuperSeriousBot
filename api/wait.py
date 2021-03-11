@@ -11,14 +11,12 @@ if TYPE_CHECKING:
 
 def wait(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """What Anime Is This?"""
-    if update.message:
-        message: 'telegram.Message' = update.message
-    else:
-        return
-
     text: str
     try:
-        message = message.reply_to_message
+        if update.message and update.message.reply_to_message:
+            message: 'telegram.Message' = update.message.reply_to_message
+        else:
+            return
 
         file: telegram.File = context.bot.getFile(message.photo[-1].file_id)
         url: str = f"https://trace.moe/api/search?url={file.file_path}"

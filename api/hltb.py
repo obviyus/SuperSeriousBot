@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, Optional, List, Any
 
 from howlongtobeatpy import HowLongToBeat
 
@@ -26,7 +26,7 @@ def hltb(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
 
         if results:
             # Return result with highest similarity to query
-            best_guess = max(results, key=lambda element: element.similarity)
+            best_guess: Any = max(results, key=lambda element: element.similarity)
 
             # check if non-zero value exists for main gameplay
             if best_guess.gameplay_main != -1:

@@ -1,6 +1,7 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
 import cloudmersive_image_api_client
+from cloudmersive_image_api_client import Configuration, FaceApi
 
 from configuration import config
 
@@ -13,18 +14,17 @@ def age(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
     """Guesses age and gender of people in an image."""
     text: str
     try:
-        if update.message:
-            message: 'telegram.Message' = update.message
+        if update.message and update.message.reply_to_message:
+            message: 'telegram.Message' = update.message.reply_to_message
         else:
-            return
-        
-        message = update.message.reply_to_message
+            raise AttributeError
 
-        file = context.bot.getFile(message.photo[-1].file_id)
-        configuration = cloudmersive_image_api_client.Configuration()
-        configuration.api_key['Apikey'] = config["CLOUDMERSIVE_API_KEY"]
+        file: telegram.File = context.bot.getFile(message.photo[-1].file_id)
+        configuration: Configuration = cloudmersive_image_api_client.Configuration()
+        configuration.api_key['Apikey']: Dict = config["CLOUDMERSIVE_API_KEY"]
 
-        api_instance = cloudmersive_image_api_client.FaceApi(cloudmersive_image_api_client.ApiClient(configuration))
+        api_instance: FaceApi = cloudmersive_image_api_client.FaceApi(
+            cloudmersive_image_api_client.ApiClient(configuration))
         file.download('classify.jpg')
 
         try:
@@ -38,5 +38,5 @@ def age(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
 
         message.reply_text(text=text)
     except AttributeError:
-        update.message.reply_text(text="*Usage:* `/age`\n" \
+        update.message.reply_text(text="*Usage:* `/age`\n"
                                        "Type /age in response to an image. Only the first face is considered.\n")

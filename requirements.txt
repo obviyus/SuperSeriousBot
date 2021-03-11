@@ -1,7 +1,7 @@
 Babel==2.9.0
 cloudmersive_image_api_client==3.0.1
 dateparser==1.0.0
-emoji==1.2.0
+emoji>=1.2.0
 flake8>=3.8.4
 geopy==2.1.0
 googletrans==4.0.0-rc1
@@ -9,7 +9,7 @@ gtts==2.2.2
 howlongtobeatpy==0.1.17
 mysql-connector-python==8.0.23
 pillow==8.1.2
-pre-commit==2.11.1
+pre-commit>=2.11.1
 python-telegram-bot==13.3
 pyyaml==5.4.1
 qbittorrent-api==2020.12.15

@@ -2,9 +2,6 @@ from typing import TYPE_CHECKING, Union
 
 import mysql.connector
 from mysql.connector import errorcode, MySQLConnection, CMySQLConnection
-from mysql.connector.cursor import CursorBase, MySQLCursor, MySQLCursorBuffered, MySQLCursorRaw, MySQLCursorBufferedRaw, \
-    MySQLCursorDict, MySQLCursorBufferedDict, MySQLCursorNamedTuple, MySQLCursorBufferedNamedTuple, MySQLCursorPrepared
-from mysql.connector.cursor_cext import CMySQLCursor
 
 from configuration import config
 
@@ -19,8 +16,7 @@ try:
         passwd=config["MYSQL_PASSWORD"],
         database="chat_stats"
     )
-    cursor: Union[
-        CMySQLCursor, CursorBase, MySQLCursor, MySQLCursorBuffered, MySQLCursorRaw, MySQLCursorBufferedRaw, MySQLCursorDict, MySQLCursorBufferedDict, MySQLCursorNamedTuple, MySQLCursorBufferedNamedTuple, MySQLCursorPrepared] = conn.cursor()
+    cursor = conn.cursor()
 except mysql.connector.Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
         raise errorcode.ER_ACCESS_DENIED_ERROR("Something is wrong with your user name or password")
