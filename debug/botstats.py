@@ -14,7 +14,7 @@ cursor.execute(f"CREATE TABLE IF NOT EXISTS `commands` ( "
 
 
 def print_botstats(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
-    """Get daily chat stats starting 0:00 IST"""
+    """Get command usage stats"""
     if not update.message:
         return
 
