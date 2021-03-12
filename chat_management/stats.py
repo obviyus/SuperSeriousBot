@@ -1,39 +1,18 @@
+import logging
+import sqlite3
 from typing import TYPE_CHECKING
-
-import mysql.connector
-from mysql.connector import errorcode
-
-from configuration import config
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-try:
-    conn = mysql.connector.connect(
-        host=config["MYSQL_IP_ALIAS"],
-        user=config["MYSQL_USER"],
-        passwd=config["MYSQL_PASSWORD"],
-        database="chat_stats"
-    )
-    cursor = conn.cursor()
-except mysql.connector.Error as err:
-    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        raise errorcode.ER_ACCESS_DENIED_ERROR("Something is wrong with your user name or password")
-    elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        raise errorcode.ER_BAD_DB_ERROR("Database does not exist")
-    else:
-        raise RuntimeError(err)
+conn = sqlite3.connect('/code/stats.db', check_same_thread=False)
+cursor = conn.cursor()
 
 
 def check_table_exists(table_name: int) -> bool:
-    conn.ping(reconnect=True)
-    cursor.execute(f"""
-        SELECT COUNT(*)
-        FROM information_schema.tables
-        WHERE table_name = {table_name}
-        """)
-    return cursor.fetchone()[0] == 1
+    cursor.execute(f"""SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'""")
+    return len(cursor.fetchall()) == 1
 
 
 def print_stats(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -41,7 +20,6 @@ def print_stats(update: 'telegram.Update', context: 'telegram.ext.CallbackContex
     if not update.message:
         return
 
-    conn.ping(reconnect=True)
     chat_id: int = update.message.chat_id
     chat_title: str = update.message.chat.title
     text: str
@@ -60,7 +38,7 @@ def print_stats(update: 'telegram.Update', context: 'telegram.ext.CallbackContex
             text = f'Stats for **{chat_title}** \n'
             user_object = update.message.from_user
 
-            # Ignore
+            # Ignore special case for user
             if user_object.id == 1060827049:
                 text += f'_{user_object.first_name} - 100% degen_\n'
 
@@ -77,11 +55,11 @@ def print_stats(update: 'telegram.Update', context: 'telegram.ext.CallbackContex
 
 def clear(context: 'telegram.ext.CallbackContext') -> None:
     """"Reset message count to 0 for a chat"""
-    conn.ping(reconnect=True)
-    cursor.execute("SHOW TABLES")
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
 
     for (table_name,) in cursor.fetchall():
-        formula = f"TRUNCATE TABLE `{table_name}`"
+        logging.error(table_name)
+        formula = f"DROP TABLE IF EXISTS `{table_name}`"
         cursor.execute(formula)
 
     conn.commit()
@@ -92,12 +70,11 @@ def increment(update: 'telegram.Update', context: 'telegram.ext.CallbackContext'
     if not update.message:
         return
 
-    conn.ping(reconnect=True)
     chat_id: int = update.message.chat_id
     user_object = update.message.from_user
 
     if not check_table_exists(table_name=chat_id):
-        formula: str = f"CREATE TABLE `{chat_id}` ( " \
+        formula: str = f"CREATE TABLE IF NOT EXISTS `{chat_id}` ( " \
                        "`user_name` VARCHAR(255) NOT NULL UNIQUE, " \
                        "`message_count` INT unsigned NOT NULL DEFAULT '0', " \
                        "PRIMARY KEY (`user_name`))"
@@ -106,6 +83,6 @@ def increment(update: 'telegram.Update', context: 'telegram.ext.CallbackContext'
 
     increment_formula = f"INSERT INTO `{chat_id}` (user_name, message_count) " \
                         f"VALUES ('{user_object.first_name}', 1) " \
-                        "ON DUPLICATE KEY UPDATE message_count = message_count + 1"
+                        "ON CONFLICT(user_name) DO UPDATE SET message_count = message_count + 1"
     cursor.execute(increment_formula)
     conn.commit()

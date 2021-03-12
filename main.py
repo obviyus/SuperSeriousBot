@@ -2,11 +2,12 @@ import datetime
 import logging
 from typing import TYPE_CHECKING, List, Dict, Callable
 
-from telegram import ParseMode
+from telegram import ParseMode, MessageEntity
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Defaults, Filters
 
 import api
 import chat_management
+import debug
 from configuration import config
 
 if TYPE_CHECKING:
@@ -41,6 +42,7 @@ commands: Dict[str, Callable] = {
     # "command": function
     "age": api.age,
     "ban": chat_management.ban,
+    "botstats": debug.print_botstats,
     "calc": api.calc,
     "caption": api.caption,
     "cat": api.animal,
@@ -64,7 +66,7 @@ commands: Dict[str, Callable] = {
     "shiba": api.animal,
     "spurdo": api.spurdo,
     "start": start,
-    "stats": api.print_stats,
+    "stats": chat_management.print_stats,
     "tl": api.translate,
     "tts": api.tts,
     "ud": api.ud,
@@ -72,6 +74,23 @@ commands: Dict[str, Callable] = {
     "weather": api.weather,
     "wink": api.wink,
 }
+
+
+def funcHandler(update: 'telegram.Update', context: 'telegram.ext.CallbackContext'):
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
+
+    command: str
+    if update.message.text:
+        command = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
+    else:
+        return
+    command = command.partition('@')[0][1:]
+
+    commands[command](update, context)
+    debug.command_increment(command)
 
 
 def main():
@@ -88,21 +107,22 @@ def main():
     job_queue: 'telegram.ext.JobQueue' = updater.job_queue
 
     for cmd, func in commands.items():
-        dispatcher.add_handler(CommandHandler(cmd, func, run_async=True))
+        dispatcher.add_handler(CommandHandler(cmd, funcHandler, run_async=True))
 
     dispatcher.add_handler(MessageHandler(
-        Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"), api.sed
+        Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"),
+        api.sed
     ))
 
     dispatcher.add_handler(MessageHandler(
         Filters.text & ~Filters.command & ~Filters.update.edited_message & ~Filters.chat_type.private,
-        api.increment,
+        chat_management.increment,
     ))
 
     dispatcher.add_handler(CallbackQueryHandler(api.search_button))
 
     job_queue.run_daily(
-        api.clear, time=datetime.time(18, 30)
+        chat_management.clear, time=datetime.time(18, 30)
     )
 
     dispatcher.bot.set_my_commands([(cmd, func.__doc__) for cmd, func in commands.items()])
