@@ -1,26 +1,35 @@
+from typing import TYPE_CHECKING, Optional, Dict
+
 from requests import get
 
+if TYPE_CHECKING:
+    import telegram
+    import telegram.ext
 
-def wink(update, context):
+
+def wink(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Reply with a wink GIF"""
     response(update.message, 'wink')
 
 
-def pat(update, context):
+def pat(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Reply with a pat GIF"""
     response(update.message, 'pat')
 
 
-def hug(update, context):
+def hug(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Reply with a hug GIF"""
     response(update.message, 'hug')
 
 
-def response(message, action):
+def response(message: Optional['telegram.Message'], action: str):
     """Query API for appropriate action"""
-    response = get(f'https://some-random-api.ml/animu/{action}').json()
+    if not message:
+        return
 
-    try:
-        message.reply_to_message.reply_animation(animation=response['link'])
-    except AttributeError:
-        message.reply_animation(animation=response['link'])
+    r: Dict = get(f'https://some-random-api.ml/animu/{action}').json()
+
+    if message.reply_to_message:
+        message.reply_to_message.reply_animation(animation=r['link'])
+    else:
+        message.reply_animation(animation=r['link'])

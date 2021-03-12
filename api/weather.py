@@ -1,5 +1,5 @@
 import datetime
-import math
+from typing import TYPE_CHECKING, Dict
 from urllib.parse import urlencode
 
 from geopy.geocoders import Nominatim
@@ -7,16 +7,11 @@ from requests import get
 
 from configuration import config
 
+if TYPE_CHECKING:
+    import telegram
+    import telegram.ext
 
-def coords_to_tile(lat_deg, lon_deg, zoom):
-    lat_rad = math.radians(lat_deg)
-    n = 2.0 ** zoom
-    xtile = int((lon_deg + 180.0) / 360.0 * n)
-    ytile = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
-    return xtile, ytile
-
-
-weather_codes = {
+weather_codes: Dict[str, str] = {
     "1000": "Clear",
     "1001": "Cloudy",
     "1100": "Mostly Clear",
@@ -46,23 +41,28 @@ weather_codes = {
 }
 
 
-def weather(update, context):
+def weather(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Show weather at a location"""
-    message = update.message
-    query = ' '.join(context.args)
-    parse_mode = 'Markdown'
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
+
+    query: str = ' '.join(context.args) if context.args else ''
+    parse_mode: str = 'Markdown'
+    text: str
 
     if not query:
         text = "*Usage:* `/weather {LOCATION}`\n" \
                "*Example:* `/weather NIT Rourkela`"
     else:
-        geolocator = Nominatim(user_agent="SuperSeriousBot")
+        geolocator: Nominatim = Nominatim(user_agent="SuperSeriousBot")
         location = geolocator.geocode(query)
 
         try:
-            payload = {
+            payload: Dict[str, str] = {
                 'location': f'{location.latitude},{location.longitude}',
-                'apikey': config["CLIMACELL_API_KEY"],
+                'apikey': config["CLIMACELL_API_KEY"],  # type: ignore
                 'fields': "cloudCover,temperature,humidity,"
                           "windSpeed,weatherCode",
                 'startTime': datetime.datetime.now().replace(microsecond=0).isoformat() + 'Z',
@@ -73,14 +73,14 @@ def weather(update, context):
             response = get('https://data.climacell.co/v4/timelines?' + urlencode(payload))
 
             if response.status_code == 200:
-                data = response.json()['data']
-                current = data['timelines'][0]['intervals'][0]['values']
+                data: Dict = response.json()['data']
+                current: Dict = data['timelines'][0]['intervals'][0]['values']
 
-                temperature = current['temperature']
-                cloud_cover = current['cloudCover']
-                humidity = current['humidity']
-                wind_speed = current['windSpeed']
-                conditions = current['weatherCode']
+                temperature: str = current['temperature']
+                cloud_cover: str = current['cloudCover']
+                humidity: str = current['humidity']
+                wind_speed: str = current['windSpeed']
+                conditions: str = current['weatherCode']
 
                 text = f"<b>{location.address}</b>\n" \
                        f"<b>🌡️ Temperate</b>: {temperature}° C\n<b>☁ Cloud Cover</b>: {cloud_cover}%\n<b>💦 " \
@@ -88,14 +88,8 @@ def weather(update, context):
                        f"gusts up to {wind_speed} m/s "
                 parse_mode = 'HTML'
 
-                zoom = 5
-                x, y = coords_to_tile(location.latitude, location.longitude, zoom)
-                map_image = f'https://data.climacell.co/v4/map/tile/{zoom}/{x}/{y}/humidity?' \
-                            f'apikey={config["CLIMACELL_API_KEY"]} '
-
-                message.reply_photo(
-                    photo=map_image,
-                    caption=text,
+                message.reply_text(
+                    text=text,
                     parse_mode=parse_mode
                 )
                 return

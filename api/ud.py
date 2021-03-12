@@ -1,35 +1,35 @@
+from typing import TYPE_CHECKING, Dict
+
 import emoji
 from requests import get
 
+if TYPE_CHECKING:
+    import telegram
+    import telegram.ext
 
-def ud(update, context):
+
+def ud(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Query Urban Dictionary for word definition"""
-    message = update.message
-    word = ' '.join(context.args)
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
+
+    text: str
+    word: str = ' '.join(context.args) if context.args else ''
 
     if not word:
-        text = "*Usage:* `/ud {QUERY}`\n"\
+        text = "*Usage:* `/ud {QUERY}`\n" \
                "*Example:* `/ud boomer`\n"
     else:
-        result = get(f"http://api.urbandictionary.com/v0/define?term={word}")
-        result = result.json()
+        result: Dict = get(f"http://api.urbandictionary.com/v0/define?term={word}").json()
 
         if result['list']:
             # Sort to get result with most thumbs up
-            max_thumbs, idx = 0, 0
-            for index, value in enumerate(result['list']):
-                if max_thumbs < value["thumbs_up"]:
-                    idx = index
-                    max_thumbs = value["thumbs_up"]
+            result = max(result['list'], key=lambda x: x['thumbs_up'])
 
-            result = result['list'][idx]
-
-            heading = result["word"]
-            definition = result["definition"]
-            example = result["example"]
-            thumbs = emoji.emojize(f":thumbs_up: × {max_thumbs}")
-
-            text = f"*{heading}*\n\n{definition}\n\n_{example}_\n\n`{thumbs}`"
+            text = f"""*{result["word"]}*\n\n{result["definition"]}\n\n_{result["example"]}_\n\n`""" \
+                   f"""{emoji.emojize(f":thumbs_up: × {result['thumbs_up']}")}`"""
         else:
             text = "No entry found."
 

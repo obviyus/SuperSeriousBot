@@ -1,20 +1,24 @@
-from requests import get
 from random import choices
-from PIL import Image
-from io import BytesIO
+from typing import TYPE_CHECKING
+
+import requests
+
+if TYPE_CHECKING:
+    import telegram
+    import telegram.ext
 
 
-def pic(update, context):
+def pic(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Get a random image from imgur"""
-    chars = '01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghiklmnopqrstuvwxyz'
-    length = 5
+    if not update.message:
+        return
+
+    chars: str = '01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghiklmnopqrstuvwxyz'
+    length: int = 5
 
     while True:
-        img_code = choices(chars, k=length)
-        address = 'https://i.imgur.com/' + "".join(img_code) + '.jpg'
-        img = Image.open(BytesIO(get(address).content))
-
-        if img.size[0] != 161:
+        address: str = 'https://i.imgur.com/' + "".join(choices(chars, k=length)) + '.jpg'
+        if requests.get(address).url == address:
             break
 
     update.message.reply_photo(

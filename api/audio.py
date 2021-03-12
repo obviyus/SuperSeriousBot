@@ -1,58 +1,54 @@
+from typing import TYPE_CHECKING
+
+from telegram import MessageEntity
+
 from configuration import config
 
+if TYPE_CHECKING:
+    import telegram
+    import telegram.ext
 
-def jogi(update, context):
-    """Post jogi"""
-    message = update.message
-    data = context.bot_data
 
-    if "jogi_file_id" not in data:
-        data["jogi_file_id"] = config["JOGI_FILE_ID"]
+def audio(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+    """Post audio"""
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
+
+    data: dict = context.bot_data
+    audio: str
+    if update.message.caption:
+        audio = list(message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values())[0]
+    elif update.message.text:
+        audio = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
+    else:
+        return
+
+    audio = audio.partition('@')[0]
+
+    file_id_names: dict = {
+        "/jogi": "jogi_file_id",
+        "/pon": "punya_song_id",
+        "/fw": "for_what_id",
+    }
+
+    if file_id_names[audio] not in data:
+        data[file_id_names[audio]] = config[file_id_names[audio].upper()]
 
     # Failsafe since I'm not certain how long file_ids persist If they do forever we can keep this for pranks
-    if message.from_user.username in config["AUDIO_RESTORE_USERS"] and update.effective_chat.type == "private" and message.reply_to_message:
-        data["jogi_file_id"] = message.reply_to_message.voice.file_id
-        message.reply_text(f"Jogi file ID set to: {data['jogi_file_id']}")
+    if (
+            message.from_user
+            and message.from_user.username in config["AUDIO_RESTORE_USERS"]
+            and update.effective_chat
+            and update.effective_chat.type == "private"
+            and message.reply_to_message
+            and message.reply_to_message.voice
+    ):
+        data[file_id_names[audio]] = message.reply_to_message.voice.file_id
+        message.reply_text(f"Jogi file ID set to: {data[file_id_names[audio]]}")
     else:
         if message.reply_to_message:
-            message.reply_to_message.reply_voice(voice=data["jogi_file_id"])
+            message.reply_to_message.reply_voice(voice=data[file_id_names[audio]])
         else:
-            message.reply_voice(voice=data["jogi_file_id"])
-
-
-def forwhat(update, context):
-    """Post for what"""
-    message = update.message
-    data = context.bot_data
-
-    if "for_what_id" not in data:
-        data["for_what_id"] = config["FOR_WHAT_ID"]
-
-    # Failsafe since I'm not certain how long file_ids persist If they do forever we can keep this for pranks
-    if message.from_user.username in config["AUDIO_RESTORE_USERS"] and update.effective_chat.type == "private" and message.reply_to_message:
-        data["for_what_id"] = message.reply_to_message.voice.file_id
-        message.reply_text(f"Jogi file ID set to: {data['for_what_id']}")
-    else:
-        if message.reply_to_message:
-            message.reply_to_message.reply_voice(voice=data["for_what_id"])
-        else:
-            message.reply_voice(voice=data["for_what_id"])
-
-
-def pon(update, context):
-    """Post punya's theme"""
-    message = update.message
-    data = context.bot_data
-
-    if "punya_song_id" not in data:
-        data["punya_song_id"] = config["PUNYA_SONG_ID"]
-
-    # Failsafe since I'm not certain how long file_ids persist If they do forever we can keep this for pranks
-    if message.from_user.username in config["AUDIO_RESTORE_USERS"] and update.effective_chat.type == "private" and message.reply_to_message:
-        data["punya_song_id"] = message.reply_to_message.voice.file_id
-        message.reply_text(f"Jogi file ID set to: {data['punya_song_id']}")
-    else:
-        if message.reply_to_message:
-            message.reply_to_message.reply_voice(voice=data["punya_song_id"])
-        else:
-            message.reply_voice(voice=data["punya_song_id"])
+            message.reply_voice(voice=data[file_id_names[audio]])

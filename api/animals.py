@@ -1,48 +1,46 @@
+from typing import TYPE_CHECKING, Dict, Tuple, Callable, Union
+
 from requests import get
+from telegram import MessageEntity
+
+if TYPE_CHECKING:
+    import telegram
+    import telegram.ext
 
 
-def shiba(update, context):
-    """Get a random Shiba Inu image"""
+def animal(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+    """Get animal"""
+    if update.message:
+        message: 'telegram.Message' = update.message
+    else:
+        return
 
-    response = get('http://shibe.online/api/shibes?count=1&urls=true&httpsUrls=false')
-    response = response.json()
+    animal: str
+    if update.message.caption:
+        animal = list(message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values())[0]
+    elif update.message.text:
+        animal = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
 
-    context.bot.send_photo(
-        photo=response[0],
-        chat_id=update.message.chat_id
-    )
+    animal = animal.partition('@')[0]
 
+    urls: Dict[str, Tuple[str, Callable]] = {
+        "/shiba": (
+            'http://shibe.online/api/shibes?count=1&urls=true&httpsUrls=false',
+            lambda resp: message.reply_photo(resp[0])
+        ),
+        "/fox": (
+            'https://randomfox.ca/floof/',
+            lambda resp: message.reply_photo(resp['image'])
+        ),
+        "/cat": (
+            'https://api.thecatapi.com/v1/images/search',
+            lambda resp: message.reply_photo(resp[0]['url'])
+        ),
+        "/catfact": (
+            'https://cat-fact.herokuapp.com/facts/random',
+            lambda resp: message.reply_text(resp['text'])
+        ),
+    }
 
-def fox(update, context):
-    """Get a random Fox image"""
-
-    response = get('https://randomfox.ca/floof/')
-    response = response.json()
-
-    context.bot.send_photo(
-        photo=response['image'],
-        chat_id=update.message.chat_id
-    )
-
-
-def cat(update, context):
-    """Get a random Cat image"""
-
-    response = get('https://api.thecatapi.com/v1/images/search')
-    response = response.json()
-
-    context.bot.send_photo(
-        photo=response[0]['url'],
-        chat_id=update.message.chat_id
-    )
-
-
-def catfact(update, context):
-    """Get a random Cat Fact"""
-
-    response = get('https://cat-fact.herokuapp.com/facts/random')
-    response = response.json()
-
-    update.message.reply_text(
-        text=response["text"]
-    )
+    response: Union[list, dict] = get(urls[animal][0]).json()
+    urls[animal][1](response)
