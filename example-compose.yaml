@@ -11,13 +11,10 @@ services:
     # for dev
     # build: .
     volumes:
-      - ./:/db/
+      - /db/:/db/
     env_file:
       - ssgbot.env
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
   qbt:
     image: ghcr.io/linuxserver/qbittorrent
-
-volumes:
-  db-data:
