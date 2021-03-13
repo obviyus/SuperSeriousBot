@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-conn = sqlite3.connect('/code/steam_id.db', check_same_thread=False)
+conn = sqlite3.connect('/db/steam_id.db', check_same_thread=False)
 cursor = conn.cursor()
 
 formula: str = f"CREATE TABLE IF NOT EXISTS `telegram_steam_id` ( " \
