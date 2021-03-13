@@ -1,4 +1,3 @@
-import logging
 import sqlite3
 from typing import TYPE_CHECKING
 
@@ -6,7 +5,7 @@ if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-conn = sqlite3.connect('/code/stats.db', check_same_thread=False)
+conn = sqlite3.connect('/db/stats.db', check_same_thread=False)
 cursor = conn.cursor()
 
 
@@ -58,7 +57,6 @@ def clear(context: 'telegram.ext.CallbackContext') -> None:
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
 
     for (table_name,) in cursor.fetchall():
-        logging.error(table_name)
         formula = f"DROP TABLE IF EXISTS `{table_name}`"
         cursor.execute(formula)
 

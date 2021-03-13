@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   watchtower:
-    image: v2tec/watchtower
+    image: containrrr/watchtower
     restart: always
     command: --label-enable --cleanup --interval 300
     volumes:
@@ -11,7 +11,7 @@ services:
     # for dev
     # build: .
     volumes:
-      - ./:/code/
+      - ./:/db/
     env_file:
       - ssgbot.env
     labels:

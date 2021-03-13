@@ -1,13 +1,13 @@
 import sqlite3
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-conn = sqlite3.connect('/code/botstats.db', check_same_thread=False)
+conn = sqlite3.connect('/db/botstats.db', check_same_thread=False)
 cursor = conn.cursor()
-cursor.execute(f"CREATE TABLE IF NOT EXISTS `commands` ( "
+cursor.execute("CREATE TABLE IF NOT EXISTS `commands` ( "
                "`command_name` VARCHAR(255) NOT NULL UNIQUE, "
                "`command_count` INT unsigned NOT NULL DEFAULT '0', "
                "PRIMARY KEY (`command_name`))")
@@ -21,18 +21,18 @@ def print_botstats(update: 'telegram.Update', context: 'telegram.ext.CallbackCon
     text: str
 
     # Query to get top 10 users by message count
-    formula: str = f"SELECT * FROM `commands` ORDER BY command_count DESC LIMIT 10"
+    formula: str = "SELECT * FROM `commands` ORDER BY command_count DESC LIMIT 10"
 
     if update.effective_chat.type != 'private':
         cursor.execute(formula)
         rows = cursor.fetchall()
         total_commands = sum(row[1] for row in rows)
-        longest = max(rows, key=lambda element: len(element[0]))
+        longest: Tuple[str, int] = max(rows, key=lambda element: len(element[0]))
 
         if total_commands == 0:
             text = "No commands found."
         else:
-            text = f'Stats for **@SuperSeriousBot**: \n'
+            text = 'Stats for **@SuperSeriousBot**: \n'
 
             for command, count in rows:
                 text += f"`/{command}" + (len(longest[0]) - len(command) + 1) * " " + f"- {count}`\n"
