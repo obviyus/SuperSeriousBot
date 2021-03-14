@@ -80,7 +80,7 @@ def set_steam_id(update: 'telegram.Update', context: 'telegram.ext.CallbackConte
     else:
         return
 
-    username: str = ' '.join(context.args).strip() if context.args else ''
+    username: str = ' '.join(context.args) if context.args else ''
     text: str
 
     if not username:
