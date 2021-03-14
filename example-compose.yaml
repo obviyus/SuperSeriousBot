@@ -8,12 +8,15 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
   ssgbot:
     image: superserious/bot:latest
-    # for dev
+
+    # Build locally
     # build: .
     volumes:
       - /db/:/db/
     env_file:
       - ssgbot.env
+    depends_on:
+      - qbt
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
   qbt:
