@@ -86,7 +86,7 @@ def set_steam_id(update: 'telegram.Update', context: 'telegram.ext.CallbackConte
     if not username:
         text = "*Usage:* `/setid {STEAM_ACCOUNT_NAME}`\n" \
                "*Example:* `/setid obviyus`\n" \
-               "This is not your steam username, but your steam account name."
+               "This is not your steam username, but your steam account name or SteamID."
     elif ' ' in username:
         text = "This command does not work with Steam usernames."
     elif len(username) == 17 and username.isdigit():
@@ -95,6 +95,7 @@ def set_steam_id(update: 'telegram.Update', context: 'telegram.ext.CallbackConte
             params: Dict[str, str] = {"appid": "730", "key": STEAM_API_KEY, "steamid": username}
             response: Dict[str, Dict] = requests.get(url, params).json()
 
+            # Try to access the returned JSON to see if a valid response was returned
             _ = response["playerstats"]["stats"]
             telegram_user_id: int = message.from_user.id
 
