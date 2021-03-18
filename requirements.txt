@@ -16,5 +16,5 @@ qbittorrent-api==2020.12.15
 regex==2020.11.13
 requests==2.25.1
 spurdify==0.3.0
-urllib3==1.26.3
+urllib3==1.26.4
 wolframalpha==5.0.0
