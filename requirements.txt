@@ -12,7 +12,7 @@ pillow==8.2.0
 pre-commit>=2.11.1
 python-telegram-bot==13.4.1
 pyyaml==5.4.1
-qbittorrent-api==2020.12.15
+qbittorrent-api==2021.4.19
 regex==2020.11.13
 requests==2.25.1
 spurdify==0.3.0
