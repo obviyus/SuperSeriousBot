@@ -18,3 +18,7 @@ requests==2.25.1
 spurdify==0.3.0
 urllib3==1.26.4
 wolframalpha==5.0.0
+DateTime==4.3
+youtube_dl==2021.3.14
+uwuify==1.0.1
+python-dateutil==2.8.1

@@ -21,3 +21,4 @@ from .tts import tts
 from .ud import ud
 from .wait import wait
 from .weather import weather
+from .uwu import uwu

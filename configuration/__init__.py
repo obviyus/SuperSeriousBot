@@ -17,6 +17,7 @@ try:
         "PUNYA_SONG_ID": os.environ["PUNYA_SONG_ID"],
         "STEAM_API_KEY": os.environ["STEAM_API_KEY"],
         "WOLFRAM_APP_ID": os.environ["WOLFRAM_APP_ID"],
+        "YOUTUBE_API_KEY": os.environ["YOUTUBE_API_KEY"],
     }
 except KeyError:
     try:

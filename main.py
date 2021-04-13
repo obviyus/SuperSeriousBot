@@ -75,6 +75,7 @@ commands: Dict[str, Callable] = {
     "wait": api.wait,
     "weather": api.weather,
     "wink": api.wink,
+    "uwu": api.uwu,
 }
 
 
@@ -111,6 +112,11 @@ def main():
     for cmd, func in commands.items():
         dispatcher.add_handler(CommandHandler(cmd, funcHandler, run_async=True))
 
+    # dispatcher.add_handler(MessageHandler(
+    #     Filters.entity(MessageEntity.URL) | Filters.entity(MessageEntity.TEXT_LINK),
+    #     chat_management.link_handler,
+    # ))
+
     dispatcher.add_handler(MessageHandler(
         Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"),
         api.sed
@@ -129,7 +135,7 @@ def main():
 
     dispatcher.bot.set_my_commands([(cmd, func.__doc__) for cmd, func in commands.items()])
 
-    updater.start_polling(clean=True)
+    updater.start_polling(drop_pending_updates=True)
     print("Started bot")
     updater.idle()
 
