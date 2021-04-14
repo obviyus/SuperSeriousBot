@@ -4,6 +4,7 @@ ssgbot.env
 docker-compose.yaml
 classify.jpg
 .vscode
+*.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

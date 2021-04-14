@@ -69,9 +69,11 @@ commands: Dict[str, Callable] = {
     "spurdo": api.spurdo,
     "start": start,
     "stats": chat_management.print_stats,
+    "steamstats": api.steamstats,
     "tl": api.translate,
     "tts": api.tts,
     "ud": api.ud,
+    "uwu": api.uwu,
     "wait": api.wait,
     "weather": api.weather,
     "wink": api.wink,
@@ -129,7 +131,7 @@ def main():
 
     dispatcher.bot.set_my_commands([(cmd, func.__doc__) for cmd, func in commands.items()])
 
-    updater.start_polling(clean=True)
+    updater.start_polling(drop_pending_updates=True)
     print("Started bot")
     updater.idle()
 
