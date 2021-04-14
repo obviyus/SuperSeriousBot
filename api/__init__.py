@@ -16,9 +16,10 @@ from .response import wink, pat, hug
 from .search import search, search_button
 from .sed import sed
 from .spurdo import spurdo
+from .steamstats import steamstats
 from .translate import translate
 from .tts import tts
 from .ud import ud
+from .uwu import uwu
 from .wait import wait
 from .weather import weather
-from .uwu import uwu
