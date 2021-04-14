@@ -8,14 +8,14 @@ if TYPE_CHECKING:
 
 
 def uwu(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
-    """Spurdify text"""
+    """Uwuify text"""
     if update.message:
         message: 'telegram.Message' = update.message
     else:
         return
 
     text: str
-    flags = uwuify.SMILEY | uwuify.YU
+    flags: uwuify.UwuifyFlag = uwuify.SMILEY
 
     if not context.args:
         try:
