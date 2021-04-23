@@ -1,15 +1,13 @@
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Any
 
 import requests
-import re
+from telegram import MessageEntity
 
 from configuration import config
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
-
-import logging
 
 
 def tldr(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -20,41 +18,39 @@ def tldr(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
         return
 
     text: str
-    content: str
-
     try:
-        content: str = message.reply_to_message.text or message.reply_to_message.caption  # type: ignore
-    except AttributeError as e:
-        text = "*Usage:* `/tldr` in reply to a message or link.\n\nOnly works for 3 or more sentences."
-        message.reply_text(text=text)
+        content = message.reply_to_message.text
 
-        return
+        API_ENDPOINT: str = "https://api.smmry.com/"
+        params: Dict[str, Any] = {"SM_API_KEY": config["SMMRY_API_KEY"], "SM_LENGTH": 2}
 
-    match = re.search(r"(?P<url>https?://[^\s]+)", content)
+        if len(message.reply_to_message.parse_entities([MessageEntity.URL]).values()) == 1:
+            content_url = message.reply_to_message.parse_entities([MessageEntity.URL]).values()
+            params.update({"SM_URL": content_url, "SM_LENGTH": 3})
 
-    base_url: str = "https://api.smmry.com/"
-    params: Dict[str, str] = {"SM_API_KEY": config["SMMRY_API_KEY"], "SM_LENGTH": 3}
+            r = requests.post(url=API_ENDPOINT, params=params).json()
+        else:
+            content = content.replace('\r', '. ').replace('\n', '. ')
 
-    try:
-        params.update({"SM_URL": match.group("url")})
-        r = requests.post(url=base_url, params=params).json()
+            sentences: int = content.count(".")
+            if sentences <= 3:
+                text = "Content too short."
+                message.reply_text(text=text)
+
+                return
+            else:
+                data: Dict[str, str] = {"sm_api_input": content}
+                header_params: Dict[str, str] = {"Expect": "100-continue"}
+                r = requests.post(url=API_ENDPOINT, params=params, data=data, headers=header_params).json()
+
+        try:
+            text = r["sm_api_content"]
+            text += f"""\n\n**Content reduced by {r["sm_api_content_reduced"]}**"""
+        except KeyError:
+            text = "Content too short."
+
+    # If parent message is empty
     except AttributeError:
-        content = content.replace('\r', '').replace('\n', '')
+        text = "*Usage:* `/tldr` in reply to a message or link.\n\nOnly works for 3 or more sentences."
 
-        sentences: int = content.count(".")
-        if sentences <= 3:
-            message.reply_text(text="Content too short.")
-            return
-
-        data: Dict[str, str] = {"sm_api_input": content}
-        logging.error(content)
-        header_params: Dict[str, str] = {"Expect": "100-continue"}
-        r = requests.post(url=base_url, params=params, data=data, headers=header_params).json()
-
-    try:
-        text = r["sm_api_content"]
-        text += f"""\n\n**Content reduced by {r["sm_api_content_reduced"]}**"""
-
-        message.reply_text(text=text)
-    except KeyError:
-        message.reply_text(text="Content too short.")
+    message.reply_text(text=text)
