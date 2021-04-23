@@ -12,11 +12,12 @@ from .insult import insult
 from .joke import joke
 from .pfp import pad_image
 from .pic import pic
-from .response import wink, pat, hug
+from .response import hug, pat, wink
 from .search import search, search_button
 from .sed import sed
 from .spurdo import spurdo
 from .steamstats import steamstats
+from .tldr import tldr
 from .translate import translate
 from .tts import tts
 from .ud import ud

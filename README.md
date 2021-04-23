@@ -52,7 +52,7 @@ The config for the docker image uses environment variables in a file called `ssg
 
 Run with docker-compose as:
 ```bash
-$ docker-compose up -df example-compose.yaml
+$ docker-compose up -df
 ```
 
 To test if the bot is running, simply send a `/start` message to it.

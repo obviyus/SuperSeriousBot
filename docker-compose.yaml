@@ -7,12 +7,13 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   ssgbot:
-    image: superserious/bot:latest
+    # image: superserious/bot:latest
 
     # Build locally
-    # build: .
+    build: .
     volumes:
       - /db/:/db/
+      - .:/code
     env_file:
       - ssgbot.env
     depends_on:

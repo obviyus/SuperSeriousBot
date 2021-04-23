@@ -7,7 +7,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 
 import api
 import chat_management
-import debug
+import dev
 from configuration import config
 
 if TYPE_CHECKING:
@@ -42,7 +42,7 @@ commands: Dict[str, Callable] = {
     # "command": function
     "age": api.age,
     "ban": chat_management.ban,
-    "botstats": debug.print_botstats,
+    "botstats": dev.print_botstats,
     "calc": api.calc,
     "caption": api.caption,
     "cat": api.animal,
@@ -71,12 +71,14 @@ commands: Dict[str, Callable] = {
     "stats": chat_management.print_stats,
     "steamstats": api.steamstats,
     "tl": api.translate,
+    "tldr": api.tldr,
     "tts": api.tts,
     "ud": api.ud,
     "uwu": api.uwu,
     "wait": api.wait,
     "weather": api.weather,
     "wink": api.wink,
+    "groups": dev.groups,
 }
 
 
@@ -93,8 +95,14 @@ def funcHandler(update: 'telegram.Update', context: 'telegram.ext.CallbackContex
         return
     command = command.partition('@')[0][1:]
 
-    commands[command](update, context)
-    debug.command_increment(command)
+    if command != 'botstats' and command != 'groups':
+        commands[command](update, context)
+    else:
+        if message.from_user.username in config["AUDIO_RESTORE_USERS"]:
+            commands[command](update, context)
+        else:
+            message.reply_text(text="Unauthorized: You are not one of the developers of SSG Bot.")
+    dev.command_increment(command)
 
 
 def main():
