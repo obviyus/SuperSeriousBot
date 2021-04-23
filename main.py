@@ -71,6 +71,7 @@ commands: Dict[str, Callable] = {
     "stats": chat_management.print_stats,
     "steamstats": api.steamstats,
     "tl": api.translate,
+    "tldr": api.tldr,
     "tts": api.tts,
     "ud": api.ud,
     "uwu": api.uwu,
