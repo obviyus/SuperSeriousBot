@@ -24,10 +24,10 @@ def link_handler(update: 'telegram.Update', context: 'telegram.ext.CallbackConte
 
     hostname = split_url.hostname
 
-    if hostname == 'www.reddit.com':
+    if hostname == 'www.reddit.com' or hostname == 'reddit.com':
         text = reddit_parser(link_in_message)
         update.message.reply_text(text=text)
-    elif hostname == 'www.youtube.com':
+    elif hostname == 'www.youtube.com' or hostname == 'youtube.com':
         text = youtube_parser(link_in_message)
         update.message.reply_text(text=text)
     else:

@@ -22,5 +22,4 @@ def reddit_parser(reddit_url: str) -> str:
     #     except KeyError:
     #         pass
 
-    logging.error(text)
     return text

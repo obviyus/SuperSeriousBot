@@ -126,17 +126,17 @@ def main():
     dispatcher.add_handler(MessageHandler(
         Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"),
         api.sed
-    ))
+    ), group=0)
 
     dispatcher.add_handler(MessageHandler(
         Filters.text & ~Filters.command & ~Filters.update.edited_message & ~Filters.chat_type.private,
         chat_management.increment,
-    ))
+    ), group=1)
 
     dispatcher.add_handler(MessageHandler(
-        (Filters.text & (Filters.entity(MessageEntity.URL) | Filters.entity(MessageEntity.TEXT_LINK))),
+        Filters.text & (Filters.entity(MessageEntity.URL) | Filters.entity(MessageEntity.TEXT_LINK)),
         links.link_handler,
-    ))
+    ), group=3)
 
     dispatcher.add_handler(CallbackQueryHandler(api.search_button))
 
