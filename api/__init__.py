@@ -24,3 +24,4 @@ from .ud import ud
 from .uwu import uwu
 from .wait import wait
 from .weather import weather
+from .covid import cases

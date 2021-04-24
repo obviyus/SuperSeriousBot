@@ -8,6 +8,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 import api
 import chat_management
 import dev
+import links
 from configuration import config
 
 if TYPE_CHECKING:
@@ -79,6 +80,7 @@ commands: Dict[str, Callable] = {
     "weather": api.weather,
     "wink": api.wink,
     "groups": dev.groups,
+    "cases": api.cases,
 }
 
 
@@ -129,6 +131,11 @@ def main():
     dispatcher.add_handler(MessageHandler(
         Filters.text & ~Filters.command & ~Filters.update.edited_message & ~Filters.chat_type.private,
         chat_management.increment,
+    ))
+
+    dispatcher.add_handler(MessageHandler(
+        (Filters.text & (Filters.entity(MessageEntity.URL) | Filters.entity(MessageEntity.TEXT_LINK))),
+        links.link_handler,
     ))
 
     dispatcher.add_handler(CallbackQueryHandler(api.search_button))

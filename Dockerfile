@@ -14,6 +14,7 @@ COPY / .
 RUN apt-get update \
     && apt-get install gcc musl-dev -y --no-install-recommends \
     && pip3 install --no-cache-dir -r requirements.txt \
+    && pip3 install youtube-dl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

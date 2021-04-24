@@ -21,3 +21,5 @@ spurdify==0.3.0
 urllib3==1.26.4
 uwuify==1.0.1
 wolframalpha==5.0.0
+pytz==2021.1
+pafy==0.5.5
