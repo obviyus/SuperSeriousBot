@@ -4,6 +4,7 @@ from .animals import animal
 from .audio import audio
 from .calc import calc
 from .caption import caption
+from .covid import covid
 from .csgo import csgo, set_steam_id
 from .gif import gif
 from .goodreads import goodreads
@@ -24,4 +25,3 @@ from .ud import ud
 from .uwu import uwu
 from .wait import wait
 from .weather import weather
-from .covid import cases

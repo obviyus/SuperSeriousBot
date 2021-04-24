@@ -48,11 +48,13 @@ commands: Dict[str, Callable] = {
     "caption": api.caption,
     "cat": api.animal,
     "catfact": api.animal,
+    "covid": api.covid,
     "csgo": api.csgo,
     "fox": api.animal,
     "fw": api.audio,
     "gif": api.gif,
     "gr": api.goodreads,
+    "groups": dev.groups,
     "help": help_cmd,
     "hltb": api.hltb,
     "hug": api.hug,
@@ -79,8 +81,6 @@ commands: Dict[str, Callable] = {
     "wait": api.wait,
     "weather": api.weather,
     "wink": api.wink,
-    "groups": dev.groups,
-    "cases": api.cases,
 }
 
 
