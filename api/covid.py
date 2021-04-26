@@ -1,64 +1,152 @@
-from typing import TYPE_CHECKING, Dict
-
-import requests
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-API_ENDPOINT: str = "https://api.covid19india.org/v4/data.json"
+import io
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import numpy as np
+
+params = {
+    'legend.fontsize': 20,
+    'legend.handlelength': 2,
+    'font.family': "monospace",
+    'figure.figsize': (15, 10),
+}
+plt.rcParams.update(params)
+plt.style.use("dark_background")
+
+state_dict = {"AN": "Andaman and Nicobar Islands", "AP": " Andhra Pradesh", "AR": "Arunachal Pradesh", "AS": " Assam",
+              "BR": "Bihar", "CH": "Chandigarh", "CT": "Chhattisgarh", "DN": "Dadra and Nagar Haveli",
+              "DD": "Daman and Diu", "DL": "Delhi", "GA": "Goa", "GJ": "Gujarat", "HR": "Haryana",
+              "HP": " Himachal Pradesh", "JK": "Jammu and Kashmir", "JH": "Jharkand", "KA": "Karnataka", "KL": "Kerala",
+              "LA": "Ladakh", "LD": "Lakshadweep", "MP": "Madhya Pradesh", "MH": "Maharashtra", "MN": "Manipur",
+              "ML": "Meghalaya", "MZ": "Mizoram", "NL": "Nagaland", "OR": "Odisha", "PY": "Puducherry", "PB": "Punjab",
+              "RJ": "Rajasthan", "SK": "Sikkim", "TN": "Tamil Nadu", "TG": "Telangana", "TR": "Tripura",
+              "UP": "Uttar Pradesh", "UT": "Uttarakhand", "WB": "West Bengal"}
 
 
-def total() -> str:
-    r: Dict[str, Dict] = requests.get(API_ENDPOINT).json()
+def total(buffer: io.BytesIO, days: int) -> None:
+    plt.rcParams['axes.prop_cycle'] = plt.cycler(color=['#ea5455', '#1fab89', '#b19cd9'])
 
-    text = f"""COVID-19 India Stats: """
+    CSV_TIME_SERIES: str = "https://api.covid19india.org/csv/latest/case_time_series.csv"
+    df = pd.read_csv(CSV_TIME_SERIES)
 
-    population = r["TT"]["meta"]["population"]
-    text += "\n\nTotal Population: {:,}".format(r["TT"]["meta"]["population"])
+    df = df.drop(['Total Confirmed', 'Total Recovered', 'Total Deceased', 'Date'], axis=1, errors='ignore')
 
-    cases = r["TT"]["total"]["confirmed"]
-    recoveries = r["TT"]["total"]["recovered"]
-    tests = r["TT"]["total"]["tested"]
-    deceased = r["TT"]["total"]["deceased"]
-    vaccinated = r["TT"]["total"]["vaccinated"]
+    index = pd.date_range(start=df['Date_YMD'][0], end=df['Date_YMD'][len(df) - 1], freq="D")
+    index = [pd.to_datetime(date, format='%Y-%m-%d').date() for date in index]
+    df.index = index
 
-    text += f"\n\n % of total population:"
-    text += f"""\nTotal Cases: {"{:,}".format(cases)} ({round(cases / population * 100, 2)}%)"""
-    text += f"""\nTotal Tested: {"{:,}".format(tests)} ({round(tests / population * 100, 2)}%)"""
-    text += f"""\nTotal Vaccinations: {"{:,}".format(vaccinated)} ({round(vaccinated / population * 100, 2)}%)"""
+    if days:
+        df = df.tail(days)
 
-    text += f"\n\n % of total cases"
-    text += f"""\nTotal Recoveries: {"{:,}".format(recoveries)} ({round(recoveries / cases * 100, 2)}%)"""
-    text += f"""\nTotal Deaths: {"{:,}".format(deceased)} ({round(deceased / cases * 100, 2)}%)"""
+    df = df.drop('Date_YMD', axis=1)
+    ax = df.plot(y=['Daily Confirmed', 'Daily Recovered', 'Daily Deceased'], kind='line', linewidth=2.0)
 
-    return text
+    if not days or (days and days > 100):
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%B %Y'))
+    plt.gcf().autofmt_xdate()
+
+    plt.xlabel("Month")
+    plt.ylabel("Number of Cases")
+    plt.title("COVID-19 India")
+
+    plt.savefig(buffer, format='png', pad_inches=0.1, bbox_inches='tight')
 
 
-def statewise(state_name: str) -> str:
-    try:
-        r = requests.get(API_ENDPOINT).json()
-        _ = r[state_name]
-    except KeyError:
-        return "Invalid state code."
+def top_states(buffer: io.BytesIO, days: int) -> None:
+    plt.rcParams['axes.prop_cycle'] = plt.cycler(color=["#6886c5", "#f1935c", "#a1cae2", "#cd5d7d", "#838383"])
 
-    text = f"COVID-19 Stats for {state_name}:"
+    CSV_TIME_SERIES: str = "https://api.covid19india.org/csv/latest/state_wise_daily.csv"
+    df = pd.read_csv(CSV_TIME_SERIES)
+    df = df.drop(['Date', 'TT'], axis=1)
 
-    text += "\n\nTotal Cases: {:,}".format(r[state_name]["total"]["confirmed"])
-    text += "\nTotal Recoveries: {:,}".format(r[state_name]["total"]["recovered"])
-    text += "\nTotal Tested: {:,}".format(r[state_name]["total"]["tested"])
-    text += "\nTotal Deceased: {:,}".format(r[state_name]["total"]["deceased"])
-    text += "\nTotal Vaccinated: {:,}".format(r[state_name]["total"]["vaccinated"])
-    text += "\nTotal Population: {:,}".format(r[state_name]["meta"]["population"])
+    index = pd.date_range(start=df['Date_YMD'][0], end=df['Date_YMD'][len(df) - 1], freq="D")
+    index = [pd.to_datetime(date, format='%Y-%m-%d').date() for date in index]
 
-    text += f"\n\n{state_name} vs. Total:"
-    text += f"""\n{round(r[state_name]["meta"]["population"] / r["TT"]["meta"]["population"] * 100, 2)}% of population"""
-    text += f"""\n{round(r[state_name]["total"]["confirmed"] / r["TT"]["total"]["confirmed"] * 100, 2)}% of cases"""
-    text += f"""\n{round(r[state_name]["total"]["tested"] / r["TT"]["total"]["tested"] * 100, 2)}% of testing"""
-    text += f"""\n{round(r[state_name]["total"]["deceased"] / r["TT"]["total"]["deceased"] * 100, 2)}% of deaths"""
-    text += f"""\n{round(r[state_name]["total"]["vaccinated"] / r["TT"]["total"]["vaccinated"] * 100, 2)}% of vaccinations"""
+    confirmed = df.iloc[::3, :]
+    confirmed.index = index
 
-    return text
+    if days:
+        confirmed = confirmed.tail(days)
+    confirmed = confirmed.dropna().drop(['Date_YMD', 'Status'], axis=1)
+
+    s = confirmed.sum().sort_values(ascending=False, inplace=False)
+    confirmed = confirmed[s.index[:5]]
+
+    confirmed: pd.DataFrame = confirmed[confirmed.select_dtypes(include=[np.number]).ge(0).all(1)]
+
+    for column in confirmed.columns.values:
+        confirmed.rename(columns={column: state_dict[column]}, inplace=True)
+
+    ax = confirmed.dropna().plot(kind='line', linewidth=2.0)
+
+    if not days or (days and days > 100):
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%B %Y'))
+
+    plt.xlabel("Month")
+    plt.ylabel("Number of Cases")
+
+    plt.title("COVID-19 India - Top 5 Most Affected States")
+    plt.gcf().autofmt_xdate()
+
+    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.1)
+
+
+def statewise(buffer: io.BytesIO, state_name: str, days) -> None:
+    plt.rcParams['axes.prop_cycle'] = plt.cycler(color=['#ea5455', '#1fab89', '#b19cd9'])
+
+    CSV_TIME_SERIES: str = "https://api.covid19india.org/csv/latest/state_wise_daily.csv"
+    df = pd.read_csv(CSV_TIME_SERIES)
+    df = df.drop(['Date', 'TT'], axis=1)
+
+    index = pd.date_range(start=df['Date_YMD'][0], end=df['Date_YMD'][len(df) - 1], freq="D")
+    index = [pd.to_datetime(date, format='%Y-%m-%d').date() for date in index]
+
+    confirmed = df.iloc[::3, :]
+    recovered = df.iloc[1::3, :]
+    deceased = df.iloc[2::3, :]
+
+    confirmed.index = index
+    confirmed = confirmed.dropna().drop(['Date_YMD', 'Status'], axis=1)
+
+    recovered.index = index
+    recovered = recovered.dropna().drop(['Date_YMD', 'Status'], axis=1)
+
+    deceased.index = index
+    deceased = deceased.dropna().drop(['Date_YMD', 'Status'], axis=1)
+
+    state = confirmed[[state_name]]
+
+    state['Confirmed'] = confirmed[[state_name]]
+    state['Recovered'] = recovered[[state_name]]
+    state['Deceased'] = deceased[[state_name]]
+
+    if days:
+        state = state.tail(days)
+
+    state = state.drop([state_name], axis=1)
+    state = state[state.select_dtypes(include=[np.number]).ge(0).all(1)]
+
+    ax = state.dropna().plot(kind='line', linewidth=2.0)
+
+    if not days or (days and days > 100):
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%B %Y'))
+    plt.gcf().autofmt_xdate()
+
+    plt.xlabel("Month")
+    plt.ylabel("Number of Cases")
+    plt.title(f"COVID-19 India - {state_dict[state_name]}")
+
+    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.1)
 
 
 def covid(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -71,13 +159,19 @@ def covid(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
     query: str = context.args if context.args else ''
 
     if not query:
-        text = "*Usage:* `/covid {STATE_NAME}`\n" \
-               "*Example:* `/covid MH`" \
-               "\nTo see total stats use `\covid TT`"
+        text = "*Usage:* `/covid {STATE_NAME} {OPTIONAL: LAST N DAYS}`" \
+               "*\nExample:* `/covid MH 100`" \
+               "\nTo see total country stats use `\covid TT`"
     else:
-        if context.args[0] == 'TT':
-            text = total()
-        else:
-            text = statewise(context.args[0])
+        days = int(context.args[1]) if len(context.args) > 1 else None
+        context.args[0] = context.args[0].upper()
+        buf = io.BytesIO()
 
-    message.reply_text(text=text)
+        if context.args[0] == 'TT':
+            total(buf, days)
+        elif context.args[0] == 'TOP':
+            top_states(buf, days)
+        else:
+            statewise(buf, context.args[0], days)
+        buf.seek(0)
+        message.reply_photo(photo=buf)
