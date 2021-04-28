@@ -102,6 +102,8 @@ def top_states(buffer: io.BytesIO, days: int) -> None:
 
 def statewise(buffer: io.BytesIO, state_name: str, days) -> None:
     plt.rcParams['axes.prop_cycle'] = plt.cycler(color=['#ea5455', '#1fab89', '#b19cd9'])
+    if state_name not in state_dict:
+        return
 
     CSV_TIME_SERIES: str = "https://api.covid19india.org/csv/latest/state_wise_daily.csv"
     df = pd.read_csv(CSV_TIME_SERIES)
@@ -162,6 +164,7 @@ def covid(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
         text = "*Usage:* `/covid {STATE_NAME} {OPTIONAL: LAST N DAYS}`" \
                "*\nExample:* `/covid MH 100`" \
                "\nTo see total country stats use `\covid TT`"
+        message.reply_text(text)
     else:
         days = int(context.args[1]) if len(context.args) > 1 else None
         context.args[0] = context.args[0].upper()
@@ -173,5 +176,7 @@ def covid(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
             top_states(buf, days)
         else:
             statewise(buf, context.args[0], days)
+
         buf.seek(0)
         message.reply_photo(photo=buf)
+        buf.close()
