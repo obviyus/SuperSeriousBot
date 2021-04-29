@@ -20,14 +20,16 @@ params = {
 plt.rcParams.update(params)
 plt.style.use("dark_background")
 
-state_dict = {"AN": "Andaman and Nicobar Islands", "AP": " Andhra Pradesh", "AR": "Arunachal Pradesh", "AS": " Assam",
-              "BR": "Bihar", "CH": "Chandigarh", "CT": "Chhattisgarh", "DN": "Dadra and Nagar Haveli",
-              "DD": "Daman and Diu", "DL": "Delhi", "GA": "Goa", "GJ": "Gujarat", "HR": "Haryana",
-              "HP": " Himachal Pradesh", "JK": "Jammu and Kashmir", "JH": "Jharkand", "KA": "Karnataka", "KL": "Kerala",
-              "LA": "Ladakh", "LD": "Lakshadweep", "MP": "Madhya Pradesh", "MH": "Maharashtra", "MN": "Manipur",
-              "ML": "Meghalaya", "MZ": "Mizoram", "NL": "Nagaland", "OR": "Odisha", "PY": "Puducherry", "PB": "Punjab",
-              "RJ": "Rajasthan", "SK": "Sikkim", "TN": "Tamil Nadu", "TG": "Telangana", "TR": "Tripura",
-              "UP": "Uttar Pradesh", "UT": "Uttarakhand", "WB": "West Bengal"}
+state_dict = {
+    "AN": "Andaman and Nicobar Islands", "AP": " Andhra Pradesh", "AR": "Arunachal Pradesh", "AS": " Assam",
+    "BR": "Bihar", "CH": "Chandigarh", "CT": "Chhattisgarh", "DN": "Dadra and Nagar Haveli",
+    "DD": "Daman and Diu", "DL": "Delhi", "GA": "Goa", "GJ": "Gujarat", "HR": "Haryana",
+    "HP": " Himachal Pradesh", "JK": "Jammu and Kashmir", "JH": "Jharkand", "KA": "Karnataka", "KL": "Kerala",
+    "LA": "Ladakh", "LD": "Lakshadweep", "MP": "Madhya Pradesh", "MH": "Maharashtra", "MN": "Manipur",
+    "ML": "Meghalaya", "MZ": "Mizoram", "NL": "Nagaland", "OR": "Odisha", "PY": "Puducherry", "PB": "Punjab",
+    "RJ": "Rajasthan", "SK": "Sikkim", "TN": "Tamil Nadu", "TG": "Telangana", "TR": "Tripura",
+    "UP": "Uttar Pradesh", "UT": "Uttarakhand", "WB": "West Bengal"
+}
 
 
 def total(buffer: io.BytesIO, days: int) -> None:
@@ -58,6 +60,7 @@ def total(buffer: io.BytesIO, days: int) -> None:
     plt.title("COVID-19 India")
 
     plt.savefig(buffer, format='png', pad_inches=0.1, bbox_inches='tight')
+    del df
 
 
 def top_states(buffer: io.BytesIO, days: int) -> None:
@@ -98,6 +101,7 @@ def top_states(buffer: io.BytesIO, days: int) -> None:
     plt.gcf().autofmt_xdate()
 
     plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.1)
+    del [df, confirmed, s]
 
 
 def statewise(buffer: io.BytesIO, state_name: str, days) -> None:
@@ -107,7 +111,7 @@ def statewise(buffer: io.BytesIO, state_name: str, days) -> None:
 
     CSV_TIME_SERIES: str = "https://api.covid19india.org/csv/latest/state_wise_daily.csv"
     df = pd.read_csv(CSV_TIME_SERIES)
-    df = df.drop(['Date', 'TT'], axis=1)
+    df = df[['Date_YMD', 'Status', state_name]]
 
     index = pd.date_range(start=df['Date_YMD'][0], end=df['Date_YMD'][len(df) - 1], freq="D")
     index = [pd.to_datetime(date, format='%Y-%m-%d').date() for date in index]
@@ -149,6 +153,7 @@ def statewise(buffer: io.BytesIO, state_name: str, days) -> None:
     plt.title(f"COVID-19 India - {state_dict[state_name]}")
 
     plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.1)
+    del [df, state, confirmed, deceased, recovered]
 
 
 def covid(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -174,9 +179,14 @@ def covid(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
             total(buf, days)
         elif context.args[0] == 'TOP':
             top_states(buf, days)
-        else:
+        elif context.args[0] in state_dict:
             statewise(buf, context.args[0], days)
+        else:
+            message.reply_text(text="Invalid code.")
+            return
 
         buf.seek(0)
         message.reply_photo(photo=buf)
+
         buf.close()
+        plt.close("all")
