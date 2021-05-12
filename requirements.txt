@@ -8,7 +8,7 @@ geopy==2.1.0
 googletrans==4.0.0-rc1
 gtts==2.2.2
 howlongtobeatpy==0.1.17
-mysql-connector-python==8.0.23
+mysql-connector-python==8.0.25
 pillow==8.2.0
 pre-commit>=2.11.1
 python-dateutil==2.8.1
