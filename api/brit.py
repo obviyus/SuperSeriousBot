@@ -1,5 +1,4 @@
 from typing import TYPE_CHECKING
-import re
 
 if TYPE_CHECKING:
     import telegram

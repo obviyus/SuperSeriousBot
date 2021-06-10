@@ -18,5 +18,7 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+LABEL org.opencontainers.image.source="https://github.com/Super-Serious/bot"
+
 # command to run on container start
 CMD [ "python", "./main.py" ]

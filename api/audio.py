@@ -1,12 +1,17 @@
 from typing import TYPE_CHECKING
-
-from telegram import MessageEntity
-
 from configuration import config
+from telegram import MessageEntity
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
+
+# Only relevant to primary SSG Bot
+file_id = {
+    "FOR_WHAT_ID": "AwACAgUAAxkBAAIOal-S4UbuMjFYVNMuKnHyRXrEQQkMAAJ8AgACrPiZVLggqYXKbCQwGwQ",
+    "JOGI_FILE_ID": "AwACAgUAAxkBAAIBMV8z20JkqdmtvoHeXN-GpEU0U6tnAAJQAQACi8dhVDDR-g1eKeOWGgQ",
+    "PUNYA_SONG_ID": "AwACAgUAAxkBAAIOU1-S4GftDoRxFQG3w7-BOutFA4PMAAJ5AgACrPiZVEFEWFLP89YXGwQ",
+}
 
 
 def audio(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -28,13 +33,13 @@ def audio(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
     audio = audio.partition('@')[0]
 
     file_id_names: dict = {
-        "/jogi": "jogi_file_id",
-        "/pon": "punya_song_id",
-        "/fw": "for_what_id",
+        "/jogi": "JOGI_FILE_ID",
+        "/pon": "PUNYA_SONG_ID",
+        "/fw": "FOR_WHAT_ID",
     }
 
     if file_id_names[audio] not in data:
-        data[file_id_names[audio]] = config[file_id_names[audio].upper()]
+        data[file_id_names[audio]] = file_id[file_id_names[audio]]
 
     # Failsafe since I'm not certain how long file_ids persist If they do forever we can keep this for pranks
     if (

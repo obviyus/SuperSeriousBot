@@ -1,7 +1,6 @@
 # project specific
 config.yaml
 ssgbot.env
-classify.jpg
 .vscode
 *.db
 
