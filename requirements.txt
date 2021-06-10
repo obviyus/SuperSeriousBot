@@ -21,6 +21,6 @@ uwuify==1.0.1
 wolframalpha==5.0.0
 pafy==0.5.5
 pandas==1.2.4
-matplotlib==3.4.1
+matplotlib==3.4.2
 numpy==1.20.2
 azure-cognitiveservices-vision-computervision
