@@ -1,9 +1,8 @@
 """Commands for general use."""
-from .age import age
 from .animals import animal
 from .audio import audio
+from .brit import brit
 from .calc import calc
-from .caption import caption
 from .covid import covid
 from .csgo import csgo, set_steam_id
 from .gif import gif
@@ -23,5 +22,6 @@ from .translate import translate
 from .tts import tts
 from .ud import ud
 from .uwu import uwu
+from .vision import caption, age
 from .wait import wait
 from .weather import weather

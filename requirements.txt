@@ -1,5 +1,4 @@
 Babel==2.9.0
-cloudmersive_image_api_client==3.0.1
 dateparser==1.0.0
 DateTime==4.3
 emoji>=1.2.0
@@ -8,7 +7,6 @@ geopy==2.1.0
 googletrans==4.0.0-rc1
 gtts==2.2.2
 howlongtobeatpy==0.1.17
-mysql-connector-python==8.0.23
 pillow==8.2.0
 pre-commit>=2.11.1
 python-dateutil==2.8.1
@@ -25,3 +23,4 @@ pafy==0.5.5
 pandas==1.2.4
 matplotlib==3.4.1
 numpy==1.20.2
+azure-cognitiveservices-vision-computervision

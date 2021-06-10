@@ -18,6 +18,7 @@ try:
         "STEAM_API_KEY": os.environ["STEAM_API_KEY"],
         "TELEGRAM_BOT_TOKEN": os.environ["TELEGRAM_BOT_TOKEN"],
         "WOLFRAM_APP_ID": os.environ["WOLFRAM_APP_ID"],
+        "AZURE_KEY": os.environ["AZURE_KEY"],
     }
 except KeyError:
     try:
