@@ -15,7 +15,7 @@ def gif(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
     url: str = 'http://api.giphy.com/v1/gifs/random'
 
     response: requests.Response = requests.get(url, params=params)
-    url = response.json()['data']['images']['original']['url']
+    url = response.json()['data']['image_original_url']
 
     update.message.reply_animation(
         animation=url,
