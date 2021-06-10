@@ -17,7 +17,7 @@ regex==2020.11.13
 requests==2.25.1
 spurdify==0.3.0
 urllib3==1.26.4
-uwuify==1.0.1
+uwuify==1.0.2
 wolframalpha==5.0.0
 pafy==0.5.5
 pandas==1.2.4
