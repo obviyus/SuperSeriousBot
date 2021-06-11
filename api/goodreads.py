@@ -50,7 +50,7 @@ def make_result(goodreads_id: str) -> str:
 
     node: Optional[ET.Element] = root.find('book')
     if not node:
-        return
+        return ""
 
     title: Optional[str] = node.findtext('title')
     isbn: Optional[str] = node.findtext('isbn13')
