@@ -1,7 +1,6 @@
 """Commands for general use."""
 from .animals import animal
 from .audio import audio
-from .brit import brit
 from .calc import calc
 from .covid import covid
 from .csgo import csgo, set_steam_id
