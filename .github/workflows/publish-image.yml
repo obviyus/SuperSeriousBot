@@ -7,6 +7,7 @@ on:
 
 jobs:
   publish-docker-image:
+    if: github.repository_owner == 'Super-Serious'
     runs-on: ubuntu-latest
 
     steps:
