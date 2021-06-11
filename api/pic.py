@@ -21,7 +21,7 @@ def pic(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
         n: int = int(context.args[0]) if context.args else 1
         # Request maximum 5 images at once
         n = min(n, 5)
-    except TypeError:
+    except ValueError:
         n = 1
 
     media_group: List[InputMediaPhoto] = []
