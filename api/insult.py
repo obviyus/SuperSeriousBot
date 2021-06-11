@@ -1,3 +1,4 @@
+import random
 from typing import TYPE_CHECKING
 
 from requests import get
@@ -15,9 +16,13 @@ def insult(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
     else:
         return
 
-    response: dict = get('https://evilinsult.com/generate_insult.php?lang=en&type=json').json()
+    # Choose randomly between two APIs
+    if random.random() < 0.5:
+        insult_response: str = get('https://evilinsult.com/generate_insult.php?lang=en&type=json').json()['insult']
+    else:
+        insult_response: str = get('https://insult.mattbas.org/api/insult.json').json()['insult']
 
     if message.reply_to_message:
-        message.reply_to_message.reply_text(text=response['insult'])
+        message.reply_to_message.reply_text(text=insult_response)
     else:
-        message.reply_text(text=response['insult'])
+        message.reply_text(text=insult_response)
