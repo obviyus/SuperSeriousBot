@@ -1,6 +1,4 @@
-import datetime
 from typing import TYPE_CHECKING, Dict
-from urllib.parse import urlencode
 
 from geopy.geocoders import Nominatim
 from requests import get
@@ -49,56 +47,36 @@ def weather(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
         return
 
     query: str = ' '.join(context.args) if context.args else ''
-    parse_mode: str = 'Markdown'
     text: str
 
     if not query:
         text = "*Usage:* `/weather {LOCATION}`\n" \
                "*Example:* `/weather NIT Rourkela`"
     else:
-        geolocator: Nominatim = Nominatim(user_agent="SuperSeriousBot")
-        location = geolocator.geocode(query)
+        location = Nominatim(user_agent="SuperSeriousBot").geocode(query, exactly_one=True)
 
         try:
-            payload: Dict[str, str] = {
+            params: Dict[str, str] = {
                 'location': f'{location.latitude},{location.longitude}',
-                'apikey': config["CLIMACELL_API_KEY"],  # type: ignore
-                'fields': "cloudCover,temperature,humidity,"
-                          "windSpeed,weatherCode",
-                'startTime': datetime.datetime.now().replace(microsecond=0).isoformat() + 'Z',
-                'endTime': (datetime.datetime.now() + datetime.timedelta(hours=1)).replace(
-                    microsecond=0).isoformat() + 'Z'
+                'apikey': config["CLIMACELL_API_KEY"],
+                'fields': "temperature,humidity,windSpeed,weatherCode,particulateMatter25",
             }
 
-            response = get('https://data.climacell.co/v4/timelines?' + urlencode(payload))
+            response = get('https://api.tomorrow.io/v4/timelines?', params=params).json()['data']
+            data: Dict = response['timelines'][0]['intervals'][0]['values']
 
-            if response.status_code == 200:
-                data: Dict = response.json()['data']
-                current: Dict = data['timelines'][0]['intervals'][0]['values']
+            conditions: str = data['weatherCode']
+            humidity: str = data['humidity']
+            pm25: str = data['particulateMatter25']
+            temperature: str = data['temperature']
+            wind_speed: str = data['windSpeed']
 
-                temperature: str = current['temperature']
-                cloud_cover: str = current['cloudCover']
-                humidity: str = current['humidity']
-                wind_speed: str = current['windSpeed']
-                conditions: str = current['weatherCode']
-
-                text = f"<b>{location.address}</b>\n" \
-                       f"<b>🌡️ Temperate</b>: {temperature}° C\n<b>☁ Cloud Cover</b>: {cloud_cover}%\n<b>💦 " \
-                       f"Humidity</b>: {humidity}%\n<b>🛰️ Weather</b>: {weather_codes[str(conditions)]}\n\n💨 Wind " \
-                       f"gusts up to {wind_speed} m/s "
-                parse_mode = 'HTML'
-
-                message.reply_text(
-                    text=text,
-                    parse_mode=parse_mode
-                )
-                return
-            else:
-                text = 'No entry found.'
+            text = f"*{location.address}*\n" \
+                   f"🌡️ *Temperate:* {temperature}° C\n🏭 *AQI:* {pm25}\n💦 *Humidity:* {humidity}%\n🛰️ *Weather:* {weather_codes[str(conditions)]}\n\n💨 Wind " \
+                   f"gusts up to *{wind_speed}* m/s "
         except AttributeError:
             text = 'No entry found.'
 
     message.reply_text(
         text=text,
-        parse_mode=parse_mode
     )

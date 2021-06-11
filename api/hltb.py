@@ -20,7 +20,7 @@ def hltb(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
 
     if not game:
         text = "*Usage:* `/hltb {GAME_NAME}`\n" \
-               "*Example:* `/hltb horizon zero dawn`"
+               "*Example:* `/hltb Horizon Zero Dawn`"
     else:
         results: Optional[List] = HowLongToBeat().search(game, similarity_case_sensitive=False)
 
@@ -28,16 +28,19 @@ def hltb(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
             # Return result with highest similarity to query
             best_guess: Any = max(results, key=lambda element: element.similarity)
 
+            # HLTB changed the image_url field to be a suffix to base URL
+            image_url: str = "https://howlongtobeat.com" + best_guess.game_image_url
+
             # check if non-zero value exists for main gameplay
             if best_guess.gameplay_main != -1:
                 text = f"<b>{best_guess.gameplay_main_label}</b>: " \
                        f"{best_guess.gameplay_main} {best_guess.gameplay_main_unit}" \
-                       f"<a href='{best_guess.game_image_url}'>&#8205;</a>"
+                       f"<a href='{image_url}'>&#8205;</a>"
             # check if non-zero value exists for main+extra gameplay
             elif best_guess.gameplay_main_extra != -1:
                 text = f"<b>{best_guess.gameplay_main_extra_label}</b>: " \
                        f"{best_guess.gameplay_main_extra} {best_guess.gameplay_main_extra_unit}" \
-                       f"<a href='{best_guess.game_image_url}'>&#8205;</a>"
+                       f"<a href='{image_url}'>&#8205;</a>"
             else:
                 text = "No hours recorded."
         else:

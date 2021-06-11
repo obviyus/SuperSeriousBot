@@ -1,10 +1,10 @@
+from io import BytesIO
 from typing import TYPE_CHECKING
 
 from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from msrest.authentication import CognitiveServicesCredentials
 
 from configuration import config
-from io import BytesIO
 
 if TYPE_CHECKING:
     import telegram
@@ -28,7 +28,7 @@ def age(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
         computervision_client = ComputerVisionClient(endpoint, CognitiveServicesCredentials(api_key))
 
         detect_faces_results = computervision_client.analyze_image_in_stream(buffer, ["faces"])
-        if (len(detect_faces_results.faces) == 0):
+        if len(detect_faces_results.faces) == 0:
             text = "No faces detected."
         else:
             if len(detect_faces_results.faces) == 1:

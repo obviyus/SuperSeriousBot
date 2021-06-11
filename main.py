@@ -44,7 +44,6 @@ commands: Dict[str, Callable] = {
     "age": api.age,
     "ban": chat_management.ban,
     "botstats": dev.print_botstats,
-    "brit": api.brit,
     "calc": api.calc,
     "caption": api.caption,
     "cat": api.animal,
