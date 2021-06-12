@@ -1,59 +1,67 @@
 # Super Serious Bot
-[![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/Super-Serious/bot/Python%20Build/master?label=Python%20Build&logo=github)](https://github.com/Super-Serious/bot/actions?query=workflow%3A%22Python+Build%22)
-[![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/superserious/bot?label=Docker%20Build&logo=docker)](https://hub.docker.com/r/superserious/bot)
+
+[![Python build](https://github.com/Super-Serious/bot/actions/workflows/python.yml/badge.svg)](https://github.com/Super-Serious/bot/actions/workflows/python.yml)
+[![Publish image](https://github.com/Super-Serious/bot/actions/workflows/publish-image.yml/badge.svg)](https://github.com/Super-Serious/bot/actions/workflows/publish-image.yml)
+![Lines of Code](https://img.shields.io/tokei/lines/github/Super-Serious/bot)
+![Commit activity](https://img.shields.io/github/commit-activity/m/Super-Serious/bot)
+[![Telegram](https://img.shields.io/badge/Telegram-%40SuperSeriousBot-blue)](https://t.me/superseriousbot)
 
 ## Introduction
-The Super Serious Bot is a modular, highly-configurable, plug and play Telegram bot built using the fantastic [`python-telegram-bot`](https://github.com/python-telegram-bot/python-telegram-bot) library.
+
+The Super Serious Bot is a modular, asynchronous, highly-configurable, plug and play Telegram bot built using the
+fantastic [`python-telegram-bot`](https://github.com/python-telegram-bot/python-telegram-bot) library.
 
 ## Features
 
-The Super Serious Bot has a growing set of (simple) functions. Notable ones inclue:
+By adding this bot to your group you can use this growing set of functions. Notable ones include:
+
 - `/stats` to display today's chat statistics
-- `/ban` and `\kick` to ban or kick a member 
-- `/weather` to return live weather of a location
+- `/steamstats` to query a user's Steam profile
+- `/ban` and `/kick` to ban or kick a member
+- `/weather` to return live weather data of a location
 - `/tts` to generate speech from provided text using Google's TTS engine
 - `/translate` to translate a text in and to any language
-- `/ud` to query Urban Dictionary for word definition
-- `/hltb` to query HowLongToBeat for a game's data
+- `/hltb` to query the HowLongToBeat API for game data
 - `/calc` to query Wolframalpha
-... and many more!
 
-## Installation
-You can install from source with:
+... and many more! To see a complete list of commands send `/help` to [@SuperSeriousBot](https://t.me/superseriousbot)
+
+## Usage
+
+### Configuration
+
+0. Before you can begin, you'll need to get a token and API keys for your bot. You can get the token
+   from [@BotFather](https://t.me/botfather).
+1. Run the following command to generate an empty environment file:
+
+```bash
+$ git clone https://github.com/Super-Serious/bot
+$ cp /bot/configuration/.env.example /bot/ssgbot.env
+```
+
+2. Now fill up the `.env` file with all the API keys mentioned
+
+### Running
+
+SuperSeriousBot is run via Docker. The latest image can always be found at: http://ghcr.io/super-serious/bot.
+
+To start the bot you only need the `docker-compose.yml` and a valid `ssgbot.env` file.
+
+```bash
+$ docker-compose up -d
+```
+
+## Development
+
+We also use Docker as the preferred development environment:
+
 ```bash
 $ git clone https://github.com/Super-Serious/bot
 $ cd bot
-$ pip3 install -r requirements.txt
+$ docker-compose up 
 ```
 
-## Getting Started
-
-Before you can begin, you'll need to get a token for your bot. You can get one from [@BotFather](https://t.me/botfather).
-
-Place your bot token and other tokens in a `config.yaml` in the project root. You can find an `example_config.yaml` file in `bot/configuration`. Alternatively you can use environment variables for each of the fields with the same name.
-
-Besides this the bot uses MySQL for the `/stats` feature and QBittorrent for the `/search` feature. Set up MySQL and QBittorrent WebUI as you wish and put in the appropriate creds in the config file.
-
-### From Source
-
-Make sure either `config.yaml` or environment variables are set up and run the bot with:
-
-```bash
-$ python3 main.py
-```
-
-### Docker
-
-You can find the latest image built on the master branch on [Docker Hub](https://hub.docker.com/r/superserious/bot), or alternatively build it yourself:
-
-Use the `Dockerfile` to build an image for the bot. You can use `example-compose.yaml` as a reference for docker compose. It uses watchtower to update the image from DockerHub, a container for the MySQL DB and another for QBittorrent.
-
-The config for the docker image uses environment variables in a file called `ssgbot.env` you can find the example env_file in `configuration/example.env`
-
-Run with docker-compose as:
-```bash
-$ docker-compose up -df
-```
+Any changes to the code persist through container restarts, no need to rebuild the image!
 
 To test if the bot is running, simply send a `/start` message to it.
 
@@ -63,6 +71,5 @@ To test if the bot is running, simply send a `/start` message to it.
 - [`python-telegram-bot` documentation](https://python-telegram-bot.readthedocs.io/)
 
 ## Contributing
-Contributions are welcome! You can view our contributing guidelines [here](CONTRIBUTING.md).
 
-Telegram: [@SuperSeriousBot](https://t.me/superseriousbot)
+Contributions are welcome! You can view our contributing guidelines [here](CONTRIBUTING.md).
