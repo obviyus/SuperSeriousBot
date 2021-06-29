@@ -25,24 +25,25 @@ def dl(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> No
     try:
         video_url = list(message.reply_to_message.parse_entities([MessageEntity.URL]).values())[0]
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            r = ydl.extract_info(video_url, download=False)
+            try:
+                r = ydl.extract_info(video_url, download=False)
+            except youtube_dl.utils.DownloadError:
+                message.reply_text(
+                    text="No available video file under 50MB."
+                )
 
         # Telegram imposes a hard limit of 50MB on all document types
-        size = int(requests.head(r['url']).headers.get('content-length', 0)) / float(1 << 20)
-        if size > 50:
-            message.reply_text(f"Video size is {size}MB. Telegram only allows bots to send files < 50MB.")
-        else:
-            # Direct HTTP url to video is limited to 20MB
-            buffer = BytesIO()
-            buffer.write(requests.get(r['url'], stream=True).content)
-            buffer.seek(0)
+        # Direct HTTP url to video is limited to 20MB
+        buffer = BytesIO()
+        buffer.write(requests.get(r['url'], stream=True).content)
+        buffer.seek(0)
 
-            message.reply_video(
-                video=buffer
-            )
+        message.reply_video(
+            video=buffer
+        )
 
     except AttributeError:
         message.reply_text(
-            text="*Usage:* `/dl` in reply to link. Video filesize limited to < 50MB. The bot will download videos "
+            text="*Usage:* `/dl` in reply to a link. Video file-size limited to < 50MB. The bot will download videos "
                  "on a best effort basis, i.e. highest possible quality while staying within the limit. "
         )
