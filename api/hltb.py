@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, List, Any
+from typing import Any, List, Optional, TYPE_CHECKING
 
 from howlongtobeatpy import HowLongToBeat
 

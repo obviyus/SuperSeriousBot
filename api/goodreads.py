@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from typing import TYPE_CHECKING, Optional, Any
+from typing import Any, Optional, TYPE_CHECKING
 
 import requests
 
@@ -25,7 +25,8 @@ def goodreads(update: 'telegram.Update', context: 'telegram.ext.CallbackContext'
                "*Example:* `/gr Clean Code`"
     else:
         response: requests.Response = requests.get(
-            f'https://www.goodreads.com/search.xml?key={config["GOODREADS_API_KEY"]}&q={query}')
+            f'https://www.goodreads.com/search.xml?key={config["GOODREADS_API_KEY"]}&q={query}'
+        )
         book_id: Optional[str] = ET.fromstring(response.content).findtext("search/results/work/best_book/id")
 
         if book_id:
@@ -45,7 +46,8 @@ def make_result(goodreads_id: str) -> str:
     """Search using GoodReads ID of item"""
 
     response: requests.Response = requests.get(
-        f'https://www.goodreads.com/book/show.xml?key={config["GOODREADS_API_KEY"]}&id={goodreads_id}')
+        f'https://www.goodreads.com/book/show.xml?key={config["GOODREADS_API_KEY"]}&id={goodreads_id}'
+    )
     root: ET.Element = ET.fromstring(response.content)
 
     node: Optional[ET.Element] = root.find('book')

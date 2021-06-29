@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict
+from typing import Dict, TYPE_CHECKING
 
 import emoji
 from requests import get

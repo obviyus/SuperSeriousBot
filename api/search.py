@@ -1,18 +1,20 @@
 import time
-from typing import TYPE_CHECKING, Optional, Tuple, List
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import qbittorrentapi
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
 qbt_client: qbittorrentapi.Client = qbittorrentapi.Client()  # uses env vars
-qbt_client.search.install_plugin(sources=[
-    "https://raw.githubusercontent.com/libellula/qbt-plugins/c81ccd168f3d8e4e8d8492bcef19e1740cc18aa7/nyaapantsu.py"
-    # Nyaa.net
-])
+qbt_client.search.install_plugin(
+    sources=[
+        "https://raw.githubusercontent.com/libellula/qbt-plugins/c81ccd168f3d8e4e8d8492bcef19e1740cc18aa7/nyaapantsu.py"
+        # Nyaa.net
+    ]
+)
 qbt_client.search.update_plugins()
 
 items_per_page: int = 3
@@ -21,9 +23,9 @@ total_items: int = 24
 
 
 def construct_message(
-        magnet_list: List[str],
-        desc_list: List[str],
-        min_offset: int
+    magnet_list: List[str],
+    desc_list: List[str],
+    min_offset: int
 ) -> Tuple[str, InlineKeyboardMarkup]:
     max_offset: int = min(
         min_offset + items_per_page,
@@ -44,10 +46,12 @@ def construct_message(
         kb_menu[-1].insert(0, InlineKeyboardButton(text='<', callback_data='-2'))
         kb_menu[-1].append(InlineKeyboardButton(text='>', callback_data='-1'))
     else:
-        kb_menu.append([
-            InlineKeyboardButton(text='<', callback_data='-2'),
-            InlineKeyboardButton(text='>', callback_data='-1')
-        ])
+        kb_menu.append(
+            [
+                InlineKeyboardButton(text='<', callback_data='-2'),
+                InlineKeyboardButton(text='>', callback_data='-1')
+            ]
+        )
 
     text: str = '\n\n'.join(desc_list[min_offset:max_offset])
 
@@ -100,10 +104,10 @@ def search(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
             if (
                     # TPB returns a placeholder result if nothing is found
                     (
-                        result.fileName == "No results returned"
-                        and result.nbSeeders == 0
-                        and result.nbLeechers == 0
-                        and result.fileSize == 0
+                            result.fileName == "No results returned"
+                            and result.nbSeeders == 0
+                            and result.nbLeechers == 0
+                            and result.fileSize == 0
                     )
                     # Jackett error still shows up sometimes
                     or result.fileName.startswith("Jackett: api key error!")

@@ -1,8 +1,8 @@
-import logging
 from typing import TYPE_CHECKING
-
 from urllib.parse import urlsplit
+
 from telegram import MessageEntity
+
 from .reddit import reddit_parser
 from .youtube import youtube_parser
 

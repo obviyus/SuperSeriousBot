@@ -1,4 +1,3 @@
-import logging
 import requests
 
 
@@ -15,11 +14,5 @@ def reddit_parser(reddit_url: str) -> str:
         comments = r[0]["data"]["children"][0]["data"]["num_comments"]
 
     text = f"""`[ {post_score} upvotes | {comments} comments ]`"""
-    # if r[0]["data"]["children"][0]["data"]["secure_media"]:
-    #     try:
-    #         content_url = r[0]["data"]["children"][0]["data"]["secure_media"]["reddit_video"]["fallback_url"]
-    #         text += "\n" + content_url
-    #     except KeyError:
-    #         pass
 
     return text

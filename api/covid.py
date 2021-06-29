@@ -1,21 +1,20 @@
+import io
 from typing import TYPE_CHECKING
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-import io
-
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import numpy as np
-
 params = {
-    'legend.fontsize': 20,
+    'legend.fontsize':     20,
     'legend.handlelength': 2,
-    'font.family': "monospace",
-    'figure.figsize': (15, 10),
+    'font.family':         "monospace",
+    'figure.figsize':      (15, 10),
 }
 plt.rcParams.update(params)
 plt.style.use("dark_background")

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Tuple, Callable, Union
+from typing import Callable, Dict, Tuple, TYPE_CHECKING, Union
 
 from requests import get
 from telegram import MessageEntity
@@ -24,15 +24,15 @@ def animal(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
     animal = animal.partition('@')[0]
 
     urls: Dict[str, Tuple[str, Callable]] = {
-        "/shiba": (
+        "/shiba":   (
             'http://shibe.online/api/shibes?count=1&urls=true&httpsUrls=false',
             lambda resp: message.reply_photo(resp[0])
         ),
-        "/fox": (
+        "/fox":     (
             'https://randomfox.ca/floof/',
             lambda resp: message.reply_photo(resp['image'])
         ),
-        "/cat": (
+        "/cat":     (
             'https://api.thecatapi.com/v1/images/search',
             lambda resp: message.reply_photo(resp[0]['url'])
         ),

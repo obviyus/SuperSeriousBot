@@ -1,5 +1,5 @@
 from random import choices
-from typing import TYPE_CHECKING, List
+from typing import List, TYPE_CHECKING
 
 import requests
 from telegram import InputMediaPhoto

@@ -1,11 +1,9 @@
 import datetime
-import html
-import json
 import logging
 import traceback
 from typing import Callable, Dict, List, TYPE_CHECKING
 
-from telegram import MessageEntity, ParseMode, Update
+from telegram import MessageEntity, ParseMode
 from telegram.ext import CallbackQueryHandler, CommandHandler, Defaults, Filters, MessageHandler, Updater
 
 import api

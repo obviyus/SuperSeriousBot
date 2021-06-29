@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import TYPE_CHECKING, Tuple
+from typing import Tuple, TYPE_CHECKING
 
 from PIL import Image, ImageOps
 

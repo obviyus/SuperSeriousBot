@@ -1,6 +1,6 @@
 import sqlite3
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Dict, List
+from typing import Dict, List, TYPE_CHECKING
 
 import requests
 

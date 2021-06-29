@@ -1,7 +1,7 @@
 import sqlite3
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict
+from typing import Dict, TYPE_CHECKING
 
 import dateutil.relativedelta
 import requests
@@ -53,8 +53,10 @@ def player_summary(steam_id: str) -> str:
     try:
         response = requests.get(url, params).json()["response"]["players"][0]
         last_online: str = datetime.utcfromtimestamp(response["lastlogoff"]).strftime("%B %d, %Y")
-        profile_age = dateutil.relativedelta.relativedelta(datetime.now(),
-                                                           datetime.fromtimestamp(response["timecreated"]))
+        profile_age = dateutil.relativedelta.relativedelta(
+            datetime.now(),
+            datetime.fromtimestamp(response["timecreated"])
+        )
         text = f"""Current Status: {profile_states[response["profilestate"]]}\nLast Online: {last_online}\nProfile Age: {profile_age.years} years"""
 
         return text
@@ -81,8 +83,10 @@ def last_played(steam_id: str) -> str:
 
 def hours_and_games(username: str, steam_id: str) -> (str, int):
     url: str = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/"
-    params: Dict[str, str] = {"key": STEAM_API_KEY, "steamid": steam_id, "include_appinfo": "true", "format": "json",
-                              "include_played_free_games": "true"}
+    params: Dict[str, str] = {
+        "key":                       STEAM_API_KEY, "steamid": steam_id, "include_appinfo": "true", "format": "json",
+        "include_played_free_games": "true"
+    }
 
     try:
         response: Dict[str, Dict] = requests.get(url, params).json()
