@@ -1,9 +1,12 @@
 import datetime
+import html
+import json
 import logging
-from typing import TYPE_CHECKING, List, Dict, Callable
+import traceback
+from typing import Callable, Dict, List, TYPE_CHECKING
 
-from telegram import ParseMode, MessageEntity
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Defaults, Filters
+from telegram import MessageEntity, ParseMode, Update
+from telegram.ext import CallbackQueryHandler, CommandHandler, Defaults, Filters, MessageHandler, Updater
 
 import api
 import chat_management
@@ -13,6 +16,19 @@ from configuration import config
 
 if TYPE_CHECKING:
     import telegram
+
+# Private channel used for logging exceptions
+LOGGING_CHANNEL = -1001543943945
+
+
+def error_handler(update: object, context: 'telegram.ext.CallbackContext') -> None:
+    """Log the error and send a telegram message to notify the developer."""
+    # traceback.format_exception returns the usual python message about an exception, but as a
+    # list of strings rather than a single string.
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+
+    # Finally, send the message
+    context.bot.send_message(chat_id=LOGGING_CHANNEL, text=f"`{tb_list[-1]}`", parse_mode='Markdown')
 
 
 def start(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -41,47 +57,47 @@ def help_cmd(update: 'telegram.Update', context: 'telegram.ext.CallbackContext')
 
 commands: Dict[str, Callable] = {
     # "command": function
-    "age": api.age,
-    "ban": chat_management.ban,
-    "botstats": dev.print_botstats,
-    "calc": api.calc,
-    "caption": api.caption,
-    "cat": api.animal,
-    "catfact": api.animal,
-    "covid": api.covid,
-    "csgo": api.csgo,
-    "dl": links.dl,
-    "fox": api.animal,
-    "fw": api.audio,
-    "gif": api.gif,
-    "gr": api.goodreads,
-    "groups": dev.groups,
-    "help": help_cmd,
-    "hltb": api.hltb,
-    "hug": api.hug,
-    "insult": api.insult,
-    "jogi": api.audio,
-    "joke": api.joke,
-    "kick": chat_management.kick,
-    "pat": api.pat,
-    "pfp": api.pad_image,
-    "pic": api.pic,
-    "pon": api.audio,
-    "search": api.search,
-    "setid": api.set_steam_id,
-    "shiba": api.animal,
-    "spurdo": api.spurdo,
-    "start": start,
-    "stats": chat_management.print_stats,
+    "age":        api.age,
+    "ban":        chat_management.ban,
+    "botstats":   dev.print_botstats,
+    "calc":       api.calc,
+    "caption":    api.caption,
+    "cat":        api.animal,
+    "catfact":    api.animal,
+    "covid":      api.covid,
+    "csgo":       api.csgo,
+    "dl":         links.dl,
+    "fox":        api.animal,
+    "fw":         api.audio,
+    "gif":        api.gif,
+    "gr":         api.goodreads,
+    "groups":     dev.groups,
+    "help":       help_cmd,
+    "hltb":       api.hltb,
+    "hug":        api.hug,
+    "insult":     api.insult,
+    "jogi":       api.audio,
+    "joke":       api.joke,
+    "kick":       chat_management.kick,
+    "pat":        api.pat,
+    "pfp":        api.pad_image,
+    "pic":        api.pic,
+    "pon":        api.audio,
+    "search":     api.search,
+    "setid":      api.set_steam_id,
+    "shiba":      api.animal,
+    "spurdo":     api.spurdo,
+    "start":      start,
+    "stats":      chat_management.print_stats,
     "steamstats": api.steamstats,
-    "tl": api.translate,
-    "tldr": api.tldr,
-    "tts": api.tts,
-    "ud": api.ud,
-    "uwu": api.uwu,
-    "wait": api.wait,
-    "weather": api.weather,
-    "wink": api.wink,
+    "tl":         api.translate,
+    "tldr":       api.tldr,
+    "tts":        api.tts,
+    "ud":         api.ud,
+    "uwu":        api.uwu,
+    "wait":       api.wait,
+    "weather":    api.weather,
+    "wink":       api.wink,
 }
 
 
@@ -124,22 +140,34 @@ def main():
     for cmd, func in commands.items():
         dispatcher.add_handler(CommandHandler(cmd, funcHandler, run_async=True))
 
-    dispatcher.add_handler(MessageHandler(
-        Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"),
-        api.sed
-    ), group=0)
+    # Regex handler
+    dispatcher.add_handler(
+        MessageHandler(
+            Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"),
+            api.sed
+        ), group=0
+    )
 
-    dispatcher.add_handler(MessageHandler(
-        Filters.text & ~Filters.command & ~Filters.update.edited_message & ~Filters.chat_type.private,
-        chat_management.increment,
-    ), group=1)
+    # Chat message count handler
+    dispatcher.add_handler(
+        MessageHandler(
+            Filters.text & ~Filters.command & ~Filters.update.edited_message & ~Filters.chat_type.private,
+            chat_management.increment,
+        ), group=1
+    )
 
-    dispatcher.add_handler(MessageHandler(
-        Filters.text & (Filters.entity(MessageEntity.URL) | Filters.entity(MessageEntity.TEXT_LINK)),
-        links.link_handler,
-    ), group=3)
+    # Link handler
+    dispatcher.add_handler(
+        MessageHandler(
+            Filters.text & (Filters.entity(MessageEntity.URL) | Filters.entity(MessageEntity.TEXT_LINK)),
+            links.link_handler,
+        ), group=3
+    )
 
     dispatcher.add_handler(CallbackQueryHandler(api.search_button))
+
+    # Bot error handler
+    dispatcher.add_error_handler(error_handler)
 
     job_queue.run_daily(
         chat_management.clear, time=datetime.time(18, 30)
