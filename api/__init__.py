@@ -21,6 +21,6 @@ from .translate import translate
 from .tts import tts
 from .ud import ud
 from .uwu import uwu
-from .vision import caption, age
+from .vision import age, caption
 from .wait import wait
 from .weather import weather

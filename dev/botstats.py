@@ -1,5 +1,5 @@
 import sqlite3
-from typing import TYPE_CHECKING, Tuple
+from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import telegram
@@ -7,10 +7,12 @@ if TYPE_CHECKING:
 
 conn = sqlite3.connect('/db/botstats.db', check_same_thread=False)
 cursor = conn.cursor()
-cursor.execute("CREATE TABLE IF NOT EXISTS `commands` ( "
-               "`command_name` VARCHAR(255) NOT NULL UNIQUE, "
-               "`command_count` INT unsigned NOT NULL DEFAULT '0', "
-               "PRIMARY KEY (`command_name`))")
+cursor.execute(
+    "CREATE TABLE IF NOT EXISTS `commands` ( "
+    "`command_name` VARCHAR(255) NOT NULL UNIQUE, "
+    "`command_count` INT unsigned NOT NULL DEFAULT '0', "
+    "PRIMARY KEY (`command_name`))"
+)
 
 
 def print_botstats(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:

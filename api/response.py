@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Dict
+from typing import Dict, Optional, TYPE_CHECKING
 
 from requests import get
 

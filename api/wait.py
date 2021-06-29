@@ -1,6 +1,6 @@
 import json
 import urllib.parse
-from typing import TYPE_CHECKING, Dict
+from typing import Dict, TYPE_CHECKING
 
 import requests
 

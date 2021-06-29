@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict
+from typing import Dict, TYPE_CHECKING
 
 from geopy.geocoders import Nominatim
 from requests import get
@@ -58,8 +58,8 @@ def weather(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
         try:
             params: Dict[str, str] = {
                 'location': f'{location.latitude},{location.longitude}',
-                'apikey': config["CLIMACELL_API_KEY"],
-                'fields': "temperature,humidity,windSpeed,weatherCode,particulateMatter25",
+                'apikey':   config["CLIMACELL_API_KEY"],
+                'fields':   "temperature,humidity,windSpeed,weatherCode,particulateMatter25",
             }
 
             response = get('https://api.tomorrow.io/v4/timelines?', params=params).json()['data']

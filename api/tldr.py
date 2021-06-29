@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Any
+from typing import Any, Dict, TYPE_CHECKING
 
 import requests
 from telegram import MessageEntity

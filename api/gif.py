@@ -1,6 +1,8 @@
+from typing import Dict, TYPE_CHECKING
+
 import requests
+
 from configuration import config
-from typing import TYPE_CHECKING, Dict
 
 if TYPE_CHECKING:
     import telegram

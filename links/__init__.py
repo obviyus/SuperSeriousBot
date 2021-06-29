@@ -1,3 +1,4 @@
 """Link handler functions"""
-from .reddit import reddit_parser
+from .dl import dl
 from .link_handler import link_handler
+from .reddit import reddit_parser

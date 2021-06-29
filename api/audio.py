@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING
-from configuration import config
+
 from telegram import MessageEntity
+
+from configuration import config
 
 if TYPE_CHECKING:
     import telegram
@@ -8,8 +10,8 @@ if TYPE_CHECKING:
 
 # Only relevant to primary SSG Bot
 file_id = {
-    "FOR_WHAT_ID": "AwACAgUAAxkBAAIOal-S4UbuMjFYVNMuKnHyRXrEQQkMAAJ8AgACrPiZVLggqYXKbCQwGwQ",
-    "JOGI_FILE_ID": "AwACAgUAAxkBAAIBMV8z20JkqdmtvoHeXN-GpEU0U6tnAAJQAQACi8dhVDDR-g1eKeOWGgQ",
+    "FOR_WHAT_ID":   "AwACAgUAAxkBAAIOal-S4UbuMjFYVNMuKnHyRXrEQQkMAAJ8AgACrPiZVLggqYXKbCQwGwQ",
+    "JOGI_FILE_ID":  "AwACAgUAAxkBAAIBMV8z20JkqdmtvoHeXN-GpEU0U6tnAAJQAQACi8dhVDDR-g1eKeOWGgQ",
     "PUNYA_SONG_ID": "AwACAgUAAxkBAAIOU1-S4GftDoRxFQG3w7-BOutFA4PMAAJ5AgACrPiZVEFEWFLP89YXGwQ",
 }
 
@@ -34,8 +36,8 @@ def audio(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
 
     file_id_names: dict = {
         "/jogi": "JOGI_FILE_ID",
-        "/pon": "PUNYA_SONG_ID",
-        "/fw": "FOR_WHAT_ID",
+        "/pon":  "PUNYA_SONG_ID",
+        "/fw":   "FOR_WHAT_ID",
     }
 
     if file_id_names[audio] not in data:

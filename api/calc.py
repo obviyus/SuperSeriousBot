@@ -19,7 +19,7 @@ def calc(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
 
     text: str
     if not query:
-        text = "*Usage:* `/calc {QUERY}`\n"\
+        text = "*Usage:* `/calc {QUERY}`\n" \
                "*Example:* `/calc 1 cherry to grams`"
     else:
         client: wolframalpha.Client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
