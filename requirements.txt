@@ -5,7 +5,7 @@ googletrans==4.0.0-rc1
 gtts==2.2.2
 howlongtobeatpy==0.1.18
 pre-commit>=2.11.1
-python-telegram-bot==13.6
+python-telegram-bot==13.7
 pyyaml==5.4.1
 qbittorrent-api==2021.5.22
 regex==2021.4.4
