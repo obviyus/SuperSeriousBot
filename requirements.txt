@@ -8,7 +8,7 @@ pre-commit>=2.11.1
 python-telegram-bot==13.7
 pyyaml==5.4.1
 qbittorrent-api==2021.5.22
-regex==2021.4.4
+regex==2021.7.6
 requests==2.25.1
 spurdify==0.3.0
 uwuify==1.0.2
