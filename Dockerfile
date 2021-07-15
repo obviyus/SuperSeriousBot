@@ -21,4 +21,4 @@ RUN apt-get update \
 LABEL org.opencontainers.image.source="https://github.com/Super-Serious/bot"
 
 # command to run on container start
-CMD [ "python", "./main.py" ]
+CMD [ "python", "main.py" ]
