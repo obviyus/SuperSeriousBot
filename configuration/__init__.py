@@ -1,8 +1,6 @@
 import os
 from typing import Dict, Union
 
-import yaml
-
 try:
     # By default, try to look for API keys in environment variables
     config: Dict[str, Union[str, list]] = {

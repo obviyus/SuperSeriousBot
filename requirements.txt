@@ -2,7 +2,6 @@ emoji>=1.2.0
 flake8>=3.8.4
 geopy==2.1.0
 googletrans==4.0.0-rc1
-gtts==2.2.2
 howlongtobeatpy==0.1.18
 pre-commit>=2.11.1
 python-telegram-bot==13.7
@@ -19,3 +18,4 @@ pillow==8.2.0
 matplotlib==3.4.2
 numpy==1.20.3
 azure-cognitiveservices-vision-computervision
+google-cloud-texttospeech

@@ -53,11 +53,10 @@ def print_stats(update: 'telegram.Update', context: 'telegram.ext.CallbackContex
 
 
 def clear(context: 'telegram.ext.CallbackContext') -> None:
-    """"Reset message count to 0 for a chat"""
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
 
     for (table_name,) in cursor.fetchall():
-        formula = f"DROP TABLE IF EXISTS `{table_name}`"
+        formula = f"DELETE FROM `{table_name}`"
         cursor.execute(formula)
 
     conn.commit()

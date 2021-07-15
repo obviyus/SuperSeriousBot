@@ -14,15 +14,8 @@ def groups(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
     if not update.message:
         return
 
-    text: str
     formula: str = "SELECT COUNT(*) FROM sqlite_master AS TABLES WHERE TYPE='table'"
+    cursor.execute(formula)
+    count = cursor.fetchall()[0]
 
-    if update.effective_chat.type != 'private':
-        cursor.execute(formula)
-        count = cursor.fetchall()[0]
-
-        text = f"This bot is active in {count[0]} groups."
-    else:
-        text = "This command does not work in private chats."
-
-    update.message.reply_text(text=text)
+    update.message.reply_text(text=f"This bot is active in {count[0]} groups.")

@@ -8,6 +8,8 @@ if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
+client: wolframalpha.Client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
+
 
 def calc(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Calculate anything using wolframalpha"""
@@ -22,7 +24,6 @@ def calc(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
         text = "*Usage:* `/calc {QUERY}`\n" \
                "*Example:* `/calc 1 cherry to grams`"
     else:
-        client: wolframalpha.Client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
         result: wolframalpha.Result = client.query(query)
 
         try:

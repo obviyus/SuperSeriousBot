@@ -44,7 +44,7 @@ def age(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
         update.message.reply_text(
             text="*Usage:* `/age`\n"
                  "Type /age in response to an image. Only the first face is considered.\n"
-            )
+        )
 
 
 def caption(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -76,4 +76,4 @@ def caption(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
         update.message.reply_text(
             text="*Usage:* `/caption`\n"
                  "Type /caption in response to an image.\n"
-            )
+        )
