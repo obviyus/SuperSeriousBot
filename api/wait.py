@@ -1,5 +1,4 @@
 import json
-import urllib.parse
 from typing import Dict, TYPE_CHECKING
 
 import requests
@@ -19,22 +18,16 @@ def wait(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
             return
 
         file: telegram.File = context.bot.getFile(message.photo[-1].file_id)
-        url: str = f"https://trace.moe/api/search?url={file.file_path}"
+        url: str = f"https://api.trace.moe/search?anilistInfo&cutBorders&url={file.file_path}"
 
-        response: Dict = requests.get(url).json()["docs"][0]
+        response: Dict = requests.get(url).json()["result"][0]
 
         similarity: float = round(response["similarity"] * 100, 2)
-        title: str = response["title_english"]
-        episode: str = response["episode"]
-        season: str = response["season"]
-        filename: str = urllib.parse.quote(response["filename"])
-        anilist_id: str = response["anilist_id"]
-        at: str = response["at"]
-        tokenthumb: str = response["tokenthumb"]
+        title: str = response["anilist"]["title"]["english"] or response["anilist"]["synonyms"][0] or \
+                     response["anilist"]["title"]["native"]
 
-        preview: str = f"https://media.trace.moe/video/{anilist_id}/{filename}?t={at}&token={tokenthumb}&mute"
-        text = f"<b>{title}</b> ({season})\n" \
-               f"Episode {episode}\n" \
+        preview: str = response["video"]
+        text = f"<b>{title}</b>\n" \
                f"<b>Similarity: {similarity}</b>%"
 
         message.reply_video(
