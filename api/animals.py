@@ -8,20 +8,20 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def animal(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def animal(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Get animal"""
     if update.message:
         message: 'telegram.Message' = update.message
     else:
         return
 
-    animal: str
+    animal_choice: str
     if update.message.caption:
-        animal = list(message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values())[0]
+        animal_choice = list(message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values())[0]
     elif update.message.text:
-        animal = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
+        animal_choice = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
 
-    animal = animal.partition('@')[0]
+    animal_choice = animal_choice.partition('@')[0]
 
     urls: Dict[str, Tuple[str, Callable]] = {
         "/shiba":   (
@@ -42,5 +42,5 @@ def animal(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
         ),
     }
 
-    response: Union[list, dict] = get(urls[animal][0]).json()
-    urls[animal][1](response)
+    response: Union[list, dict] = get(urls[animal_choice][0]).json()
+    urls[animal_choice][1](response)

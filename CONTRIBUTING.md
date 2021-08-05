@@ -8,9 +8,9 @@ We love your input! We want to make contributing to this project as easy and tra
 - Proposing new features
 - Becoming a maintainer
 
-## We Develop with Github
+## We Develop with GitHub
 
-We use Github to host code, to track issues and feature requests, as well as accept pull requests.
+We use GitHub to host code, to track issues and feature requests, as well as accept pull requests.
 
 ## We Use [Github Flow](https://guides.github.com/introduction/flow/index.html), So All Code Changes Happen Through Pull Requests
 
@@ -26,11 +26,11 @@ use [Github Flow](https://guides.github.com/introduction/flow/index.html)). We a
 
 ## Any contributions you make will be under the MIT Software License
 
-In short, when you submit code changes, your submissions are understood to be under the
+In short, when you submit code changes, your submissions are under the
 same [MIT License](http://choosealicense.com/licenses/mit/) that covers the project. Feel free to contact the
 maintainers if that's a concern.
 
-## Report bugs using Github's [issues](https://github.com/briandk/transcriptase-atom/issues)
+## Report bugs using GitHub's [issues](https://github.com/briandk/transcriptase-atom/issues)
 
 We use GitHub issues to track public bugs. Report a bug by [opening a new issue](); it's that easy!
 
@@ -54,5 +54,5 @@ By contributing, you agree that your contributions will be licensed under its MI
 
 ## References
 
-This document was adapted from the open-source contribution guidelines
+This document is adapted from the open-source contribution guidelines
 for [Facebook's Draft](https://github.com/facebook/draft-js/blob/a9316a723f9e918afde44dea68b5f9f39b7d9b00/CONTRIBUTING.md)

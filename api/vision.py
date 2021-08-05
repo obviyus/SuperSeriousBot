@@ -64,10 +64,10 @@ def caption(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
         computervision_client = ComputerVisionClient(endpoint, CognitiveServicesCredentials(api_key))
 
         description_results = computervision_client.describe_image_in_stream(buffer)
-        caption = description_results.captions[0].text
+        description = description_results.captions[0].text
         confidence = description_results.captions[0].confidence
 
-        text = f"{caption}.\n*Confidence:* {round(confidence * 100, 2)}%"
+        text = f"{description}.\n*Confidence:* {round(confidence * 100, 2)}%"
         text = "%s%s" % (text[0].upper(), text[1:])
 
         message.reply_text(text=text)

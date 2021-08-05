@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def link_handler(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def link_handler(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Forward URL to the appropriate handler"""
     if not update.message:
         return

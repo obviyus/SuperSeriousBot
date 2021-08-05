@@ -137,7 +137,7 @@ def set_steam_id(update: 'telegram.Update', context: 'telegram.ext.CallbackConte
     )
 
 
-def csgo(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def csgo(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Print CSGO stats for a user"""
     if update.message:
         message: 'telegram.Message' = update.message
