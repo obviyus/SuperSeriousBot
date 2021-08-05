@@ -7,8 +7,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   ssgbot:
-    # image: ghcr.io/super-serious/bot:latest
-    build: .
+    image: ghcr.io/super-serious/bot:latest
+    # build: .
     volumes:
       - /db/:/db/
       - .:/code
@@ -19,6 +19,15 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     restart: unless-stopped
+
+  redis:
+    image: redis:latest
+    command: [ "redis-server", "--appendonly", "yes" ]
+    restart: unless-stopped
+    volumes:
+      - /db:/data
+    deploy:
+      replicas: 1
 
   qbt:
     image: ghcr.io/linuxserver/qbittorrent
