@@ -1,16 +1,22 @@
-FROM python:3.7-slim AS build-env
+# set base image (host OS)
+FROM python:3.9-slim
 
-ADD . /code
+# set the working directory in the container
 WORKDIR /code
 
-RUN pip3 install --upgrade pip && pip install --no-cache-dir -r ./requirements.txt
+# copy the dependencies file to the working directory
+COPY requirements.txt .
 
-FROM gcr.io/distroless/python3
-COPY --from=build-env /code /code
-COPY --from=build-env /usr/local/lib/python3.7/site-packages /usr/local/lib/python3.7/site-packages
+# copy the content of the local src directory to the working directory
+COPY / .
+
+# install dependencies
+RUN apt-get update \
+    && apt-get install gcc musl-dev ffmpeg -y --no-install-recommends \
+    && pip3 install --upgrade pip \
+    && pip3 install --no-cache-dir -r ./requirements.txt
 
 LABEL org.opencontainers.image.source="https://github.com/Super-Serious/bot"
-WORKDIR /code
 
-ENV PYTHONPATH=/usr/local/lib/python3.7/site-packages
-CMD ["main.py"]
+# command to run on container start
+CMD [ "python", "main.py" ]
