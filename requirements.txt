@@ -21,3 +21,4 @@ spurdify==0.3.0
 uwuify==1.0.2
 wolframalpha==5.0.0
 youtube_dl
+pydub==0.25.1
