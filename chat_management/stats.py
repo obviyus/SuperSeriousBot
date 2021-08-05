@@ -14,7 +14,7 @@ def check_table_exists(table_name: int) -> bool:
     return len(cursor.fetchall()) == 1
 
 
-def print_stats(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def print_stats(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Get daily chat stats starting 0:00 IST"""
     if not update.message:
         return
@@ -52,9 +52,8 @@ def print_stats(update: 'telegram.Update', context: 'telegram.ext.CallbackContex
     update.message.reply_text(text=text)
 
 
-def clear(context: 'telegram.ext.CallbackContext') -> None:
+def clear(_context: 'telegram.ext.CallbackContext') -> None:
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-
     for (table_name,) in cursor.fetchall():
         formula = f"DELETE FROM `{table_name}`"
         cursor.execute(formula)
@@ -62,7 +61,7 @@ def clear(context: 'telegram.ext.CallbackContext') -> None:
     conn.commit()
 
 
-def increment(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def increment(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Increment message count for a user"""
     if not update.message:
         return

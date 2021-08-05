@@ -15,7 +15,7 @@ cursor.execute(
 )
 
 
-def print_botstats(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def print_botstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Get command usage stats"""
     if not update.message:
         return

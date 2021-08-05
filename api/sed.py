@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def sed(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def sed(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Use regex to search and replace text in messages you reply to"""
     if update.message:
         message: 'telegram.Message' = update.message

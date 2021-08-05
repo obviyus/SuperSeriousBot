@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def tldr(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def tldr(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Generate TLDR of any message or article"""
     if update.message:
         message: 'telegram.Message' = update.message

@@ -7,17 +7,17 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def wink(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def wink(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Reply with a wink GIF"""
     response(update.message, 'wink')
 
 
-def pat(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def pat(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Reply with a pat GIF"""
     response(update.message, 'pat')
 
 
-def hug(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def hug(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Reply with a hug GIF"""
     response(update.message, 'hug')
 

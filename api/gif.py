@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def gif(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def gif(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Get a random GIF from giphy"""
     params: Dict[str, str] = {'api_key': config['GIPHY_API_KEY']}  # type: ignore
 

@@ -23,7 +23,7 @@ languages = {
 }
 
 
-def listvoices(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def listvoices(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """List all voices supported by /tts"""
     if update.message:
         message: 'telegram.Message' = update.message

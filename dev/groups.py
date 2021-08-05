@@ -9,7 +9,7 @@ conn = sqlite3.connect('/db/stats.db', check_same_thread=False)
 cursor = conn.cursor()
 
 
-def groups(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def groups(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Get command usage stats"""
     if not update.message:
         return

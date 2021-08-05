@@ -15,7 +15,7 @@ ydl_opts = {
 }
 
 
-def dl(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def dl(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Download a given video link and send as native Telegram video file"""
     if update.message:
         message: 'telegram.Message' = update.message

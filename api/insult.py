@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def insult(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def insult(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Get a random insult"""
 
     if update.message:

@@ -128,7 +128,7 @@ def make_steam_response(username: str, steam_id: str) -> (str, int):
     return text, hours
 
 
-def steamstats(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def steamstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
     """Print Steam stats for a user"""
     if update.message:
         message: 'telegram.Message' = update.message
