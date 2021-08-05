@@ -1,6 +1,6 @@
 DateTime==4.3
 azure-cognitiveservices-vision-computervision
-emoji==1.2.0
+emoji==1.4.2
 flake8>=3.8.4
 geopy==2.2.0
 google-cloud-texttospeech
