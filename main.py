@@ -71,6 +71,7 @@ commands: Dict[str, Callable] = {
     "gif":        api.gif,
     "gr":         api.goodreads,
     "groups":     dev.groups,
+    "gstats":     chat_management.print_gstats,
     "help":       help_cmd,
     "hltb":       api.hltb,
     "hug":        api.hug,
@@ -176,7 +177,11 @@ def main():
     dispatcher.bot.set_my_commands([(cmd, func.__doc__) for cmd, func in commands.items()])
 
     updater.start_polling(drop_pending_updates=True)
-    print("Started bot")
+    bot: telegram.Bot = updater.bot
+    updater.bot.send_message(
+        chat_id=LOGGING_CHANNEL,
+        text=f'@{bot.username} started at {datetime.datetime.now()}'
+    )
     updater.idle()
 
 
