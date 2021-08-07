@@ -17,7 +17,6 @@ qbittorrent-api==2021.5.22
 redis==3.5.3
 regex==2021.8.3
 requests==2.26.0
-ffprobe-python
 spurdify==0.3.0
 uwuify==1.0.2
 wolframalpha==5.0.0
