@@ -1,7 +1,7 @@
 import subprocess
 from typing import TYPE_CHECKING
 
-from ffprobe import FFProbe
+from .ffprobe import FFProbe
 
 if TYPE_CHECKING:
     import telegram
