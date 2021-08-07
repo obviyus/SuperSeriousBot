@@ -16,6 +16,7 @@ services:
       - ssgbot.env
     depends_on:
       - qbt
+      - redis
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     restart: unless-stopped
@@ -26,8 +27,6 @@ services:
     restart: unless-stopped
     volumes:
       - /db:/data
-    deploy:
-      replicas: 1
 
   qbt:
     image: ghcr.io/linuxserver/qbittorrent
