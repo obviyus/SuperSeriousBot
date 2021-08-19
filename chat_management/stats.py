@@ -1,11 +1,15 @@
 import sqlite3
+import datetime
 from typing import TYPE_CHECKING
+
+import redis
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
 conn = sqlite3.connect('/db/stats.db', check_same_thread=False)
+r = redis.StrictRedis(host='redis', port='6379', db=0, charset="utf-8", decode_responses=True)
 
 
 def check_table_exists(table_name: str) -> bool:
@@ -136,13 +140,15 @@ def increment(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext
     chat_id: int = update.message.chat_id
     user_object = update.message.from_user
 
+    # Set last seen in Redis
+    r.set(f'seen:{user_object.username}', datetime.datetime.now().isoformat())
+
     cursor = conn.cursor()
     if not check_table_exists(table_name=str(chat_id)):
         formula: str = f"CREATE TABLE IF NOT EXISTS `{chat_id}` ( " \
                        "`user_name` VARCHAR(255) NOT NULL UNIQUE, " \
                        "`message_count` INT unsigned NOT NULL DEFAULT '0', " \
                        "PRIMARY KEY (`user_name`))"
-
         cursor.execute(formula)
 
     increment_formula = f"INSERT INTO `{chat_id}` (user_name, message_count) " \

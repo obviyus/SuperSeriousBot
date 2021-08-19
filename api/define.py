@@ -57,12 +57,16 @@ def define(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
 
         # A raw MP3 is sent as a document, converting to OGG fixes that and sends as a playable audio file
         if "audio" in response["phonetics"][0]:
-            data = requests.get(response["phonetics"][0]["audio"])
+            url: str = response["phonetics"][0]["audio"]
+            if url.startswith("//ssl"):
+                url = 'http:' + url
+
+            data = requests.get(url)
             data = BytesIO(data.content)
 
             audio = AudioSegment.from_mp3(data)
             with BytesIO() as buf:
-                audio.export(buf, format='ogg')
+                audio.export(buf, format='ogg', codec='libopus')
                 buf.seek(0)
 
                 message.reply_audio(
