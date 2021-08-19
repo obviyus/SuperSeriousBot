@@ -1,6 +1,6 @@
 import sqlite3
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 import redis
 
@@ -40,18 +40,20 @@ def print_stats(update: 'telegram.Update', _context: 'telegram.ext.CallbackConte
         if total_messages == 0:
             text = "No messages found."
         else:
-            text = f'Stats for **{chat_title}** \n'
+            text = f'**Stats for {chat_title}** \n'
             user_object = update.message.from_user
+            longest: Tuple[str, int] = max(rows, key=lambda x: len(x[0]))
 
             # Ignore special case for user
             if user_object.id == 1060827049:
-                text += f'_{user_object.first_name} - 100% degen_\n'
+                text += f'`{user_object.first_name}' + (
+                        len(longest[0]) - len(user_object.first_name) + 1
+                ) * ' ' + '+ - 100% degen`\n'
 
             for user, count in rows:
                 percentage = round((count / total_messages) * 100, 2)
-                text += f'_{user} - {percentage}%_\n'
-
-            text = text + f'\nTotal messages - {total_messages}'
+                text += f"`{user}" + (len(longest[0]) - len(user) + 1) * " " + f"- {percentage}%`\n"
+            text = text + f"\n`Total" + (len(longest[0]) - 4) * " " + f"- {total_messages}`"
     else:
         text = "No messages found."
 
@@ -80,18 +82,19 @@ def print_gstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackCont
         if total_messages == 0:
             text = "No messages found."
         else:
-            text = f'Total Stats for **{chat_title}** \n'
+            text = f'**Total Stats for {chat_title}**\n'
             user_object = update.message.from_user
+            longest: Tuple[str, int] = max(rows, key=lambda x: len(x[0]))
 
             # Ignore special case for user
             if user_object.id == 1060827049:
-                text += f'_{user_object.first_name} - 100% degen_\n'
+                text += f'`{user_object.first_name}' + (
+                        len(longest[0]) - len(user_object.first_name) + 1
+                ) * ' ' + '+ - 100% degen`\n'
 
             for user, count in rows:
-                percentage = round((count / total_messages) * 100, 2)
-                text += f'_{user} - {percentage}%_\n'
-
-            text = text + f'\nTotal messages - {total_messages}'
+                text += f"`{user}" + (len(longest[0]) - len(user) + 1) * " " + f"- {count}`\n"
+            text = text + f"\n`Total" + (len(longest[0]) - 4) * " " + f"- {total_messages}`"
     else:
         text = "No messages found."
 
