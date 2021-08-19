@@ -60,6 +60,9 @@ RUN wget http://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 \
     && make install \
     && hash -r
 
+# workaround: ffprobe-wrapper doesn't find ffprobe otherwise
+RUN cp -r ~/bin/* /bin
+
 WORKDIR /code
 
 # copy the dependencies file to the working directory
