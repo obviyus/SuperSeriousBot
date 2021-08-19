@@ -92,6 +92,7 @@ commands: Dict[str, Callable] = {
     "stab":       stab.stab,
     "start":      start,
     "stats":      chat_management.print_stats,
+    "seen":       chat_management.seen,
     "steamstats": api.steamstats,
     "tl":         api.translate,
     "tldr":       api.tldr,
