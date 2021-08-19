@@ -24,19 +24,23 @@ def seen(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
                "*Example:* `/seen @obviyus`"
     else:
         username = context.args[0].replace('@', '')
-        last_seen: datetime = datetime.fromisoformat(r.get(f"seen:{username}"))
-
-        difference = (datetime.now() - last_seen).seconds
-        duration: str
-
-        if difference < 60:
-            duration = str(difference) + ' seconds'
-        elif difference < 3600:
-            duration = str(difference // 60) + ' minutes'
-        elif difference < 86400:
-            duration = str(difference // 3600) + ' hours'
+        r_get = r.get(f"seen:{username}")
+        if not r_get:
+            text = f"No messages recorded from @{username}"
         else:
-            duration = str(difference // 86400) + ' days'
-        text = f"@{username}'s last message was {duration} ago"
+            last_seen: datetime = datetime.fromisoformat(r_get)
+
+            difference = (datetime.now() - last_seen).seconds
+            duration: str
+
+            if difference < 60:
+                duration = str(difference) + ' seconds'
+            elif difference < 3600:
+                duration = str(difference // 60) + ' minutes'
+            elif difference < 86400:
+                duration = str(difference // 3600) + ' hours'
+            else:
+                duration = str(difference // 86400) + ' days'
+            text = f"@{username}'s last message was {duration} ago"
 
     message.reply_text(text)
