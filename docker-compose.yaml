@@ -1,10 +1,10 @@
+version: "3"
 services:
   watchtower:
     image: containrrr/watchtower
-    restart: always
-    command: --label-enable --cleanup --interval 300
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30
 
   ssgbot:
     image: ghcr.io/super-serious/bot:latest
@@ -17,8 +17,6 @@ services:
     depends_on:
       - qbt
       - redis
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     restart: unless-stopped
 
   redis:

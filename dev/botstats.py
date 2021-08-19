@@ -17,6 +17,8 @@ def print_botstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackCo
     text: str
     rows = []
     for key in r.scan_iter("*"):
+        if key.startswith("seen:"):
+            continue
         rows.append((key, int(r.get(key))))
     rows = sorted(rows, key=lambda x: x[1], reverse=True)
 
