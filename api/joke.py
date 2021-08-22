@@ -19,7 +19,7 @@ def joke(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
     # Randomly choose between these two APIs
     response: Dict
     if random.random() < 0.5:
-        response = get('https://sv443.net/jokeapi/v2/joke/Any').json()
+        response = get('https://v2.jokeapi.dev/joke/Any?type=twopart').json()
     else:
         response = get('https://official-joke-api.appspot.com/random_joke').json()
 
