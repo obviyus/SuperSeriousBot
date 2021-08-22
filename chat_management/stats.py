@@ -48,7 +48,7 @@ def print_stats(update: 'telegram.Update', _context: 'telegram.ext.CallbackConte
             if user_object.id == 1060827049:
                 text += f'`{user_object.first_name}' + (
                         len(longest[0]) - len(user_object.first_name) + 1
-                ) * ' ' + '+ - 100% degen`\n'
+                ) * ' ' + '- 100% degen`\n'
 
             for user, count in rows:
                 percentage = round((count / total_messages) * 100, 2)
@@ -90,7 +90,7 @@ def print_gstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackCont
             if user_object.id == 1060827049:
                 text += f'`{user_object.first_name}' + (
                         len(longest[0]) - len(user_object.first_name) + 1
-                ) * ' ' + '+ - 100% degen`\n'
+                ) * ' ' + '- 100% degen`\n'
 
             for user, count in rows:
                 text += f"`{user}" + (len(longest[0]) - len(user) + 1) * " " + f"- {count}`\n"
