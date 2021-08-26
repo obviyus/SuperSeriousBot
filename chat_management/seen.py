@@ -30,7 +30,7 @@ def seen(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
         else:
             last_seen: datetime = datetime.fromisoformat(r_get)
 
-            difference = (datetime.now() - last_seen).seconds
+            difference = (datetime.now() - last_seen).total_seconds()
             duration: str
 
             if difference < 60:
