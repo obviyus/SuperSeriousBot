@@ -15,6 +15,7 @@ from configuration import config
 
 if TYPE_CHECKING:
     import telegram
+    import telegram.ext
 
 # Private channel used for logging exceptions
 LOGGING_CHANNEL = -1001543943945
@@ -27,7 +28,10 @@ def error_handler(_update: object, context: 'telegram.ext.CallbackContext') -> N
     tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
 
     # Finally, send the message
-    context.bot.send_message(chat_id=LOGGING_CHANNEL, text=f"`{tb_list[-1]}`", parse_mode='Markdown')
+    try:
+        context.bot.send_message(chat_id=LOGGING_CHANNEL, text=f"`{tb_list[-1]}`", parse_mode='Markdown')
+    finally:
+        raise context.error
 
 
 def start(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -86,6 +90,7 @@ commands: Dict[str, Callable] = {
     "pic":        api.pic,
     "pon":        api.audio,
     "search":     api.search,
+    "seinfeld":   api.seinfeld,
     "setid":      api.set_steam_id,
     "shiba":      api.animal,
     "spurdo":     api.spurdo,
@@ -141,7 +146,7 @@ def main():
     dispatcher: 'telegram.ext.Dispatcher' = updater.dispatcher
     job_queue: 'telegram.ext.JobQueue' = updater.job_queue
 
-    for cmd, func in commands.items():
+    for cmd, _ in commands.items():
         dispatcher.add_handler(CommandHandler(cmd, funcHandler, run_async=True))
 
     # Regex handler
