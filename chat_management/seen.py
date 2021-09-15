@@ -1,4 +1,4 @@
-from typing import Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import redis
 from datetime import datetime
@@ -41,6 +41,6 @@ def seen(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
                 duration = str(difference // 3600) + ' hours'
             else:
                 duration = str(difference // 86400) + ' days'
-            text = f"@{username}'s last message was {duration} ago"
+            text = f"{username}'s last message was {duration} ago"
 
-    message.reply_text(text)
+    message.reply_text(text, parse_mode=None)
