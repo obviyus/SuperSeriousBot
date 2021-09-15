@@ -1,4 +1,4 @@
-from typing import Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import redis
 from datetime import datetime
@@ -30,17 +30,22 @@ def seen(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
         else:
             last_seen: datetime = datetime.fromisoformat(r_get)
 
-            difference = (datetime.now() - last_seen).total_seconds()
+            difference: float = (datetime.now() - last_seen).total_seconds()
             duration: str
 
             if difference < 60:
-                duration = str(difference) + ' seconds'
+                duration = str(round(difference)) + ' seconds'
             elif difference < 3600:
                 duration = str(difference // 60) + ' minutes'
             elif difference < 86400:
                 duration = str(difference // 3600) + ' hours'
             else:
                 duration = str(difference // 86400) + ' days'
-            text = f"@{username}'s last message was {duration} ago"
+            text = f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {duration} ago"
 
-    message.reply_text(text)
+    message.reply_text(
+        text,
+        disable_web_page_preview=True,
+        disable_notification=True,
+        parse_mode='HTML'
+    )
