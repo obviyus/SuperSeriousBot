@@ -121,7 +121,7 @@ def funcHandler(update: 'telegram.Update', context: 'telegram.ext.CallbackContex
         command = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
     else:
         return
-    command = command.partition('@')[0][1:]
+    command = command.partition('@')[0][1:].lower()
 
     if command != 'botstats' and command != 'groups':
         commands[command](update, context)
