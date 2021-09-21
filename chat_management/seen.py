@@ -34,13 +34,13 @@ def seen(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
             duration: str
 
             if difference < 60:
-                duration = str(round(difference)) + ' seconds'
+                duration = f"{round(difference):.0f} seconds"
             elif difference < 3600:
-                duration = str(difference // 60) + ' minutes'
+                duration = f"{difference // 60:.0f} minutes"
             elif difference < 86400:
-                duration = str(difference // 3600) + ' hours'
+                duration = f"{difference // 3600:.0f} hours"
             else:
-                duration = str(difference // 86400) + ' days'
+                duration = f"{difference // 86400:.0f} days"
             text = f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {duration} ago"
 
     message.reply_text(
