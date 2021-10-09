@@ -61,6 +61,7 @@ def help_cmd(update: 'telegram.Update', context: 'telegram.ext.CallbackContext')
 commands: Dict[str, Callable] = {
     # "command": function
     "age":        api.age,
+    "album":      api.album,
     "ban":        chat_management.ban,
     "botstats":   dev.print_botstats,
     "calc":       api.calc,
