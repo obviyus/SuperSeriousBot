@@ -1,4 +1,5 @@
 """Commands for general use."""
+from .album import album
 from .animals import animal
 from .audio import audio
 from .calc import calc

@@ -16,6 +16,7 @@ try:
         "TELEGRAM_BOT_TOKEN":  os.environ["TELEGRAM_BOT_TOKEN"],
         "WOLFRAM_APP_ID":      os.environ["WOLFRAM_APP_ID"],
         "AZURE_KEY":           os.environ["AZURE_KEY"],
+        "IMGUR_KEY":           os.environ["IMGUR_KEY"],
     }
 except KeyError:
     raise ImportError(
