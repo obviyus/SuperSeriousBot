@@ -10,7 +10,6 @@ import api
 import chat_management
 import dev
 import links
-import stab
 from configuration import config
 
 if TYPE_CHECKING:
@@ -95,7 +94,6 @@ commands: Dict[str, Callable] = {
     "setid":      api.set_steam_id,
     "shiba":      api.animal,
     "spurdo":     api.spurdo,
-    "stab":       stab.stab,
     "start":      start,
     "stats":      chat_management.print_stats,
     "seen":       chat_management.seen,

@@ -26,7 +26,7 @@ def seinfeld(update: 'telegram.Update', _: 'telegram.ext.CallbackContext') -> No
 
     audio_file: BytesIO = BytesIO(audio.get_file().download_as_bytearray())
 
-    seinfeld = AudioSegment.from_file('seinfeld_song.mp3').apply_gain(-10)
+    seinfeld = AudioSegment.from_file('files/seinfeld_song.mp3').apply_gain(-10)
     overlayed = AudioSegment.from_file(audio_file).overlay(seinfeld, loop=True)
 
     output: BytesIO = BytesIO()
