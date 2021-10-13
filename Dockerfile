@@ -6,7 +6,7 @@ RUN apt-get update \
   && python3 -m venv /venv \
   && /venv/bin/pip install --upgrade pip
 
-FROM builder as build-env
+FROM builder AS build-env
 
 COPY requirements.txt /requirements.txt
 RUN /venv/bin/pip install -r /requirements.txt
@@ -14,10 +14,10 @@ RUN /venv/bin/pip install -r /requirements.txt
 RUN wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz \
   && tar xJvf ffmpeg-git-amd64-static.tar.xz
 
-FROM gcr.io/distroless/python3-debian10
+FROM gcr.io/distroless/python3 AS runner
 COPY --from=build-env /ffmpeg-git-**-amd64-static/ff** /usr/local/bin/
 COPY --from=build-env /venv /venv
-COPY --from=build-env . /code
+COPY . /code
 
 LABEL org.opencontainers.image.source="https://github.com/Super-Serious/bot"
 
