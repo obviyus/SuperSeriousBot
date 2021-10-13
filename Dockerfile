@@ -15,7 +15,7 @@ RUN wget https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz 
   && tar xJvf ffmpeg-git-amd64-static.tar.xz
 
 FROM gcr.io/distroless/python3-debian10
-COPY --from=build-env /ffmpeg-git-**-amd64-static/ffmpeg /usr/local/bin/
+COPY --from=build-env /ffmpeg-git-**-amd64-static/ff** /usr/local/bin/
 COPY --from=build-env /venv /venv
 COPY --from=build-env . /code
 
