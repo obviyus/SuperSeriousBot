@@ -70,6 +70,7 @@ commands: Dict[str, Callable] = {
     "covid":      api.covid,
     "csgo":       api.csgo,
     "d":          api.define,
+    "dice":       api.dice,
     "dl":         links.dl,
     "fox":        api.animal,
     "fw":         api.audio,

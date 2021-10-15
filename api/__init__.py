@@ -6,6 +6,7 @@ from .calc import calc
 from .covid import covid
 from .csgo import csgo, set_steam_id
 from .define import define
+from .dice import dice
 from .gif import gif
 from .goodreads import goodreads
 from .hltb import hltb
