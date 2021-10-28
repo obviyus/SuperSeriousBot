@@ -85,7 +85,6 @@ commands: Dict[str, Callable] = {
     "jogi":       api.audio,
     "joke":       api.joke,
     "kick":       chat_management.kick,
-    "listvoices": api.listvoices,
     "pat":        api.pat,
     "pfp":        api.pad_image,
     "pic":        api.pic,

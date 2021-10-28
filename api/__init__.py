@@ -22,7 +22,7 @@ from .spurdo import spurdo
 from .steamstats import steamstats
 from .tldr import tldr
 from .translate import translate
-from .tts import listvoices, tts
+from .tts import tts
 from .ud import ud
 from .uwu import uwu
 from .vision import age, caption
