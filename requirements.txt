@@ -16,7 +16,7 @@ python-dateutil==2.8.2
 python-telegram-bot==13.7
 qbittorrent-api==2021.8.23
 redis==3.5.3
-regex==2021.9.30
+regex==2021.11.1
 requests==2.26.0
 spurdify==0.3.0
 uwuify==1.1.0
