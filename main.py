@@ -159,7 +159,7 @@ def main():
     # Chat message count handler
     dispatcher.add_handler(
         MessageHandler(
-            Filters.text & ~Filters.chat_type.private,
+            ~Filters.chat_type.private,
             chat_management.increment,
         ), group=1
     )
