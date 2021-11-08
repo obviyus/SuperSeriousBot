@@ -13,7 +13,7 @@ pandas>=1.3.4
 pillow==8.4.0
 pydub>=0.25.1
 python-dateutil==2.8.2
-python-telegram-bot==13.7
+python-telegram-bot==13.8.1
 qbittorrent-api==2021.8.23
 redis==3.5.3
 regex>=2021.11.2
