@@ -15,7 +15,7 @@ pydub>=0.25.1
 python-dateutil==2.8.2
 python-telegram-bot==13.7
 qbittorrent-api==2021.8.23
-redis==3.5.3
+redis==4.0.2
 regex>=2021.11.2
 requests==2.26.0
 spurdify==0.3.0
