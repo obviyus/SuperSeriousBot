@@ -8,7 +8,7 @@ services:
 
   ssgbot:
     image: ghcr.io/super-serious/bot:latest
-    # build: .
+    build: .
     volumes:
       - /db/:/db/
       - .:/code

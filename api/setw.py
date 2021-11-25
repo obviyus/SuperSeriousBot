@@ -42,4 +42,5 @@ def setw(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
             conn.commit()
             result = "Default location has been set."
 
-    message.reply_text(text=result) 
+    message.reply_text(text=result)
+ 

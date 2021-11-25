@@ -92,6 +92,7 @@ commands: Dict[str, Callable] = {
     "search":     api.search,
     "seinfeld":   api.seinfeld,
     "setid":      api.set_steam_id,
+    "setw":       api.setw,
     "shiba":      api.animal,
     "spurdo":     api.spurdo,
     "start":      start,
