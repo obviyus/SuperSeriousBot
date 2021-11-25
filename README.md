@@ -48,7 +48,7 @@ SuperSeriousBot is run via Docker. The latest image can always be found at: http
 To start the bot you only need the `docker-compose.yml` and a valid `ssgbot.env` file.
 
 ```bash
-$ docker-compose up -d
+$ docker-compose --profile prod up -d
 ```
 
 ## Development
@@ -58,7 +58,7 @@ We also use Docker as the preferred development environment:
 ```bash
 $ git clone https://github.com/Super-Serious/bot
 $ cd bot
-$ docker-compose up 
+$ docker-compose --profile dev up
 ```
 
 Any changes to the code persist through container restarts, no need to rebuild the image!
