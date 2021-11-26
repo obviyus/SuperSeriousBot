@@ -43,6 +43,33 @@ weather_codes: Dict[str, str] = {
 conn = sqlite3.connect('/db/stats.db', check_same_thread=False)
 cur = conn.cursor()
 
+
+def weather_details(location):
+    weather_data: str
+    try:
+        params: Dict[str, str] = {
+            'location': f'{location.latitude},{location.longitude}',
+            'apikey': config["CLIMACELL_API_KEY"],
+            'fields': "temperature,humidity,windSpeed,weatherCode,particulateMatter25",
+        }
+
+        response = get('https://api.tomorrow.io/v4/timelines?', params=params).json()['data']
+        data: Dict = response['timelines'][0]['intervals'][0]['values']
+
+        conditions: str = data['weatherCode']
+        humidity: str = data['humidity']
+        pm25: str = data['particulateMatter25']
+        temperature: str = data['temperature']
+        wind_speed: str = data['windSpeed']
+
+        weather_data = f"*{location.address}*\n" \
+            f"🌡️ *Temperate:* {temperature}° C\n🏭 *AQI:* {pm25}\n💦 *Humidity:* {humidity}%\n🛰️ *Weather:* {weather_codes[str(conditions)]}\n\n💨 Wind " \
+            f"gusts up to *{wind_speed}* m/s "
+    except AttributeError:
+        weather_data = 'No entry found.'
+    return weather_data
+
+
 def weather(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
     """Show weather at a location"""
     if update.message:
@@ -56,37 +83,18 @@ def weather(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
 
     if not query:
         cur.execute("SELECT location FROM weatherpref WHERE userid = ?", (user_object.id,))
-        default_location=cur.fetchone()
-        if not default_location:
-            text = "*Usage:* `/weather {LOCATION}`\n" \
-            "*Example:* `/weather NIT Rourkela` \n" \
-            "Or set a default location using `/setw`"
-        else:
+        default_location = cur.fetchone()
+        if default_location:
             query = default_location
-        
-    location = Nominatim(user_agent="SuperSeriousBot").geocode(query, exactly_one=True)
 
-    try:
-        params: Dict[str, str] = {
-            'location': f'{location.latitude},{location.longitude}',
-            'apikey':   config["CLIMACELL_API_KEY"],
-            'fields':   "temperature,humidity,windSpeed,weatherCode,particulateMatter25",
-        }
+    if not query:
+        text = "*Usage:* `/weather {LOCATION}`\n" \
+            "*Example:* `/weather NIT Rourkela` \n" \
+            "Or set a default location using `/setw {LOCATION}`"
 
-        response = get('https://api.tomorrow.io/v4/timelines?', params=params).json()['data']
-        data: Dict = response['timelines'][0]['intervals'][0]['values']
-
-        conditions: str = data['weatherCode']
-        humidity: str = data['humidity']
-        pm25: str = data['particulateMatter25']
-        temperature: str = data['temperature']
-        wind_speed: str = data['windSpeed']
-
-        text = f"*{location.address}*\n" \
-                f"🌡️ *Temperate:* {temperature}° C\n🏭 *AQI:* {pm25}\n💦 *Humidity:* {humidity}%\n🛰️ *Weather:* {weather_codes[str(conditions)]}\n\n💨 Wind " \
-                f"gusts up to *{wind_speed}* m/s "
-    except AttributeError:
-        text = 'No entry found.'
+    else:
+        location = Nominatim(user_agent="SuperSeriousBot").geocode(query, exactly_one=True)
+        text = weather_details(location)
 
     message.reply_text(
         text=text,
