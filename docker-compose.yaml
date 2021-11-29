@@ -1,14 +1,28 @@
-version: "3"
+version: "3.8"
 services:
   watchtower:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --interval 30
+    profiles:
+      - prod
 
   ssgbot:
     image: ghcr.io/super-serious/bot:latest
-    # build: .
+    volumes:
+      - /db/:/db/
+    env_file:
+      - ssgbot.env
+    depends_on:
+      - qbt
+      - redis
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  ssgbot_dev:
+    build: .
     volumes:
       - /db/:/db/
       - .:/code
@@ -18,6 +32,8 @@ services:
       - qbt
       - redis
     restart: unless-stopped
+    profiles:
+      - dev
 
   redis:
     image: redis:latest

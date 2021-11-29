@@ -4,7 +4,7 @@ from urllib.parse import urlsplit
 from telegram import MessageEntity
 
 from .reddit import reddit_parser
-from .youtube import youtube_parser
+# from .youtube import youtube_parser
 
 if TYPE_CHECKING:
     import telegram
@@ -37,8 +37,9 @@ def link_handler(update: 'telegram.Update', _context: 'telegram.ext.CallbackCont
     if hostname == 'www.reddit.com' or hostname == 'reddit.com':
         text = reddit_parser(link_in_message)
         update.message.reply_text(text=text)
-    elif hostname == 'www.youtube.com' or hostname == 'youtube.com':
-        text = youtube_parser(link_in_message)
-        update.message.reply_text(text=text)
+    # TODO: find another yt parser
+    # elif hostname == 'www.youtube.com' or hostname == 'youtube.com':
+    #     text = youtube_parser(link_in_message)
+    #     update.message.reply_text(text=text)
     else:
         return
