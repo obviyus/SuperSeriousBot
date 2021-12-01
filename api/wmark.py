@@ -17,9 +17,9 @@ def wmark(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
 
     if not (message.reply_to_message and message.reply_to_message.photo and context.args):
         message.reply_text(
-            text="*Usage:* \nReply to a photo with `/water {watermark text}|{COLOR}`\n"
-                 "*Example:* `/water @channelname|#AA33FF`\n"
-                 "                 `/water @channelname2`\n"
+            text="*Usage:* \nReply to a photo with `/wmark {watermark text}|{COLOR}`\n"
+                 "*Example:* `/wmark @channelname|#AA33FF`\n"
+                 "                 `/wmark @channelname2`\n"
                  "Color is optional and you can specify a hex color value. Defaults to white."
         )
     else:
