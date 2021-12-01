@@ -106,6 +106,7 @@ commands: Dict[str, Callable] = {
     "wait":       api.wait,
     "weather":    api.weather,
     "wink":       api.wink,
+    "wmark":      api.wmark,
 }
 
 
