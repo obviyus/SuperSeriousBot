@@ -1,7 +1,7 @@
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageFont, ImageDraw
+from PIL import Image, ImageFont, ImageDraw, ImageColor
 
 if TYPE_CHECKING:
     import telegram
@@ -27,24 +27,34 @@ def wmark(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
         h: int = pic.height
         w: int = pic.width
 
-        args: list = ''.join(context.args).split("|")
+        args: list = ' '.join(context.args).split("|")
 
         watermark_text: str = args[0]
         if len(args) == 2 and args[1]:
-            color: str = args[1]
+            color: str = args[1].strip()
         else:
             color: str = 'white'
 
+        color_tup: tuple = ImageColor.getrgb(color)
+        color_tup = (*color_tup, 150)
+
         with BytesIO(pic.get_file().download_as_bytearray()) as pic_file, BytesIO() as wimage:
             try:
-                image = Image.open(pic_file)
-                draw = ImageDraw.Draw(image)
+                base_image = Image.open(pic_file).convert("RGBA")
+                txt_layer = Image.new("RGBA", base_image.size, (255, 255, 255, 0))
+                draw = ImageDraw.Draw(txt_layer)
 
-                font = ImageFont.truetype("files/liberation.ttf", size=int(h / 30))
+                if w > h:
+                    font = ImageFont.truetype("files/liberation.ttf", size=int(h / 12))
+                    draw.text((w / 2, h - 20), watermark_text, fill=color_tup, font=font, anchor="md")
+                else:
+                    font = ImageFont.truetype("files/liberation.ttf", size=int(w / 20))
+                    draw.text((w / 2, (h / 2) - 20), watermark_text, fill=color_tup, font=font, anchor="md")
+                    # txt_layer = txt_layer.rotate(90, center=(w / 2, h / 2), translate=(w / 2, 0))
 
-                draw.text((w, h), watermark_text, fill=color, font=font, anchor="rb")
+                out_image = Image.alpha_composite(base_image, txt_layer)
 
-                image.save(wimage, 'JPEG')
+                out_image.save(wimage, 'PNG')
                 wimage.seek(0)
 
                 message.reply_photo(photo=wimage)
