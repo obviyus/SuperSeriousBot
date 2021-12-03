@@ -32,8 +32,10 @@ def wmark(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
         watermark_text: str = args[0]
         if len(args) == 2 and args[1]:
             color: str = args[1].strip()
+            stroke_width: int = 0
         else:
             color: str = 'white'
+            stroke_width: int = 1
 
         color_tup: tuple = ImageColor.getrgb(color)
         color_tup = (*color_tup, 150)
@@ -46,11 +48,27 @@ def wmark(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
 
                 if w > h:
                     font = ImageFont.truetype("files/liberation.ttf", size=int(h / 12))
-                    draw.text((w / 2, h - 20), watermark_text, fill=color_tup, font=font, anchor="md")
+                    draw.text(
+                        (w / 2, h - 20),
+                        watermark_text,
+                        fill=color_tup,
+                        font=font,
+                        anchor="md",
+                        stroke_width=stroke_width,
+                        stroke_fill="black",
+                    )
                 else:
                     font = ImageFont.truetype("files/liberation.ttf", size=int(w / 20))
-                    draw.text((w / 2, (h / 2) - 20), watermark_text, fill=color_tup, font=font, anchor="md")
-                    # txt_layer = txt_layer.rotate(90, center=(w / 2, h / 2), translate=(w / 2, 0))
+                    draw.text(
+                        (w / 2, (h / 2) - 20),
+                        watermark_text,
+                        fill=color_tup,
+                        font=font,
+                        anchor="md",
+                        stroke_width=stroke_width,
+                        stroke_fill="black",
+                    )
+                    txt_layer = txt_layer.rotate(90, center=(w / 2, h / 2), translate=(w / 2, 0))
 
                 out_image = Image.alpha_composite(base_image, txt_layer)
 
