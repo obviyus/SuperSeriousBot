@@ -12,7 +12,7 @@ conn = sqlite3.connect('/db/stats.db', check_same_thread=False)
 cur = conn.cursor()
 
 cur.execute('''CREATE TABLE IF NOT EXISTS weatherpref
-               (userid int PRIMARY KEY, location text)''')
+               (userid int PRIMARY KEY, address text, latitude int, longitude int)''')
 
 
 def setw(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
@@ -31,16 +31,16 @@ def setw(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
             "*Example:* `/setw NIT Rourkela`"
     else:
         try:
-            location = Nominatim(user_agent="dumbfuckingbot").geocode(query, exactly_one=True)
+            location = Nominatim(user_agent="SuperSeriousBot").geocode(query, exactly_one=True)
             if location is None:
                 raise TypeError
         except TypeError:
             result = "No entry found."
         else:
-            cur.execute("INSERT INTO weatherpref(userid,location) VALUES(?,?) \
-                ON CONFLICT(userid) DO UPDATE SET location=excluded.location", (user_object.id, query))
+            cur.execute("INSERT INTO weatherpref(userid,address,latitude,longitude) VALUES(?,?,?,?) \
+                ON CONFLICT(userid) DO UPDATE SET address=excluded.address, latitude=excluded.latitude, longitude=excluded.longitude", (user_object.id, location.address, location.latitude, location.longitude))
             conn.commit()
             result = f"Default location has been set. \n" \
-                f" \n{ weather_details(location) }"
+                f" \n{ weather_details(location.address, location.latitude, location.longitude) }"
 
     message.reply_text(text=result)

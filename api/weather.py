@@ -44,11 +44,11 @@ conn = sqlite3.connect('/db/stats.db', check_same_thread=False)
 cur = conn.cursor()
 
 
-def weather_details(location):
+def weather_details(address, latitude, longitude):
     weather_data: str
     try:
         params: Dict[str, str] = {
-            'location': f'{location.latitude},{location.longitude}',
+            'location': f'{latitude},{longitude}',
             'apikey': config["CLIMACELL_API_KEY"],
             'fields': "temperature,humidity,windSpeed,weatherCode,particulateMatter25",
         }
@@ -62,7 +62,7 @@ def weather_details(location):
         temperature: str = data['temperature']
         wind_speed: str = data['windSpeed']
 
-        weather_data = f"*{location.address}*\n" \
+        weather_data = f"*{address}*\n" \
             f"🌡️ *Temperate:* {temperature}° C\n🏭 *AQI:* {pm25}\n💦 *Humidity:* {humidity}%\n🛰️ *Weather:* {weather_codes[str(conditions)]}\n\n💨 Wind " \
             f"gusts up to *{wind_speed}* m/s "
     except AttributeError:
@@ -81,20 +81,19 @@ def weather(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
     query: str = ' '.join(context.args) if context.args else ''
     text: str
 
-    if not query:
-        cur.execute("SELECT location FROM weatherpref WHERE userid = ?", (user_object.id,))
-        default_location = cur.fetchone()
-        if default_location:
-            query = default_location
-
-    if not query:
-        text = "*Usage:* `/weather {LOCATION}`\n" \
-            "*Example:* `/weather NIT Rourkela` \n" \
-            "Or set a default location using `/setw {LOCATION}`"
+    if query:
+        location = Nominatim(user_agent="SuperSeriousBot").geocode(query, exactly_one=True)
+        text = weather_details(location.address, location.latitude, location.longitude)
 
     else:
-        location = Nominatim(user_agent="SuperSeriousBot").geocode(query, exactly_one=True)
-        text = weather_details(location)
+        cur.execute("SELECT address, latitude, longitude FROM weatherpref WHERE userid = ?", (user_object.id,))
+        default_location = cur.fetchone()
+        if default_location:
+            text = weather_details(*default_location)
+        else:
+            text = "*Usage:* `/weather {LOCATION}`\n" \
+                "*Example:* `/weather NIT Rourkela` \n" \
+                "Or set a default location using `/setw {LOCATION}`"
 
     message.reply_text(
         text=text,

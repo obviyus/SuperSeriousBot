@@ -104,6 +104,7 @@ commands: Dict[str, Callable] = {
     "tts":        api.tts,
     "ud":         api.ud,
     "uwu":        api.uwu,
+    "w":          api.weather,
     "wait":       api.wait,
     "weather":    api.weather,
     "wink":       api.wink,
