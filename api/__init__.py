@@ -18,6 +18,7 @@ from .response import hug, pat, wink
 from .search import search, search_button
 from .sed import sed
 from .seinfeld import seinfeld
+from .setw import setw
 from .spurdo import spurdo
 from .steamstats import steamstats
 from .tldr import tldr
