@@ -10,6 +10,7 @@ RUN /venv/bin/pip install --disable-pip-version-check -r /requirements.txt
 
 FROM gcr.io/distroless/python3-debian10
 COPY --from=build-venv /usr/bin/ff** /usr/local/bin/
+
 # ffmpeg libs
 COPY --from=build-venv /usr/lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu
 COPY --from=build-venv /lib/x86_64-linux-gnu /lib/x86_64-linux-gnu

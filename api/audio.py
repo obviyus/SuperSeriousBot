@@ -46,7 +46,7 @@ def audio(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
     # Failsafe since I'm not certain how long file_ids persist If they do forever we can keep this for pranks
     if (
             message.from_user
-            and message.from_user.username in config["AUDIO_RESTORE_USERS"]
+            and message.from_user.username in config["DEV_USERNAMES"]
             and update.effective_chat
             and update.effective_chat.type == "private"
             and message.reply_to_message

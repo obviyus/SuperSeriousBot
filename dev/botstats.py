@@ -6,10 +6,14 @@ if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-r = redis.StrictRedis(host='redis', port='6379', db=0, charset="utf-8", decode_responses=True)
+r = redis.StrictRedis(
+    host="redis", port="6379", db=0, charset="utf-8", decode_responses=True
+)
 
 
-def print_botstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
+def print_botstats(
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
+) -> None:
     """Get command usage stats"""
     if not update.message:
         return
@@ -28,9 +32,13 @@ def print_botstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackCo
         total_commands = sum(row[1] for row in rows)
         longest: Tuple[str, int] = max(rows, key=lambda x: len(x[0]))
 
-        text = 'Stats for **@SuperSeriousBot**: \n'
+        text = f"Stats for **@{context.bot.username}**: \n"
         for command, count in rows:
-            text += f"`/{command}" + (len(longest[0]) - len(command) + 1) * " " + f"- {count}`\n"
+            text += (
+                f"`/{command}"
+                + (len(longest[0]) - len(command) + 1) * " "
+                + f"- {count}`\n"
+            )
         text = text + f"\n`Total" + (len(longest[0]) - 3) * " " + f"- {total_commands}`"
 
     update.message.reply_text(text=text)
