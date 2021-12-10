@@ -4,7 +4,7 @@ from typing import Dict, Union
 try:
     # By default, try to look for API keys in environment variables
     config: Dict[str, Union[str, list]] = {
-        "AUDIO_RESTORE_USERS": os.environ["AUDIO_RESTORE_USERS"].split(),
+        "DEV_USERNAMES": os.environ["DEV_USERNAMES"].split(),
         "CLIMACELL_API_KEY":   os.environ["CLIMACELL_API_KEY"],
         "FOR_WHAT_ID":         os.environ["FOR_WHAT_ID"],
         "GOODREADS_API_KEY":   os.environ["GOODREADS_API_KEY"],

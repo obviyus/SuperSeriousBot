@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 def get_imgur(parsed_url, count):
     headers: dict = {"Authorization": f"Client-ID {config['IMGUR_KEY']}"}
-    imgur_hash: str = parsed_url.path.split('/')[2]
+    imgur_hash: str = parsed_url.path.split("/")[2]
     imgur_request_url: str = f"https://api.imgur.com/3/album/{imgur_hash}/images"
     try:
         resp = requests.get(imgur_request_url, headers=headers)
@@ -28,7 +28,7 @@ def get_imgur(parsed_url, count):
         return [parsed_url.geturl()]
 
 
-def album(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Download reddit and imgur albums"""
     text: str
     img_url_list: list
@@ -44,8 +44,8 @@ def album(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
     else:
         msg.reply_text(
             text="*Usage:* \n`/album {REDDIT/IMGUR ALBUM LINK} [COUNT]`\n"
-                 "*Example:* `/album imgur.com/gallery/H5ijXa1`\n"
-                 "The count is optional, default is 5"
+            "*Example:* `/album imgur.com/gallery/H5ijXa1`\n"
+            "The count is optional, default is 5"
         )
         return
 
@@ -60,10 +60,20 @@ def album(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
         img_url_list = get_imgur(parsed_arg, count)
     elif "redd.it" in parsed_arg.hostname:
         msg.reply_text("redd.it links do not work")
-    elif "reddit.com" in parsed_arg.hostname and parsed_arg.path and parsed_arg.path != '/':
+    elif (
+        "reddit.com" in parsed_arg.hostname
+        and parsed_arg.path
+        and parsed_arg.path != "/"
+    ):
         headers: dict = {"User-agent": "SuperSeriousBot"}
-        reddit_request_url: str = f"{parsed_arg.scheme}://{parsed_arg.hostname}{parsed_arg.path}"
-        reddit_request_url = (reddit_request_url[:-1] if reddit_request_url[-1] == "/" else reddit_request_url) + ".json"
+        reddit_request_url: str = (
+            f"{parsed_arg.scheme}://{parsed_arg.hostname}{parsed_arg.path}"
+        )
+        reddit_request_url = (
+            reddit_request_url[:-1]
+            if reddit_request_url[-1] == "/"
+            else reddit_request_url
+        ) + ".json"
         try:
             resp = requests.get(reddit_request_url, headers=headers).json()
         except (requests.RequestException, JSONDecodeError):
@@ -79,7 +89,9 @@ def album(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
         elif "is_gallery" in resp_data and resp_data["is_gallery"]:
             gallery = resp_data["media_metadata"] or {}
             if resp_data["gallery_data"]:
-                ordered_gallery_ids = [item["media_id"] for item in resp_data["gallery_data"]["items"]]
+                ordered_gallery_ids = [
+                    item["media_id"] for item in resp_data["gallery_data"]["items"]
+                ]
                 ordered_gallery = [gallery[id] for id in ordered_gallery_ids]
             else:
                 ordered_gallery = list(gallery.values())
@@ -100,7 +112,9 @@ def album(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') ->
         msg.reply_text("Invalid URL")
     else:
         # Can only send 10 images in an album at a time
-        chunked_url_list = [img_url_list[pos:pos + 10] for pos in range(0, len(img_url_list), 10)]
+        chunked_url_list = [
+            img_url_list[pos : pos + 10] for pos in range(0, len(img_url_list), 10)
+        ]
         try:
             for chunk in chunked_url_list:
                 msg.reply_media_group([InputMediaPhoto(img_url) for img_url in chunk])
