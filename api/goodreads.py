@@ -22,13 +22,13 @@ def goodreads(update: 'telegram.Update', context: 'telegram.ext.CallbackContext'
 
     if not query:
         text = "*Usage:*   `/gr {BOOK_NAME}`\n" \
-               "*Example:* `/gr Clean Code`"
+               "*Example:* `/gr The Rhythm of War`"
     else:
         response: requests.Response = requests.get(
             f'https://www.goodreads.com/search.xml?key={config["GOODREADS_API_KEY"]}&q={query}'
         )
-        book_id: Optional[str] = ET.fromstring(response.content).findtext("search/results/work/best_book/id")
 
+        book_id: Optional[str] = ET.fromstring(response.content).findtext("search/results/work/best_book/id")
         if book_id:
             text = make_result(book_id)
             parse_mode = 'HTML'
@@ -48,8 +48,8 @@ def make_result(goodreads_id: str) -> str:
     response: requests.Response = requests.get(
         f'https://www.goodreads.com/book/show.xml?key={config["GOODREADS_API_KEY"]}&id={goodreads_id}'
     )
-    root: ET.Element = ET.fromstring(response.content)
 
+    root: ET.Element = ET.fromstring(response.content)
     node: Optional[ET.Element] = root.find('book')
     if not node:
         return ""
@@ -65,7 +65,7 @@ def make_result(goodreads_id: str) -> str:
     stars: Any = node.find('average_rating')
     stars = f"⭐ {stars.text}" if stars else ""
 
-    description: str = node.findtext('description').replace("<br />", "")  # type: ignore
+    description: str = node.findtext('description').replace("<br />", "") 
     description = description[:description.index('.', 200) + 1]
 
     cover_url: str = f"http://covers.openlibrary.org/b/isbn/{isbn}-L.jpg"

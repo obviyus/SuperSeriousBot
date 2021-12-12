@@ -19,7 +19,7 @@ def pad_image(update: 'telegram.Update', context: 'telegram.ext.CallbackContext'
         message.reply_text(
             text="*Usage:* \nReply to a photo with `/pfp {COLOR}`\n"
                  "*Example:* `/pfp #AA33FF`\n"
-                 "You can also specify a hex color value. Defaults to black if none provided."
+                 "You can also specify a hex color value. Defaults to black."
         )
     else:
         pic: telegram.PhotoSize = message.reply_to_message.photo[-1]
@@ -37,4 +37,4 @@ def pad_image(update: 'telegram.Update', context: 'telegram.ext.CallbackContext'
 
                 message.reply_photo(photo=dp)
             except ValueError:
-                message.reply_text(text="Invalid color")
+                message.reply_text(text="Invalid color.")

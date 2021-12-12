@@ -11,18 +11,17 @@ if TYPE_CHECKING:
 client: wolframalpha.Client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
 
 
-def calc(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def calc(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Calculate anything using wolframalpha"""
     if update.message:
-        message: 'telegram.Message' = update.message
+        message: "telegram.Message" = update.message
     else:
         return
-    query: str = ' '.join(context.args) if context.args else ''
+    query: str = " ".join(context.args) if context.args else ""
 
     text: str
     if not query:
-        text = "*Usage:* `/calc {QUERY}`\n" \
-               "*Example:* `/calc 1 cherry to grams`"
+        text = "*Usage:* `/calc {QUERY}`\n*Example:* `/calc 1 cherry to grams`"
     else:
         result: wolframalpha.Result = client.query(query)
 
