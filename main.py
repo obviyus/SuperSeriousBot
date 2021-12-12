@@ -187,19 +187,6 @@ def main():
         group=1,
     )
 
-    # Link handler
-    dispatcher.add_handler(
-        MessageHandler(
-            Filters.text
-            & (
-                Filters.entity(MessageEntity.URL)
-                | Filters.entity(MessageEntity.TEXT_LINK)
-            ),
-            links.link_handler,
-        ),
-        group=3,
-    )
-
     dispatcher.add_handler(CallbackQueryHandler(api.search_button))
 
     # Bot error handler
