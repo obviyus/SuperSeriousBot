@@ -51,7 +51,7 @@ def start(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
     if update and update.effective_chat:
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=f"👋 {update.message.from_user.first_name}",
+            text=f"👋 @{update.message.from_user.first_name}",
         )
 
 
@@ -61,14 +61,14 @@ def help_cmd(
     """Show list of commands"""
     cmds: List["telegram.BotCommand"] = context.bot.commands
 
-    help_text: str = f"*Commands for @{context.bot.username}:\n*Send a command with no arguments to get its usage\n\n"
-    help_text += "".join(
-        sorted(f"/{cmd.command}: {cmd.description}\n\n" for cmd in cmds)
+    help_text: str = (
+        f"*Commands for @{context.bot.username}:*\n\nTap on a command to get help.\n\n"
     )
+    help_text += "".join(sorted(f"/{cmd.command}: {cmd.description}\n" for cmd in cmds))
 
     if update.message:
         if update.effective_chat and not update.effective_chat.type == "private":
-            update.message.reply_text("Message sent in DM")
+            update.message.reply_text("Message sent in private.")
 
         if update.message.from_user:
             update.message.from_user.send_message(help_text)
@@ -107,7 +107,6 @@ commands: Dict[str, Callable] = {
     "pic": api.pic,
     "pon": api.audio,
     "search": api.search,
-    "seinfeld": api.seinfeld,
     "setid": api.set_steam_id,
     "setw": api.setw,
     "shiba": api.animal,
@@ -153,7 +152,7 @@ def funcHandler(update: "telegram.Update", context: "telegram.ext.CallbackContex
                 text=f"Unauthorized: You are not one of the developers of @{context.bot.username}"
             )
 
-    logging.log(logging.INFO, f"/{command} - [{time.time() - start:.2f}s]")
+    logging.log(logging.INFO, f"[{time.time() - start:.2f}s] - /{command}")
     dev.command_increment(command)
 
 

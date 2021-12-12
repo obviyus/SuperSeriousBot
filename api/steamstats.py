@@ -1,7 +1,7 @@
 import sqlite3
 import time
 from datetime import datetime
-from typing import Dict, TYPE_CHECKING
+from typing import Dict, TYPE_CHECKING, Tuple
 
 import dateutil.relativedelta
 import requests

@@ -22,7 +22,6 @@ def animal(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') 
         animal_choice = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
 
     animal_choice = animal_choice.partition('@')[0]
-
     urls: Dict[str, Tuple[str, Callable]] = {
         "/shiba":   (
             'http://shibe.online/api/shibes?count=1&urls=true&httpsUrls=false',
