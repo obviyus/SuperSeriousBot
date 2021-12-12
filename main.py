@@ -74,55 +74,68 @@ def help_cmd(
             update.message.from_user.send_message(help_text)
 
 
+def check_for_keys(func: Callable, key: str):
+    def warn_func(update: "telegram.Update", context: "telegram.ext.CallbackContext"):
+        """Disabled command"""
+        update.message.reply_text(
+            "This feature is unavailable, please contact the bot admin to remedy this."
+        )
+
+    if config[key] != "":
+        return func
+    else:
+        return warn_func
+
+
 commands: Dict[str, Callable] = {
     # "command": function
-    "age": api.age,
-    "album": api.album,
+    "age": check_for_keys(api.age, "AZURE_KEY"),
+    "album": check_for_keys(api.album, "IMGUR_KEY"),
     "ban": chat_management.ban,
     "botstats": dev.print_botstats,
-    "calc": api.calc,
-    "caption": api.caption,
+    "calc": check_for_keys(api.calc, "WOLFRAM_APP_ID"),
+    "caption": check_for_keys(api.caption, "AZURE_KEY"),
     "cat": api.animal,
     "catfact": api.animal,
     "covid": api.covid,
-    "csgo": api.csgo,
+    "csgo": check_for_keys(api.csgo, "STEAM_API_KEY"),
     "d": api.define,
     "dice": api.dice,
     "dl": links.dl,
     "fox": api.animal,
-    "fw": api.audio,
-    "gif": api.gif,
-    "gr": api.goodreads,
+    "fw": check_for_keys(api.audio, "FOR_WHAT_ID"),
+    "gif": check_for_keys(api.gif, "GIPHY_API_KEY"),
+    "gr": check_for_keys(api.goodreads, "GOODREADS_API_KEY"),
     "groups": dev.groups,
     "gstats": chat_management.print_gstats,
     "help": help_cmd,
     "hltb": api.hltb,
     "hug": api.hug,
     "insult": api.insult,
-    "jogi": api.audio,
+    "jogi": check_for_keys(api.audio, "JOGI_FILE_ID"),
     "joke": api.joke,
     "kick": chat_management.kick,
     "pat": api.pat,
     "pfp": api.pad_image,
     "pic": api.pic,
-    "pon": api.audio,
+    "pon": check_for_keys(api.audio, "PUNYA_SONG_ID"),
     "search": api.search,
-    "setid": api.set_steam_id,
+    "setid": check_for_keys(api.set_steam_id, "STEAM_API_KEY"),
     "setw": api.setw,
     "shiba": api.animal,
     "spurdo": api.spurdo,
     "start": start,
     "stats": chat_management.print_stats,
     "seen": chat_management.seen,
-    "steamstats": api.steamstats,
+    "steamstats": check_for_keys(api.steamstats, "STEAM_API_KEY"),
     "tl": api.translate,
-    "tldr": api.tldr,
+    "tldr": check_for_keys(api.tldr, "SMMRY_API_KEY"),
     "tts": api.tts,
     "ud": api.ud,
     "uwu": api.uwu,
-    "w": api.weather,
+    "w": check_for_keys(api.weather, "CLIMACELL_API_KEY"),
     "wait": api.wait,
-    "weather": api.weather,
+    "weather": check_for_keys(api.weather, "CLIMACELL_API_KEY"),
     "wink": api.wink,
     "wmark": api.wmark,
 }
@@ -191,6 +204,12 @@ def main():
 
     # Bot error handler
     dispatcher.add_error_handler(error_handler)
+
+    for k, v in config.items():
+        if v == "":
+            logging.warning(
+                f"{k} environment variable not provided, the commands that use this will be disabled."
+            )
 
     job_queue.run_daily(chat_management.clear, time=datetime.time(18, 30))
 
