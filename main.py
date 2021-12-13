@@ -13,11 +13,6 @@ from telegram.ext import (
     Updater,
 )
 
-import api
-import chat_management
-import time
-import dev
-import links
 from configuration import config
 
 if TYPE_CHECKING:
@@ -59,6 +54,15 @@ logging.basicConfig(
     handlers=[log_handler]
 )
 log = logging.getLogger()
+
+
+# Imports -----------------------------------------------------------------------------------------
+
+import api
+import chat_management
+import time
+import dev
+import links
 
 
 # Handlers ----------------------------------------------------------------------------------------
@@ -203,7 +207,7 @@ commands: List[Command] = [
     Command("pfp", api.pad_image),
     Command("pic", api.pic),
     Command("pon", api.audio, ["PUNYA_SONG_ID"]),
-    Command("search", api.search),
+    Command("search", api.search, ["PYTHON_QBITTORRENTAPI_HOST", "PYTHON_QBITTORRENTAPI_USERNAME", "PYTHON_QBITTORRENTAPI_PASSWORD"]),
     Command("setid", api.set_steam_id, ["STEAM_API_KEY"]),
     Command("setw", api.setw),
     Command("shiba", api.animal),

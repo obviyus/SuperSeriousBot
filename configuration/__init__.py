@@ -15,6 +15,9 @@ config: Dict[str, Union[str, list]] = {
     "WOLFRAM_APP_ID": os.getenv("WOLFRAM_APP_ID", ""),
     "AZURE_KEY": os.getenv("AZURE_KEY", ""),
     "IMGUR_KEY": os.getenv("IMGUR_KEY", ""),
+    "PYTHON_QBITTORRENTAPI_HOST": os.getenv("PYTHON_QBITTORRENTAPI_HOST", ""),
+    "PYTHON_QBITTORRENTAPI_USERNAME": os.getenv("PYTHON_QBITTORRENTAPI_USERNAME", ""),
+    "PYTHON_QBITTORRENTAPI_PASSWORD": os.getenv("PYTHON_QBITTORRENTAPI_PASSWORD", ""),
 }
 
 if config["TELEGRAM_BOT_TOKEN"] == "":
