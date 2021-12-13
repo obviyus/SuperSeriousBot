@@ -1,4 +1,5 @@
 import time
+import logging
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import qbittorrentapi
@@ -8,14 +9,19 @@ if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-qbt_client: qbittorrentapi.Client = qbittorrentapi.Client()  # uses env vars
-qbt_client.search.install_plugin(
-    sources=[
-        "https://raw.githubusercontent.com/libellula/qbt-plugins/c81ccd168f3d8e4e8d8492bcef19e1740cc18aa7/nyaapantsu.py"
-        # Nyaa.net
-    ]
-)
-qbt_client.search.update_plugins()
+try:
+    qbt_client: qbittorrentapi.Client = qbittorrentapi.Client()  # uses env vars
+    qbt_client.search.install_plugin(
+        sources=[
+            # Nyaa.net
+            "https://raw.githubusercontent.com/libellula/qbt-plugins/c81ccd168f3d8e4e8d8492bcef19e1740cc18aa7/nyaapantsu.py"
+        ]
+    )
+    qbt_client.search.update_plugins()
+except qbittorrentapi.exceptions.APIConnectionError:
+    logging.getLogger().error("QBitTorrent host address not provided")
+except qbittorrentapi.exceptions.LoginFailed:
+    logging.getLogger().error("QBitTorrent login failed")
 
 items_per_page: int = 3
 cols_per_page: int = 2
