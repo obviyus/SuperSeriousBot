@@ -15,7 +15,6 @@ COPY --from=build-venv /usr/bin/ff** /usr/local/bin/
 COPY --from=build-venv /usr/lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu
 COPY --from=build-venv /lib/x86_64-linux-gnu /lib/x86_64-linux-gnu
 COPY --from=build-venv /venv /venv
-COPY pydub_patch.py /venv/lib/python3.7/site-packages/pydub/utils.py
 
 COPY . /code
 WORKDIR /code
