@@ -4,21 +4,20 @@ from typing import List, TYPE_CHECKING
 import requests
 import random
 from configuration import config
-from telegram import InputMediaPhoto
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
 
-def pic(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def pic(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Get random images from imgur"""
     if not update.message:
         return
 
     albums = requests.get(
         f"https://api.imgur.com/3/gallery/random/random/{random.randint(0, 100000)}",
-        headers={"Authorization": f"Client-ID {config['IMGUR_KEY']}"}
+        headers={"Authorization": f"Client-ID {config['IMGUR_KEY']}"},
     ).json()["data"]
     random_album = random.choice(albums)
     try:

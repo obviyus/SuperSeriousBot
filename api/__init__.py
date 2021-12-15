@@ -12,8 +12,11 @@ from .goodreads import goodreads
 from .hltb import hltb
 from .insult import insult
 from .joke import joke
+from .meme import meme
+from .person import person
 from .pfp import pad_image
 from .pic import pic
+from .randdit import randdit
 from .response import hug, pat, wink
 from .search import search, search_button
 from .sed import sed
