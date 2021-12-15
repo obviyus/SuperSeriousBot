@@ -1,7 +1,7 @@
 import datetime
 import logging
 import traceback
-from typing import Callable, Dict, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Dict, List
 
 from telegram import MessageEntity, ParseMode
 from telegram.ext import (
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 # Private channel used for logging exceptions
 LOGGING_CHANNEL = -1001543943945
 
+
 class ColorFormatter(logging.Formatter):
     """Formatter to handle colors in logs"""
 
@@ -41,9 +42,12 @@ class ColorFormatter(logging.Formatter):
         }
 
         # log_fmt = formats[record.levelno] + format_str + reset_color
-        log_fmt = format_str.replace("%(color)s", formats[record.levelno]).replace("%(reset)s", reset_color)
+        log_fmt = format_str.replace("%(color)s", formats[record.levelno]).replace(
+            "%(reset)s", reset_color
+        )
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
+
 
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(ColorFormatter())
@@ -51,21 +55,22 @@ log_handler.setFormatter(ColorFormatter())
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s:%(levelname)s: %(message)s",
-    handlers=[log_handler]
+    handlers=[log_handler],
 )
 log = logging.getLogger()
 
 
 # Imports -----------------------------------------------------------------------------------------
 
+import time
+
 import api
 import chat_management
-import time
 import dev
 import links
 
-
 # Handlers ----------------------------------------------------------------------------------------
+
 
 def error_handler(_update: object, context: "telegram.ext.CallbackContext") -> None:
     """Log the error and send a telegram message to notify the developer."""
@@ -86,6 +91,7 @@ def error_handler(_update: object, context: "telegram.ext.CallbackContext") -> N
 
 
 # Commands ----------------------------------------------------------------------------------------
+
 
 def start(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Start bot"""
@@ -116,10 +122,14 @@ def help_cmd(
 
 
 def check_cmd_avail(func: Callable, disabled: bool):
-    def wrapped_func(update: "telegram.Update", context: "telegram.ext.CallbackContext"):
+    def wrapped_func(
+        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    ):
 
         message: "telegram.Message" = update.message
-        command: str = list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
+        command: str = list(
+            message.parse_entities([MessageEntity.BOT_COMMAND]).values()
+        )[0]
         command = command.partition("@")[0][1:].lower()
 
         start = time.time()
@@ -140,6 +150,7 @@ def check_cmd_avail(func: Callable, disabled: bool):
         log_text = " - disabled" if disabled else ""
         log.info(f"[{time.time() - start:.2f}s] - /{command}" + log_text)
         dev.command_increment(command)
+
     wrapped_func.__doc__ = func.__doc__
     return wrapped_func
 
@@ -203,18 +214,29 @@ commands: List[Command] = [
     Command("jogi", api.audio, ["JOGI_FILE_ID"]),
     Command("joke", api.joke),
     Command("kick", chat_management.kick),
+    Command("meme", api.meme),
     Command("pat", api.pat),
+    Command("person", api.person),
     Command("pfp", api.pad_image),
     Command("pic", api.pic),
     Command("pon", api.audio, ["PUNYA_SONG_ID"]),
-    Command("search", api.search, ["PYTHON_QBITTORRENTAPI_HOST", "PYTHON_QBITTORRENTAPI_USERNAME", "PYTHON_QBITTORRENTAPI_PASSWORD"]),
+    Command("randdit", api.randdit),
+    Command("seen", chat_management.seen),
+    Command(
+        "search",
+        api.search,
+        [
+            "PYTHON_QBITTORRENTAPI_HOST",
+            "PYTHON_QBITTORRENTAPI_USERNAME",
+            "PYTHON_QBITTORRENTAPI_PASSWORD",
+        ],
+    ),
     Command("setid", api.set_steam_id, ["STEAM_API_KEY"]),
     Command("setw", api.setw),
     Command("shiba", api.animal),
     Command("spurdo", api.spurdo),
     Command("start", start),
     Command("stats", chat_management.print_stats),
-    Command("seen", chat_management.seen),
     Command("steamstats", api.steamstats, ["STEAM_API_KEY"]),
     Command("tl", api.translate),
     Command("tldr", api.tldr, ["SMMRY_API_KEY"]),
@@ -230,6 +252,7 @@ commands: List[Command] = [
 
 
 # Bot ---------------------------------------------------------------------------------------------
+
 
 def main():
     defaults: "telegram.ext.Defaults" = Defaults(parse_mode=ParseMode.MARKDOWN)
@@ -268,9 +291,7 @@ def main():
     job_queue.run_daily(chat_management.clear, time=datetime.time(18, 30))
 
     # Set bot commands menu
-    dispatcher.bot.set_my_commands(
-        [(cmd.cmd, cmd.desc) for cmd in commands]
-    )
+    dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])
 
     updater.start_polling(drop_pending_updates=True)
     bot: telegram.Bot = updater.bot
