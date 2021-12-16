@@ -21,6 +21,7 @@ config: Dict[str, Union[str, list]] = {
     "REDDIT_CLIENT_ID": os.getenv("REDDIT_CLIENT_ID", ""),
     "REDDIT_CLIENT_SECRET": os.getenv("REDDIT_CLIENT_SECRET", ""),
     "REDDIT_USER_AGENT": os.getenv("REDDIT_USER_AGENT", ""),
+    "TESTING": os.getenv("TESTING", "")
 }
 
 if config["TELEGRAM_BOT_TOKEN"] == "":

@@ -35,6 +35,7 @@ class ColorFormatter(logging.Formatter):
 
         formats = {
             logging.DEBUG: "\x1b[38;21m",  # grey
+            logging.TESTING: "\x1b[36;21m",  # cyan
             logging.INFO: "\x1b[34;21m",  # blue
             logging.WARNING: "\x1b[33;21m",  # yellow
             logging.ERROR: "\x1b[31;21m",  # red
@@ -49,11 +50,26 @@ class ColorFormatter(logging.Formatter):
         return formatter.format(record)
 
 
+# Add colors to logger
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(ColorFormatter())
 
+# Add custom logging level
+logging.TESTING = 11
+
+
+def testing(self, message, *args, **kwargs):
+    if self.isEnabledFor(logging.TESTING):
+        # Yes, logger takes its '*args' as 'args'.
+        self._log(logging.TESTING, message, args, **kwargs)
+
+
+logging.addLevelName(logging.TESTING, "TESTING")
+logging.Logger.testing = testing
+
+# Configure logger
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.TESTING if config["TESTING"] else logging.INFO,
     format="%(asctime)s - %(name)s:%(levelname)s: %(message)s",
     handlers=[log_handler],
 )
@@ -81,13 +97,15 @@ def error_handler(_update: object, context: "telegram.ext.CallbackContext") -> N
     )
 
     # Finally, send the message
+    if config["TESTING"]:
+        raise context.error
+
     try:
         context.bot.send_message(
             chat_id=LOGGING_CHANNEL, text=f"`{tb_list[-1]}`", parse_mode="Markdown"
         )
     finally:
         log.error(f"{context.error}")
-        raise context.error
 
 
 # Commands ----------------------------------------------------------------------------------------
@@ -300,10 +318,11 @@ def main():
     updater.start_polling(drop_pending_updates=True)
     bot: telegram.Bot = updater.bot
 
-    bot.send_message(
-        chat_id=LOGGING_CHANNEL,
-        text=f"@{bot.username} started at {datetime.datetime.now()}",
-    )
+    if not config["TESTING"]:
+        bot.send_message(
+            chat_id=LOGGING_CHANNEL,
+            text=f"@{bot.username} started at {datetime.datetime.now()}",
+        )
     log.info(f"@{bot.username} started at {datetime.datetime.now()}")
 
     updater.idle()
