@@ -220,7 +220,11 @@ commands: List[Command] = [
     Command("pfp", api.pad_image),
     Command("pic", api.pic),
     Command("pon", api.audio, ["PUNYA_SONG_ID"]),
-    Command("randdit", api.randdit),
+    Command(
+        "randdit",
+        api.randdit,
+        ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"],
+    ),
     Command("seen", chat_management.seen),
     Command(
         "search",

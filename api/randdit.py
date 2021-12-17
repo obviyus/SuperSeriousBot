@@ -1,36 +1,18 @@
-from typing import TYPE_CHECKING
-from time import sleep
-import requests
+import praw
+from prawcore.exceptions import NotFound, Forbidden
+from configuration import config
 
-import logging
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-headers = {
-    "User-Agent": "@SuperSeriousBot (by /u/obviyus)",
-}
-
-
-def get_post(url: str) -> str:
-    url = requests.get(url, headers=headers)
-    logging.info(url.url)
-
-    sleep_time = 2
-    for _ in range(0, 5):
-        try:
-            result = requests.get(url.url).json()[0]["data"]["children"][0]["data"][
-                "url"
-            ]
-            return result
-        except KeyError:
-            if "search.json" in url.url:
-                return "Subreddit does not exist."
-            sleep(sleep_time)
-            sleep_time *= 2
-
-    return "Too many requests. Try again in a while."
+reddit = praw.Reddit(
+    client_id=config["REDDIT_CLIENT_ID"],
+    client_secret=config["REDDIT_CLIENT_SECRET"],
+    user_agent=config["REDDIT_USER_AGENT"],
+)
 
 
 def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
@@ -41,8 +23,24 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
     subreddit: str = context.args[0] if context.args else ""
 
     if not subreddit:
-        update.message.reply_text(text=get_post("https://www.reddit.com/random.json"))
+        post = reddit.random_subreddit(nsfw=True).random()
+        while post is None or post.spoiler:
+            post = reddit.random_subreddit(nsfw=True).random()
+
+        text = post.url
     else:
-        update.message.reply_text(
-            text=get_post(f"https://www.reddit.com/r/{subreddit}/random.json")
-        )
+        try:
+            post = reddit.subreddit(subreddit).random()
+            if post == None:
+                text = "Subreddit does not allow random posts"
+            else:
+                while post.spoiler:
+                    post = post.subreddit.random()
+
+                text = post.url
+        except NotFound:
+            text = "Subreddit not found or it is banned"
+        except Forbidden:
+            text = "Subreddit is quarantined or private"
+
+    update.message.reply_text(text, parse_mode="HTML")
