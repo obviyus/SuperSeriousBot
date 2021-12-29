@@ -156,7 +156,7 @@ def check_cmd_avail(func: Callable, disabled: bool):
             update.message.reply_text(
                 "This feature is unavailable, please contact the bot admin to enable this."
             )
-        elif command not in ["botstats", "groups"]:
+        elif command not in ["botstats", "groups", "users"]:
             func(update, context)
         elif str(message.from_user.id) in config["DEV_USERNAMES"]:
             func(update, context)
@@ -264,6 +264,7 @@ commands: List[Command] = [
     Command("tldr", api.tldr, ["SMMRY_API_KEY"]),
     Command("tts", api.tts),
     Command("ud", api.ud),
+    Command("users", dev.users),
     Command("uwu", api.uwu),
     Command("w", api.weather, ["CLIMACELL_API_KEY"]),
     Command("wait", api.wait),
