@@ -22,4 +22,4 @@ requests==2.26.0
 spurdify==0.3.0
 uwuify==1.1.0
 wolframalpha==5.0.0
-youtube_dl
+yt-dlp>=2021.12.27
