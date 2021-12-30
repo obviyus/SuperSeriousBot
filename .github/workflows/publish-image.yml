@@ -36,4 +36,4 @@ jobs:
       - name: Build the SSGBOT Docker image
         run: |
           docker build . --tag ghcr.io/super-serious/bot:${SSGBOT_VERSION} --tag ghcr.io/super-serious/bot:latest
-          docker push ghcr.io/super-serious/bot:latest --all-tags
+          docker push ghcr.io/super-serious/bot --all-tags
