@@ -42,12 +42,12 @@ def dl(update: 'telegram.Update', _: 'telegram.ext.CallbackContext') -> None:
     if entities:
         video_url = entities[0]
     else:
-        update.message.reply_text((
+        update.message.reply_text(text=(
             "*Usage:* `/dl {LINK}` or reply to a link.\n"
             "*Example:* `/dl` https://www.youtube.com/watch?v=dQw4w9WgXcQ\n"
             "Video size is limited to 50MB. The bot will download videos on a best "
             "effort basis, i.e. highest possible quality while staying within the limit."
-        ))
+        ), disable_web_page_preview=True)
         return
 
     text: str
