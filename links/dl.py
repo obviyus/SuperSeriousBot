@@ -42,10 +42,12 @@ def dl(update: 'telegram.Update', _: 'telegram.ext.CallbackContext') -> None:
     if entities:
         video_url = entities[0]
     else:
-        update.message.reply_text(
-            text="*Usage:* `/dl {LINK}` or reply to a link. Video file-size limited to < 50MB. The bot will download videos "
-                 "on a best effort basis, i.e. highest possible quality while staying within the limit. "
-        )
+        update.message.reply_text((
+            "*Usage:* `/dl {LINK}` or reply to a link.\n"
+            "*Example:* `/dl` https://www.youtube.com/watch?v=dQw4w9WgXcQ\n"
+            "Video size is limited to 50MB. The bot will download videos on a best "
+            "effort basis, i.e. highest possible quality while staying within the limit."
+        ))
         return
 
     text: str
@@ -69,13 +71,16 @@ def dl(update: 'telegram.Update', _: 'telegram.ext.CallbackContext') -> None:
         try:
             update.message.reply_video(vid_info["url"])
         except BadRequest:
-            # some vid URLs don't work god knows why, so falling back to using a file buffer
-            sent_msg = message.reply_text("Uploading...")
+            # some vid URLs don't work, god knows why, so falling back to using a file buffer
+            sent_msg = update.message.reply_text("Uploading...")
+
             buffer = BytesIO()
             buffer.write(get(vid_info['url'], stream=True).content)
             buffer.seek(0)
-            sent_msg.delete()
+
             update.message.reply_video(buffer)
+            sent_msg.delete()
+
             buffer.close()
-            # log that a file buffer was used insteadd of a URL
+            # log that a file buffer was used instead of a URL
             raise DLBufferUsedWarning("Couldn't use URL for /dl, used a file buffer instead")
