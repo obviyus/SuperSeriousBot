@@ -88,7 +88,7 @@ import links
 # Handlers ----------------------------------------------------------------------------------------
 
 
-def error_handler(_update: object, context: "telegram.ext.CallbackContext") -> None:
+def error_handler(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Log the error and send a telegram message to notify the developer."""
     # traceback.format_exception returns the usual python message about an exception, but as a
     # list of strings rather than a single string.
@@ -104,6 +104,8 @@ def error_handler(_update: object, context: "telegram.ext.CallbackContext") -> N
         context.bot.send_message(
             chat_id=LOGGING_CHANNEL, text=f"`{tb_list[-1]}`", parse_mode="Markdown"
         )
+        if update.message:
+            update.message.reply_text("An error occurred")
     finally:
         log.error(f"{context.error}")
 
