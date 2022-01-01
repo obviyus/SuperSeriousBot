@@ -36,7 +36,7 @@ def get_imgur_url_list(parsed_url, count):
 
 def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Download reddit and imgur albums"""
-    original_message: telegram.Message = update.message
+    original_message: "telegram.Message" = update.message
     send_as: str = "images"
     img_url_list: list = []
     count: int = 5
