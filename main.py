@@ -1,7 +1,8 @@
 import datetime
 import logging
 import traceback
-from typing import TYPE_CHECKING, Callable, Dict, List
+from links.dl import DLBufferUsedWarning
+from typing import TYPE_CHECKING, Callable, List
 
 from telegram import MessageEntity, ParseMode
 from telegram.ext import (
@@ -104,7 +105,7 @@ def error_handler(update: "telegram.Update", context: "telegram.ext.CallbackCont
         context.bot.send_message(
             chat_id=LOGGING_CHANNEL, text=f"`{tb_list[-1]}`", parse_mode="Markdown"
         )
-        if update.message:
+        if update.message and not isinstance(context.error, DLBufferUsedWarning):
             update.message.reply_text("An error occurred")
     finally:
         log.error(f"{context.error}")
