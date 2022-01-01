@@ -21,7 +21,7 @@ MAX_IMAGES_GROUPS = 40
 
 def get_imgur_url_list(parsed_url, count):
     headers: dict = {"Authorization": f"Client-ID {config['IMGUR_KEY']}"}
-    imgur_hash: str = parsed_url.path.split("/")[2]
+    imgur_hash: str = parsed_url.path.split("/")[-1]
     imgur_request_url: str = f"https://api.imgur.com/3/album/{imgur_hash}/images"
     try:
         resp = requests.get(imgur_request_url, headers=headers)
@@ -36,10 +36,10 @@ def get_imgur_url_list(parsed_url, count):
 
 def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Download reddit and imgur albums"""
-    original_message = update.message
+    original_message: telegram.Message = update.message
     send_as: str = "images"
-    img_url_list: list
-    count: int
+    img_url_list: list = []
+    count: int = 5
 
     message: 'telegram.Message'
     if update.message.reply_to_message:
@@ -69,16 +69,14 @@ def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
         count = int(context.args[-1]) or 1
     elif context.args and "all" in context.args:
         count = MAX_IMAGES_PRIVATE
-    else:
-        count = 5
-
-    if context.args and "files" in context.args:
-        send_as = "files"
 
     if update.effective_chat.type == "private" and count > MAX_IMAGES_PRIVATE:  # type: ignore
         count = MAX_IMAGES_PRIVATE
     elif update.effective_chat.type in ["group", "supergroup"] and count > MAX_IMAGES_GROUPS:  # type: ignore
         count = MAX_IMAGES_GROUPS
+
+    if context.args and ("files" in context.args or "file" in context.args):
+        send_as = "files"
 
     parsed_original_url = urlparse(original_url)
 
@@ -87,9 +85,11 @@ def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
         original_url = "https://" + original_url
         parsed_original_url = urlparse(original_url)
 
-    img_url_list = []
     if "imgur" in parsed_original_url.hostname:  # type: ignore
         img_url_list = get_imgur_url_list(parsed_original_url, count)
+    elif parsed_original_url.hostname in ["i.redd.it", "v.redd.it", "preview.redd.it"]:
+        # given url is itself a single image or video
+        img_url_list = [original_url]
     elif "redd.it" in parsed_original_url.hostname or "reddit.com" in parsed_original_url.hostname:  # type: ignore
         try:
             post = reddit.submission(url=original_url)
@@ -113,7 +113,7 @@ def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
             media_ids = [i['media_id'] for i in post.gallery_data['items']]
             img_url_list = [post.media_metadata[media_id]['p'][-1]['u'] for media_id in media_ids[:count]]
         elif post.domain in ["i.redd.it", "v.redd.it"]:
-            # if url is a single image or video
+            # if derived url is a single image or video
             img_url_list = [post.url]
         elif post.domain == "imgur.com":
             # if post is an imgur album/image
@@ -139,7 +139,7 @@ def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
                 try:
                     original_message.reply_media_group([InputMediaTarget(img_url) for img_url in chunk])
                 except BadRequest:
-                    original_message.reply_text("Sorry, we couldn't download some pics")
+                    original_message.reply_text("Sorry, we couldn't download that")
         except RetryAfter:
             original_message.reply_text("Flood limit exceeded")
 
