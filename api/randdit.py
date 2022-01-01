@@ -1,5 +1,5 @@
 import praw
-from prawcore.exceptions import NotFound, Forbidden
+from prawcore.exceptions import NotFound, Forbidden, BadRequest
 from configuration import config
 
 from typing import TYPE_CHECKING
@@ -22,6 +22,9 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
 
     subreddit: str = context.args[0] if context.args else ""
 
+    if subreddit.startswith("r/"):
+        subreddit = subreddit[2:]
+
     if not subreddit:
         post = reddit.random_subreddit(nsfw=True).random()
         while post is None or post.spoiler:
@@ -38,7 +41,7 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
                     post = post.subreddit.random()
 
                 text = post.url
-        except NotFound:
+        except (NotFound, BadRequest):
             text = "Subreddit not found or it is banned"
         except Forbidden:
             text = "Subreddit is quarantined or private"
