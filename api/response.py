@@ -7,29 +7,29 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def wink(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
+def wink(update: "telegram.Update", _context: "telegram.ext.CallbackContext") -> None:
     """Reply with a wink GIF"""
-    response(update.message, 'wink')
+    response(update.message, "wink")
 
 
-def pat(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
+def pat(update: "telegram.Update", _context: "telegram.ext.CallbackContext") -> None:
     """Reply with a pat GIF"""
-    response(update.message, 'pat')
+    response(update.message, "pat")
 
 
-def hug(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
+def hug(update: "telegram.Update", _context: "telegram.ext.CallbackContext") -> None:
     """Reply with a hug GIF"""
-    response(update.message, 'hug')
+    response(update.message, "hug")
 
 
-def response(message: Optional['telegram.Message'], action: str):
+def response(message: Optional["telegram.Message"], action: str):
     """Query API for appropriate action"""
     if not message:
         return
 
-    r: Dict = get(f'https://some-random-api.ml/animu/{action}').json()
+    r: Dict = get(f"https://some-random-api.ml/animu/{action}").json()
 
     if message.reply_to_message:
-        message.reply_to_message.reply_animation(animation=r['link'])
+        message.reply_to_message.reply_animation(animation=r["link"])
     else:
-        message.reply_animation(animation=r['link'])
+        message.reply_animation(animation=r["link"])

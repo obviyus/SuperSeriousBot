@@ -7,10 +7,12 @@ if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-r = redis.StrictRedis(host='redis', port='6379', db=0, charset="utf-8", decode_responses=True)
+r = redis.StrictRedis(
+    host="redis", port="6379", db=0, charset="utf-8", decode_responses=True
+)
 
 
-def seen(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def seen(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Get how long ago last message from a user was in a group"""
     if not update.message:
         return
@@ -20,10 +22,9 @@ def seen(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
     text: str
 
     if not context.args:
-        text = "*Usage:* `/seen @{username}`\n" \
-               "*Example:* `/seen @obviyus`"
+        text = "*Usage:* `/seen @{username}`\n*Example:* `/seen @obviyus`"
     else:
-        username = context.args[0].replace('@', '')
+        username = context.args[0].replace("@", "")
         r_get = r.get(f"seen:{username}")
         if not r_get:
             text = f"No messages recorded from @{username}"
@@ -47,5 +48,5 @@ def seen(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> 
         text,
         disable_web_page_preview=True,
         disable_notification=True,
-        parse_mode='HTML'
+        parse_mode="HTML",
     )

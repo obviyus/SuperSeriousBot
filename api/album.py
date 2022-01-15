@@ -10,6 +10,7 @@ from telegram import InputMediaPhoto, InputMediaDocument, MessageEntity
 from telegram.error import BadRequest, RetryAfter
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
@@ -41,7 +42,7 @@ def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
     img_url_list: list = []
     count: int = 5
 
-    message: 'telegram.Message'
+    message: "telegram.Message"
     if update.message.reply_to_message:
         message = update.message.reply_to_message
     elif update.message:
@@ -54,14 +55,14 @@ def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
     if entities:
         original_url = entities[0]
     else:
-        original_message.reply_text((
+        original_message.reply_text(
             "*Usage:* \n`/album {REDDIT/IMGUR ALBUM LINK} [files] [COUNT]\n"
             "*Example:* `/album imgur.com/gallery/H5ijXa1`\n"
-            "The count is optional and can be a number or \"all\", "
+            'The count is optional and can be a number or "all", '
             f"default is 5, max is {MAX_IMAGES_GROUPS} in groups "
             f"and {MAX_IMAGES_PRIVATE} in private\n"
-            "Add \"files\" (before the count) to download uncompressed"
-        ))
+            'Add "files" (before the count) to download uncompressed'
+        )
         return
 
     # get the count within limits
@@ -110,8 +111,11 @@ def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
 
         if hasattr(post, "is_gallery"):
             # if url is a reddit gallery
-            media_ids = [i['media_id'] for i in post.gallery_data['items']]
-            img_url_list = [post.media_metadata[media_id]['p'][-1]['u'] for media_id in media_ids[:count]]
+            media_ids = [i["media_id"] for i in post.gallery_data["items"]]
+            img_url_list = [
+                post.media_metadata[media_id]["p"][-1]["u"]
+                for media_id in media_ids[:count]
+            ]
         elif post.domain in ["i.redd.it", "v.redd.it"]:
             # if derived url is a single image or video
             img_url_list = [post.url]
@@ -119,7 +123,6 @@ def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
             # if post is an imgur album/image
             parsed_imgur_url = urlparse(post.url)
             img_url_list = get_imgur_url_list(parsed_imgur_url, count)
-
 
     if not img_url_list:
         original_message.reply_text("Invalid URL")
@@ -137,10 +140,13 @@ def album(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
         try:
             for chunk in chunked_url_list:
                 try:
-                    original_message.reply_media_group([InputMediaTarget(img_url) for img_url in chunk])
+                    original_message.reply_media_group(
+                        [InputMediaTarget(img_url) for img_url in chunk]
+                    )
                 except BadRequest:
                     original_message.reply_text("Sorry, we couldn't download that")
         except RetryAfter:
             original_message.reply_text("Flood limit exceeded")
+
 
 # TODO: gifs, videos

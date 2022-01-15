@@ -7,20 +7,20 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def sed(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
+def sed(update: "telegram.Update", _context: "telegram.ext.CallbackContext") -> None:
     """Use regex to search and replace text in messages you reply to"""
     if update.message:
-        message: 'telegram.Message' = update.message
+        message: "telegram.Message" = update.message
     else:
         return
 
     if (
-            message
-            and message.reply_to_message
-            and (message.reply_to_message.text or message.reply_to_message.caption)
+        message
+        and message.reply_to_message
+        and (message.reply_to_message.text or message.reply_to_message.caption)
     ):
         string: str = message.reply_to_message.text or message.reply_to_message.caption  # type: ignore
-        _, search, replace = message.text.split('/', 2)  # type: ignore
+        _, search, replace = message.text.split("/", 2)  # type: ignore
 
         result: str = regex.sub(search, replace, string, regex.POSIX)
 

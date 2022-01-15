@@ -225,7 +225,7 @@ def covid(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
         text = (
             "*Usage:* `/covid {STATE_NAME} {OPTIONAL: LAST N DAYS}`"
             "*\nExample:* `/covid MH 100`"
-            "\nTo see total country stats use `\covid TT`"
+            "\nTo see total country stats use `/covid TT`"
         )
         message.reply_text(text)
     else:
