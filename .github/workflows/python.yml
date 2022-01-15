@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        fail-fast: false
         python-version: [ '3.8', '3.9', '3.10' ]
 
     steps:
@@ -24,3 +25,5 @@ jobs:
 
       - name: Lint with black
         uses: psf/black@stable
+        with:
+          options: '--check'
