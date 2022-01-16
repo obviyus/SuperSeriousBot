@@ -1,21 +1,15 @@
 name: Publish Image
 
 on:
-  push:
-    branches:
-      - "master"
+  release:
+    types: [ published ]
 
 jobs:
   publish-docker-image:
     if: github.repository_owner == 'Super-Serious'
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
-
-      - name: Get Version
-        run: |
-          echo "SSGBOT_VERSION=$(cat VERSION)" >> $GITHUB_ENV
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
@@ -24,16 +18,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "${{ env.SSGBOT_VERSION }}"
-          prerelease: false
-          title: "v${{ env.SSGBOT_VERSION }}"
-          files: |
-            LICENSE
-
       - name: Build the SSGBOT Docker image
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
-          docker build . --tag ghcr.io/super-serious/bot:${SSGBOT_VERSION} --tag ghcr.io/super-serious/bot:latest
+          docker build . --tag ghcr.io/super-serious/bot:${TAG} --tag ghcr.io/super-serious/bot:latest
           docker push ghcr.io/super-serious/bot --all-tags
