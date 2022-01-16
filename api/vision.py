@@ -11,11 +11,11 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def age(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def age(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Guesses age and gender of people in an image."""
     try:
         if update.message and update.message.reply_to_message:
-            message: 'telegram.Message' = update.message.reply_to_message
+            message: "telegram.Message" = update.message.reply_to_message
         else:
             return
 
@@ -24,10 +24,14 @@ def age(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
         buffer.seek(0)
 
         api_key = config["AZURE_KEY"]
-        endpoint = 'https://tgbot.cognitiveservices.azure.com/'
-        computervision_client = ComputerVisionClient(endpoint, CognitiveServicesCredentials(api_key))
+        endpoint = "https://tgbot.cognitiveservices.azure.com/"
+        computervision_client = ComputerVisionClient(
+            endpoint, CognitiveServicesCredentials(api_key)
+        )
 
-        detect_faces_results = computervision_client.analyze_image_in_stream(buffer, ["faces"])
+        detect_faces_results = computervision_client.analyze_image_in_stream(
+            buffer, ["faces"]
+        )
         if len(detect_faces_results.faces) == 0:
             text = "No faces detected."
         else:
@@ -42,16 +46,16 @@ def age(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> N
         message.reply_text(text=text)
     except AttributeError:
         update.message.reply_text(
-            text="*Usage:* `/age`\n"
-                 "Type /age in response to an image. Only the first face is considered.\n"
+            "*Usage:* `/age`\n"
+            "Type /age in response to an image. Only the first face is considered.\n"
         )
 
 
-def caption(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def caption(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Uses NLP to generate a caption for an image."""
     try:
         if update.message and update.message.reply_to_message:
-            message: 'telegram.Message' = update.message.reply_to_message
+            message: "telegram.Message" = update.message.reply_to_message
         else:
             return
 
@@ -60,8 +64,10 @@ def caption(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
         buffer.seek(0)
 
         api_key = config["AZURE_KEY"]
-        endpoint = 'https://tgbot.cognitiveservices.azure.com/'
-        computervision_client = ComputerVisionClient(endpoint, CognitiveServicesCredentials(api_key))
+        endpoint = "https://tgbot.cognitiveservices.azure.com/"
+        computervision_client = ComputerVisionClient(
+            endpoint, CognitiveServicesCredentials(api_key)
+        )
 
         description_results = computervision_client.describe_image_in_stream(buffer)
         description = description_results.captions[0].text
@@ -74,6 +80,5 @@ def caption(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') 
 
     except AttributeError:
         update.message.reply_text(
-            text="*Usage:* `/caption`\n"
-                 "Type /caption in response to an image.\n"
+            "*Usage:* `/caption`\nType /caption in response to an image."
         )

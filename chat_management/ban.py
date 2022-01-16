@@ -5,16 +5,18 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def ban(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def ban(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Ban deep from group"""
     if update.message:
-        message: 'telegram.Message' = update.message
+        message: "telegram.Message" = update.message
     else:
         return
     chat_id: int = message.chat_id
     text: str
 
-    banner: telegram.ChatMember = context.bot.get_chat_member(chat_id, message.from_user.id)
+    banner: telegram.ChatMember = context.bot.get_chat_member(
+        chat_id, message.from_user.id
+    )
 
     # status can be ‘creator’, ‘administrator’, ‘member’, ‘restricted’, ‘left’
     # or ‘kicked’. Latter 3 can't send a message

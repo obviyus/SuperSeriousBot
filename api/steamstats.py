@@ -12,25 +12,27 @@ if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-conn = sqlite3.connect('/db/steam_id.db', check_same_thread=False)
+conn = sqlite3.connect("/db/steam_id.db", check_same_thread=False)
 cursor = conn.cursor()
 
-formula: str = f"CREATE TABLE IF NOT EXISTS `telegram_steam_id` ( " \
-               "`telegram_id` VARCHAR(255) NOT NULL UNIQUE, " \
-               "`steam_id` VARCHAR(255) NOT NULL, " \
-               "PRIMARY KEY (`telegram_id`))"
+formula: str = (
+    f"CREATE TABLE IF NOT EXISTS `telegram_steam_id` ( "
+    "`telegram_id` VARCHAR(255) NOT NULL UNIQUE, "
+    "`steam_id` VARCHAR(255) NOT NULL, "
+    "PRIMARY KEY (`telegram_id`))"
+)
 cursor.execute(formula)
 
 STEAM_API_KEY = config["STEAM_API_KEY"]
 
 profile_states = {
-    0: 'Offline',
-    1: 'Online',
-    2: 'Busy',
-    3: 'Away',
-    4: 'Snooze',
-    5: 'Looking to trade',
-    6: 'Looking to play'
+    0: "Offline",
+    1: "Online",
+    2: "Busy",
+    3: "Away",
+    4: "Snooze",
+    5: "Looking to trade",
+    6: "Looking to play",
 }
 
 
@@ -52,10 +54,11 @@ def player_summary(steam_id: str) -> str:
     text: str
     try:
         response = requests.get(url, params).json()["response"]["players"][0]
-        last_online: str = datetime.utcfromtimestamp(response["lastlogoff"]).strftime("%B %d, %Y")
+        last_online: str = datetime.utcfromtimestamp(response["lastlogoff"]).strftime(
+            "%B %d, %Y"
+        )
         profile_age = dateutil.relativedelta.relativedelta(
-            datetime.now(),
-            datetime.fromtimestamp(response["timecreated"])
+            datetime.now(), datetime.fromtimestamp(response["timecreated"])
         )
         text = f"""Current Status: {profile_states[response["profilestate"]]}\nLast Online: {last_online}\nProfile Age: {profile_age.years} years"""
 
@@ -65,7 +68,9 @@ def player_summary(steam_id: str) -> str:
 
 
 def last_played(steam_id: str) -> str:
-    url: str = "https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/"
+    url: str = (
+        "https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/"
+    )
     params: Dict[str, str] = {"key": STEAM_API_KEY, "steamid": steam_id}
 
     text: str
@@ -84,26 +89,33 @@ def last_played(steam_id: str) -> str:
 def hours_and_games(username: str, steam_id: str) -> (str, int):
     url: str = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/"
     params: Dict[str, str] = {
-        "key":                       STEAM_API_KEY, "steamid": steam_id, "include_appinfo": "true", "format": "json",
-        "include_played_free_games": "true"
+        "key": STEAM_API_KEY,
+        "steamid": steam_id,
+        "include_appinfo": "true",
+        "format": "json",
+        "include_played_free_games": "true",
     }
 
     try:
         response: Dict[str, Dict] = requests.get(url, params).json()
-        username: str = username.replace('_', '\_')
+        username: str = username.replace("_", "\_")
 
         response = response["response"]
         games_owned = response["game_count"]
 
         total_time: int = sum(game["playtime_forever"] for game in response["games"])
-        sorted_games = sorted(response["games"], key=lambda x: x["playtime_forever"], reverse=True)
+        sorted_games = sorted(
+            response["games"], key=lambda x: x["playtime_forever"], reverse=True
+        )
 
         total_hours = total_time // 60
 
-        text = f"@{username}'s Steam Stats:" \
-               f"\n\n**Games Owned**: {games_owned}\n**Total Playtime**: {total_hours} hours " \
-               f"\n\n{last_played(steam_id)}" \
-               f"""\n\n**Most Played Games**:"""
+        text = (
+            f"@{username}'s Steam Stats:"
+            f"\n\n**Games Owned**: {games_owned}\n**Total Playtime**: {total_hours} hours "
+            f"\n\n{last_played(steam_id)}"
+            f"""\n\n**Most Played Games**:"""
+        )
 
         top_3_sum = 0
         for i in range(3):
@@ -128,10 +140,12 @@ def make_steam_response(username: str, steam_id: str) -> (str, int):
     return text, hours
 
 
-def steamstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
+def steamstats(
+    update: "telegram.Update", _context: "telegram.ext.CallbackContext"
+) -> None:
     """Print Steam stats for a user"""
     if update.message:
-        message: 'telegram.Message' = update.message
+        message: "telegram.Message" = update.message
     else:
         return
 
@@ -140,7 +154,9 @@ def steamstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackContex
     steam_id: str
     telegram_user_id: int = message.from_user.id
 
-    cursor.execute(f"SELECT * FROM telegram_steam_id WHERE telegram_id={telegram_user_id}")
+    cursor.execute(
+        f"SELECT * FROM telegram_steam_id WHERE telegram_id={telegram_user_id}"
+    )
     result = cursor.fetchall()
 
     if len(result) == 0:
@@ -152,10 +168,7 @@ def steamstats(update: 'telegram.Update', _context: 'telegram.ext.CallbackContex
         else:
             text = "Cannot read stats for private Steam profiles."
 
-    message.reply_text(
-        text=text,
-        parse_mode='Markdown'
-    )
+    message.reply_text(text=text, parse_mode="Markdown")
 
     if hours > 5000:
         time.sleep(2)

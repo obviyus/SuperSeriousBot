@@ -23,7 +23,7 @@ def define(update: "telegram.Update", context: "telegram.ext.CallbackContext") -
 
     if not context.args:
         message.reply_text(
-            text="*Usage:* `/d {LANG} - {SENTENCE}`\n"
+            "*Usage:* `/d {LANG} - {SENTENCE}`\n"
             "*Example:* `/d fr - bonjour`\n"
             "Defaults to `en_US` if none provided.\n"
         )

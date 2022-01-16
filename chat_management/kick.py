@@ -5,20 +5,22 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def kick(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def kick(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Kick a member from the group"""
     if update.message:
-        message: 'telegram.Message' = update.message
+        message: "telegram.Message" = update.message
     else:
         return
 
     chat_id: int = message.chat_id
     text: str
-    kicker: telegram.ChatMember = context.bot.get_chat_member(chat_id, message.from_user.id)
+    kicker: telegram.ChatMember = context.bot.get_chat_member(
+        chat_id, message.from_user.id
+    )
 
     # status can be ‘creator’, ‘administrator’, ‘member’, ‘restricted’, ‘left’
     # or ‘kicked’. Latter 3 can't send a message
-    if kicker['status'] != "member":
+    if kicker["status"] != "member":
         if message.reply_to_message:
             user_to_kick: telegram.User = message.reply_to_message.from_user
             try:

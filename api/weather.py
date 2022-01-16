@@ -65,7 +65,7 @@ def weather_details(address, latitude, longitude):
         wind_speed: str = data["windSpeed"]
 
         try:
-            parts = address.split(',')
+            parts = address.split(",")
             address = f"*{parts[0].strip()}, {parts[-3].strip()}*\n*{parts[-1].strip()}, {parts[-2].strip()}*"
         except IndexError:
             address = f"*{address}*"
@@ -96,7 +96,9 @@ def weather(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
             location = Nominatim(user_agent="SuperSeriousBot").geocode(
                 query, exactly_one=True
             )
-            text = weather_details(location.address, location.latitude, location.longitude)
+            text = weather_details(
+                location.address, location.latitude, location.longitude
+            )
         except AttributeError:
             text = "Location not found."
 

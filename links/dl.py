@@ -23,13 +23,14 @@ ydl_opts = {
     "geo_bypass": True,
 }
 
+
 class DLBufferUsedWarning(Exception):
     pass
 
 
-def dl(update: 'telegram.Update', _: 'telegram.ext.CallbackContext') -> None:
+def dl(update: "telegram.Update", _: "telegram.ext.CallbackContext") -> None:
     """Download a given video link and send as native Telegram video file"""
-    message: 'telegram.Message'
+    message: "telegram.Message"
     if update.message.reply_to_message:
         message = update.message.reply_to_message
     elif update.message:
@@ -42,12 +43,15 @@ def dl(update: 'telegram.Update', _: 'telegram.ext.CallbackContext') -> None:
     if entities:
         video_url = entities[0]
     else:
-        update.message.reply_text(text=(
-            "*Usage:* `/dl {LINK}` or reply to a link.\n"
-            "*Example:* `/dl` https://www.youtube.com/watch?v=dQw4w9WgXcQ\n"
-            "Video size is limited to 50MB. The bot will download videos on a best "
-            "effort basis, i.e. highest possible quality while staying within the limit."
-        ), disable_web_page_preview=True)
+        update.message.reply_text(
+            text=(
+                "*Usage:* `/dl {LINK}` or reply to a link.\n"
+                "*Example:* `/dl` https://www.youtube.com/watch?v=dQw4w9WgXcQ\n"
+                "Video size is limited to 50MB. The bot will download videos on a best "
+                "effort basis, i.e. highest possible quality while staying within the limit."
+            ),
+            disable_web_page_preview=True,
+        )
         return
 
     text: str
@@ -75,7 +79,7 @@ def dl(update: 'telegram.Update', _: 'telegram.ext.CallbackContext') -> None:
             sent_msg = update.message.reply_text("Uploading...")
 
             buffer = BytesIO()
-            buffer.write(get(vid_info['url'], stream=True).content)
+            buffer.write(get(vid_info["url"], stream=True).content)
             buffer.seek(0)
 
             update.message.reply_video(buffer)
@@ -83,4 +87,6 @@ def dl(update: 'telegram.Update', _: 'telegram.ext.CallbackContext') -> None:
 
             buffer.close()
             # log that a file buffer was used instead of a URL
-            raise DLBufferUsedWarning("Couldn't use URL for /dl, used a file buffer instead")
+            raise DLBufferUsedWarning(
+                "Couldn't use URL for /dl, used a file buffer instead"
+            )

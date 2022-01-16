@@ -89,7 +89,9 @@ import links
 # Handlers ----------------------------------------------------------------------------------------
 
 
-def error_handler(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
+def error_handler(
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
+) -> None:
     """Log the error and send a telegram message to notify the developer."""
     # traceback.format_exception returns the usual python message about an exception, but as a
     # list of strings rather than a single string.

@@ -7,10 +7,10 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def spurdo(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -> None:
+def spurdo(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Spurdify text"""
     if update.message:
-        message: 'telegram.Message' = update.message
+        message: "telegram.Message" = update.message
     else:
         return
 
@@ -20,11 +20,13 @@ def spurdo(update: 'telegram.Update', context: 'telegram.ext.CallbackContext') -
             args: str = message.reply_to_message.text or message.reply_to_message.caption  # type: ignore
             text = spurdify(args)
         except AttributeError:
-            text = "*Usage:* `/spurdo {TEXT}`\n" \
-                   "*Example:* `/spurdo hello, how are you?`\n" \
-                   "Reply with `/spurdo` to a message to spurdify it."
+            text = (
+                "*Usage:* `/spurdo {TEXT}`\n"
+                "*Example:* `/spurdo hello, how are you?`\n"
+                "Reply with `/spurdo` to a message to spurdify it."
+            )
     else:
-        text = spurdify(' '.join(context.args))
+        text = spurdify(" ".join(context.args))
 
     if message.reply_to_message:
         message.reply_to_message.reply_text(text=text)

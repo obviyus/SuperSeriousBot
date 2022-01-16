@@ -7,15 +7,17 @@ if TYPE_CHECKING:
     import telegram.ext
 
 
-def insult(update: 'telegram.Update', _context: 'telegram.ext.CallbackContext') -> None:
+def insult(update: "telegram.Update", _context: "telegram.ext.CallbackContext") -> None:
     """Get a random insult"""
 
     if update.message:
-        message: 'telegram.Message' = update.message
+        message: "telegram.Message" = update.message
     else:
         return
 
-    insult_response: str = get('https://evilinsult.com/generate_insult.php?lang=en&type=json').json()['insult']
+    insult_response: str = get(
+        "https://evilinsult.com/generate_insult.php?lang=en&type=json"
+    ).json()["insult"]
     if message.reply_to_message:
         message.reply_to_message.reply_text(text=insult_response)
     else:
