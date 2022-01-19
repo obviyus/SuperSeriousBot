@@ -4,7 +4,7 @@ import traceback
 from links.dl import DLBufferUsedWarning
 from typing import TYPE_CHECKING, Callable, List
 
-from telegram import MessageEntity, ParseMode
+from telegram import MessageEntity, ParseMode, ChatAction
 from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
@@ -157,6 +157,7 @@ def check_cmd_avail(func: Callable, disabled: bool):
 
         start = time.time()
 
+        update.message.reply_chat_action(ChatAction.TYPING)
         if disabled:
             update.message.reply_text(
                 "This feature is unavailable, please contact the bot admin to enable this."
