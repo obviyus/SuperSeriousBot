@@ -29,5 +29,5 @@ jobs:
         uses: tyagdit/release-telegram-action@master
         with:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          channel: '-1005439439451'
+          channel: -1005439439451
           changelog: ${{ github.event.release.body }}
