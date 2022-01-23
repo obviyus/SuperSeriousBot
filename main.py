@@ -310,6 +310,11 @@ def main():
         group=1,
     )
 
+    # Reddit link parser
+    dispatcher.add_handler(
+        MessageHandler(Filters.entity(MessageEntity.URL), links.reddit_comment.comment)
+    )
+
     # Search button handler
     dispatcher.add_handler(CallbackQueryHandler(api.search_button))
 
