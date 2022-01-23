@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 from telegram import MessageEntity
-from ..api import reddit
+from ..api.randdit import reddit
 
 if TYPE_CHECKING:
     import telegram
