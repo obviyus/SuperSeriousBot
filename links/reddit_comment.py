@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING
 import praw
-import logging
 from telegram import MessageEntity
 from configuration import config
 
@@ -15,7 +14,9 @@ reddit = praw.Reddit(
 )
 
 
-def comment(update: "telegram.Update", _context: "telegram.ext.CallbackContext") -> None:
+def comment(
+    update: "telegram.Update", _context: "telegram.ext.CallbackContext"
+) -> None:
     """Replies to a link with the top comment posted on Reddit"""
     message = update.message
 
@@ -35,10 +36,7 @@ def comment(update: "telegram.Update", _context: "telegram.ext.CallbackContext")
                 continue
 
             text = f"{top_level_comment.body}\n\n<a href='https://reddit.com{top_level_comment.permalink}'>- {top_level_comment.author.name}</a>"
-            logging.info(text)
             message.reply_text(
-                text=text,
-                parse_mode='html',
-                disable_web_page_preview=True
+                text=text, parse_mode="html", disable_web_page_preview=True
             )
             return
