@@ -216,6 +216,7 @@ commands: List[Command] = [
     Command("album", api.album, ["IMGUR_KEY"]),
     Command("ban", chat_management.ban),
     Command("botstats", dev.print_botstats, ["DEV_USERNAMES"]),
+    Command("c", links.comment),
     Command("calc", api.calc, ["WOLFRAM_APP_ID"]),
     Command("caption", api.caption, ["AZURE_KEY"]),
     Command("cat", api.animal),
@@ -308,11 +309,6 @@ def main():
             chat_management.increment,
         ),
         group=1,
-    )
-
-    # Reddit link parser
-    dispatcher.add_handler(
-        MessageHandler(Filters.entity(MessageEntity.URL), links.reddit_comment.comment)
     )
 
     # Search button handler

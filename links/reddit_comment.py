@@ -18,13 +18,17 @@ def comment(
     update: "telegram.Update", _context: "telegram.ext.CallbackContext"
 ) -> None:
     """Replies to a link with the top comment posted on Reddit"""
-    message = update.message
 
-    entities: list = list(message.parse_entities([MessageEntity.URL]).values())
-    if entities:
-        original_url = entities[0]
+    message: "telegram.Message"
+    if update.message.reply_to_message:
+        message = update.message.reply_to_message
+    elif update.message:
+        message = update.message
     else:
         return
+
+    entities: list = list(message.parse_entities([MessageEntity.URL]).values())
+    original_url = entities[0]
 
     for submission in reddit.subreddit("all").search(
         f'url:"{original_url}"',
