@@ -18,7 +18,6 @@ def comment(
     update: "telegram.Update", _context: "telegram.ext.CallbackContext"
 ) -> None:
     """Replies to a link with the top comment posted on Reddit"""
-
     message: "telegram.Message"
     if update.message.reply_to_message:
         message = update.message.reply_to_message
@@ -44,7 +43,11 @@ def comment(
     for top_level_comment in submission.comments:
         if top_level_comment.stickied:
             continue
+        
+        comment_body = top_level_comment.body
+        if len(comment_body) > 500:
+            comment_body = comment_body[:500] + "..."
 
-        text = f"{top_level_comment.body}\n\n<a href='https://reddit.com{top_level_comment.permalink}'>- {top_level_comment.author.name}</a>"
+        text = f"{comment_body} (<a href='https://reddit.com{top_level_comment.permalink}'>/u/{top_level_comment.author.name})</a>"
         message.reply_text(text=text, parse_mode="html", disable_web_page_preview=True)
         return
