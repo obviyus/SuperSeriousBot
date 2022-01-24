@@ -30,17 +30,21 @@ def comment(
     entities: list = list(message.parse_entities([MessageEntity.URL]).values())
     original_url = entities[0]
 
-    for submission in reddit.subreddit("all").search(
-        f'url:"{original_url}"',
-        sort="top",
-    ):
-        submission.comments.replace_more(limit=0)
-        for top_level_comment in submission.comments:
-            if top_level_comment.stickied:
-                continue
+    try:
+        submission = reddit.submission(url=original_url)
+    except praw.exceptions.InvalidURL:
+        for post in reddit.subreddit("all").search(
+            f'url:"{original_url}"',
+            sort="top",
+        ):
+            submission = post
+            break
 
-            text = f"{top_level_comment.body}\n\n<a href='https://reddit.com{top_level_comment.permalink}'>- {top_level_comment.author.name}</a>"
-            message.reply_text(
-                text=text, parse_mode="html", disable_web_page_preview=True
-            )
-            return
+    submission.comments.replace_more(limit=0)
+    for top_level_comment in submission.comments:
+        if top_level_comment.stickied:
+            continue
+
+        text = f"{top_level_comment.body}\n\n<a href='https://reddit.com{top_level_comment.permalink}'>- {top_level_comment.author.name}</a>"
+        message.reply_text(text=text, parse_mode="html", disable_web_page_preview=True)
+        return
