@@ -65,12 +65,12 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
             context.dispatcher.run_async(seed, 20, False)
     else:
         try:
-            post = reddit.random_subreddit(nsfw=False).random()
+            post = reddit.subreddit(subreddit).random()
             if post == None:
                 text = "Subreddit does not allow random posts"
             else:
                 while post.spoiler:
-                    post = reddit.random_subreddit(nsfw=False).random()
+                    post = reddit.subreddit(subreddit).random()
 
                 text = make_response(post)
         except (praw.exceptions.NotFound, praw.exceptions.BadRequest):
