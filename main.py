@@ -3,7 +3,7 @@ import logging
 import traceback
 from links.dl import DLBufferUsedWarning
 from typing import TYPE_CHECKING, Callable, List
-
+import asyncio
 from telegram import MessageEntity, ParseMode, ChatAction
 from telegram.ext import (
     CallbackQueryHandler,
@@ -240,13 +240,14 @@ commands: List[Command] = [
     Command("joke", api.joke),
     Command("kick", chat_management.kick),
     Command("meme", api.meme),
+    Command("nsfw", api.nsfw),
     Command("pat", api.pat),
     Command("person", api.person),
     Command("pfp", api.pad_image),
     Command("pic", api.pic),
     Command("pon", api.audio, ["PUNYA_SONG_ID"]),
     Command(
-        "randdit",
+        "r",
         api.randdit,
         ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"],
     ),
@@ -322,6 +323,10 @@ def main():
 
     # Set bot commands menu
     dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])
+
+    # Start seeding random posts
+    dispatcher.run_async(api.seed, 10, False)
+    dispatcher.run_async(api.seed, 10, True)
 
     updater.start_polling(drop_pending_updates=True)
     bot: telegram.Bot = updater.bot
