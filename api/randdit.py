@@ -35,7 +35,7 @@ def seed(limit: int = 10, nsfw: bool = False) -> None:
 
 
 def make_response(post: praw.models.Submission) -> str:
-    return f"<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}</a>: {post.url}"
+    return f"{post.url}\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}</a>"
 
 
 def nsfw(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
