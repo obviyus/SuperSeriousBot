@@ -14,7 +14,7 @@ pillow==9.0.0
 praw>=7.5.0
 pydub>=0.25.1
 python-dateutil==2.8.2
-python-telegram-bot==13.10
+python-telegram-bot==13.11
 qbittorrent-api==2022.1.27
 redis>=4.1.1
 regex>=2021.11.2
