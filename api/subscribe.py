@@ -37,16 +37,20 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
     )
 
     for group_id, subreddit_name, author_username in cursor.fetchall():
-        for post in reddit.subreddit(subreddit_name).hot(limit=3):
-            if post.stickied:
-                continue
+        try:
+            for post in reddit.subreddit(subreddit_name).hot(limit=3):
+                if post.stickied:
+                    continue
 
-            context.bot.send_message(
-                chat_id=group_id,
-                text=make_response(post, author_username),
-                parse_mode="html",
-            )
-            sleep(1)
+                context.bot.send_message(
+                    chat_id=group_id,
+                    text=make_response(post, author_username),
+                    parse_mode="html",
+                )
+                break
+        except (NotFound, BadRequest, Redirect, Forbidden):
+            break
+        sleep(1)
 
 
 def list(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
