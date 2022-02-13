@@ -49,7 +49,11 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
                 )
                 break
         except (NotFound, BadRequest, Redirect, Forbidden):
-            break
+            context.bot.send_message(
+                chat_id=group_id,
+                text=f"@{author_username} error occurred while fetching posts from /r/{subreddit_name}.",
+                parse_mode="html",
+            )
         sleep(1)
 
 
