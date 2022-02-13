@@ -3,7 +3,6 @@ import logging
 import traceback
 from links.dl import DLBufferUsedWarning
 from typing import TYPE_CHECKING, Callable, List
-import asyncio
 from telegram import MessageEntity, ParseMode, ChatAction
 from telegram.ext import (
     CallbackQueryHandler,
@@ -20,8 +19,6 @@ if TYPE_CHECKING:
     import telegram
     import telegram.ext
 
-
-# Logging -----------------------------------------------------------------------------------------
 
 # Private channel used for logging exceptions
 LOGGING_CHANNEL = -1001543943945
@@ -76,17 +73,12 @@ logging.basicConfig(
 )
 log = logging.getLogger()
 
-
-# Imports -----------------------------------------------------------------------------------------
-
 import time
 
 import api
 import chat_management
 import dev
 import links
-
-# Handlers ----------------------------------------------------------------------------------------
 
 
 def error_handler(
@@ -111,9 +103,6 @@ def error_handler(
             update.message.reply_text("An error occurred")
     finally:
         log.error(f"{context.error}")
-
-
-# Commands ----------------------------------------------------------------------------------------
 
 
 def start(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
@@ -268,6 +257,9 @@ commands: List[Command] = [
     Command("start", start),
     Command("stats", chat_management.print_stats),
     Command("steamstats", api.steamstats, ["STEAM_API_KEY"]),
+    Command("subscribe", api.subscribe),
+    Command("unsubscribe", api.unsubscribe),
+    Command("list", api.list),
     Command("tl", api.translate),
     Command("tldr", api.tldr, ["SMMRY_API_KEY"]),
     Command("tts", api.tts),
@@ -280,9 +272,6 @@ commands: List[Command] = [
     Command("wink", api.wink),
     Command("wmark", api.wmark),
 ]
-
-
-# Bot ---------------------------------------------------------------------------------------------
 
 
 def main():
@@ -320,6 +309,9 @@ def main():
 
     # Daily stats clear
     job_queue.run_daily(chat_management.clear, time=datetime.time(18, 30))
+
+    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(21, 00))
+    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(9, 00))
 
     # Set bot commands menu
     dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])
