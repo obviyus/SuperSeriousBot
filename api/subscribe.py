@@ -1,9 +1,10 @@
-from prawcore.exceptions import NotFound, Forbidden, BadRequest
+from prawcore.exceptions import NotFound, Forbidden, BadRequest, Redirect
 from time import sleep
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 import praw
 from .randdit import reddit
 import sqlite3
+from telegram.utils.helpers import escape_markdown
 
 if TYPE_CHECKING:
     import telegram
@@ -60,15 +61,26 @@ def list(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> 
         (message.chat.id,),
     )
 
-    result = cursor.fetchall()
-    if not result:
+    rows = cursor.fetchall()
+    if not rows:
         message.reply_text("No subreddits subscribed to.")
         return
 
+    text = f"**Reddit subsciptions for {update.effective_chat.title}**\n"
+    longest: Tuple[str, int] = max(rows, key=lambda x: len(x[0]))
+
+    for subreddit, user in rows:
+        text += (
+            f"`/r/{subreddit}"
+            + (len(longest[0]) - len(subreddit) + 1) * " "
+            + f"- @{user}`\n"
+        )
+    text = text + f"\n`Subscribed to {len(rows)} subreddit(s).`"
+
     message.reply_text(
-        "Subscribed to:\n"
-        + "\n".join(f"/r/{subreddit} by @{username}" for subreddit, username in result)
-        + "\n"
+        text,
+        parse_mode="markdown",
+        disable_notification=True,
     )
 
 
@@ -98,7 +110,9 @@ def unsubscribe(
         )
         result = cursor.fetchone()
         if not result:
-            message.reply_text(f"Not subscribed to /r/{subreddit} in this group.")
+            message.reply_text(
+                f"Not subscribed to /r/{escape_markdown(subreddit)} in this group."
+            )
             return
 
         user: telegram.ChatMember = context.bot.get_chat_member(
@@ -121,7 +135,8 @@ def unsubscribe(
         conn.commit()
 
         message.reply_text(
-            f"Unsubscribed from /r/{subreddit} by @{message.from_user.username}."
+            f"Unsubscribed from /r/{escape_markdown(subreddit)} by @{escape_markdown(message.from_user.username)}.",
+            disable_notification=True,
         )
 
 
@@ -153,21 +168,24 @@ def subscribe(
         result = cursor.fetchone()
         if result:
             message.reply_text(
-                f"Already subscribed to /r/{subreddit} in this group by @{result[2]}."
+                f"Already subscribed to /r/{escape_markdown(subreddit)} in this group by @{escape_markdown(result[2])}."
             )
             return
 
         try:
-            reddit.subreddit(subreddit).hot(limit=1)
+            for _ in reddit.subreddit(subreddit).hot(limit=3):
+                continue
+
             cursor.execute(
                 "INSERT INTO `reddit_subscriptions` (`group_id`, `subreddit_name`, `author_username`) VALUES (?, ?, ?)",
                 (message.chat.id, subreddit, message.from_user.username),
             )
             conn.commit()
+
             message.reply_text(
-                f"Subscribed to /r/{subreddit} by @{message.from_user.username}."
+                f"Subscribed to /r/{escape_markdown(subreddit)} by @{escape_markdown(message.from_user.username)}."
             )
-        except (NotFound, BadRequest):
-            text = "Subreddit not found or it is banned"
+        except (NotFound, BadRequest, Redirect):
+            message.reply_text(text="Subreddit not found or banned")
         except Forbidden:
-            text = "Subreddit is quarantined or private"
+            message.reply_text(text="Subreddit is quarantined or private")
