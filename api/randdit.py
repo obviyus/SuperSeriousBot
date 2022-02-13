@@ -1,4 +1,5 @@
 import praw
+from prawcore.exceptions import NotFound, Forbidden, BadRequest
 from configuration import config
 import logging
 from typing import TYPE_CHECKING
@@ -73,9 +74,9 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
                     post = reddit.subreddit(subreddit).random()
 
                 text = make_response(post)
-        except (praw.exceptions.NotFound, praw.exceptions.BadRequest):
+        except (NotFound, BadRequest):
             text = "Subreddit not found or it is banned"
-        except praw.exceptions.Forbidden:
+        except Forbidden:
             text = "Subreddit is quarantined or private"
 
         update.message.reply_text(text, parse_mode="HTML")

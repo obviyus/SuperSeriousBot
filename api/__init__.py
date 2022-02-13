@@ -23,6 +23,7 @@ from .sed import sed
 from .setw import setw
 from .spurdo import spurdo
 from .steamstats import steamstats
+from .subscribe import subscribe, unsubscribe, list, deliver_reddit_subscriptions
 from .tldr import tldr
 from .translate import translate
 from .tts import tts
