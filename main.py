@@ -1,6 +1,7 @@
 import datetime
 import logging
 import traceback
+from tracemalloc import Filter
 from links.dl import DLBufferUsedWarning
 from typing import TYPE_CHECKING, Callable, List
 from telegram import MessageEntity, ParseMode, ChatAction
@@ -290,6 +291,11 @@ def main():
     dispatcher.add_handler(
         MessageHandler(Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"), api.sed),
         group=0,
+    )
+
+    # ping handler
+    dispatcher.add_handler(
+        MessageHandler(Filters.text & Filters.regex(r"ping"), api.ping)
     )
 
     # Chat message count handler
