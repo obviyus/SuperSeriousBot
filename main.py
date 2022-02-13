@@ -316,8 +316,8 @@ def main():
     # Daily stats clear
     job_queue.run_daily(chat_management.clear, time=datetime.time(18, 30))
 
-    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(21, 00))
-    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(9, 00))
+    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(15, 45))
+    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(3, 30))
 
     # Set bot commands menu
     dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])
