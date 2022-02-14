@@ -295,7 +295,7 @@ def main():
 
     # ping handler
     dispatcher.add_handler(
-        MessageHandler(Filters.text & Filters.regex(r"ping"), api.ping)
+        MessageHandler(Filters.text & Filters.regex(r"^ping"), api.ping)
     )
 
     # Chat message count handler
@@ -316,7 +316,7 @@ def main():
     # Daily stats clear
     job_queue.run_daily(chat_management.clear, time=datetime.time(18, 30))
 
-    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(16, 10))
+    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(15, 30))
     job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(3, 30))
 
     # Set bot commands menu
