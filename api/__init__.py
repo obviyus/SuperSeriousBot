@@ -28,6 +28,7 @@ from .subscribe import (
     subscribe,
     unsubscribe,
     list_subscriptions,
+    deliver_reddit_subscriptions,
 )
 from .tldr import tldr
 from .translate import translate
