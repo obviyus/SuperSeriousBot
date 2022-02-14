@@ -1,10 +1,12 @@
-from prawcore.exceptions import NotFound, Forbidden, BadRequest, Redirect
-from time import sleep
-from typing import TYPE_CHECKING, Tuple
-import praw
-from .randdit import reddit
 import sqlite3
+from time import sleep
+from typing import TYPE_CHECKING
+
+import praw
+from prawcore.exceptions import NotFound, Forbidden, BadRequest, Redirect
 from telegram.utils.helpers import escape_markdown
+
+from .randdit import reddit
 
 if TYPE_CHECKING:
     import telegram
@@ -36,9 +38,9 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
         "SELECT `group_id`, `subreddit_name`, `author_username` FROM `reddit_subscriptions`"
     )
 
-    for group_id, subreddit_name, author_username in cursor.fetchall():
+    def poster(name: str) -> None:
         try:
-            for post in reddit.subreddit(subreddit_name).hot(limit=3):
+            for post in reddit.subreddit(name).hot(limit=3):
                 if post.stickied:
                     continue
 
@@ -51,13 +53,18 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
         except (NotFound, BadRequest, Redirect, Forbidden):
             context.bot.send_message(
                 chat_id=group_id,
-                text=f"@{author_username} error occurred while fetching posts from /r/{subreddit_name}.",
+                text=f"@{author_username} error occurred while fetching posts from /r/{name}.",
                 parse_mode="html",
             )
+
+    for group_id, subreddit_name, author_username in cursor.fetchall():
+        context.dispatcher.run_async(poster, subreddit_name)
         sleep(1)
 
 
-def list(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
+def list_subscriptions(
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
+) -> None:
     """Get a list of all subreddits group is subscribed to"""
     if update.message:
         message: "telegram.Message" = update.message
@@ -74,21 +81,27 @@ def list(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> 
         message.reply_text("No subreddits subscribed to.")
         return
 
-    text = f"**Reddit subsciptions for {update.effective_chat.title}**\n"
-    longest: Tuple[str, int] = max(rows, key=lambda x: len(x[0]))
+    text = f"<b>Reddit subscriptions for {update.effective_chat.title}</b>\n"
 
-    for subreddit, user in rows:
-        text += (
-            f"`/r/{subreddit}"
-            + (len(longest[0]) - len(subreddit) + 1) * " "
-            + f"- @{user}`\n"
-        )
-    text = text + f"\n`Subscribed to {len(rows)} subreddit(s).`"
+    # Group subreddit names for the same user
+    grouped_rows: dict = {}
+    for subreddit_name, author_username in rows:
+        if author_username not in grouped_rows:
+            grouped_rows[author_username] = []
+        grouped_rows[author_username].append(subreddit_name)
+
+    for author_username, subreddit_names in grouped_rows.items():
+        text += f"\n<b><a href='https://t.me/{author_username}'>@{author_username}</a></b>\n"
+        for subreddit_name in subreddit_names:
+            text += f"<code>- /r/{subreddit_name}</code>\n"
+
+    text = text + f"\nSubscribed to {len(rows)} subreddit(s)."
 
     message.reply_text(
         text,
-        parse_mode="markdown",
+        parse_mode="HTML",
         disable_notification=True,
+        disable_web_page_preview=True,
     )
 
 
@@ -181,8 +194,8 @@ def subscribe(
             return
 
         try:
-            for _ in reddit.subreddit(subreddit).hot(limit=3):
-                continue
+            for post in reddit.subreddit(subreddit).hot(limit=3):
+                subreddit = post.subreddit.display_name
 
             cursor.execute(
                 "INSERT INTO `reddit_subscriptions` (`group_id`, `subreddit_name`, `author_username`) VALUES (?, ?, ?)",

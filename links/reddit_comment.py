@@ -1,9 +1,10 @@
-import logging
 from typing import TYPE_CHECKING
-from telegram import MessageEntity
-from configuration import config
+
 import praw
 import prawcore
+from telegram import MessageEntity
+
+from configuration import config
 
 if TYPE_CHECKING:
     import telegram

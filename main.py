@@ -1,9 +1,9 @@
 import datetime
 import logging
+import time
 import traceback
-from tracemalloc import Filter
-from links.dl import DLBufferUsedWarning
 from typing import TYPE_CHECKING, Callable, List
+
 from telegram import MessageEntity, ParseMode, ChatAction
 from telegram.ext import (
     CallbackQueryHandler,
@@ -14,12 +14,16 @@ from telegram.ext import (
     Updater,
 )
 
+import api
+import chat_management
+import dev
+import links
 from configuration import config
+from links.dl import DLBufferUsedWarning
 
 if TYPE_CHECKING:
     import telegram
     import telegram.ext
-
 
 # Private channel used for logging exceptions
 LOGGING_CHANNEL = -1001543943945
@@ -73,13 +77,6 @@ logging.basicConfig(
     handlers=[log_handler],
 )
 log = logging.getLogger()
-
-import time
-
-import api
-import chat_management
-import dev
-import links
 
 
 def error_handler(
@@ -260,7 +257,7 @@ commands: List[Command] = [
     Command("steamstats", api.steamstats, ["STEAM_API_KEY"]),
     Command("subscribe", api.subscribe),
     Command("unsubscribe", api.unsubscribe),
-    Command("list", api.list),
+    Command("list", api.list_subscriptions),
     Command("tl", api.translate),
     Command("tldr", api.tldr, ["SMMRY_API_KEY"]),
     Command("tts", api.tts),
