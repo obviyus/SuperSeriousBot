@@ -38,7 +38,7 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
         "SELECT `group_id`, `subreddit_name`, `author_username` FROM `reddit_subscriptions`"
     )
 
-    def poster(name: str) -> None:
+    def poster(group_id: str, author_username: str, name: str) -> None:
         try:
             for post in reddit.subreddit(name).hot(limit=3):
                 if post.stickied:
@@ -51,14 +51,20 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
                 )
                 break
         except (NotFound, BadRequest, Redirect, Forbidden):
+            cursor.execute(
+                "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
+                (subreddit_name, group_id),
+            )
+            conn.commit()
+
             context.bot.send_message(
                 chat_id=group_id,
-                text=f"@{author_username} error occurred while fetching posts from /r/{name}.",
+                text=f"@{author_username} error occurred while fetching posts from /r/{name}. Automatically removing subscription.",
                 parse_mode="html",
             )
 
     for group_id, subreddit_name, author_username in cursor.fetchall():
-        context.dispatcher.run_async(poster, subreddit_name)
+        context.dispatcher.run_async(poster, group_id, author_username, subreddit_name)
         sleep(1)
 
 
