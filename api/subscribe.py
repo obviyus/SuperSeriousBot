@@ -132,7 +132,7 @@ def unsubscribe(
             subreddit = subreddit[2:].lower()
 
         cursor.execute(
-            "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
+            "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ? COLLATE NOCASE",
             (subreddit, message.chat.id),
         )
         result = cursor.fetchone()
@@ -189,7 +189,7 @@ def subscribe(
         subreddit = subreddit.lower()
 
         cursor.execute(
-            "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
+            "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ? COLLATE NOCASE",
             (subreddit, message.chat.id),
         )
         result = cursor.fetchone()
