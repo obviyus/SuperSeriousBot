@@ -76,7 +76,7 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
                 else:
                     text = (
                         make_response(choice(post))
-                        + ' <span class="tg-spoiler">(subreddit does not allow random posts)</span>'
+                        + '\n<span class="tg-spoiler">(subreddit does not allow random posts)</span>'
                     )
             else:
                 while post.spoiler:
