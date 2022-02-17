@@ -15,7 +15,7 @@ ydl_opts = {
     # b = best within the applied constraints
     # TG Bots can't send docs/vids bigger than 50MB
     # 3gp is terrible and makes tg servers unhappy
-    "format": "b[filesize<50M][ext!=3gp]",
+    "format": "b[ext!=3gp]",
     "outtmpl": "-",
     "logger": getLogger(),
     "skip_download": True,
