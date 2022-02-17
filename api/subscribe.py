@@ -29,7 +29,7 @@ cursor.execute(
 
 
 def make_response(post: praw.models.Submission, username: str) -> str:
-    return f"{post.url}\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}; @{username}</a>"
+    return f"{post.url}\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name};</a> @{username}"
 
 
 def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> None:
