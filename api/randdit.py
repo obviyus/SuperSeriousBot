@@ -1,3 +1,4 @@
+from random import choice
 import praw
 from prawcore.exceptions import NotFound, Forbidden, BadRequest
 from configuration import config
@@ -68,7 +69,15 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
         try:
             post = reddit.subreddit(subreddit).random()
             if post == None:
-                text = "Subreddit does not allow random posts"
+                # Fallback to hot post
+                post = list(reddit.subreddit(subreddit).hot())
+                if len(post) == 0:
+                    text = f"/r/{subreddit} is empty."
+                else:
+                    text = (
+                        make_response(choice(post))
+                        + ' <span class="tg-spoiler">(subreddit does not allow random posts)</span>'
+                    )
             else:
                 while post.spoiler:
                     post = reddit.subreddit(subreddit).random()
