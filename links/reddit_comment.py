@@ -1,9 +1,9 @@
+import logging
 from typing import TYPE_CHECKING
-
+from telegram.utils.helpers import escape_markdown
 import praw
 import prawcore
 from telegram import MessageEntity
-
 from configuration import config
 
 if TYPE_CHECKING:
@@ -35,23 +35,38 @@ def comment(
 
     try:
         post = reddit.submission(url=original_url)
-    except praw.exceptions.InvalidURL:
+        logging.getLogger().info("post_reddit: {}".format(post.permalink))
+    except (praw.exceptions.InvalidURL, prawcore.exceptions.NotFound):
         for submission in reddit.subreddit("all").search(
-            f"url:{original_url}", sort="top", limit=1
+            f"url:{original_url}",
+            sort="top",
         ):
             post = submission
+            logging.getLogger().info("post_outside: {}".format(post.permalink))
+            break
+    try:
+        logging.getLogger().info("post: {}".format(post.permalink))
+
+        post.comment_sort = "top"
+        post.comments.replace_more(limit=0)
+        for comment in post.comments:
+            if comment.stickied:
+                continue
+            top_comment = comment
             break
 
-    try:
-        post.comments.replace_more(limit=0)
-        post.comment_sort = "top"
-        top_comment: praw.models.Comment = post.comments[0]
+        if not top_comment:
+            raise prawcore.exceptions.NotFound
 
         comment_body = top_comment.body
         if len(comment_body) > 500:
-            comment_body = comment_body[:500] + "..."
+            comment_body = escape_markdown(comment_body[:500]) + "..."
 
-        text = f"{comment_body} (<a href='https://reddit.com{top_comment.permalink}'>/u/{top_comment.author.name})</a>"
-        message.reply_text(text=text, parse_mode="html", disable_web_page_preview=True)
+        text = f"{comment_body} ([/u/{top_comment.author.name}](https://reddit.com{top_comment.permalink}))"
+        message.reply_text(
+            text=text, parse_mode="markdown", disable_web_page_preview=True
+        )
+    except UnboundLocalError:
+        message.reply_text(text="URL not found on Reddit.")
     except prawcore.exceptions.NotFound:
         message.reply_text(text="No comments found.")
