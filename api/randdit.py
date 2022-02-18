@@ -75,8 +75,10 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
             post = reddit.subreddit(subreddit).random()
             if post == None:
                 # Fallback to hot post
-                post = choice(list(reddit.subreddit(subreddit).hot(limit=5)))
-                if len(post) == 0:
+                posts = list(reddit.subreddit(subreddit).hot(limit=5))
+                post = choice(posts)
+
+                if len(posts) == 0:
                     text = f"/r/{subreddit} is empty."
                 else:
                     text = (
