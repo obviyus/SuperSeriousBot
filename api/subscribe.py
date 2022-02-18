@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 from time import sleep
 from typing import TYPE_CHECKING
@@ -133,9 +134,13 @@ def unsubscribe(
             subreddit = subreddit[2:].lower()
 
         cursor.execute(
-            "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ? COLLATE NOCASE",
+            "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? COLLATE NOCASE AND `group_id` = ?",
             (subreddit, message.chat.id),
         )
+        
+        logging.getLogger().testing("group_id: {}".format(message.chat.id))
+        logging.getLogger().testing("subreddit: {}".format(subreddit))
+
         result = cursor.fetchone()
         if not result:
             message.reply_text(
@@ -190,7 +195,7 @@ def subscribe(
         subreddit = subreddit.lower()
 
         cursor.execute(
-            "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ? COLLATE NOCASE",
+            "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? COLLATE NOCASE AND `group_id` = ?",
             (subreddit, message.chat.id),
         )
         result = cursor.fetchone()
