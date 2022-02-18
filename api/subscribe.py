@@ -1,7 +1,7 @@
 import sqlite3
 from time import sleep
 from typing import TYPE_CHECKING
-
+from dev import reddit_increment
 import praw
 from prawcore.exceptions import NotFound, Forbidden, BadRequest, Redirect
 from telegram.utils.helpers import escape_markdown
@@ -65,6 +65,7 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
 
     for group_id, subreddit_name, author_username in cursor.fetchall():
         context.dispatcher.run_async(poster, group_id, author_username, subreddit_name)
+        reddit_increment(subreddit_name)
         sleep(1)
 
 
