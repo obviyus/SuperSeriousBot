@@ -1,3 +1,4 @@
+import logging
 from typing import TYPE_CHECKING
 from telegram.utils.helpers import escape_markdown
 import praw
@@ -34,6 +35,7 @@ def comment(
 
     try:
         post = reddit.submission(url=original_url)
+        logging.getLogger().testing("Post: {}".format(post.permalink))
     except (praw.exceptions.InvalidURL, prawcore.exceptions.NotFound):
         for submission in reddit.subreddit("all").search(
             f"url:{original_url}",
@@ -41,7 +43,9 @@ def comment(
         ):
             post = submission
             break
+        logging.getLogger().testing("Post: {}".format(post.permalink))
     try:
+        logging.getLogger().testing("Post: {}".format(post.permalink))
         post.comment_sort = "top"
         post.comments.replace_more(limit=0)
         for comment in post.comments:
@@ -57,7 +61,13 @@ def comment(
         if len(comment_body) > 500:
             comment_body = escape_markdown(comment_body[:500]) + "..."
 
-        text = f"{comment_body} ([/u/{top_comment.author.name}](https://reddit.com{top_comment.permalink}))"
+        logging.getLogger().testing("Post: {}".format(post.permalink))
+
+        try:
+            text = f"{comment_body}\n\n [/u/{top_comment.author.name}](https://reddit.com{top_comment.permalink})"
+        except AttributeError:
+            text = f"{comment_body}\n\n [/u/deleted]({escape_markdown(f'https://reddit.com{top_comment.permalink}')})"
+
         message.reply_text(
             text=text, parse_mode="markdown", disable_web_page_preview=True
         )
