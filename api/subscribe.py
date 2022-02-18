@@ -162,7 +162,7 @@ def unsubscribe(
             return
 
         cursor.execute(
-            "DELETE FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
+            "DELETE FROM `reddit_subscriptions` WHERE `subreddit_name` = ? COLLATE NOCASE AND `group_id` = ?",
             (subreddit, message.chat.id),
         )
         conn.commit()
