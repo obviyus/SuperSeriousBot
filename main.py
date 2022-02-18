@@ -238,6 +238,7 @@ commands: List[Command] = [
         api.randdit,
         ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"],
     ),
+    Command("rstats", dev.print_reddit_stats),
     Command("seen", chat_management.seen),
     Command(
         "search",

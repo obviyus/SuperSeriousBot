@@ -1,9 +1,11 @@
 from random import choice
+from time import sleep
 import praw
 from prawcore.exceptions import NotFound, Forbidden, BadRequest
 from configuration import config
 import logging
 from typing import TYPE_CHECKING
+from dev import reddit_increment
 
 if TYPE_CHECKING:
     import telegram
@@ -28,7 +30,8 @@ def seed(limit: int = 10, nsfw: bool = False) -> None:
         while post is None or post.spoiler:
             post = reddit.random_subreddit(nsfw).random()
 
-        return make_response(post)
+        sleep(1)
+        return (post.subreddit.display_name, make_response(post))
 
     if nsfw:
         random_posts_nsfw.update(runner(nsfw) for _ in range(limit))
@@ -42,8 +45,9 @@ def make_response(post: praw.models.Submission) -> str:
 
 def nsfw(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
     """Get a random NSFW post from Reddit"""
-    post = random_posts_nsfw.pop()
+    subreddit_name, post = random_posts_nsfw.pop()
     update.message.reply_text(post, parse_mode="HTML")
+    reddit_increment(subreddit_name)
 
     if len(random_posts_nsfw) < 5:
         context.dispatcher.run_async(seed, 20, True)
@@ -60,8 +64,9 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
         subreddit = subreddit[2:]
 
     if not subreddit:
-        post = random_posts_all.pop()
+        subreddit_name, post = random_posts_all.pop()
         update.message.reply_text(post, parse_mode="HTML")
+        reddit_increment(subreddit_name)
 
         if len(random_posts_all) < 5:
             context.dispatcher.run_async(seed, 20, False)
@@ -70,12 +75,12 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
             post = reddit.subreddit(subreddit).random()
             if post == None:
                 # Fallback to hot post
-                post = list(reddit.subreddit(subreddit).hot())
+                post = choice(list(reddit.subreddit(subreddit).hot(limit=5)))
                 if len(post) == 0:
                     text = f"/r/{subreddit} is empty."
                 else:
                     text = (
-                        make_response(choice(post))
+                        make_response(post)
                         + '\n<span class="tg-spoiler">(subreddit does not allow random posts)</span>'
                     )
             else:
@@ -83,6 +88,7 @@ def randdit(update: "telegram.Update", context: "telegram.ext.CallbackContext") 
                     post = reddit.subreddit(subreddit).random()
 
                 text = make_response(post)
+            reddit_increment(post.subreddit.display_name)
         except (NotFound, BadRequest):
             text = "Subreddit not found or it is banned"
         except Forbidden:
