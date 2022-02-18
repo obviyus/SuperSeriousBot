@@ -1,4 +1,3 @@
-import logging
 from typing import TYPE_CHECKING
 from telegram.utils.helpers import escape_markdown
 import praw
@@ -35,18 +34,14 @@ def comment(
 
     try:
         post = reddit.submission(url=original_url)
-        logging.getLogger().info("post_reddit: {}".format(post.permalink))
     except (praw.exceptions.InvalidURL, prawcore.exceptions.NotFound):
         for submission in reddit.subreddit("all").search(
             f"url:{original_url}",
             sort="top",
         ):
             post = submission
-            logging.getLogger().info("post_outside: {}".format(post.permalink))
             break
     try:
-        logging.getLogger().info("post: {}".format(post.permalink))
-
         post.comment_sort = "top"
         post.comments.replace_more(limit=0)
         for comment in post.comments:
