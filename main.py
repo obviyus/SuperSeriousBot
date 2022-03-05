@@ -80,7 +80,7 @@ log = logging.getLogger()
 
 
 def error_handler(
-    update: "telegram.Update", context: "telegram.ext.CallbackContext"
+        update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Log the error and send a telegram message to notify the developer."""
     # traceback.format_exception returns the usual python message about an exception, but as a
@@ -113,7 +113,7 @@ def start(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
 
 
 def help_cmd(
-    update: "telegram.Update", context: "telegram.ext.CallbackContext"
+        update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Show list of commands"""
     cmds: List["telegram.BotCommand"] = context.bot.commands
@@ -133,7 +133,7 @@ def help_cmd(
 
 def check_cmd_avail(func: Callable, disabled: bool):
     def wrapped_func(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+            update: "telegram.Update", context: "telegram.ext.CallbackContext"
     ):
 
         message: "telegram.Message" = update.message
@@ -314,8 +314,12 @@ def main():
     # Daily stats clear
     job_queue.run_daily(chat_management.clear, time=datetime.time(18, 30))
 
+    # Deliver Reddit subscriptions
     job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(17, 30))
     job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(3, 30))
+
+    # Scan YouTube channels
+    job_queue.run_repeating(api.scan_youtube_channels, interval=60, first=0)
 
     # Set bot commands menu
     dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])

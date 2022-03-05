@@ -29,6 +29,7 @@ from .subscribe import (
     unsubscribe,
     list_subscriptions,
     deliver_reddit_subscriptions,
+    scan_youtube_channels
 )
 from .tldr import tldr
 from .translate import translate
