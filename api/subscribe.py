@@ -58,14 +58,14 @@ def scan_youtube_channels(context: "telegram.ext.CallbackContext") -> None:
         "SELECT `group_id`, `channel_id`, `author_username`, `video_id` FROM `youtube_subscriptions`"
     )
 
-    def scanner(each_group_id: str, each_channel_id: str, each_author_username: str, each_video_id) -> None:
+    def scanner(each_group_id: str, each_channel_id: str, each_author_username: str, old_video_id) -> None:
         YOUTUBE_LATEST_VIDEO_ENDPOINT = f"https://www.googleapis.com/youtube/v3/search?key={YOUTUBE_API_KEY}&channelId={each_channel_id}&part=snippet,id&order=date&maxResults=1"
 
         latest_video_id = requests.get(
             YOUTUBE_LATEST_VIDEO_ENDPOINT
         ).json()["items"][0]["id"]["videoId"]
 
-        if latest_video_id != each_video_id:
+        if latest_video_id != old_video_id:
             context.bot.send_message(
                 chat_id=each_group_id,
                 text=f"https://www.youtube.com/watch?v={latest_video_id}; @{each_author_username}",
@@ -73,8 +73,8 @@ def scan_youtube_channels(context: "telegram.ext.CallbackContext") -> None:
             )
 
             cursor.execute(
-                "UPDATE `youtube_subscriptions` SET `video_id` = ? WHERE `id` = ?",
-                (latest_video_id, each_video_id)
+                "UPDATE `youtube_subscriptions` SET `video_id` = ? WHERE `group_id` = ? AND `channel_id` = ?",
+                (latest_video_id, each_group_id, each_channel_id)
             )
             conn.commit()
 
