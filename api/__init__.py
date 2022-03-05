@@ -25,9 +25,12 @@ from .setw import setw
 from .spurdo import spurdo
 from .steamstats import steamstats
 from .subscribe import (
-    subscribe,
-    unsubscribe,
-    list_subscriptions,
+    subscribe_reddit,
+    subscribe_youtube,
+    unsubscribe_reddit,
+    unsubscribe_youtube,
+    list_reddit_subscriptions,
+    list_youtube_subscriptions,
     deliver_reddit_subscriptions,
     scan_youtube_channels
 )

@@ -206,16 +206,6 @@ def list_youtube_subscriptions(
     )
 
 
-def list_subscriptions(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
-) -> None:
-    logging.getLogger().testing(context.args)
-    if len(context.args) > 0 and context.args[0] == "yt":
-        list_youtube_subscriptions(update, context)
-    else:
-        list_reddit_subscriptions(update, context)
-
-
 def unsubscribe_reddit(
         update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
@@ -292,7 +282,7 @@ def unsubscribe_youtube(
         )
         return
     else:
-        subreddit: str = context.args[1].lower()
+        subreddit: str = " ".join(context.args).lower()
 
         cursor.execute(
             "SELECT `author_username` FROM `youtube_subscriptions` WHERE `channel_name` = ? COLLATE NOCASE AND `group_id` = ?",
@@ -332,15 +322,6 @@ def unsubscribe_youtube(
             f"Unsubscribed from {escape_markdown(subreddit)} by @{escape_markdown(message.from_user.username)}.",
             disable_notification=True,
         )
-
-
-def unsubscribe(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
-) -> None:
-    if len(context.args) > 1 and context.args[0] == "yt":
-        unsubscribe_youtube(update, context)
-    else:
-        unsubscribe_reddit(update, context)
 
 
 def subscribe_reddit(
@@ -410,7 +391,7 @@ def subscribe_youtube(
         )
         return
     else:
-        channel_name: str = context.args[1].lower()
+        channel_name: str = " ".join(context.args).lower()
 
         cursor.execute(
             "SELECT `author_username` FROM `youtube_subscriptions` WHERE `channel_name` = ? COLLATE NOCASE AND `group_id` = ?",
@@ -424,19 +405,15 @@ def subscribe_youtube(
             )
             return
 
-        YOUTUBE_API_ENDPOINT = f"https://www.googleapis.com/youtube/v3/channels?forUsername={channel_name}&part=snippet,id&key={YOUTUBE_API_KEY}"
-        response = requests.get(YOUTUBE_API_ENDPOINT).json()
+        YOUTUBE_API_ENDPOINT = f"https://www.googleapis.com/youtube/v3/search?part=snippet,id&type=channel&maxResults=1&&key={YOUTUBE_API_KEY}"
+        response = requests.get(YOUTUBE_API_ENDPOINT, params={"q": channel_name}).json()
 
         if response["pageInfo"]["totalResults"] == 0:
             message.reply_text(text="Channel not found.")
             return
 
-        channel_id = response["items"][0]["id"]
-
-        try:
-            channel_name = response["items"][0]["snippet"]["customUrl"]
-        except KeyError:
-            channel_name = response["items"][0]["snippet"]["title"]
+        channel_id = response["items"][0]["id"]["channelId"]
+        channel_name = response["items"][0]["snippet"]["title"]
 
         cursor.execute(
             "INSERT INTO `youtube_subscriptions` (`group_id`, `channel_name`, `channel_id`, `author_username`) VALUES (?, ?, ?, ?)",
@@ -447,12 +424,3 @@ def subscribe_youtube(
         message.reply_text(
             f"Subscribed to {escape_markdown(channel_name)} by @{escape_markdown(message.from_user.username)}."
         )
-
-
-def subscribe(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
-) -> None:
-    if len(context.args) > 1 and context.args[0] == "yt":
-        subscribe_youtube(update, context)
-    else:
-        subscribe_reddit(update, context)
