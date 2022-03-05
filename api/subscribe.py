@@ -76,6 +76,7 @@ def scan_youtube_channels(context: "telegram.ext.CallbackContext") -> None:
                 "UPDATE `youtube_subscriptions` SET `video_id` = ? WHERE `id` = ?",
                 (latest_video_id, each_video_id)
             )
+            conn.commit()
 
     for group_id, channel_id, author_username, video_id in cursor.fetchall():
         context.dispatcher.run_async(scanner, group_id, channel_id, author_username, video_id)
