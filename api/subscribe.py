@@ -108,9 +108,9 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
                     parse_mode="html",
                 )
                 break
-        except (NotFound, BadRequest, Redirect, Forbidden):
+        except (NotFound, BadRequest, Redirect, Forbidden, Unauthorized):
             cursor.execute(
-                "SELECT `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
+                "DELETE `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
                 (subreddit_name, each_group_id),
             )
             conn.commit()
@@ -123,12 +123,9 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
             )
 
     for group_id, subreddit_name, author_username in cursor.fetchall():
-        try:
-            context.dispatcher.run_async(
-                poster, group_id, author_username, subreddit_name
-            )
-        except Unauthorized:
-            continue
+        context.dispatcher.run_async(
+            poster, group_id, author_username, subreddit_name
+        )
 
         reddit_increment(subreddit_name)
         sleep(1)
