@@ -59,28 +59,35 @@ def scan_youtube_channels(context: "telegram.ext.CallbackContext") -> None:
         "SELECT `group_id`, `channel_id`, `author_username`, `video_id` FROM `youtube_subscriptions`"
     )
 
-    def scanner(each_group_id: str, each_channel_id: str, each_author_username: str, old_video_id) -> None:
+    def scanner(
+        each_group_id: str,
+        each_channel_id: str,
+        each_author_username: str,
+        old_video_id,
+    ) -> None:
         YOUTUBE_LATEST_VIDEO_ENDPOINT = f"https://www.googleapis.com/youtube/v3/search?key={YOUTUBE_API_KEY}&channelId={each_channel_id}&part=snippet,id&order=date&maxResults=1"
 
-        latest_video_id = requests.get(
-            YOUTUBE_LATEST_VIDEO_ENDPOINT
-        ).json()["items"][0]["id"]["videoId"]
+        latest_video_id = requests.get(YOUTUBE_LATEST_VIDEO_ENDPOINT).json()["items"][
+            0
+        ]["id"]["videoId"]
 
         if latest_video_id != old_video_id:
             context.bot.send_message(
                 chat_id=each_group_id,
                 text=f"https://www.youtube.com/watch?v={latest_video_id}; @{each_author_username}",
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
 
             cursor.execute(
                 "UPDATE `youtube_subscriptions` SET `video_id` = ? WHERE `group_id` = ? AND `channel_id` = ?",
-                (latest_video_id, each_group_id, each_channel_id)
+                (latest_video_id, each_group_id, each_channel_id),
             )
             conn.commit()
 
     for group_id, channel_id, author_username, video_id in cursor.fetchall():
-        context.dispatcher.run_async(scanner, group_id, channel_id, author_username, video_id)
+        context.dispatcher.run_async(
+            scanner, group_id, channel_id, author_username, video_id
+        )
 
 
 def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> None:
@@ -111,13 +118,15 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
             context.bot.send_message(
                 chat_id=each_group_id,
                 text=f"@{each_author_username} error occurred while fetching posts from /r/{name}. Automatically "
-                     f"removing subscription.",
+                f"removing subscription.",
                 parse_mode="html",
             )
 
     for group_id, subreddit_name, author_username in cursor.fetchall():
         try:
-            context.dispatcher.run_async(poster, group_id, author_username, subreddit_name)
+            context.dispatcher.run_async(
+                poster, group_id, author_username, subreddit_name
+            )
         except Unauthorized:
             continue
 
@@ -126,7 +135,7 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
 
 
 def list_reddit_subscriptions(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Get a list of all subreddits group is subscribed to"""
     if update.message:
@@ -169,7 +178,7 @@ def list_reddit_subscriptions(
 
 
 def list_youtube_subscriptions(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Get a list of all YouTube channels group is subscribed to"""
     if update.message:
@@ -212,7 +221,7 @@ def list_youtube_subscriptions(
 
 
 def unsubscribe_reddit(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Removes a subreddit from group's subscriptions"""
     if update.message:
@@ -251,8 +260,8 @@ def unsubscribe_reddit(
         )
 
         if (
-                result[0] != message.from_user.username
-                and user["status"] == telegram.constants.CHATMEMBER_MEMBER
+            result[0] != message.from_user.username
+            and user["status"] == telegram.constants.CHATMEMBER_MEMBER
         ):
             message.reply_text(
                 "Only admins or the user who subscribed can unsubscribe."
@@ -272,7 +281,7 @@ def unsubscribe_reddit(
 
 
 def unsubscribe_youtube(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Removes a YouTube channel from group's subscriptions"""
     if update.message:
@@ -309,8 +318,8 @@ def unsubscribe_youtube(
         )
 
         if (
-                result[0] != message.from_user.username
-                and user["status"] == telegram.constants.CHATMEMBER_MEMBER
+            result[0] != message.from_user.username
+            and user["status"] == telegram.constants.CHATMEMBER_MEMBER
         ):
             message.reply_text(
                 "Only admins or the user who subscribed can unsubscribe."
@@ -330,7 +339,7 @@ def unsubscribe_youtube(
 
 
 def subscribe_reddit(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Subscribe to a subreddit and get the hot post day at 9AM and 9PM."""
     if update.message:
@@ -381,7 +390,7 @@ def subscribe_reddit(
 
 
 def subscribe_youtube(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Subscribe to a YouTube and get their videos delivered."""
     if update.message:

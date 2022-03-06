@@ -80,7 +80,7 @@ log = logging.getLogger()
 
 
 def error_handler(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Log the error and send a telegram message to notify the developer."""
     # traceback.format_exception returns the usual python message about an exception, but as a
@@ -113,7 +113,7 @@ def start(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
 
 
 def help_cmd(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Show list of commands"""
     cmds: List["telegram.BotCommand"] = context.bot.commands
@@ -133,7 +133,7 @@ def help_cmd(
 
 def check_cmd_avail(func: Callable, disabled: bool):
     def wrapped_func(
-            update: "telegram.Update", context: "telegram.ext.CallbackContext"
+        update: "telegram.Update", context: "telegram.ext.CallbackContext"
     ):
 
         message: "telegram.Message" = update.message
@@ -169,7 +169,14 @@ def check_cmd_avail(func: Callable, disabled: bool):
 class Command:
     """A single command"""
 
-    def __init__(self, cmd: str, func: Callable, keys: List[str] = [], desc: str = "", is_async: bool = True):
+    def __init__(
+        self,
+        cmd: str,
+        func: Callable,
+        keys: List[str] = [],
+        desc: str = "",
+        is_async: bool = True,
+    ):
         self.cmd: str = cmd
         self.keys: List[str] = keys
         self.disabled: bool = False
@@ -285,10 +292,11 @@ def main():
     dispatcher: "telegram.ext.Dispatcher" = updater.dispatcher
     job_queue: "telegram.ext.JobQueue" = updater.job_queue
 
-
     # Command handlers
     for cmd in commands:
-        dispatcher.add_handler(CommandHandler(cmd.cmd, cmd.func, run_async=cmd.is_async))
+        dispatcher.add_handler(
+            CommandHandler(cmd.cmd, cmd.func, run_async=cmd.is_async)
+        )
 
     # sed handler
     dispatcher.add_handler(
@@ -317,7 +325,6 @@ def main():
     # Bot error handler
     dispatcher.add_error_handler(error_handler)
 
-
     # Daily stats clear
     job_queue.run_daily(chat_management.clear, time=datetime.time(18, 30))
 
@@ -331,7 +338,6 @@ def main():
     # Start seeding random posts
     dispatcher.run_async(api.seed, 10, False)
     dispatcher.run_async(api.seed, 10, True)
-
 
     # Set bot commands menu
     dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])

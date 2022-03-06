@@ -32,7 +32,7 @@ from .subscribe import (
     list_reddit_subscriptions,
     list_youtube_subscriptions,
     deliver_reddit_subscriptions,
-    scan_youtube_channels
+    scan_youtube_channels,
 )
 from .tldr import tldr
 from .translate import translate
