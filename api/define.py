@@ -55,7 +55,7 @@ def define(update: "telegram.Update", context: "telegram.ext.CallbackContext") -
                 text += f"\n  - {syn}"
 
         # A raw MP3 is sent as a document, converting to OGG fixes that and sends as a playable audio file
-        if "audio" in response["phonetics"][0]:
+        if "audio" in response["phonetics"][0] and response["phonetics"][0]["audio"]:
             url: str = response["phonetics"][0]["audio"]
             if url.startswith("//ssl"):
                 url = "http:" + url

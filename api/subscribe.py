@@ -7,6 +7,7 @@ import requests
 from praw import models
 from prawcore.exceptions import NotFound, Forbidden, BadRequest, Redirect
 from telegram.utils.helpers import escape_markdown
+from telegram.error import Unauthorized
 
 import configuration
 from dev import reddit_increment
@@ -115,7 +116,11 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
             )
 
     for group_id, subreddit_name, author_username in cursor.fetchall():
-        context.dispatcher.run_async(poster, group_id, author_username, subreddit_name)
+        try:
+            context.dispatcher.run_async(poster, group_id, author_username, subreddit_name)
+        except Unauthorized:
+            continue
+
         reddit_increment(subreddit_name)
         sleep(1)
 
