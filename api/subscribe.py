@@ -123,9 +123,7 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
             )
 
     for group_id, subreddit_name, author_username in cursor.fetchall():
-        context.dispatcher.run_async(
-            poster, group_id, author_username, subreddit_name
-        )
+        context.dispatcher.run_async(poster, group_id, author_username, subreddit_name)
 
         reddit_increment(subreddit_name)
         sleep(1)
