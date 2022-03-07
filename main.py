@@ -267,9 +267,9 @@ commands: List[Command] = [
     Command("sub_reddit", api.subscribe_reddit),
     Command("unsub_reddit", api.unsubscribe_reddit),
     Command("list_reddit", api.list_reddit_subscriptions),
-    Command("sub_yt", api.subscribe_youtube),
-    Command("unsub_yt", api.unsubscribe_youtube),
-    Command("list_yt", api.list_youtube_subscriptions),
+    # Command("sub_yt", api.subscribe_youtube),
+    # Command("unsub_yt", api.unsubscribe_youtube),
+    # Command("list_yt", api.list_youtube_subscriptions),
     Command("tl", api.translate),
     Command("tldr", api.tldr, ["SMMRY_API_KEY"]),
     Command("tts", api.tts),
@@ -333,7 +333,7 @@ def main():
     job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(3, 30))
 
     # Scan YouTube channels
-    job_queue.run_repeating(api.scan_youtube_channels, interval=60, first=0)
+    # job_queue.run_repeating(api.scan_youtube_channels, interval=60, first=0)
 
     # Start seeding random posts
     dispatcher.run_async(api.seed, 10, False)
