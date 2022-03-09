@@ -80,7 +80,7 @@ log = logging.getLogger()
 
 
 def error_handler(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Log the error and send a telegram message to notify the developer."""
     # traceback.format_exception returns the usual python message about an exception, but as a
@@ -113,7 +113,7 @@ def start(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
 
 
 def help_cmd(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Show list of commands"""
     cmds: List["telegram.BotCommand"] = context.bot.commands
@@ -133,7 +133,7 @@ def help_cmd(
 
 def check_cmd_avail(func: Callable, disabled: bool):
     def wrapped_func(
-            update: "telegram.Update", context: "telegram.ext.CallbackContext"
+        update: "telegram.Update", context: "telegram.ext.CallbackContext"
     ):
 
         message: "telegram.Message" = update.message
@@ -169,12 +169,20 @@ def check_cmd_avail(func: Callable, disabled: bool):
 class Command:
     """A single command"""
 
-    def __init__(self, cmd: str, func: Callable, keys: List[str] = [], desc: str = ""):
+    def __init__(
+        self,
+        cmd: str,
+        func: Callable,
+        keys: List[str] = [],
+        desc: str = "",
+        is_async: bool = True,
+    ):
         self.cmd: str = cmd
         self.keys: List[str] = keys
         self.disabled: bool = False
         self.func: Callable
         self.desc: str
+        self.is_async = is_async
 
         for key in keys:
             if config[key] == "" or config[key] == []:
@@ -212,7 +220,7 @@ commands: List[Command] = [
     Command("csgo", api.csgo, ["STEAM_API_KEY"]),
     Command("d", api.define),
     Command("dice", api.dice),
-    Command("dl", links.dl),
+    Command("dl", links.dl, is_async=False),
     Command("fox", api.animal),
     Command("fw", api.audio, ["FOR_WHAT_ID"]),
     Command("gif", api.gif, ["GIPHY_API_KEY"]),
@@ -286,17 +294,20 @@ def main():
 
     # Command handlers
     for cmd in commands:
-        dispatcher.add_handler(CommandHandler(cmd.cmd, cmd.func, run_async=True))
+        dispatcher.add_handler(
+            CommandHandler(cmd.cmd, cmd.func, run_async=cmd.is_async)
+        )
 
     # sed handler
     dispatcher.add_handler(
         MessageHandler(Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"), api.sed),
-        group=0,
+        group=1,
     )
 
     # ping handler
     dispatcher.add_handler(
-        MessageHandler(Filters.text & Filters.regex(r"^ping"), api.ping)
+        MessageHandler(Filters.text & Filters.regex(r"^ping$"), api.ping),
+        group=2,
     )
 
     # Chat message count handler
@@ -305,11 +316,11 @@ def main():
             ~Filters.chat_type.private,
             chat_management.increment,
         ),
-        group=1,
+        group=3,
     )
 
     # Search button handler
-    dispatcher.add_handler(CallbackQueryHandler(api.search_button))
+    dispatcher.add_handler(CallbackQueryHandler(api.search_button), group=4)
 
     # Bot error handler
     dispatcher.add_error_handler(error_handler)
@@ -324,12 +335,12 @@ def main():
     # Scan YouTube channels
     # job_queue.run_repeating(api.scan_youtube_channels, interval=60, first=0)
 
-    # Set bot commands menu
-    dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])
-
     # Start seeding random posts
     dispatcher.run_async(api.seed, 10, False)
     dispatcher.run_async(api.seed, 10, True)
+
+    # Set bot commands menu
+    dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])
 
     updater.start_polling(drop_pending_updates=True)
     bot: telegram.Bot = updater.bot
