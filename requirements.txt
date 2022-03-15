@@ -4,7 +4,7 @@ emoji>=1.4.2
 flake8>=3.8.4
 geopy==2.2.0
 googletrans==4.0.0rc1
-gtts==2.2.2
+gtts==2.2.4
 howlongtobeatpy==0.1.18
 matplotlib==3.5.1
 numpy>=1.21.4
