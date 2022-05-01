@@ -1,9 +1,9 @@
 # Super Serious Bot
 
-[![Python build](https://github.com/Super-Serious/bot/actions/workflows/python.yml/badge.svg)](https://github.com/Super-Serious/bot/actions/workflows/python.yml)
-[![Publish image](https://github.com/Super-Serious/bot/actions/workflows/publish-image.yml/badge.svg)](https://github.com/Super-Serious/bot/actions/workflows/publish-image.yml)
-![Lines of Code](https://img.shields.io/tokei/lines/github/Super-Serious/bot)
-![Commit activity](https://img.shields.io/github/commit-activity/m/Super-Serious/bot)
+[![Python build](https://github.com/obviyus/SuperSeriousBot/actions/workflows/python.yml/badge.svg)](https://github.com/obviyus/SuperSeriousBot/actions/workflows/python.yml)
+[![Publish image](https://github.com/obviyus/SuperSeriousBot/actions/workflows/publish-image.yml/badge.svg)](https://github.com/obviyus/SuperSeriousBot/actions/workflows/publish-image.yml)
+![Lines of Code](https://img.shields.io/tokei/lines/github/obviyus/SuperSeriousBot)
+![Commit activity](https://img.shields.io/github/commit-activity/m/obviyus/SuperSeriousBot)
 [![Telegram](https://img.shields.io/badge/Telegram-%40SuperSeriousBot-blue)](https://t.me/superseriousbot)
 
 ## Introduction
@@ -35,7 +35,7 @@ By adding this bot to your group you can use this growing set of functions. Nota
 1. Run the following command to generate an empty environment file:
 
 ```bash
-$ git clone https://github.com/Super-Serious/bot
+$ git clone https://github.com/obviyus/SuperSeriousBot
 $ cp /bot/configuration/.env.example /bot/ssgbot.env
 ```
 
@@ -43,7 +43,7 @@ $ cp /bot/configuration/.env.example /bot/ssgbot.env
 
 ### Running
 
-SuperSeriousBot is run via Docker. The latest image can always be found at: http://ghcr.io/super-serious/bot.
+SuperSeriousBot is run via Docker. The latest image can always be found at: http://ghcr.io/obviyus/SuperSeriousBot.
 
 To start the bot you only need the `docker-compose.yml` and a valid `ssgbot.env` file.
 
@@ -56,7 +56,7 @@ $ docker-compose --profile prod up -d
 We also use Docker as the preferred development environment:
 
 ```bash
-$ git clone https://github.com/Super-Serious/bot
+$ git clone https://github.com/obviyus/SuperSeriousBot
 $ cd bot
 $ docker-compose --profile dev up
 ```
@@ -72,4 +72,4 @@ To test if the bot is running, simply send a `/start` message to it.
 
 ## Contributing
 
-Contributions are welcome! You can view our contributing guidelines [here](CONTRIBUTING.md).
+This repository uses the automated [`semantic-release`](https://github.com/semantic-release/semantic-release) suite of tools to generate version numbers. All commit messages **must** to the [Angular Commit Message conventions](https://github.com/angular/angular/blob/master/CONTRIBUTING.md#-commit-message-format).
