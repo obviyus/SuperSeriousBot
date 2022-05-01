@@ -21,4 +21,4 @@ WORKDIR /code
 
 ENTRYPOINT ["/venv/bin/python3", "main.py"]
 
-LABEL org.opencontainers.image.source="https://github.com/Super-Serious/bot"
+LABEL org.opencontainers.image.source="https://github.com/obviyus/SuperSeriousBot"

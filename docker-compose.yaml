@@ -1,15 +1,7 @@
 version: "3.8"
 services:
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 30
-    profiles:
-      - prod
-
   ssgbot:
-    image: ghcr.io/super-serious/bot:latest
+    image: ghcr.io/obviyus/SuperSeriousBot:latest
     volumes:
       - /db/:/db/
     env_file:
@@ -41,6 +33,3 @@ services:
     restart: unless-stopped
     volumes:
       - /db:/data
-
-  qbt:
-    image: ghcr.io/linuxserver/qbittorrent
