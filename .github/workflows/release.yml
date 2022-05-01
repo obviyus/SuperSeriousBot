@@ -1,0 +1,20 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - "master"
+
+jobs:
+  build:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}for
+        run: |
+          npm i -g semantic-release @semantic-release/changelog
+          semantic-release
