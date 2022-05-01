@@ -1,8 +1,7 @@
 name: Publish Image
 
 on:
-  release:
-    types: [published]
+ - release
 
 jobs:
   publish-docker-image:
