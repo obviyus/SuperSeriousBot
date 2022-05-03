@@ -19,7 +19,6 @@ from .pic import pic
 from .ping import ping
 from .randdit import randdit, nsfw, seed
 from .response import hug, pat, wink
-from .search import search, search_button
 from .sed import sed
 from .setw import setw
 from .spurdo import spurdo

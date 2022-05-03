@@ -248,15 +248,6 @@ commands: List[Command] = [
     ),
     Command("rstats", dev.print_reddit_stats),
     Command("seen", chat_management.seen),
-    Command(
-        "search",
-        api.search,
-        [
-            "PYTHON_QBITTORRENTAPI_HOST",
-            "PYTHON_QBITTORRENTAPI_USERNAME",
-            "PYTHON_QBITTORRENTAPI_PASSWORD",
-        ],
-    ),
     Command("setid", api.set_steam_id, ["STEAM_API_KEY"]),
     Command("setw", api.setw),
     Command("shiba", api.animal),
@@ -318,9 +309,6 @@ def main():
         ),
         group=3,
     )
-
-    # Search button handler
-    dispatcher.add_handler(CallbackQueryHandler(api.search_button), group=4)
 
     # Bot error handler
     dispatcher.add_error_handler(error_handler)
