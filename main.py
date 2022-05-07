@@ -271,7 +271,6 @@ commands: List[Command] = [
     Command("wait", api.wait),
     Command("weather", api.weather, ["CLIMACELL_API_KEY"]),
     Command("wink", api.wink),
-    Command("wmark", api.wmark),
 ]
 
 

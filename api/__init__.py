@@ -3,7 +3,6 @@ from .album import album
 from .animals import animal
 from .audio import audio
 from .calc import calc
-from .covid import covid
 from .csgo import csgo, set_steam_id
 from .define import define
 from .dice import dice
@@ -41,4 +40,3 @@ from .uwu import uwu
 from .vision import age, caption
 from .wait import wait
 from .weather import weather
-from .wmark import wmark
