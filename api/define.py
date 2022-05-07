@@ -49,7 +49,7 @@ def define(update: "telegram.Update", context: "telegram.ext.CallbackContext") -
 
         definition = response["meanings"][0]["definitions"][0]
         text += f'\n  -  {definition["definition"]}'
-        if "synonyms" in definition:
+        if "synonyms" in definition and len(definition["synonyms"]) > 0:
             text += f"\n\nSynonyms:"
             for syn in definition["synonyms"][:2]:
                 text += f"\n  - {syn}"
