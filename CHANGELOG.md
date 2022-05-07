@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.2.0...v1.2.1) (2022-05-07)
+
+
+### Bug Fixes
+
+* **api:** remove deprecated covid API ([a07630c](https://github.com/obviyus/SuperSeriousBot/commit/a07630c5ecc8aebaa212d5df15c67f0030b4325e))
+
 # [1.2.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.1.0...v1.2.0) (2022-05-07)
 
 
