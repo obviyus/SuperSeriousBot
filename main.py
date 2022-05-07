@@ -216,7 +216,6 @@ commands: List[Command] = [
     Command("caption", api.caption, ["AZURE_KEY"]),
     Command("cat", api.animal),
     Command("catfact", api.animal),
-    Command("covid", api.covid),
     Command("csgo", api.csgo, ["STEAM_API_KEY"]),
     Command("d", api.define),
     Command("dice", api.dice),
