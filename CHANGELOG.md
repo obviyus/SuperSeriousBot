@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.2.1...v1.3.0) (2022-05-07)
+
+
+### Features
+
+* **tv:** add inline mode to send TV episode notifications ([c82eea0](https://github.com/obviyus/SuperSeriousBot/commit/c82eea01c646e4e3a28585818c159447886d52c0))
+
 ## [1.2.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.2.0...v1.2.1) (2022-05-07)
 
 
