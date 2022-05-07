@@ -47,3 +47,5 @@ jobs:
           tags: |
             ghcr.io/obviyus/superseriousbot:${{ github.sha }}
             ghcr.io/obviyus/superseriousbot:latest
+          cache-from: type=gha	
+          cache-to: type=gha,mode=max	
