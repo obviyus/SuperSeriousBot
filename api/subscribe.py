@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 
 import requests
 from praw import models
-from prawcore.exceptions import NotFound, Forbidden, BadRequest, Redirect
+from prawcore.exceptions import NotFound, Forbidden, Redirect
 from telegram.utils.helpers import escape_markdown
-from telegram.error import Unauthorized
+from telegram.error import Unauthorized, BadRequest
 
 import configuration
 from dev import reddit_increment
@@ -110,7 +110,7 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
                 break
         except (NotFound, BadRequest, Redirect, Forbidden, Unauthorized):
             cursor.execute(
-                "DELETE `author_username` FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
+                "DELETE FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
                 (subreddit_name, each_group_id),
             )
             conn.commit()
