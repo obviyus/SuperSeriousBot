@@ -12,9 +12,12 @@ from telegram.ext import (
     Filters,
     MessageHandler,
     Updater,
+    InlineQueryHandler,
+    ChosenInlineResultHandler,
 )
 
 import api
+import inline
 import chat_management
 import dev
 import links
@@ -263,6 +266,7 @@ commands: List[Command] = [
     Command("tl", api.translate),
     Command("tldr", api.tldr, ["SMMRY_API_KEY"]),
     Command("tts", api.tts),
+    Command("tv", inline.opt_in_tv),
     Command("ud", api.ud),
     Command("users", dev.users),
     Command("uwu", api.uwu),
@@ -318,6 +322,10 @@ def main():
     job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(17, 30))
     job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(3, 30))
 
+    # TV Show Notification Workers
+    job_queue.run_daily(inline.next_episode_worker, time=datetime.time(17, 30))
+    job_queue.run_repeating(inline.episode_notifier_worker, interval=300, first=10)
+
     # Scan YouTube channels
     # job_queue.run_repeating(api.scan_youtube_channels, interval=60, first=0)
 
@@ -327,6 +335,10 @@ def main():
 
     # Set bot commands menu
     dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])
+
+    # Add show query handler
+    dispatcher.add_handler(InlineQueryHandler(inline.inline_show_query))
+    dispatcher.add_handler(ChosenInlineResultHandler(inline.show_result_handler))
 
     updater.start_polling(drop_pending_updates=True)
     bot: telegram.Bot = updater.bot
