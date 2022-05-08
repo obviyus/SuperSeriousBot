@@ -1,4 +1,3 @@
-from asyncio.log import logger
 import os
 from typing import TYPE_CHECKING
 from logging import getLogger
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
     import telegram.ext
 
 ydl_opts = {
-    "format": "b[filesize<50M]",
+    "format": "bestaudio/best",
     "outtmpl": "-",
     "logger": getLogger(),
     "skip_download": True,
