@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.3.0...v1.3.1) (2022-05-08)
+
+
+### Bug Fixes
+
+* **inline:** skip image if None in InlineResults ([82832ec](https://github.com/obviyus/SuperSeriousBot/commit/82832ec53cbb047ff67cddbc5ecf647b26692f6b))
+
 # [1.3.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.2.1...v1.3.0) (2022-05-07)
 
 
