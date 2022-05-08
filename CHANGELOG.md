@@ -1,3 +1,10 @@
+## [1.4.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.1...v1.4.2) (2022-05-08)
+
+
+### Bug Fixes
+
+* **dl:** simplify ytopts ([3db3af8](https://github.com/obviyus/SuperSeriousBot/commit/3db3af824742f3b2a80081f05b44d9a569d306e5))
+
 ## [1.4.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.0...v1.4.1) (2022-05-08)
 
 
