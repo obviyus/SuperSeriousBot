@@ -10,6 +10,8 @@ from telegram import (
     InlineQueryResultArticle,
     InputTextMessageContent,
     ParseMode,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
 )
 from telegram.ext import CallbackContext
 
@@ -58,6 +60,32 @@ cursor.execute(
 )
 
 
+def keyboard_builder(user_id: int) -> InlineKeyboardMarkup:
+    """Builds the keyboard for the watchlist."""
+    keyboard = []
+
+    cursor.execute(
+        """SELECT tv_shows.show_id, tv_shows.show_name
+FROM tv_notifications
+         JOIN tv_shows on tv_notifications.show_id = tv_shows.show_id
+WHERE tv_notifications.user_id = ?
+ORDER BY tv_shows.show_name;""",
+        (user_id,),
+    )
+
+    for show in cursor.fetchall():
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    show["show_name"],
+                    callback_data=f"""{show["show_id"]},{user_id},{show["show_name"]}""",
+                )
+            ]
+        )
+
+    return InlineKeyboardMarkup(keyboard)
+
+
 def opt_in_tv(update: Update, context: CallbackContext) -> None:
     """Opt-in for TV Episode notifications feature."""
     text: str
@@ -67,17 +95,16 @@ def opt_in_tv(update: Update, context: CallbackContext) -> None:
         "SELECT * FROM tv_opt_in WHERE user_id = ? AND chat_id = ?",
         (update.effective_user.id, update.effective_chat.id),
     )
+
     if cursor.fetchone():
-        cursor.execute(
-            "DELETE FROM tv_opt_in WHERE user_id = ? AND chat_id = ?",
-            (update.effective_user.id, update.effective_chat.id),
-        )
         update.message.reply_text(
-            f"You have opted-out of TV Episode notifications in {update.message.chat.title}."
+            "Tap on a show to remove it from your watchlist:",
+            reply_markup=keyboard_builder(update.effective_user.id),
         )
+
         return
 
-    # Add user to list
+        # Add user to list
     cursor.execute(
         "INSERT INTO tv_opt_in (user_id, chat_id, username) VALUES (?, ?, ?)",
         (
@@ -92,6 +119,25 @@ def opt_in_tv(update: Update, context: CallbackContext) -> None:
     )
 
     conn.commit()
+
+
+def tv_show_button(update: Update, context: CallbackContext) -> None:
+    """Remove a TV show from the watchlist."""
+    query = update.callback_query
+    show_id, user_id, show_name = query.data.split(",")
+
+    # Remove show from watchlist
+    cursor.execute(
+        "DELETE FROM tv_notifications WHERE show_id = ? AND user_id = ?",
+        (show_id, user_id),
+    )
+
+    context.bot.edit_message_text(
+        text=f"Removed {show_name} from your watchlist.",
+        chat_id=query.message.chat.id,
+        message_id=query.message.message_id,
+        reply_markup=keyboard_builder(user_id),
+    )
 
 
 def inline_show_query(update: Update, context: CallbackContext) -> None:
@@ -128,7 +174,7 @@ def load_new_episode(show_id: int) -> None:
         f"https://api.tvmaze.com/shows/{show_id}?embed=nextepisode"
     ).json()
 
-    if response["_embedded"] and response["_embedded"]["nextepisode"]:
+    if "_embedded" in response and "nextepisode" in response["_embedded"]:
         # Get next episode time
         airstamp = response["_embedded"]["nextepisode"]["airstamp"]
         airdate = dateparser.parse(airstamp).timestamp()
@@ -141,7 +187,6 @@ def load_new_episode(show_id: int) -> None:
         )
 
         conn.commit()
-
         logging.info(f"""Loaded new episode for show {response["name"]}.""")
 
 
@@ -195,6 +240,8 @@ def next_episode_worker(context: CallbackContext) -> None:
     )
     for show in cursor.fetchall():
         logging.info(f"Checking {show['show_name']} for new episodes.")
+
+        time.sleep(1)
         load_new_episode(show["show_id"])
 
 
@@ -233,6 +280,8 @@ def episode_notifier_worker(context: CallbackContext) -> None:
                 f"<a href='{show['show_image']}'>&#8205;</a>",
                 parse_mode=ParseMode.HTML,
             )
+
+            time.sleep(1)
 
         cursor.execute(
             "UPDATE tv_shows SET sent = 1 WHERE show_id = ?", (show["show_id"],)

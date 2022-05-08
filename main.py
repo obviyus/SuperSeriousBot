@@ -339,6 +339,7 @@ def main():
     # Add show query handler
     dispatcher.add_handler(InlineQueryHandler(inline.inline_show_query))
     dispatcher.add_handler(ChosenInlineResultHandler(inline.show_result_handler))
+    dispatcher.add_handler(CallbackQueryHandler(inline.tv_show_button))
 
     updater.start_polling(drop_pending_updates=True)
     bot: telegram.Bot = updater.bot
