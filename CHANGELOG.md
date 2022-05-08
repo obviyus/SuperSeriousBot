@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.0...v1.4.1) (2022-05-08)
+
+
+### Bug Fixes
+
+* **dl:** remove filesize constraint ([e5bc4a9](https://github.com/obviyus/SuperSeriousBot/commit/e5bc4a9bafa240cf8d4838870360c98bddcf0c8e))
+
 # [1.4.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.3.1...v1.4.0) (2022-05-08)
 
 
