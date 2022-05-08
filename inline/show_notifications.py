@@ -112,7 +112,7 @@ def inline_show_query(update: Update, context: CallbackContext) -> None:
                 id=show["id"],
                 title=show["name"],
                 description=re.sub("<[^<]+?>", "", show["summary"]),
-                thumb_url=show["image"]["medium"],
+                thumb_url=show["image"]["medium"] if show["image"] else "",
                 input_message_content=InputTextMessageContent(
                     f"""Added <b>{show['name']}</b> to your watchlist.""",
                     parse_mode="HTML",
