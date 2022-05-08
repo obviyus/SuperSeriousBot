@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.3.1...v1.4.0) (2022-05-08)
+
+
+### Features
+
+* **inline:** add inline keyboard to remove shows ([5940121](https://github.com/obviyus/SuperSeriousBot/commit/59401210de12f665397d3678945cda0837622392))
+
 ## [1.3.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.3.0...v1.3.1) (2022-05-08)
 
 
