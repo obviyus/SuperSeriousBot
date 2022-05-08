@@ -22,7 +22,6 @@ import chat_management
 import dev
 import links
 from configuration import config
-from links.dl import DLBufferUsedWarning
 
 if TYPE_CHECKING:
     import telegram
@@ -83,7 +82,7 @@ log = logging.getLogger()
 
 
 def error_handler(
-    update: "telegram.Update", context: "telegram.ext.CallbackContext"
+        update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Log the error and send a telegram message to notify the developer."""
     # traceback.format_exception returns the usual python message about an exception, but as a
@@ -100,7 +99,7 @@ def error_handler(
         context.bot.send_message(
             chat_id=LOGGING_CHANNEL, text=f"`{tb_list[-1]}`", parse_mode="Markdown"
         )
-        if update.message and not isinstance(context.error, DLBufferUsedWarning):
+        if update.message:
             update.message.reply_text("An error occurred")
     finally:
         log.error(f"{context.error}")
@@ -116,7 +115,7 @@ def start(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
 
 
 def help_cmd(
-    update: "telegram.Update", context: "telegram.ext.CallbackContext"
+        update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Show list of commands"""
     cmds: List["telegram.BotCommand"] = context.bot.commands
@@ -136,7 +135,7 @@ def help_cmd(
 
 def check_cmd_avail(func: Callable, disabled: bool):
     def wrapped_func(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+            update: "telegram.Update", context: "telegram.ext.CallbackContext"
     ):
 
         message: "telegram.Message" = update.message
@@ -173,12 +172,12 @@ class Command:
     """A single command"""
 
     def __init__(
-        self,
-        cmd: str,
-        func: Callable,
-        keys: List[str] = [],
-        desc: str = "",
-        is_async: bool = True,
+            self,
+            cmd: str,
+            func: Callable,
+            keys: List[str] = [],
+            desc: str = "",
+            is_async: bool = True,
     ):
         self.cmd: str = cmd
         self.keys: List[str] = keys
