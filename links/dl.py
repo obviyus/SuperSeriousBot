@@ -1,10 +1,9 @@
+import logging
 import os
 from typing import TYPE_CHECKING
 from logging import getLogger
 import yt_dlp
 from redvid import Downloader
-from io import BytesIO
-from requests import get
 from telegram import MessageEntity
 from telegram.error import BadRequest
 
@@ -13,7 +12,7 @@ if TYPE_CHECKING:
     import telegram.ext
 
 ydl_opts = {
-    "format": "bestaudio/best",
+    "format": "b[filesize<=?50M]",
     "outtmpl": "-",
     "logger": getLogger(),
     "skip_download": True,
@@ -24,10 +23,6 @@ ydl_opts = {
 reddit = Downloader()
 reddit.auto_max = True
 reddit.max_s = 50 * (1 << 20)
-
-
-class DLBufferUsedWarning(Exception):
-    pass
 
 
 def dl(update: "telegram.Update", _: "telegram.ext.CallbackContext") -> None:
@@ -74,19 +69,13 @@ def dl(update: "telegram.Update", _: "telegram.ext.CallbackContext") -> None:
             # age and geo restriction should be bypassed in most cases
             vid_info = ydl.extract_info(video_url)
         except yt_dlp.utils.DownloadError as e:
-            vid_info = None
-            if e.msg and "Unsupported URL" in e.msg:
-                text = "Unsupported URL."
-            elif e.msg and "Requested format is not available" in e.msg:
-                text = "No video file found under 50MB."
-            else:
-                text = "Unable to download video."
+            update.message.reply_text("Unable to download video.")
 
     if not vid_info["url"]:
-        update.message.reply_text(text or "Unable to download video.")
+        update.message.reply_text("Unable to download video.")
     else:
         try:
             update.message.reply_video(vid_info["url"])
         except BadRequest:
-            logger.error("BadRequest: %s", vid_info["url"])
-            update.message.reply_text(text or "Unable to download video.")
+            logging.error("BadRequest: %s", vid_info["url"])
+            update.message.reply_text("Unable to download video.")
