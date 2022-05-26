@@ -14,7 +14,7 @@ pillow==9.1.0
 praw>=7.5.0
 pydub>=0.25.1
 python-dateutil==2.8.2
-python-telegram-bot==13.11
+python-telegram-bot==13.12
 redis>=4.1.1
 redvid
 dateparser==1.1.1
