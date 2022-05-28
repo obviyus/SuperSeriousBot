@@ -82,7 +82,7 @@ log = logging.getLogger()
 
 
 def error_handler(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Log the error and send a telegram message to notify the developer."""
     # traceback.format_exception returns the usual python message about an exception, but as a
@@ -115,7 +115,7 @@ def start(update: "telegram.Update", context: "telegram.ext.CallbackContext") ->
 
 
 def help_cmd(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    update: "telegram.Update", context: "telegram.ext.CallbackContext"
 ) -> None:
     """Show list of commands"""
     cmds: List["telegram.BotCommand"] = context.bot.commands
@@ -135,7 +135,7 @@ def help_cmd(
 
 def check_cmd_avail(func: Callable, disabled: bool):
     def wrapped_func(
-            update: "telegram.Update", context: "telegram.ext.CallbackContext"
+        update: "telegram.Update", context: "telegram.ext.CallbackContext"
     ):
 
         message: "telegram.Message" = update.message
@@ -172,12 +172,12 @@ class Command:
     """A single command"""
 
     def __init__(
-            self,
-            cmd: str,
-            func: Callable,
-            keys: List[str] = [],
-            desc: str = "",
-            is_async: bool = True,
+        self,
+        cmd: str,
+        func: Callable,
+        keys: List[str] = [],
+        desc: str = "",
+        is_async: bool = True,
     ):
         self.cmd: str = cmd
         self.keys: List[str] = keys
@@ -221,7 +221,7 @@ commands: List[Command] = [
     Command("csgo", api.csgo, ["STEAM_API_KEY"]),
     Command("d", api.define),
     Command("dice", api.dice),
-    Command("dl", links.dl, is_async=False),
+    Command("dl", links.dl),
     Command("fox", api.animal),
     Command("fw", api.audio, ["FOR_WHAT_ID"]),
     Command("gif", api.gif, ["GIPHY_API_KEY"]),

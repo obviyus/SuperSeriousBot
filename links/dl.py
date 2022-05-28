@@ -54,13 +54,20 @@ def dl(update: "telegram.Update", _: "telegram.ext.CallbackContext") -> None:
     # Add special handling for Reddit links
     if "reddit" in video_url or "redd.it" in video_url:
         reddit.url = video_url
-        file_path = reddit.download()
+        try:
+            file_path = reddit.download()
 
-        update.message.reply_video(
-            video=open(file_path, "rb"),
-        )
+            update.message.reply_video(
+                video=open(file_path, "rb"),
+            )
 
-        os.remove(file_path)
+            os.remove(file_path)
+        except Exception as e:
+            logging.error(e)
+            update.message.reply_text(
+                text="Something went wrong while downloading the video. "
+                "Please try again later.",
+            )
         return
 
     text: str
