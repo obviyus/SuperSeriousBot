@@ -1,3 +1,10 @@
+## [1.4.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.2...v1.4.3) (2022-05-08)
+
+
+### Bug Fixes
+
+* **error:** remove deprecated buffer warning ([6556e38](https://github.com/obviyus/SuperSeriousBot/commit/6556e382f3b547a1d19692f0802716fac00a630f))
+
 ## [1.4.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.1...v1.4.2) (2022-05-08)
 
 
