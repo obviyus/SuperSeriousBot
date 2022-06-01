@@ -158,10 +158,10 @@ def increment_total(chat_id: str) -> None:
         for user, count in cursor.fetchall():
             increment_formula = (
                 f"INSERT INTO `{chat_id}_total` (user_name, message_count) "
-                f"VALUES ('{user}', {count}) "
+                f"VALUES (?, {count}) "
                 f"ON CONFLICT(user_name) DO UPDATE SET message_count = message_count + {count}"
             )
-            cursor.execute(increment_formula)
+            cursor.execute(increment_formula, (user,))
             conn.commit()
 
 
@@ -205,8 +205,8 @@ def increment(
 
     increment_formula = (
         f"INSERT INTO `{chat_id}` (user_name, message_count) "
-        f"VALUES ('{escape_markdown(user_object.first_name)}', 1) "
+        f"VALUES (?, 1) "
         "ON CONFLICT(user_name) DO UPDATE SET message_count = message_count + 1"
     )
-    cursor.execute(increment_formula)
+    cursor.execute(increment_formula, (user_object.first_name,))
     conn.commit()
