@@ -1,6 +1,7 @@
 import sqlite3
 import datetime
 from typing import TYPE_CHECKING, Tuple
+from telegram.utils.helpers import escape_markdown
 
 import redis
 
@@ -56,7 +57,7 @@ def print_stats(
             # Ignore special case for user
             if user_object.id == 1060827049:
                 text += (
-                    f"`{user_object.first_name}"
+                    f"`{escape_markdown(user_object.first_name)}"
                     + (len(longest[0]) - len(user_object.first_name) + 1) * " "
                     + "- 100% degen`\n"
                 )
@@ -116,7 +117,7 @@ def print_gstats(
             # Ignore special case for user
             if user_object.id == 1060827049:
                 text += (
-                    f"`{user_object.first_name}"
+                    f"`{escape_markdown(user_object.first_name)}"
                     + (len(longest[0]) - len(user_object.first_name) + 1) * " "
                     + "- 100% degen`\n"
                 )
@@ -204,7 +205,7 @@ def increment(
 
     increment_formula = (
         f"INSERT INTO `{chat_id}` (user_name, message_count) "
-        f"VALUES ('{user_object.first_name}', 1) "
+        f"VALUES ('{escape_markdown(user_object.first_name)}', 1) "
         "ON CONFLICT(user_name) DO UPDATE SET message_count = message_count + 1"
     )
     cursor.execute(increment_formula)
