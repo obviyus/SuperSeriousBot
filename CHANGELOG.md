@@ -1,3 +1,10 @@
+## [1.4.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.4...v1.4.5) (2022-06-01)
+
+
+### Bug Fixes
+
+* **stats:** escape special characters in first_name ([8e5e311](https://github.com/obviyus/SuperSeriousBot/commit/8e5e31176129698ba76b440b0bfdb2eb672084d2))
+
 ## [1.4.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.3...v1.4.4) (2022-05-28)
 
 
