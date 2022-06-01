@@ -1,3 +1,10 @@
+## [1.4.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.5...v1.4.6) (2022-06-01)
+
+
+### Bug Fixes
+
+* **stats:** make username entries db-safe ([1e2814d](https://github.com/obviyus/SuperSeriousBot/commit/1e2814df943260a086d836a2751585284456ab7c))
+
 ## [1.4.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.4...v1.4.5) (2022-06-01)
 
 
