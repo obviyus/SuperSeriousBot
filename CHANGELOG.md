@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.6...v1.5.0) (2022-06-10)
+
+
+### Features
+
+* **pic:** revert /pic to old version ([565f83e](https://github.com/obviyus/SuperSeriousBot/commit/565f83eb291b88b4d6f530cd187fced0571b50dc))
+
 ## [1.4.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.5...v1.4.6) (2022-06-01)
 
 
