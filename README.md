@@ -1,7 +1,6 @@
 # Super Serious Bot
 
-[![Python build](https://github.com/obviyus/SuperSeriousBot/actions/workflows/python.yml/badge.svg)](https://github.com/obviyus/SuperSeriousBot/actions/workflows/python.yml)
-[![Publish image](https://github.com/obviyus/SuperSeriousBot/actions/workflows/publish-image.yml/badge.svg)](https://github.com/obviyus/SuperSeriousBot/actions/workflows/publish-image.yml)
+[![Release](https://github.com/obviyus/SuperSeriousBot/actions/workflows/release.yml/badge.svg)](https://github.com/obviyus/SuperSeriousBot/actions/workflows/release.yml)
 ![Lines of Code](https://img.shields.io/tokei/lines/github/obviyus/SuperSeriousBot)
 ![Commit activity](https://img.shields.io/github/commit-activity/m/obviyus/SuperSeriousBot)
 [![Telegram](https://img.shields.io/badge/Telegram-%40SuperSeriousBot-blue)](https://t.me/superseriousbot)
