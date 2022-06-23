@@ -18,7 +18,7 @@ python-telegram-bot==13.12
 redis>=4.1.1
 redvid
 dateparser==1.1.1
-regex==2022.6.2
+regex
 requests==2.28.0
 spurdify==0.3.0
 uwuify==1.1.0
