@@ -5,5 +5,5 @@ from .show_notifications import (
     opt_in_tv,
     next_episode_worker,
     episode_notifier_worker,
-    tv_show_button
+    tv_show_button,
 )

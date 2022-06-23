@@ -27,6 +27,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v1
@@ -44,9 +47,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/obviyus/superseriousbot:${{ github.sha }}
             ghcr.io/obviyus/superseriousbot:latest
-          cache-from: type=gha	
-          cache-to: type=gha,mode=max	
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

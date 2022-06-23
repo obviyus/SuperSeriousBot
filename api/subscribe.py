@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 
 import requests
 from praw import models
-from prawcore.exceptions import NotFound, Forbidden, Redirect
+from prawcore.exceptions import Forbidden, NotFound, Redirect
+from telegram.error import BadRequest, Unauthorized
 from telegram.utils.helpers import escape_markdown
-from telegram.error import Unauthorized, BadRequest
 
 import configuration
 from dev import reddit_increment
@@ -97,30 +97,30 @@ def deliver_reddit_subscriptions(context: "telegram.ext.CallbackContext") -> Non
     )
 
     def poster(each_group_id: str, each_author_username: str, name: str) -> None:
-        try:
-            for post in reddit.subreddit(name).hot(limit=3):
-                if post.stickied:
-                    continue
+        for post in reddit.subreddit(name).hot(limit=3):
+            if post.stickied:
+                continue
 
+            try:
                 context.bot.send_message(
                     chat_id=each_group_id,
                     text=make_response(post, each_author_username),
                     parse_mode="html",
                 )
                 break
-        except (NotFound, BadRequest, Redirect, Forbidden, Unauthorized):
-            cursor.execute(
-                "DELETE FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
-                (subreddit_name, each_group_id),
-            )
-            conn.commit()
+            except (NotFound, BadRequest, Redirect, Forbidden, Unauthorized):
+                cursor.execute(
+                    "DELETE FROM `reddit_subscriptions` WHERE `subreddit_name` = ? AND `group_id` = ?",
+                    (subreddit_name, each_group_id),
+                )
+                conn.commit()
 
-            context.bot.send_message(
-                chat_id=each_group_id,
-                text=f"@{each_author_username} error occurred while fetching posts from /r/{name}. Automatically "
-                f"removing subscription.",
-                parse_mode="html",
-            )
+                context.bot.send_message(
+                    chat_id=each_group_id,
+                    text=f"@{each_author_username} error occurred while fetching posts from /r/{name}. Automatically "
+                    f"removing subscription.",
+                    parse_mode="html",
+                )
 
     for group_id, subreddit_name, author_username in cursor.fetchall():
         context.dispatcher.run_async(poster, group_id, author_username, subreddit_name)
