@@ -1,3 +1,11 @@
+## [1.5.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.5.0...v1.5.1) (2022-06-23)
+
+
+### Bug Fixes
+
+* **deps:** loosen dependency version for regex ([0ae4f25](https://github.com/obviyus/SuperSeriousBot/commit/0ae4f25b8f102afc6470c4d43233813e6a8a0ca6))
+* **subscribe:** narrow scope of delivering reddit ([70b1800](https://github.com/obviyus/SuperSeriousBot/commit/70b18009f3c77a5a5b4071da4c1ffde255a7596b))
+
 # [1.5.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.4.6...v1.5.0) (2022-06-10)
 
 
