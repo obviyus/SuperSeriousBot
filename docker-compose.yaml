@@ -1,35 +1,19 @@
-version: "3.8"
+version: "3"
 services:
   ssgbot:
-    image: ghcr.io/obviyus/SuperSeriousBot:latest
-    volumes:
-      - /db/:/db/
-    env_file:
-      - ssgbot.env
-    depends_on:
-      - qbt
-      - redis
-    restart: unless-stopped
-    profiles:
-      - prod
-
-  ssgbot_dev:
     build: .
     volumes:
-      - /db/:/db/
+      - ./db/:/db/
       - .:/code
     env_file:
       - ssgbot.env
     depends_on:
-      - qbt
       - redis
     restart: unless-stopped
-    profiles:
-      - dev
 
   redis:
     image: redis:latest
     command: [ "redis-server", "--appendonly", "yes" ]
     restart: unless-stopped
     volumes:
-      - /db:/data
+      - ./db:/data
