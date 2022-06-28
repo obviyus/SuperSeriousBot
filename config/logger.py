@@ -2,6 +2,8 @@ import logging
 import os
 from logging.config import dictConfig
 
+import coloredlogs
+
 logging_config = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -30,5 +32,6 @@ logging_config = {
 }
 
 dictConfig(logging_config)
+coloredlogs.install()
 logger = logging.getLogger(__name__)
 logger.info("Logger initialized")
