@@ -28,6 +28,10 @@ schema = {
                 "type": "string",
                 "required": False,
             },
+            "LOGGING_CHANNEL_ID": {
+                "type": "integer",
+                "required": False,
+            },
         },
     },
     "API": {
@@ -96,6 +100,7 @@ config = {
         "WEBHOOK_URL": urljoin(
             os.environ.get("WEBHOOK_URL"), os.environ.get("TELEGRAM_TOKEN")
         ),
+        "LOGGING_CHANNEL_ID": int(os.environ.get("LOGGING_CHANNEL_ID")),
     },
     "API": {
         "AZURE_API_KEY": os.environ.get("AZURE_API_KEY", ""),
