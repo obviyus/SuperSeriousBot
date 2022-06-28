@@ -12,8 +12,10 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
+from telegram.ext.filters import Command
 
 import commands
 import management
@@ -111,8 +113,11 @@ def main():
             1: [
                 CommandHandler("start", start),
                 CommandHandler("stats", management.get_chat_stats),
+                CommandHandler("botstats", management.get_command_stats),
                 CommandHandler("dl", commands.downloader),
             ],
+            # Handle every Update and increment command count
+            2: [TypeHandler(Update, management.increment_command_count)],
         }
     )
 

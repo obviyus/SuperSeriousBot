@@ -1,7 +1,10 @@
-from telegram import Update
+import heapq
+
+from telegram import MessageEntity, Update
+from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from db import sqlite_conn
+from db import redis, sqlite_conn
 
 
 async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -27,4 +30,50 @@ async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     await update.message.reply_text(
         f"@{context.bot.username} is used in <b>{cursor.fetchone()[0]}</b> groups."
+    )
+
+
+async def increment_command_count(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """
+    Increment command count for a /<command> invocation.
+    """
+    if not update.message:
+        return
+
+    command = next(
+        iter(update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()), None
+    )
+
+    if not command:
+        return
+
+    command = command[1:]
+    redis.incr(f"command:{command}", 1)
+
+
+async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Get usage stats for all commands.
+    """
+
+    commands = []
+    for command in redis.scan_iter("command:*"):
+        heapq.heappush(
+            commands,
+            (-1 * int(redis.get(command)), command.replace("command:", "")),
+        )
+
+    text, total = f"<u>Stats for @{context.bot.username}</u>:\n\n", 0
+    for count, command in heapq.nlargest(10, commands):
+        count *= -1
+        text += f"<pre>/{command}: {count}</pre>\n"
+        total += count
+
+    text += f"\n<pre>Total: {total}</pre>"
+
+    await update.message.reply_text(
+        text,
+        parse_mode=ParseMode.HTML,
     )

@@ -6,8 +6,8 @@ from telegram.ext import ContextTypes
 
 async def ping(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Ping command handler.
+    Ping with estimated latency.
     """
     await update.message.reply_text(
-        f"ping ({(datetime.now().timestamp() - update.message.date.timestamp()) * 1000:.0f}ms)"
+        f"pong ({(datetime.now().timestamp() - update.message.date.timestamp()) * 1000:.1f}ms)"
     )

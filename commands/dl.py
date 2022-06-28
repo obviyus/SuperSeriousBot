@@ -28,6 +28,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     Download video from the given link.
     """
 
+    # Parse URL entity in a given link
     if update.message.reply_to_message:
         url = update.message.reply_to_message.parse_entities(
             [MessageEntity.URL]
@@ -38,9 +39,10 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await internal.usage_string(update.message)
         return
 
+    # Default to None for the iterator
     url = next(iter(url), None)
     if not url:
-        await update.message.reply_text("Invalid URL.")
+        await update.message.reply_text("No URL found.")
         return
 
     # Add special handler for Reddit URLs
@@ -48,6 +50,9 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         reddit.url = url
         try:
             file_path = reddit.download()
+
+            # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
+            # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
             await update.message.reply_video(
                 video=open(file_path, "rb"),
             )
@@ -60,7 +65,11 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
-            info = ydl.extract_info(url, download=False)
+            try:
+                info = ydl.extract_info(url)
+            except yt_dlp.utils.DownloadError as _:
+                await update.message.reply_text("Failed to download video.")
+
             if not info["url"]:
                 await update.message.reply_text("Failed to download video.")
             else:
@@ -72,4 +81,3 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         except Exception as e:
             logger.error(e)
             await update.message.reply_text("Failed to download video.")
-            return

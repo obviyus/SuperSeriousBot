@@ -5,11 +5,15 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown
 
+from config.logger import logger
 from db import redis, sqlite_conn
 from internal import readable_time, usage_string
 
 
 async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Increment message count for a user. Also store last seen time in Redis.
+    """
     if not update.message:
         return
 
@@ -27,8 +31,6 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         f"INSERT INTO chat_stats (chat_id, user_id) VALUES (?, ?)",
         (chat_id, user_object.id),
     )
-
-    sqlite_conn.commit()
 
 
 async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -79,15 +81,17 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     text = f"Stats for <b>{update.message.chat.title}:</b>\n"
+
+    # TODO: Use a NamedTuple for cleaner code
     total_count = sum(user[4] for user in users)
 
     # Ignore special case for user
     if user_object.id == 1060827049:
         text += f"{escape_markdown(user_object.first_name)} - 100% degen\n"
 
-    for _, chat_id, timestamp, user_id, count in users:
+    for _, _, timestamp, user_id, count in users:
         chat_user = await context.bot.get_chat(user_id)
-        username = chat_user.user.username or chat_user.user.first_name
+        username = chat_user.username or chat_user.first_name
         text += f"{escape_markdown(username)} - {count / total_count:.2%}\n"
 
     await update.message.reply_text(
