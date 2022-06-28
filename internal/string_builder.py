@@ -39,8 +39,8 @@ async def readable_time(input_timestamp: int) -> str:
     """
     Return a readable time string.
     """
-    seconds = datetime.now().timestamp() - input_timestamp
-    tense = "ago" if seconds < 0 else "from now"
+    seconds = round(datetime.now().timestamp()) - input_timestamp
+    tense = "ago" if seconds >= 0 else "from now"
 
     seconds = abs(seconds)
 
