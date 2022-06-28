@@ -5,7 +5,6 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown
 
-from config.logger import logger
 from db import redis, sqlite_conn
 from internal import readable_time, usage_string
 
@@ -21,7 +20,7 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     user_object = update.message.from_user
 
     # Set last seen time in Redis
-    redis.set(f"seen:{user_object.username}", datetime.now().isoformat())
+    redis.set(f"seen:{user_object.username}", round(datetime.now().timestamp()))
 
     # Update user_id vs. username in Redis
     redis.set(f"user_id:{user_object.id}", user_object.username)
@@ -37,18 +36,21 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """
     Get time of last message of a user.
     """
-    user_object = update.message.from_user
-    username = user_object.username
-
     if not context.args:
         await usage_string(update.message)
         return
 
+    username = context.args[0].split("@")[1]
+
     # Get last seen time in Redis
     last_seen = redis.get(f"seen:{username}")
+    if not last_seen:
+        await update.message.reply_text(f"@{username} has never been seen.")
+        return
 
+    last_seen = int(last_seen)
     await update.message.reply_text(
-        f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {readable_time(last_seen)}",
+        f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {await readable_time(last_seen)}",
         disable_web_page_preview=True,
         disable_notification=True,
         parse_mode=ParseMode.HTML,
