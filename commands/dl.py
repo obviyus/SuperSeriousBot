@@ -2,11 +2,11 @@ import os
 
 import yt_dlp
 from redvid import Downloader
-from telegram import MessageEntity, Update
+from telegram import Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
-import internal
+import utils
 from config.logger import logger
 
 ydl_opts = {
@@ -29,18 +29,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     """
 
     # Parse URL entity in a given link
-    if update.message.reply_to_message:
-        url = update.message.reply_to_message.parse_entities(
-            [MessageEntity.URL]
-        ).values()
-    elif context.args:
-        url = update.message.parse_entities([MessageEntity.URL]).values()
-    else:
-        await internal.usage_string(update.message)
-        return
-
-    # Default to None for the iterator
-    url = next(iter(url), None)
+    url = utils.extract_link(update)
     if not url:
         await update.message.reply_text("No URL found.")
         return
