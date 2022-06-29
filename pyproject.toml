@@ -13,6 +13,7 @@ redis = "^4.3.3"
 redvid = "^1.2.0"
 python-telegram-bot = {version = "^20.0a2", allow-prereleases = true}
 yt-dlp = "^2022.6.22"
+asyncpraw = "^7.5.0"
 
 [tool.poetry.dev-dependencies]
 
