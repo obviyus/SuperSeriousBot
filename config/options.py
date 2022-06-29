@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 
 from cerberus import Validator
 
+import utils
 from config.logger import logger
 
 schema = {
@@ -125,6 +126,7 @@ v.allow_unknown = True
 
 if v.validate(config):
     logger.info("Valid configuration found.")
+    config = utils.scrub_dict(config)
 else:
     logger.error("Invalid configuration found.")
     logger.error(v.errors)

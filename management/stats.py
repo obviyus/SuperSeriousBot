@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown
 
 from db import redis, sqlite_conn
-from internal import readable_time, usage_string
+from utils import readable_time, usage_string
 
 
 async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:

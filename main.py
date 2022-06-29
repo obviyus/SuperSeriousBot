@@ -15,7 +15,6 @@ from telegram.ext import (
     TypeHandler,
     filters,
 )
-from telegram.ext.filters import Command
 
 import commands
 import management
@@ -76,12 +75,16 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         f"<pre>{html.escape(''.join([tb_list[-1], tb_list[-2]]))}</pre>"
     )
 
-    # Finally, send the message
-    await context.bot.send_message(
-        chat_id=config["TELEGRAM"]["LOGGING_CHANNEL_ID"],
-        text=message,
-        parse_mode=ParseMode.HTML,
-    )
+    if (
+        "LOGGING_CHANNEL_ID" in config["TELEGRAM"]
+        and config["TELEGRAM"]["LOGGING_CHANNEL_ID"]
+    ):
+        # Finally, send the message
+        await context.bot.send_message(
+            chat_id=config["TELEGRAM"]["LOGGING_CHANNEL_ID"],
+            text=message,
+            parse_mode=ParseMode.HTML,
+        )
 
 
 async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -89,6 +92,18 @@ async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Disabled command handler.
     """
     await update.message.reply_text("❌ This command is disabled.")
+
+
+command_list = [
+    CommandHandler("start", start),
+    CommandHandler("stats", management.get_chat_stats),
+    CommandHandler("botstats", management.get_command_stats),
+    CommandHandler("seen", management.get_last_seen),
+    CommandHandler("dl", commands.downloader),
+    CommandHandler(
+        "c", commands.get_top_comment if "REDDIT" in config["API"] else disabled
+    ),
+]
 
 
 def main():
@@ -103,25 +118,20 @@ def main():
 
     application.add_handlers(
         handlers={
-            -1: [
+            -1: command_list,
+            1: [
                 MessageHandler(
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"), commands.sed
                 ),
                 MessageHandler(filters.TEXT & filters.Regex(r"^ping$"), commands.ping),
                 MessageHandler(filters.TEXT, management.increment),
             ],
-            1: [
-                CommandHandler("start", start),
-                CommandHandler("stats", management.get_chat_stats),
-                CommandHandler("botstats", management.get_command_stats),
-                CommandHandler("dl", commands.downloader),
-            ],
             # Handle every Update and increment command count
             2: [TypeHandler(Update, management.increment_command_count)],
         }
     )
 
-    if config["TELEGRAM"]["UPDATER"] == "webhook":
+    if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']}")
         application.run_webhook(
             listen="0.0.0.0",
