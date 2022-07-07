@@ -50,7 +50,7 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     last_seen = int(last_seen)
     await update.message.reply_text(
-        f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {await readable_time(last_seen)}",
+        f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {await readable_time(last_seen)} ago.",
         disable_web_page_preview=True,
         disable_notification=True,
         parse_mode=ParseMode.HTML,
@@ -66,14 +66,15 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
-        f"""SELECT *, COUNT(user_id) 
+        """SELECT *, COUNT(user_id) 
         FROM chat_stats 
-        WHERE chat_id = {chat_id} AND 
+        WHERE chat_id = ? AND 
         create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')
         GROUP BY user_id
-        ORDER BY count(user_id) DESC
+        ORDER BY COUNT(user_id) DESC
         LIMIT 10;
         """,
+        (chat_id,),
     )
 
     users = cursor.fetchall()

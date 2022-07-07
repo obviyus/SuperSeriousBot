@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 import management
 from db import redis, sqlite_conn
+from utils import readable_time
 
 
 async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -17,7 +18,8 @@ async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     cursor.execute("SELECT COUNT(DISTINCT user_id) FROM chat_stats;")
 
     await update.message.reply_text(
-        f"@{context.bot.username} is used by <b>{cursor.fetchone()[0]}</b> users."
+        f"@{context.bot.username} is used by <b>{cursor.fetchone()[0]}</b> users.",
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -30,7 +32,25 @@ async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     cursor.execute("SELECT COUNT(DISTINCT chat_id) FROM chat_stats;")
 
     await update.message.reply_text(
-        f"@{context.bot.username} is used in <b>{cursor.fetchone()[0]}</b> groups."
+        f"@{context.bot.username} is used in <b>{cursor.fetchone()[0]}</b> groups.",
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Get uptime of this bot.
+    """
+
+    uptime = redis.get("bot_startup_time")
+    if not uptime:
+        await update.message.reply_text("This bot has not been started yet.")
+        return
+
+    uptime = int(float(uptime))
+    await update.message.reply_text(
+        f"@{context.bot.username} has been online for <b>{await readable_time(uptime)}</b>.",
+        parse_mode=ParseMode.HTML,
     )
 
 

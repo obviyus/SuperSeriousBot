@@ -105,6 +105,9 @@ command_list = [
     CommandHandler(
         "c", commands.get_top_comment if "REDDIT" in config["API"] else disabled
     ),
+    CommandHandler("users", management.get_total_users),
+    CommandHandler("uptime", management.get_uptime),
+    CommandHandler("groups", management.get_total_chats),
 ]
 
 
