@@ -4,6 +4,7 @@ from telegram import MessageEntity, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import management
 from db import redis, sqlite_conn
 
 
@@ -42,6 +43,7 @@ async def increment_command_count(
     if not update.message:
         return
 
+    await management.increment(update, context)
     command = next(
         iter(update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()), None
     )
