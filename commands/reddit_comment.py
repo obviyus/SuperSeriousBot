@@ -1,7 +1,6 @@
 import html
 
 import asyncpraw
-import asyncprawcore
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -9,7 +8,6 @@ from telegram.ext import ContextTypes
 import utils
 from config.options import config
 
-print(config)
 if "REDDIT" in config["API"]:
     reddit = asyncpraw.Reddit(
         client_id=config["API"]["REDDIT"]["CLIENT_ID"],

@@ -127,6 +127,7 @@ v.allow_unknown = True
 if v.validate(config):
     logger.info("Valid configuration found.")
     config = utils.scrub_dict(config)
+    logger.info(config)
 else:
     logger.error("Invalid configuration found.")
     logger.error(v.errors)

@@ -1,16 +1,18 @@
+import datetime
 import html
 import json
 import os
 import traceback
-from datetime import datetime
 
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     ApplicationBuilder,
+    ChosenInlineResultHandler,
     CommandHandler,
     ContextTypes,
+    InlineQueryHandler,
     MessageHandler,
     TypeHandler,
     filters,
@@ -38,7 +40,7 @@ async def post_init(application: Application) -> None:
     """
     bot = await application.bot.get_me()
     logger.info(f"Started @{bot.username} (ID: {bot.id})")
-    redis.set("bot_startup_time", datetime.now().timestamp())
+    redis.set("bot_startup_time", datetime.datetime.now().timestamp())
 
     if (
         "LOGGING_CHANNEL_ID" in config["TELEGRAM"]
@@ -50,7 +52,7 @@ async def post_init(application: Application) -> None:
 
         await application.bot.send_message(
             chat_id=config["TELEGRAM"]["LOGGING_CHANNEL_ID"],
-            text=f"📝 Started @{bot.username} (ID: {bot.id}) at {datetime.now()}",
+            text=f"📝 Started @{bot.username} (ID: {bot.id}) at {datetime.datetime.now()}",
         )
 
 
@@ -110,11 +112,13 @@ def main():
     application = (
         ApplicationBuilder()
         .token(config["TELEGRAM"]["TOKEN"])
+        .concurrent_updates(True)
         .post_init(post_init)
         .build()
     )
 
     application.add_error_handler(error_handler)
+    job_queue = application.job_queue
 
     application.add_handlers(
         handlers={
@@ -124,12 +128,17 @@ def main():
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"), commands.sed
                 ),
                 MessageHandler(filters.TEXT & filters.Regex(r"^ping$"), commands.ping),
-                MessageHandler(filters.TEXT, management.increment),
+                InlineQueryHandler(commands.inline_show_search),
+                ChosenInlineResultHandler(commands.inline_result_handler),
             ],
-            # Handle every Update and increment command count
+            # Handle every Update and increment command + message count
             2: [TypeHandler(Update, management.increment_command_count)],
         }
     )
+
+    # TV Show notification workers
+    job_queue.run_daily(commands.worker_next_episode, time=datetime.time(0, 0))
+    job_queue.run_repeating(commands.worker_episode_notifier, interval=300, first=10)
 
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']}")
