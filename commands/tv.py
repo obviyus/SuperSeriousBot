@@ -14,7 +14,7 @@ from telegram import (
 )
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
-from telegram.ext import ContextTypes
+from telegram.ext import CallbackContext, ContextTypes
 
 from config.logger import logger
 from db import sqlite_conn
@@ -48,10 +48,34 @@ async def keyboard_builder(user_id: int) -> InlineKeyboardMarkup:
             ]
         )
 
-    if len(keyboard) == 0:
-        keyboard.append([InlineKeyboardButton("No shows in your watchlist.")])
-
     return InlineKeyboardMarkup(keyboard)
+
+
+async def tv_show_button(update: Update, context: CallbackContext) -> None:
+    """Remove a TV show from the watchlist."""
+    query = update.callback_query
+    show_id, user_id, show_name = query.data.split(",")
+
+    # Check user that pressed the button is the same as the user that added the show
+    if query.from_user.id != int(user_id):
+        await query.answer("You can't remove shows from other users' watchlist.")
+        return
+
+    cursor = sqlite_conn.cursor()
+
+    # Remove show from watchlist
+    cursor.execute(
+        "DELETE FROM tv_notifications WHERE show_id = ? AND user_id = ?",
+        (show_id, user_id),
+    )
+
+    await query.answer(f"Removed {show_name} from your watchlist.")
+
+    await context.bot.edit_message_text(
+        chat_id=query.message.chat.id,
+        message_id=query.message.message_id,
+        reply_markup=await keyboard_builder(user_id),
+    )
 
 
 async def opt_in_tv(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

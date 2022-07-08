@@ -9,6 +9,7 @@ from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     ApplicationBuilder,
+    CallbackQueryHandler,
     ChosenInlineResultHandler,
     CommandHandler,
     ContextTypes,
@@ -108,6 +109,7 @@ command_list = [
     CommandHandler("users", management.get_total_users),
     CommandHandler("uptime", management.get_uptime),
     CommandHandler("groups", management.get_total_chats),
+    CommandHandler("tv", commands.opt_in_tv),
 ]
 
 
@@ -133,6 +135,7 @@ def main():
                 MessageHandler(filters.TEXT & filters.Regex(r"^ping$"), commands.ping),
                 InlineQueryHandler(commands.inline_show_search),
                 ChosenInlineResultHandler(commands.inline_result_handler),
+                CallbackQueryHandler(commands.tv_show_button),
             ],
             # Handle every Update and increment command + message count
             2: [TypeHandler(Update, management.increment_command_count)],
