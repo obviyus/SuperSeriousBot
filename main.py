@@ -30,8 +30,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Start command handler.
     """
-    await context.bot.wrong_method_name()  # type: ignore[attr-defined]
-    # await update.message.reply_text(f"👋 @{update.effective_user.username}")
+    await update.message.reply_text(f"👋 @{update.effective_user.username}")
     logger.info(f"/start command received from @{update.effective_user.username}")
 
 
@@ -97,22 +96,6 @@ async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ This command is disabled.")
 
 
-command_list = [
-    CommandHandler("start", start),
-    CommandHandler("stats", management.get_chat_stats),
-    CommandHandler("botstats", management.get_command_stats),
-    CommandHandler("seen", management.get_last_seen),
-    CommandHandler("dl", commands.downloader),
-    CommandHandler(
-        "c", commands.get_top_comment if "REDDIT" in config["API"] else disabled
-    ),
-    CommandHandler("users", management.get_total_users),
-    CommandHandler("uptime", management.get_uptime),
-    CommandHandler("groups", management.get_total_chats),
-    CommandHandler("tv", commands.opt_in_tv),
-]
-
-
 def main():
     application = (
         ApplicationBuilder()
@@ -127,7 +110,7 @@ def main():
 
     application.add_handlers(
         handlers={
-            -1: command_list,
+            -1: commands.command_list,
             1: [
                 MessageHandler(
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"), commands.sed

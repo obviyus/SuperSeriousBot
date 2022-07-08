@@ -3,7 +3,7 @@ import sqlite3
 import redis
 
 sqlite_conn = sqlite3.connect(
-    "/db/SuperSeriousBot.db", check_same_thread=False, isolation_level=None
+    "./SuperSeriousBot.db", check_same_thread=False, isolation_level=None
 )
 sqlite_conn.row_factory = sqlite3.Row
 
