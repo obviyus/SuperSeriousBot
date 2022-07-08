@@ -13,6 +13,7 @@ from telegram import (
     Update,
 )
 from telegram.constants import ParseMode
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from config.logger import logger
@@ -235,13 +236,18 @@ async def worker_episode_notifier(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Send message to each group
         for chat_id in message_queue:
-            context.bot.send_message(
-                chat_id,
-                f"{show['next_episode_name']} has aired! \n\n{' '.join(message_queue[chat_id])}"
-                f"<a href='{show['show_image']}'>&#8205;</a>",
-                parse_mode=ParseMode.HTML,
-            )
-
+            try:
+                await context.bot.send_message(
+                    chat_id,
+                    f"{show['next_episode_name']} has aired! \n\n{' '.join(message_queue[chat_id])}"
+                    f"<a href='{show['show_image']}'>&#8205;</a>",
+                    parse_mode=ParseMode.HTML,
+                )
+            except BadRequest:
+                logger.error(
+                    f"Failed to send message to {chat_id}. Removing all subscriptions."
+                )
+                cursor.execute("DELETE FROM tv_opt_in WHERE chat_id = ?", (chat_id,))
             time.sleep(1)
 
         cursor.execute(
