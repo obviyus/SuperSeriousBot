@@ -59,7 +59,7 @@ schema = {
                 "type": "string",
                 "required": False,
             },
-            "WOLFRAM_API_KEY": {
+            "WOLFRAM_APP_ID": {
                 "type": "string",
                 "required": False,
             },
@@ -110,7 +110,7 @@ config = {
         "GIPHY_API_KEY": os.environ.get("GIPHY_API_KEY", ""),
         "GOODREADS_API_KEY": os.environ.get("GOODREADS_API_KEY", ""),
         "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
-        "WOLFRAM_API_KEY": os.environ.get("WOLFRAM_API_KEY", ""),
+        "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
         "IMGUR_API_KEY": os.environ.get("IMGUR_API_KEY", ""),
         "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
         "REDDIT": {

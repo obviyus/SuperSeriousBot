@@ -1,11 +1,11 @@
-import wolframalpha
+import requests
 from telegram import Update
 from telegram.ext import ContextTypes
 
 import utils
 from config.options import config
 
-client = wolframalpha.Client(config["WOLFRAM_APP_ID"])
+WOLFRAM_SHORT_QUERY = "https://api.wolframalpha.com/v1/result"
 
 
 async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -15,14 +15,13 @@ async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     query: str = " ".join(context.args)
+    response = requests.get(
+        WOLFRAM_SHORT_QUERY,
+        params={"i": query, "appid": config["API"]["WOLFRAM_APP_ID"]},
+    )
 
-    text: str
-
-    result: wolframalpha.Result = client.query(query)
-
-    try:
-        text = next(result.results).text
-    except StopIteration:
-        text = "Invalid query."
-
-    await update.message.reply_text(text=text)
+    if response.status_code != 200:
+        await update.message.reply_text("Error: " + response.text)
+        return
+    else:
+        await update.message.reply_text(response.text)

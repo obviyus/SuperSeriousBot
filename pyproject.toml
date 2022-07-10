@@ -16,7 +16,8 @@ asyncpraw = "^7.5.0"
 dateparser = "^1.1.1"
 ratelimit = "^2.2.1"
 coloredlogs = "^15.0.1"
-wolframalpha = "^5.0.0"
+howlongtobeatpy = "^0.1.22"
+spurdify = "^0.3.0"
 
 [tool.poetry.dev-dependencies]
 

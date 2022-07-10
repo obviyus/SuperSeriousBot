@@ -129,6 +129,9 @@ def main():
     job_queue.run_daily(commands.worker_next_episode, time=datetime.time(0, 0))
     job_queue.run_repeating(commands.worker_episode_notifier, interval=300, first=10)
 
+    # Seed random Reddit posts
+    job_queue.run_once(commands.worker_seed_posts, 10)
+
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']}")
         application.run_webhook(
