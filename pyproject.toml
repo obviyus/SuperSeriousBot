@@ -18,6 +18,7 @@ ratelimit = "^2.2.1"
 coloredlogs = "^15.0.1"
 howlongtobeatpy = "^0.1.22"
 spurdify = "^0.3.0"
+translatepy = "^2.3"
 
 [tool.poetry.dev-dependencies]
 

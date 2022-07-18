@@ -24,8 +24,9 @@ from .reddit_comment import get_top_comment
 from .sed import sed
 from .spurdo import spurdo
 from .subscribe import *
-from .tv import *
 from .tldr import tldr
+from .translate import translate, tts
+from .tv import *
 
 command_list = [
     CommandHandler("start", start),
@@ -59,6 +60,8 @@ command_list = [
         "unsub", list_reddit_subscriptions if "REDDIT" in config["API"] else disabled
     ),
     CommandHandler("tldr", tldr if "SMMRY_API_KEY" in config["API"] else disabled),
+    CommandHandler("tl", translate),
+    CommandHandler("tts", tts),
 ]
 
 
