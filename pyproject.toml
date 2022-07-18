@@ -19,6 +19,7 @@ coloredlogs = "^15.0.1"
 howlongtobeatpy = "^0.1.22"
 spurdify = "^0.3.0"
 translatepy = "^2.3"
+uwuify = "^1.1.0"
 
 [tool.poetry.dev-dependencies]
 

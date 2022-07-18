@@ -27,6 +27,8 @@ from .subscribe import *
 from .tldr import tldr
 from .translate import translate, tts
 from .tv import *
+from .ud import ud
+from .uwu import uwu
 
 command_list = [
     CommandHandler("start", start),
@@ -62,6 +64,8 @@ command_list = [
     CommandHandler("tldr", tldr if "SMMRY_API_KEY" in config["API"] else disabled),
     CommandHandler("tl", translate),
     CommandHandler("tts", tts),
+    CommandHandler("ud", ud),
+    CommandHandler("uwu", uwu),
 ]
 
 
