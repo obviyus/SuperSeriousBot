@@ -25,6 +25,7 @@ from .sed import sed
 from .spurdo import spurdo
 from .subscribe import *
 from .tv import *
+from .tldr import tldr
 
 command_list = [
     CommandHandler("start", start),
@@ -57,6 +58,7 @@ command_list = [
     CommandHandler(
         "unsub", list_reddit_subscriptions if "REDDIT" in config["API"] else disabled
     ),
+    CommandHandler("tldr", tldr if "SMMRY_API_KEY" in config["API"] else disabled),
 ]
 
 
