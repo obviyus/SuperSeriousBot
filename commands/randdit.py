@@ -3,7 +3,7 @@ import logging
 from random import choice
 from time import sleep
 
-import asyncpraw
+from asyncpraw import models
 from asyncprawcore.exceptions import BadRequest, Forbidden, NotFound
 from telegram import Update
 from telegram.constants import ParseMode
@@ -38,7 +38,7 @@ async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE) -> None:
     await asyncio.gather(*nsfw_coros, *all_coros)
 
 
-def make_response(post: asyncpraw.models.Submission) -> str:
+def make_response(post: models.Submission) -> str:
     return f"{post.url}\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}</a>"
 
 

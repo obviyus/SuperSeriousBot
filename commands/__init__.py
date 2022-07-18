@@ -22,8 +22,9 @@ from .ping import ping
 from .randdit import nsfw, randdit, worker_seed_posts
 from .reddit_comment import get_top_comment
 from .sed import sed
-from .tv import *
 from .spurdo import spurdo
+from .subscribe import *
+from .tv import *
 
 command_list = [
     CommandHandler("start", start),
@@ -52,4 +53,16 @@ command_list = [
     CommandHandler("r", randdit if "REDDIT" in config["API"] else disabled),
     CommandHandler("nsfw", nsfw if "REDDIT" in config["API"] else disabled),
     CommandHandler("spurdo", spurdo),
+    CommandHandler("sub", subscribe_reddit if "REDDIT" in config["API"] else disabled),
+    CommandHandler(
+        "unsub", list_reddit_subscriptions if "REDDIT" in config["API"] else disabled
+    ),
 ]
+
+
+async def button_handler(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    if query.data.startswith("remove_tv_show"):
+        await tv_show_button(update, context)
+    elif query.data.startswith("unsubscribe_reddit"):
+        await reddit_subscription_button_handler(update, context)

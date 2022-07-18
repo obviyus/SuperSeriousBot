@@ -11,7 +11,6 @@ from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
     ChosenInlineResultHandler,
-    CommandHandler,
     ContextTypes,
     InlineQueryHandler,
     MessageHandler,
@@ -116,9 +115,11 @@ def main():
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"), commands.sed
                 ),
                 MessageHandler(filters.TEXT & filters.Regex(r"^ping$"), commands.ping),
+                # TV Show Query Handlers
                 InlineQueryHandler(commands.inline_show_search),
                 ChosenInlineResultHandler(commands.inline_result_handler),
-                CallbackQueryHandler(commands.tv_show_button),
+                # Master Button Handler
+                CallbackQueryHandler(commands.button_handler),
             ],
             # Handle every Update and increment command + message count
             2: [TypeHandler(Update, management.increment_command_count)],
@@ -128,6 +129,11 @@ def main():
     # TV Show notification workers
     job_queue.run_daily(commands.worker_next_episode, time=datetime.time(0, 0))
     job_queue.run_repeating(commands.worker_episode_notifier, interval=300, first=10)
+
+    # Deliver Reddit subscriptions
+    job_queue.run_daily(
+        commands.worker_reddit_subscriptions, time=datetime.time(17, 30)
+    )
 
     # Seed random Reddit posts
     job_queue.run_once(commands.worker_seed_posts, 10)

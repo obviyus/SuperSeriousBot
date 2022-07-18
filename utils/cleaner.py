@@ -1,3 +1,6 @@
+import re
+
+
 def scrub_dict(d: dict) -> dict:
     """
     Remove empty values from a dictionary.
@@ -10,3 +13,10 @@ def scrub_dict(d: dict) -> dict:
         )
     else:
         return d
+
+
+def scrub_html_tags(text: str) -> str:
+    """
+    Remove HTML tags from a string.
+    """
+    return re.sub(r"<[^>]*>", "", text)

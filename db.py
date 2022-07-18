@@ -3,7 +3,7 @@ import sqlite3
 import redis
 
 sqlite_conn = sqlite3.connect(
-    "./SuperSeriousBot.db", check_same_thread=False, isolation_level=None
+    "/db/SuperSeriousBot.db", check_same_thread=False, isolation_level=None
 )
 sqlite_conn.row_factory = sqlite3.Row
 
@@ -59,6 +59,20 @@ cursor.execute(
         `next_episode_time` INTEGER NULL,
         `next_episode_name` VARCHAR(255) NULL,
         `sent` INTEGER NOT NULL DEFAULT 0,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+)
+
+# Table for Reddit Subscriptions
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `reddit_subscriptions` (
+        `id` INTEGER PRIMARY KEY,
+        `group_id` INTEGER NOT NULL,
+        `subreddit_name` VARCHAR(255) NOT NULL,
+        `receiver_id` INTEGER NOT NULL,
+        `receiver_username` VARCHAR(255) NOT NULL,
         `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     """

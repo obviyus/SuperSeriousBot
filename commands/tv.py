@@ -4,7 +4,6 @@ from collections import defaultdict
 
 import dateparser
 import requests
-from ratelimit import limits, sleep_and_retry
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -16,6 +15,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext, ContextTypes
 
+import utils.cleaner
 from config.logger import logger
 from db import sqlite_conn
 
@@ -43,7 +43,7 @@ async def keyboard_builder(user_id: int) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     show["show_name"],
-                    callback_data=f"""{show["show_id"]},{user_id},{show["show_name"]}""",
+                    callback_data=f"""remove_tv_show:{show["show_id"]},{user_id},{show["show_name"]}""",
                 )
             ]
         )
@@ -54,7 +54,7 @@ async def keyboard_builder(user_id: int) -> InlineKeyboardMarkup:
 async def tv_show_button(update: Update, context: CallbackContext) -> None:
     """Remove a TV show from the watchlist."""
     query = update.callback_query
-    show_id, user_id, show_name = query.data.split(",")
+    show_id, user_id, show_name = query.data.replace("remove_tv_show:", "").split(",")
 
     # Check user that pressed the button is the same as the user that added the show
     if query.from_user.id != int(user_id):
@@ -72,6 +72,7 @@ async def tv_show_button(update: Update, context: CallbackContext) -> None:
     await query.answer(f"Removed {show_name} from your watchlist.")
 
     await context.bot.edit_message_text(
+        text=f"List of your shows in this chat. Tap on a show to remove it from your watchlist:",
         chat_id=query.message.chat.id,
         message_id=query.message.message_id,
         reply_markup=await keyboard_builder(user_id),
@@ -133,7 +134,7 @@ async def inline_show_search(
             InlineQueryResultArticle(
                 id=show["id"],
                 title=show["name"],
-                description=html.escape(show["summary"]),
+                description=utils.cleaner.scrub_html_tags(show["summary"]),
                 thumb_url=show["image"]["medium"] if show["image"] else "",
                 input_message_content=InputTextMessageContent(
                     f"""Added <b>{show['name']}</b> to your watchlist.""",
@@ -145,8 +146,6 @@ async def inline_show_search(
     await update.inline_query.answer(results)
 
 
-@sleep_and_retry
-@limits(calls=20, period=10)
 async def insert_new_show(show_id: int) -> None:
     """
     Given an ID, insert a new show in the DB.
