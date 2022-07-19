@@ -1,3 +1,37 @@
+# [1.6.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.5.1...v1.6.0) (2022-07-19)
+
+
+### Bug Fixes
+
+* **move:** move ([e76559c](https://github.com/obviyus/SuperSeriousBot/commit/e76559c8560f47a2048d39c4e80abadcba3e715a))
+* **sb:** fix tense logic ([51ce6a3](https://github.com/obviyus/SuperSeriousBot/commit/51ce6a3d590cfb9491b726fc3bd1bf656ca86ccb))
+* **seen:** fix seen logic ([d20c637](https://github.com/obviyus/SuperSeriousBot/commit/d20c637b3526b828aaf8c81bcaf2a32b2606833b))
+* **tv:** await send message coroutine ([2a06470](https://github.com/obviyus/SuperSeriousBot/commit/2a064706f96d3e5f87d4368065638743cbfba7ba))
+* **utils:** rename `internal` to `utils` ([43a119d](https://github.com/obviyus/SuperSeriousBot/commit/43a119d7bd2927f8eefbba084d8038bd93f3061e))
+
+
+### Features
+
+* **botstats:** add /botstats ([429dafb](https://github.com/obviyus/SuperSeriousBot/commit/429dafbd6b59b41d3dc8b95fdab43c709d700951))
+* **botstats:** add dev commands ([d9e1b0e](https://github.com/obviyus/SuperSeriousBot/commit/d9e1b0e73ee4e4c6a9927124e054f30061d357a7))
+* **calc:** add calc ([5300506](https://github.com/obviyus/SuperSeriousBot/commit/5300506b3f48a04254a55bc91671403c22fcdfaa))
+* **c:** get top comment ([99ce8df](https://github.com/obviyus/SuperSeriousBot/commit/99ce8df0a05609a9bb625bb3b353e1511f8fd08f))
+* **commands:** add basic commands ([1820567](https://github.com/obviyus/SuperSeriousBot/commit/1820567f5fba3f7a3f3a65c13e1114329101574a))
+* **commands:** add features ([69d5c48](https://github.com/obviyus/SuperSeriousBot/commit/69d5c48e81204874856b98b720dba2cfb66d0f63))
+* **deps:** add poetry dependency management ([5947370](https://github.com/obviyus/SuperSeriousBot/commit/5947370bda13be940690fde9e41b6f53cd524ec3))
+* **dl:** combine /album and /dl ([f8692b6](https://github.com/obviyus/SuperSeriousBot/commit/f8692b6148e26a6212cc104d8856ee82ad348a91))
+* **logging:** add channel for logging ([42bc856](https://github.com/obviyus/SuperSeriousBot/commit/42bc85695c9be84a30105623da6d1af45b2bc853))
+* **logs:** add coloredlogs ([f5a7e70](https://github.com/obviyus/SuperSeriousBot/commit/f5a7e701dbba966d8e1862d5be2bf4b195c66afe))
+* **sub:** reddit subscriptions handlers ([5ca6738](https://github.com/obviyus/SuperSeriousBot/commit/5ca67388c3c7ea2e1f881bac2e973f2ab4845fd2))
+* **tl+tts:** add tl and tts commands ([e770f3d](https://github.com/obviyus/SuperSeriousBot/commit/e770f3d9a0d5ae056967d8592dbc251a48ee2856))
+* **tldr:** add TLDR command ([698be95](https://github.com/obviyus/SuperSeriousBot/commit/698be95ba191fdf57eb19d09039bf87a9f485b59))
+* **tv:** add /tv command ([daf6773](https://github.com/obviyus/SuperSeriousBot/commit/daf677385e03b445b8efedf5888ad5f9fdecba91))
+* **tv:** add button handler ([3e152ee](https://github.com/obviyus/SuperSeriousBot/commit/3e152ee22b96ad7c32b4be80ddef2b843c66e845))
+* **uwu+ud:** add uwu and ud ([1ac1f10](https://github.com/obviyus/SuperSeriousBot/commit/1ac1f10d778d201673159dc7c9363cdcc14afcbf))
+* **vision:** implement Vision commands ([ba2ae88](https://github.com/obviyus/SuperSeriousBot/commit/ba2ae8814b4fcbe6509f2c00f2940367ee5190d8))
+* **weather:** add weather command ([5872360](https://github.com/obviyus/SuperSeriousBot/commit/5872360e7dcd2e4b33f9de0fe135d159521cb5b7))
+* **weather:** cache weather location ([1430f45](https://github.com/obviyus/SuperSeriousBot/commit/1430f459dc81de5c3e68fd5076f4de9eb4b95e1e))
+
 ## [1.5.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.5.0...v1.5.1) (2022-06-23)
 
 
