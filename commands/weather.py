@@ -5,6 +5,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import utils
+from db import redis
 
 geolocator = Nominatim(user_agent="SuperSeriousBot")
 
@@ -12,16 +13,21 @@ WEATHER_ENDPOINT = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 
 
 class Point:
-    def __init__(self, name):
-        location = geolocator.geocode(name, exactly_one=True)
-        self.latitude = location.latitude
-        self.longitude = location.longitude
+    def __init__(self, name, latitude=None, longitude=None, address=None):
+        if latitude and longitude and address:
+            self.latitude = latitude
+            self.longitude = longitude
+            self.address = address
+        else:
+            location = geolocator.geocode(name, exactly_one=True)
+            self.latitude = location.latitude
+            self.longitude = location.longitude
 
-        try:
-            parts = location.address.split(",")
-            self.address = f"{parts[0].strip()}, {parts[-3].strip()}\n{parts[-1].strip()}, {parts[-2].strip()}"
-        except IndexError:
-            self.address = f"{location.address}"
+            try:
+                parts = location.address.split(",")
+                self.address = f"{parts[0].strip()}, {parts[-3].strip()}\n{parts[-1].strip()}, {parts[-2].strip()}"
+            except IndexError:
+                self.address = f"{location.address}"
 
     def get_weather(self):
         response = requests.get(
@@ -44,11 +50,30 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Get the weather for a given location.
     """
-    if not context.args:
+    if not context.args and not redis.exists(f"weather:{update.message.from_user.id}"):
         await utils.usage_string(update.message)
         return
 
-    point = Point(" ".join(context.args))
+    if context.args:
+        point = Point(" ".join(context.args))
+        point_data = {
+            "latitude": point.latitude,
+            "longitude": point.longitude,
+            "address": point.address,
+        }
+        redis.hmset(
+            f"weather:{update.message.from_user.id}",
+            point_data,
+        )
+    else:
+        cached_point = redis.hgetall(f"weather:{update.message.from_user.id}")
+        point = Point(
+            "",
+            float(cached_point["latitude"]),
+            float(cached_point["longitude"]),
+            cached_point["address"],
+        )
+
     weather_data = point.get_weather()
 
     text = f"<b>{point.address}</b>\n\n"
