@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "SuperSeriousBot"
+version = "2.0.0"
+description = ""
+authors = ["Ayaan Zaidi <hi@obviy.us>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+Cerberus = "^1.3.4"
+redis = "^4.3.3"
+redvid = "^1.2.0"
+python-telegram-bot = {version = "^20.0a2", allow-prereleases = true}
+yt-dlp = "^2022.6.22"
+asyncpraw = "^7.5.0"
+dateparser = "^1.1.1"
+ratelimit = "^2.2.1"
+coloredlogs = "^15.0.1"
+howlongtobeatpy = "^0.1.22"
+spurdify = "^0.3.0"
+translatepy = "^2.3"
+uwuify = "^1.1.0"
+azure-cognitiveservices-vision-computervision = "^0.9.0"
+geopy = "^2.2.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,356 +1,154 @@
 import datetime
-import logging
-import time
+import html
+import json
+import os
 import traceback
-from typing import TYPE_CHECKING, Callable, List
 
-from telegram import MessageEntity, ParseMode, ChatAction
+from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import (
+    Application,
+    ApplicationBuilder,
     CallbackQueryHandler,
-    CommandHandler,
-    Defaults,
-    Filters,
-    MessageHandler,
-    Updater,
-    InlineQueryHandler,
     ChosenInlineResultHandler,
+    ContextTypes,
+    InlineQueryHandler,
+    MessageHandler,
+    TypeHandler,
+    filters,
 )
 
-import api
-import inline
-import chat_management
-import dev
-import links
-from configuration import config
-
-if TYPE_CHECKING:
-    import telegram
-    import telegram.ext
-
-# Private channel used for logging exceptions
-LOGGING_CHANNEL = -1001543943945
+import commands
+import management
+from config.logger import logger
+from config.options import config
+from db import redis
 
 
-class ColorFormatter(logging.Formatter):
-    """Formatter to handle colors in logs"""
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Start command handler.
+    """
+    await update.message.reply_text(f"👋 @{update.effective_user.username}")
+    logger.info(f"/start command received from @{update.effective_user.username}")
 
-    def format(self, record):
-        format_str = "%(asctime)s - %(color)s(%(filename)s:%(lineno)d) [%(levelname)s] %(message)s%(reset)s"
-        reset_color = "\x1b[0m"
 
-        formats = {
-            logging.DEBUG: "\x1b[38;21m",  # grey
-            logging.TESTING: "\x1b[36;21m",  # cyan
-            logging.INFO: "\x1b[34;21m",  # blue
-            logging.WARNING: "\x1b[33;21m",  # yellow
-            logging.ERROR: "\x1b[31;21m",  # red
-            logging.CRITICAL: "\x1b[31;1m",  # bold_red
-        }
+async def post_init(application: Application) -> None:
+    """
+    Initialise the bot.
+    """
+    bot = await application.bot.get_me()
+    logger.info(f"Started @{bot.username} (ID: {bot.id})")
+    redis.set("bot_startup_time", datetime.datetime.now().timestamp())
 
-        # log_fmt = formats[record.levelno] + format_str + reset_color
-        log_fmt = format_str.replace("%(color)s", formats[record.levelno]).replace(
-            "%(reset)s", reset_color
+    if (
+        "LOGGING_CHANNEL_ID" in config["TELEGRAM"]
+        and config["TELEGRAM"]["LOGGING_CHANNEL_ID"]
+    ):
+        logger.info(
+            f"Logging to channel ID: {config['TELEGRAM']['LOGGING_CHANNEL_ID']}"
         )
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
+
+        await application.bot.send_message(
+            chat_id=config["TELEGRAM"]["LOGGING_CHANNEL_ID"],
+            text=f"📝 Started @{bot.username} (ID: {bot.id}) at {datetime.datetime.now()}",
+        )
 
 
-# Add colors to logger
-log_handler = logging.StreamHandler()
-log_handler.setFormatter(ColorFormatter())
-
-# Add custom logging level
-logging.TESTING = 11
-
-
-def testing(self, message, *args, **kwargs):
-    if self.isEnabledFor(logging.TESTING):
-        # Yes, logger takes its '*args' as 'args'.
-        self._log(logging.TESTING, message, args, **kwargs)
-
-
-logging.addLevelName(logging.TESTING, "TESTING")
-logging.Logger.testing = testing
-
-# Configure logger
-logging.basicConfig(
-    level=logging.TESTING if config["TESTING"] else logging.INFO,
-    format="%(asctime)s - %(name)s:%(levelname)s: %(message)s",
-    handlers=[log_handler],
-)
-log = logging.getLogger()
-
-
-def error_handler(
-    update: "telegram.Update", context: "telegram.ext.CallbackContext"
-) -> None:
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
+    # Log the error before we do anything else, so we can see it even if something breaks.
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
+
     # traceback.format_exception returns the usual python message about an exception, but as a
-    # list of strings rather than a single string.
+    # list of strings rather than a single string, so we have to join them together.
     tb_list = traceback.format_exception(
         None, context.error, context.error.__traceback__
     )
 
-    # Finally, send the message
-    if config["TESTING"]:
-        raise context.error
-
-    try:
-        context.bot.send_message(
-            chat_id=LOGGING_CHANNEL, text=f"`{tb_list[-1]}`", parse_mode="Markdown"
-        )
-        if update.message:
-            update.message.reply_text("An error occurred")
-    finally:
-        log.error(f"{context.error}")
-
-
-def start(update: "telegram.Update", context: "telegram.ext.CallbackContext") -> None:
-    """Start bot"""
-    if update and update.effective_chat:
-        context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=f"👋 @{update.message.from_user.first_name}",
-        )
-
-
-def help_cmd(
-    update: "telegram.Update", context: "telegram.ext.CallbackContext"
-) -> None:
-    """Show list of commands"""
-    cmds: List["telegram.BotCommand"] = context.bot.commands
-
-    help_text: str = (
-        f"*Commands for @{context.bot.username}:*\n\nTap on a command to get help.\n\n"
+    # Build the message with some markup and additional information about what happened.
+    # You might need to add some logic to deal with messages longer than the 4096 character limit.
+    update_str = update.to_dict() if isinstance(update, Update) else str(update)
+    message = (
+        f"An exception was raised while handling an update:\n\n"
+        f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
+        "</pre>\n\n"
+        f"<pre>{html.escape(''.join([tb_list[-1], tb_list[-2]]))}</pre>"
     )
-    help_text += "".join(sorted(f"/{cmd.command}: {cmd.description}\n" for cmd in cmds))
 
-    if update.message:
-        if update.effective_chat and not update.effective_chat.type == "private":
-            update.message.reply_text("Message sent in private.")
-
-        if update.message.from_user:
-            update.message.from_user.send_message(help_text)
-
-
-def check_cmd_avail(func: Callable, disabled: bool):
-    def wrapped_func(
-        update: "telegram.Update", context: "telegram.ext.CallbackContext"
+    if (
+        "LOGGING_CHANNEL_ID" in config["TELEGRAM"]
+        and config["TELEGRAM"]["LOGGING_CHANNEL_ID"]
     ):
-
-        message: "telegram.Message" = update.message
-        command: str = list(
-            message.parse_entities([MessageEntity.BOT_COMMAND]).values()
-        )[0]
-        command = command.partition("@")[0][1:].lower()
-
-        start = time.time()
-
-        update.message.reply_chat_action(ChatAction.TYPING)
-        if disabled:
-            update.message.reply_text(
-                "This feature is unavailable, please contact the bot admin to enable this."
-            )
-        elif command not in ["botstats", "groups", "users"]:
-            func(update, context)
-        elif str(message.from_user.id) in config["DEV_USERNAMES"]:
-            func(update, context)
-        else:
-            message.reply_text(
-                text=f"Unauthorized: You are not one of the developers of @{context.bot.username}"
-            )
-
-        log_text = " - disabled" if disabled else ""
-        log.info(f"[{time.time() - start:.2f}s] - /{command}" + log_text)
-        dev.command_increment(command)
-
-    wrapped_func.__doc__ = func.__doc__
-    return wrapped_func
+        # Finally, send the message
+        await context.bot.send_message(
+            chat_id=config["TELEGRAM"]["LOGGING_CHANNEL_ID"],
+            text=message,
+            parse_mode=ParseMode.HTML,
+        )
 
 
-class Command:
-    """A single command"""
-
-    def __init__(
-        self,
-        cmd: str,
-        func: Callable,
-        keys: List[str] = [],
-        desc: str = "",
-        is_async: bool = True,
-    ):
-        self.cmd: str = cmd
-        self.keys: List[str] = keys
-        self.disabled: bool = False
-        self.func: Callable
-        self.desc: str
-        self.is_async = is_async
-
-        for key in keys:
-            if config[key] == "" or config[key] == []:
-                self.disabled = True
-                log.warning(f"{key} not provided, /{cmd} will be disabled")
-
-        if not self.disabled:
-            log.info(f"/{cmd} enabled!")
-
-        self.func = check_cmd_avail(func, self.disabled)
-
-        if self.disabled:
-            self.desc = "Disabled command"
-        elif desc:
-            self.desc = desc
-        elif self.func.__doc__:
-            self.desc = self.func.__doc__
-        else:
-            self.desc = "No description"
-            log.warning(f"Description not provided for /{cmd}")
-
-
-commands: List[Command] = [
-    # Command(command, func, [keys], desc)
-    Command("age", api.age, ["AZURE_KEY"]),
-    Command("album", api.album, ["IMGUR_KEY"]),
-    Command("ban", chat_management.ban),
-    Command("botstats", dev.print_botstats, ["DEV_USERNAMES"]),
-    Command("c", links.comment),
-    Command("calc", api.calc, ["WOLFRAM_APP_ID"]),
-    Command("caption", api.caption, ["AZURE_KEY"]),
-    Command("cat", api.animal),
-    Command("catfact", api.animal),
-    Command("csgo", api.csgo, ["STEAM_API_KEY"]),
-    Command("d", api.define),
-    Command("dice", api.dice),
-    Command("dl", links.dl),
-    Command("fox", api.animal),
-    Command("fw", api.audio, ["FOR_WHAT_ID"]),
-    Command("gif", api.gif, ["GIPHY_API_KEY"]),
-    Command("gr", api.goodreads, ["GOODREADS_API_KEY"]),
-    Command("groups", dev.groups, ["DEV_USERNAMES"]),
-    Command("gstats", chat_management.print_gstats),
-    Command("help", help_cmd),
-    Command("hltb", api.hltb),
-    Command("hug", api.hug),
-    Command("insult", api.insult),
-    Command("jogi", api.audio, ["JOGI_FILE_ID"]),
-    Command("joke", api.joke),
-    Command("kick", chat_management.kick),
-    Command("meme", api.meme),
-    Command("nsfw", api.nsfw),
-    Command("pat", api.pat),
-    Command("person", api.person),
-    Command("pfp", api.pad_image),
-    Command("pic", api.pic),
-    Command("pon", api.audio, ["PUNYA_SONG_ID"]),
-    Command(
-        "r",
-        api.randdit,
-        ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"],
-    ),
-    Command("rstats", dev.print_reddit_stats),
-    Command("seen", chat_management.seen),
-    Command("setid", api.set_steam_id, ["STEAM_API_KEY"]),
-    Command("setw", api.setw),
-    Command("shiba", api.animal),
-    Command("spurdo", api.spurdo),
-    Command("start", start),
-    Command("stats", chat_management.print_stats),
-    Command("steamstats", api.steamstats, ["STEAM_API_KEY"]),
-    Command("sub_reddit", api.subscribe_reddit),
-    Command("unsub_reddit", api.unsubscribe_reddit),
-    Command("list_reddit", api.list_reddit_subscriptions),
-    # Command("sub_yt", api.subscribe_youtube),
-    # Command("unsub_yt", api.unsubscribe_youtube),
-    # Command("list_yt", api.list_youtube_subscriptions),
-    Command("tl", api.translate),
-    Command("tldr", api.tldr, ["SMMRY_API_KEY"]),
-    Command("tts", api.tts),
-    Command("tv", inline.opt_in_tv),
-    Command("ud", api.ud),
-    Command("users", dev.users),
-    Command("uwu", api.uwu),
-    Command("w", api.weather, ["CLIMACELL_API_KEY"]),
-    Command("wait", api.wait),
-    Command("weather", api.weather, ["CLIMACELL_API_KEY"]),
-    Command("wink", api.wink),
-]
+async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Disabled command handler.
+    """
+    await update.message.reply_text("❌ This command is disabled.")
 
 
 def main():
-    defaults: "telegram.ext.Defaults" = Defaults(parse_mode=ParseMode.MARKDOWN)
-    updater: "telegram.ext.Updater" = Updater(
-        token=config["TELEGRAM_BOT_TOKEN"], defaults=defaults
-    )
-    dispatcher: "telegram.ext.Dispatcher" = updater.dispatcher
-    job_queue: "telegram.ext.JobQueue" = updater.job_queue
-
-    # Command handlers
-    for cmd in commands:
-        dispatcher.add_handler(
-            CommandHandler(cmd.cmd, cmd.func, run_async=cmd.is_async)
-        )
-
-    # sed handler
-    dispatcher.add_handler(
-        MessageHandler(Filters.reply & Filters.regex(r"^s\/[\s\S]*\/[\s\S]*"), api.sed),
-        group=1,
+    application = (
+        ApplicationBuilder()
+        .token(config["TELEGRAM"]["TOKEN"])
+        .concurrent_updates(True)
+        .post_init(post_init)
+        .build()
     )
 
-    # ping handler
-    dispatcher.add_handler(
-        MessageHandler(Filters.text & Filters.regex(r"^ping$"), api.ping),
-        group=2,
+    application.add_error_handler(error_handler)
+    job_queue = application.job_queue
+
+    application.add_handlers(
+        handlers={
+            -1: commands.command_list,
+            1: [
+                MessageHandler(
+                    filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"), commands.sed
+                ),
+                MessageHandler(filters.TEXT & filters.Regex(r"^ping$"), commands.ping),
+                # TV Show Query Handlers
+                InlineQueryHandler(commands.inline_show_search),
+                ChosenInlineResultHandler(commands.inline_result_handler),
+                # Master Button Handler
+                CallbackQueryHandler(commands.button_handler),
+            ],
+            # Handle every Update and increment command + message count
+            2: [TypeHandler(Update, management.increment_command_count)],
+        }
     )
 
-    # Chat message count handler
-    dispatcher.add_handler(
-        MessageHandler(
-            ~Filters.chat_type.private,
-            chat_management.increment,
-        ),
-        group=3,
-    )
-
-    # Bot error handler
-    dispatcher.add_error_handler(error_handler)
-
-    # Daily stats clear
-    job_queue.run_daily(chat_management.clear, time=datetime.time(18, 30))
+    # TV Show notification workers
+    job_queue.run_daily(commands.worker_next_episode, time=datetime.time(0, 0))
+    job_queue.run_repeating(commands.worker_episode_notifier, interval=300, first=10)
 
     # Deliver Reddit subscriptions
-    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(17, 30))
-    job_queue.run_daily(api.deliver_reddit_subscriptions, time=datetime.time(3, 30))
+    job_queue.run_daily(
+        commands.worker_reddit_subscriptions, time=datetime.time(17, 30)
+    )
 
-    # TV Show Notification Workers
-    job_queue.run_daily(inline.next_episode_worker, time=datetime.time(17, 30))
-    job_queue.run_repeating(inline.episode_notifier_worker, interval=300, first=10)
+    # Seed random Reddit posts
+    job_queue.run_once(commands.worker_seed_posts, 10)
 
-    # Scan YouTube channels
-    # job_queue.run_repeating(api.scan_youtube_channels, interval=60, first=0)
-
-    # Start seeding random posts
-    dispatcher.run_async(api.seed, 10, False)
-    dispatcher.run_async(api.seed, 10, True)
-
-    # Set bot commands menu
-    dispatcher.bot.set_my_commands([(cmd.cmd, cmd.desc) for cmd in commands])
-
-    # Add show query handler
-    dispatcher.add_handler(InlineQueryHandler(inline.inline_show_query))
-    dispatcher.add_handler(ChosenInlineResultHandler(inline.show_result_handler))
-    dispatcher.add_handler(CallbackQueryHandler(inline.tv_show_button))
-
-    updater.start_polling(drop_pending_updates=True)
-    bot: telegram.Bot = updater.bot
-
-    if not config["TESTING"]:
-        bot.send_message(
-            chat_id=LOGGING_CHANNEL,
-            text=f"@{bot.username} started at {datetime.datetime.now()}",
+    if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
+        logger.info(f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']}")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=int(os.environ.get("PORT", "8443")),
+            url_path=config["TELEGRAM"]["TOKEN"],
+            webhook_url=config["TELEGRAM"]["WEBHOOK_URL"],
         )
-    log.info(f"@{bot.username} started at {datetime.datetime.now()}")
-
-    updater.idle()
+    else:
+        logger.info(f"Using polling...")
+        application.run_polling()
 
 
 if __name__ == "__main__":
