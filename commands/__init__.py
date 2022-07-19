@@ -30,6 +30,7 @@ from .tv import *
 from .ud import ud
 from .uwu import uwu
 from .vision import age, caption
+from .weather import weather
 
 command_list = [
     CommandHandler("start", start),
@@ -71,6 +72,8 @@ command_list = [
     CommandHandler(
         "caption", caption if "AZURE_API_KEY" in config["API"] else disabled
     ),
+    CommandHandler("weather", weather),
+    CommandHandler("w", weather),
 ]
 
 
