@@ -29,6 +29,7 @@ from .translate import translate, tts
 from .tv import *
 from .ud import ud
 from .uwu import uwu
+from .vision import age, caption
 
 command_list = [
     CommandHandler("start", start),
@@ -66,6 +67,10 @@ command_list = [
     CommandHandler("tts", tts),
     CommandHandler("ud", ud),
     CommandHandler("uwu", uwu),
+    CommandHandler("age", age if "AZURE_API_KEY" in config["API"] else disabled),
+    CommandHandler(
+        "caption", caption if "AZURE_API_KEY" in config["API"] else disabled
+    ),
 ]
 
 

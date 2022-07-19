@@ -12,12 +12,12 @@ command_usage = {
     "dl": {
         "description": "Download the media attached to a link.",
         "usage": "/dl [url]",
-        "example": "/dl https://www.youtube.com/watch?v=oOc1Bp01Buo",
+        "example": "/dl https://youtu.be/oOc1Bp01Buo",
     },
     "c": {
         "description": "Get the top Reddit comment for a link.",
         "usage": "/c [url]",
-        "example": "/c https://www.youtube.com/watch?v=oOc1Bp01Buo",
+        "example": "/c https://youtu.be/dQw4w9WgXcQ",
     },
 }
 

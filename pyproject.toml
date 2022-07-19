@@ -20,6 +20,8 @@ howlongtobeatpy = "^0.1.22"
 spurdify = "^0.3.0"
 translatepy = "^2.3"
 uwuify = "^1.1.0"
+azure-cognitiveservices-vision-computervision = "^0.9.0"
+geopy = "^2.2.0"
 
 [tool.poetry.dev-dependencies]
 

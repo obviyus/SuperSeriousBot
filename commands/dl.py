@@ -54,7 +54,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     # Parse URL entity in a given link
     url = utils.extract_link(update)
     if not url:
-        await update.message.reply_text("No URL found.")
+        await utils.usage_string(update.message)
         return
 
     send_as = "images"
