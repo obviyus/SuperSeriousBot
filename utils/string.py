@@ -19,6 +19,66 @@ command_usage = {
         "usage": "/c [url]",
         "example": "/c https://youtu.be/dQw4w9WgXcQ",
     },
+    "w": {
+        "description": "Get the weather for a location. Caches your last used location.",
+        "usage": "/w [location]",
+        "example": "/w Canary Wharf",
+    },
+    "weather": {
+        "description": "Get the weather for a location. Caches your last used location.",
+        "usage": "/weather [location]",
+        "example": "/weather Canary Wharf",
+    },
+    "stats": {
+        "description": "Get the stats for the chat.",
+        "usage": "/stats",
+        "example": "/stats",
+    },
+    "botstats": {
+        "description": "Get the stats for commands of this bot. Only usable by the developers.",
+        "usage": "/botstats",
+        "example": "/botstats",
+    },
+    "book": {
+        "description": "Searches for a book on Goodreads.",
+        "usage": "/book [title]",
+        "example": "/book The Great Gatsby",
+    },
+    "calc": {
+        "description": "Execute a query on WolframAlpha.",
+        "usage": "/calc [expression]",
+        "example": "/calc Distance between the Sun and Moon",
+    },
+    "cat": {
+        "description": "Get a random cat picture.",
+        "usage": "/cat",
+        "example": "/cat",
+    },
+    "hltb": {
+        "description": "Get the playtime for a game.",
+        "usage": "/hltb [game]",
+        "example": "/hltb Half Life 2",
+    },
+    "gif": {
+        "description": "Get a random gif.",
+        "usage": "/gif",
+        "example": "/gif",
+    },
+    "joke": {
+        "description": "Get a random joke.",
+        "usage": "/joke",
+        "example": "/joke",
+    },
+    "insult": {
+        "description": "Get a random insult.",
+        "usage": "/insult",
+        "example": "/insult",
+    },
+    "meme": {
+        "description": "Get a random meme.",
+        "usage": "/meme",
+        "example": "/meme",
+    },
 }
 
 
