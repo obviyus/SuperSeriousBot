@@ -3,12 +3,12 @@ import sqlite3
 import redis
 
 sqlite_conn = sqlite3.connect(
-    "/db/SuperSeriousBot.db", check_same_thread=False, isolation_level=None
+    "./SuperSeriousBot.db", check_same_thread=False, isolation_level=None
 )
 sqlite_conn.row_factory = sqlite3.Row
 
 redis = redis.StrictRedis(
-    host="localhost", port=6379, db=0, decode_responses=True, charset="utf-8"
+    host="redis", port=6379, db=0, decode_responses=True, charset="utf-8"
 )
 
 cursor = sqlite_conn.cursor()
