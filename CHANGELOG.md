@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.6.0...v1.6.1) (2022-07-19)
+
+
+### Bug Fixes
+
+* **redis:** use Docker network to connect redis ([4d69347](https://github.com/obviyus/SuperSeriousBot/commit/4d6934731350ac746bcba5c86c9de1ca60ba7159))
+
 # [1.6.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.5.1...v1.6.0) (2022-07-19)
 
 
