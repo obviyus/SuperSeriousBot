@@ -5,7 +5,7 @@ from telegram.ext import CommandHandler
 
 import management
 from config.options import config
-from main import disabled, start
+from main import start
 from .animals import animal
 from .book import book
 from .calc import calc
@@ -17,7 +17,7 @@ from .insult import insult
 from .joke import joke
 from .meme import meme
 from .person import person
-from .pic import pic
+from .pic import pic, worker_image_seeder
 from .ping import ping
 from .randdit import nsfw, randdit, worker_seed_posts
 from .reddit_comment import get_top_comment
@@ -31,6 +31,14 @@ from .ud import ud
 from .uwu import uwu
 from .vision import age, caption
 from .weather import weather
+
+
+async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Disabled command handler.
+    """
+    await update.message.reply_text("❌ This command is disabled.")
+
 
 command_list = [
     CommandHandler("start", start),
@@ -61,7 +69,9 @@ command_list = [
     CommandHandler("spurdo", spurdo),
     CommandHandler("sub", subscribe_reddit if "REDDIT" in config["API"] else disabled),
     CommandHandler(
-        "unsub", list_reddit_subscriptions if "REDDIT" in config["API"] else disabled
+        "unsub",
+        list_reddit_subscriptions if "REDDIT" in config["API"] else disabled,
+        block=False,
     ),
     CommandHandler("tldr", tldr if "SMMRY_API_KEY" in config["API"] else disabled),
     CommandHandler("tl", translate),
@@ -70,7 +80,9 @@ command_list = [
     CommandHandler("uwu", uwu),
     CommandHandler("age", age if "AZURE_API_KEY" in config["API"] else disabled),
     CommandHandler(
-        "caption", caption if "AZURE_API_KEY" in config["API"] else disabled
+        "caption",
+        caption if "AZURE_API_KEY" in config["API"] else disabled,
+        block=False,
     ),
     CommandHandler("weather", weather),
     CommandHandler("w", weather),

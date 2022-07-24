@@ -26,9 +26,11 @@ async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "search/results/work/best_book/id"
     )
 
+    text = ""
     if book_id:
         text = make_result(book_id)
-    else:
+
+    if not text:
         text = "No entry found."
 
     await update.message.reply_text(
@@ -42,7 +44,7 @@ def make_result(goodreads_id: str) -> str:
     """Search using GoodReads ID of item"""
 
     response = requests.get(
-        "https://www.goodreads.com/search.xml",
+        "https://www.goodreads.com/book/show.xml",
         params={"id": goodreads_id, "key": config["API"]["GOODREADS_API_KEY"]},
     )
 
@@ -55,21 +57,18 @@ def make_result(goodreads_id: str) -> str:
     isbn = node.findtext("isbn13")
     year = node.findtext("publication_year")
     author = node.findtext("authors/author/name")
-    pages = node.find("num_pages")
-    pages = pages.text if pages else ""
-    url = node.find("url")
-    url = url.text if url else ""
-    stars = node.find("average_rating")
-    stars = f"⭐ {stars.text}" if stars else ""
+    pages = node.findtext("num_pages")
+    url = node.findtext("url")
+    stars = f"""⭐ {node.findtext("average_rating")}"""
 
-    description = node.findtext("description").replace("<br />", "")
-    description = description[: description.index(".", 200) + 1]
+    description = utils.cleaner.scrub_html_tags(node.findtext("description"))
+    description = description[: description.index(".", 200) + 1].replace(".", ". ")
 
-    cover_url = f"http://covers.openlibrary.org/b/isbn/{isbn}-L.jpg"
+    cover_url = f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg"
 
     return (
-        f"<b>{title}</b> - ({year})\n"
+        f"<b>{title}</b> - ({year})\n\n"
         f"<a href='{cover_url}'>&#8205;</a>"
-        f"{author}\n{stars} 📖 {pages} pages 🔗 <a href='{url}'>Goodreads</a>\n"
+        f"✏️{author}\n{stars}\n📖 {pages} pages\n🔗 <a href='{url}'>Goodreads</a>\n"
         f"\n{description}"
     )

@@ -4,7 +4,7 @@ services:
     build: .
     volumes:
       - ./db/:/db/
-      - .:/code
+      - ./src:/code/src
     env_file:
       - ssgbot.env
     depends_on:

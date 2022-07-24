@@ -49,6 +49,8 @@ async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text(text=text, parse_mode=ParseMode.HTML)
     except AttributeError:
         await utils.usage_string(update.message)
+    except IndexError:
+        await update.message.reply_text("No photo found.")
 
 
 async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -76,3 +78,5 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text(text=text, parse_mode=ParseMode.HTML)
     except AttributeError:
         await utils.usage_string(update.message)
+    except IndexError:
+        await update.message.reply_text("No photo found.")

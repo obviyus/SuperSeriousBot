@@ -88,13 +88,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
 
-async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Disabled command handler.
-    """
-    await update.message.reply_text("❌ This command is disabled.")
-
-
 def main():
     application = (
         ApplicationBuilder()
@@ -112,17 +105,21 @@ def main():
             -1: commands.command_list,
             1: [
                 MessageHandler(
-                    filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"), commands.sed
+                    filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
+                    commands.sed,
+                    block=False,
                 ),
-                MessageHandler(filters.TEXT & filters.Regex(r"^ping$"), commands.ping),
+                MessageHandler(
+                    filters.TEXT & filters.Regex(r"^ping$"), commands.ping, block=False
+                ),
                 # TV Show Query Handlers
-                InlineQueryHandler(commands.inline_show_search),
-                ChosenInlineResultHandler(commands.inline_result_handler),
+                InlineQueryHandler(commands.inline_show_search, block=False),
+                ChosenInlineResultHandler(commands.inline_result_handler, block=False),
                 # Master Button Handler
-                CallbackQueryHandler(commands.button_handler),
+                CallbackQueryHandler(commands.button_handler, block=False),
             ],
             # Handle every Update and increment command + message count
-            2: [TypeHandler(Update, management.increment_command_count)],
+            2: [TypeHandler(Update, management.increment_command_count, block=False)],
         }
     )
 
@@ -137,6 +134,7 @@ def main():
 
     # Seed random Reddit posts
     job_queue.run_once(commands.worker_seed_posts, 10)
+    job_queue.run_once(commands.worker_image_seeder, 10)
 
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']}")
@@ -148,7 +146,7 @@ def main():
         )
     else:
         logger.info(f"Using polling...")
-        application.run_polling()
+        application.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":

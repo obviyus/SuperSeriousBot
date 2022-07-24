@@ -6,7 +6,7 @@ import yt_dlp
 from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
 from redvid import Downloader
-from telegram import InputMediaDocument, InputMediaPhoto, Update
+from telegram import InputMediaPhoto, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
@@ -30,11 +30,15 @@ reddit_downloader.max_s = 50 * (1 << 20)
 
 
 def get_imgur_url_list(parsed_url, count):
-    headers: dict = {"Authorization": f"Client-ID {config['API']['IMGUR_API_KEY']}"}
     imgur_hash: str = parsed_url.path.split("/")[-1]
+
     imgur_request_url: str = f"https://api.imgur.com/3/album/{imgur_hash}/images"
+
     try:
-        resp = requests.get(imgur_request_url, headers=headers)
+        resp = requests.get(
+            imgur_request_url,
+            headers={"Authorization": f"Client-ID {config['API']['IMGUR_API_KEY']}"},
+        )
     except requests.RequestException:
         return []
 
@@ -49,7 +53,7 @@ MAX_IMAGE_COUNT = 10
 
 async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Download video from the given link.
+    Download the image or video from a link.
     """
     # Parse URL entity in a given link
     url = utils.extract_link(update)
@@ -57,23 +61,19 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await utils.usage_string(update.message)
         return
 
-    send_as = "images"
-    if context.args and ("files" in context.args or "file" in context.args):
-        send_as = "files"
-
-    parsed_original_url = urlparse(url)
-    img_url_list: list = []
+    parsed_url = urlparse(url)
+    image_list: list = []
 
     # Prefix the URL with the scheme if it is missing
-    if not parsed_original_url.scheme:
+    if not parsed_url.scheme:
         original_url = "https://" + url
-        parsed_original_url = urlparse(original_url)
+        parsed_url = urlparse(original_url)
 
-    if "imgur" in parsed_original_url.hostname:
-        img_url_list = get_imgur_url_list(parsed_original_url, MAX_IMAGE_COUNT)
-    elif parsed_original_url.hostname in ["i.redd.it", "preview.redd.it"]:
-        img_url_list = [url]
-    elif "v.redd.it" in parsed_original_url.hostname:
+    if "imgur" in parsed_url.hostname:
+        image_list = get_imgur_url_list(parsed_url, MAX_IMAGE_COUNT)
+    elif parsed_url.hostname in ["i.redd.it", "preview.redd.it"]:
+        image_list = [url]
+    elif "v.redd.it" in parsed_url.hostname:
         reddit.url = url
         try:
             file_path = reddit.download()
@@ -89,7 +89,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             logger.error(e)
             await update.message.reply_text("Failed to download Reddit video.")
             return
-    elif "redd.it" in parsed_original_url.hostname or "reddit.com" in parsed_original_url.hostname:  # type: ignore
+    elif "redd.it" in parsed_url.hostname or "reddit.com" in parsed_url.hostname:  # type: ignore
         try:
             post = await reddit.submission(url=url)
             await post.load()
@@ -110,19 +110,19 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         if hasattr(post, "is_gallery"):
             # If url is a reddit gallery
             media_ids = [i["media_id"] for i in post.gallery_data["items"]]
-            img_url_list = [
+            image_list = [
                 post.media_metadata[media_id]["p"][-1]["u"]
                 for media_id in media_ids[:MAX_IMAGE_COUNT]
             ]
         elif post.domain in ["i.redd.it", "v.redd.it"]:
             # If derived url is a single image or video
-            img_url_list = [post.url]
+            image_list = [post.url]
         elif post.domain == "imgur.com":
             # If post is an imgur album/image
             parsed_imgur_url = urlparse(post.url)
-            img_url_list = get_imgur_url_list(parsed_imgur_url, MAX_IMAGE_COUNT)
+            image_list = get_imgur_url_list(parsed_imgur_url, MAX_IMAGE_COUNT)
 
-    if not img_url_list:
+    if not image_list:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
                 try:
@@ -142,11 +142,6 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 logger.error(e)
                 await update.message.reply_text("Failed to download video.")
     else:
-        if send_as == "images":
-            InputMediaTarget = InputMediaPhoto
-        else:
-            InputMediaTarget = InputMediaDocument
-
         await update.message.reply_media_group(
-            [InputMediaTarget(img_url) for img_url in img_url_list]
+            [InputMediaPhoto(img_url) for img_url in image_list]
         )

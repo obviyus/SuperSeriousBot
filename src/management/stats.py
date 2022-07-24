@@ -95,7 +95,7 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     for _, _, timestamp, user_id, count in users:
         chat_user = await context.bot.get_chat(user_id)
         username = chat_user.username or chat_user.first_name
-        text += f"{escape_markdown(username)} - {count / total_count:.2%}\n"
+        text += f"@{escape_markdown(username)} - {count / total_count:.2%}\n"
 
     await update.message.reply_text(
         text,

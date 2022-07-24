@@ -9,7 +9,7 @@ WOLFRAM_SHORT_QUERY = "https://api.wolframalpha.com/v1/result"
 
 
 async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Calculate anything using wolframalpha"""
+    """Calculate anything using WolframAlpha"""
     if not context.args:
         await utils.usage_string(update.message)
         return

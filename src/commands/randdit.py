@@ -4,7 +4,12 @@ from random import choice
 from time import sleep
 
 from asyncpraw import models
-from asyncprawcore.exceptions import BadRequest, Forbidden, NotFound
+from asyncprawcore.exceptions import (
+    BadRequest,
+    Forbidden,
+    NotFound,
+    UnavailableForLegalReasons,
+)
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -21,9 +26,12 @@ async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE) -> None:
     limit = 10
 
     async def runner(is_nsfw):
-        post = await (await reddit.random_subreddit(is_nsfw)).random()
-        while post is None or post.spoiler:
+        try:
             post = await (await reddit.random_subreddit(is_nsfw)).random()
+            while post is None or post.spoiler:
+                post = await (await reddit.random_subreddit(is_nsfw)).random()
+        except UnavailableForLegalReasons:
+            return
 
         sleep(1)
         if is_nsfw:
@@ -35,7 +43,7 @@ async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE) -> None:
     nsfw_coros = [runner(True) for _ in range(limit)]
     all_coros = [runner(False) for _ in range(limit)]
 
-    await asyncio.gather(*nsfw_coros, *all_coros)
+    await context.application.create_task(asyncio.gather(*nsfw_coros, *all_coros))
 
 
 def make_response(post: models.Submission) -> str:
