@@ -1,3 +1,10 @@
+## [1.10.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.10.0...v1.10.1) (2022-07-24)
+
+
+### Bug Fixes
+
+* **dl:** handle video posts in Instagram ([27785a7](https://github.com/obviyus/SuperSeriousBot/commit/27785a73becdbda4ace621cf34e6f0246eac3788))
+
 # [1.10.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.9.1...v1.10.0) (2022-07-24)
 
 
