@@ -71,7 +71,6 @@ command_list = [
     CommandHandler(
         "unsub",
         list_reddit_subscriptions if "REDDIT" in config["API"] else disabled,
-        block=False,
     ),
     CommandHandler("tldr", tldr if "SMMRY_API_KEY" in config["API"] else disabled),
     CommandHandler("tl", translate),
@@ -82,7 +81,6 @@ command_list = [
     CommandHandler(
         "caption",
         caption if "AZURE_API_KEY" in config["API"] else disabled,
-        block=False,
     ),
     CommandHandler("weather", weather),
     CommandHandler("w", weather),

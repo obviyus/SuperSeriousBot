@@ -107,19 +107,30 @@ def main():
                 MessageHandler(
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
                     commands.sed,
-                    block=False,
                 ),
                 MessageHandler(
-                    filters.TEXT & filters.Regex(r"^ping$"), commands.ping, block=False
+                    filters.TEXT & filters.Regex(r"^ping$"),
+                    commands.ping,
                 ),
                 # TV Show Query Handlers
-                InlineQueryHandler(commands.inline_show_search, block=False),
-                ChosenInlineResultHandler(commands.inline_result_handler, block=False),
+                InlineQueryHandler(
+                    commands.inline_show_search,
+                ),
+                ChosenInlineResultHandler(
+                    commands.inline_result_handler,
+                ),
                 # Master Button Handler
-                CallbackQueryHandler(commands.button_handler, block=False),
+                CallbackQueryHandler(
+                    commands.button_handler,
+                ),
             ],
             # Handle every Update and increment command + message count
-            2: [TypeHandler(Update, management.increment_command_count, block=False)],
+            2: [
+                TypeHandler(
+                    Update,
+                    management.increment_command_count,
+                )
+            ],
         }
     )
 
