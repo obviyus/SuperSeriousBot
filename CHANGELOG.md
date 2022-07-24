@@ -1,3 +1,10 @@
+## [1.9.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.9.0...v1.9.1) (2022-07-24)
+
+
+### Bug Fixes
+
+* **block:** remove block = False flags ([a073788](https://github.com/obviyus/SuperSeriousBot/commit/a0737880926a7ba7a7f585199c29c9e9f425e3a1))
+
 # [1.9.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.8.0...v1.9.0) (2022-07-24)
 
 
