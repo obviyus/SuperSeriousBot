@@ -59,7 +59,7 @@ schema = {
                 "type": "string",
                 "required": False,
             },
-            "INSTAGRAM_SESSION_FILE": {
+            "INSTAGRAM_SESSION_NAME": {
                 "type": "string",
                 "required": False,
             },
@@ -111,7 +111,7 @@ config = {
         "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
         "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
         "IMGUR_API_KEY": os.environ.get("IMGUR_API_KEY", ""),
-        "INSTAGRAM_SESSION_FILE": os.environ.get("INSTAGRAM_SESSION_FILE", ""),
+        "INSTAGRAM_SESSION_NAME": os.environ.get("INSTAGRAM_SESSION_NAME", ""),
         "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
         "REDDIT": {
             "CLIENT_ID": os.environ.get("REDDIT_CLIENT_ID", ""),

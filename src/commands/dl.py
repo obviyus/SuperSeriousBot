@@ -8,7 +8,7 @@ from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
 from instaloader import Post
 from redvid import Downloader
-from telegram import InputMediaPhoto, Update
+from telegram import InputMediaPhoto, InputMediaVideo, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
@@ -49,9 +49,9 @@ def get_imgur_url_list(parsed_url, count):
         return []
 
     if resp.ok:
-        return [img["link"] for img in resp.json()["data"]][:count]
+        return [{"image": img["link"]} for img in resp.json()["data"]][:count]
     else:
-        return [parsed_url.geturl()]
+        return [{"image": parsed_url.geturl()}]
 
 
 MAX_IMAGE_COUNT = 10
@@ -68,7 +68,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
 
     parsed_url = urlparse(url)
-    image_list: list = []
+    image_list = []
 
     # Prefix the URL with the scheme if it is missing
     if not parsed_url.scheme:
@@ -78,14 +78,17 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if "imgur" in parsed_url.hostname:
         image_list = get_imgur_url_list(parsed_url, MAX_IMAGE_COUNT)
     elif parsed_url.hostname in ["i.redd.it", "preview.redd.it"]:
-        image_list = [url]
+        image_list = [{"image": url}]
     elif "instagram.com" in parsed_url.hostname:
         # Extract shortcode
         shortcode = parsed_url.path.split("/")[-2]
 
         # Get the media URL
         for each in Post.from_shortcode(L.context, shortcode).get_sidecar_nodes():
-            image_list.append(each.display_url)
+            if each.is_video:
+                image_list.append({"video": each.video_url})
+            else:
+                image_list.append({"image": each.display_url})
     elif "v.redd.it" in parsed_url.hostname:
         reddit.url = url
         try:
@@ -124,12 +127,12 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             # If url is a reddit gallery
             media_ids = [i["media_id"] for i in post.gallery_data["items"]]
             image_list = [
-                post.media_metadata[media_id]["p"][-1]["u"]
+                {"image": post.media_metadata[media_id]["p"][-1]["u"]}
                 for media_id in media_ids[:MAX_IMAGE_COUNT]
             ]
         elif post.domain in ["i.redd.it", "v.redd.it"]:
             # If derived url is a single image or video
-            image_list = [post.url]
+            image_list = [{"image": post.url}]
         elif post.domain == "imgur.com":
             # If post is an imgur album/image
             parsed_imgur_url = urlparse(post.url)
@@ -153,8 +156,14 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                         await update.message.reply_text("Failed to download video.")
             except Exception as e:
                 logger.error(e)
+
                 await update.message.reply_text("Failed to download video.")
     else:
         await update.message.reply_media_group(
-            [InputMediaPhoto(img_url) for img_url in image_list]
+            [
+                InputMediaPhoto(content["image"])
+                if "image" in content
+                else InputMediaVideo(content["video"])
+                for content in image_list
+            ]
         )
