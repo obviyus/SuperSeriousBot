@@ -43,10 +43,6 @@ schema = {
                 "type": "string",
                 "required": False,
             },
-            "CLIMACELL_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
             "GIPHY_API_KEY": {
                 "type": "string",
                 "required": False,
@@ -60,6 +56,10 @@ schema = {
                 "required": False,
             },
             "WOLFRAM_APP_ID": {
+                "type": "string",
+                "required": False,
+            },
+            "INSTAGRAM_SESSION_FILE": {
                 "type": "string",
                 "required": False,
             },
@@ -106,12 +106,12 @@ config = {
     },
     "API": {
         "AZURE_API_KEY": os.environ.get("AZURE_API_KEY", ""),
-        "CLIMACELL_API_KEY": os.environ.get("CLIMACELL_API_KEY", ""),
         "GIPHY_API_KEY": os.environ.get("GIPHY_API_KEY", ""),
         "GOODREADS_API_KEY": os.environ.get("GOODREADS_API_KEY", ""),
         "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
         "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
         "IMGUR_API_KEY": os.environ.get("IMGUR_API_KEY", ""),
+        "INSTAGRAM_SESSION_FILE": os.environ.get("INSTAGRAM_SESSION_FILE", ""),
         "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
         "REDDIT": {
             "CLIENT_ID": os.environ.get("REDDIT_CLIENT_ID", ""),

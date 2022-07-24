@@ -1,10 +1,12 @@
 import os
 from urllib.parse import urlparse
 
+import instaloader
 import requests
 import yt_dlp
 from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
+from instaloader import Post
 from redvid import Downloader
 from telegram import InputMediaPhoto, Update
 from telegram.error import BadRequest
@@ -27,6 +29,10 @@ ydl_opts = {
 reddit_downloader = Downloader()
 reddit_downloader.auto_max = True
 reddit_downloader.max_s = 50 * (1 << 20)
+
+L = instaloader.Instaloader()
+if "INSTAGRAM_SESSION_NAME" in config["API"]:
+    L.load_session_from_file(config["API"]["INSTAGRAM_SESSION_NAME"])
 
 
 def get_imgur_url_list(parsed_url, count):
@@ -73,6 +79,13 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         image_list = get_imgur_url_list(parsed_url, MAX_IMAGE_COUNT)
     elif parsed_url.hostname in ["i.redd.it", "preview.redd.it"]:
         image_list = [url]
+    elif "instagram.com" in parsed_url.hostname:
+        # Extract shortcode
+        shortcode = parsed_url.path.split("/")[-2]
+
+        # Get the media URL
+        for each in Post.from_shortcode(L.context, shortcode).get_sidecar_nodes():
+            image_list.append(each.display_url)
     elif "v.redd.it" in parsed_url.hostname:
         reddit.url = url
         try:

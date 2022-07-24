@@ -524,6 +524,17 @@ python-editor = ">=1.0.4"
 readchar = ">=2.0.1"
 
 [[package]]
+name = "instaloader"
+version = "4.9.2"
+description = "Download pictures (or videos) along with their captions and other metadata from Instagram."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+requests = ">=2.4"
+
+[[package]]
 name = "isodate"
 version = "0.6.1"
 description = "An ISO 8601 date/time/duration parser and formatter"
@@ -992,7 +1003,7 @@ websockets = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "6add9b96c59d12d4faba269b524fd4fb2ad65360e3c4503cf80801ab25001c24"
+content-hash = "1e24ac1b98867d62c4ff52c2318a03fb6a150086c5d5d0baa299f45c124966d7"
 
 [metadata.files]
 aiofiles = [
@@ -1362,6 +1373,9 @@ idna = []
 inquirer = [
     {file = "inquirer-2.9.2-py3-none-any.whl", hash = "sha256:ea44fe074e878e74af05b6902314d7d7b8ff5d2db5259bcb37d6c5ec9b75afa6"},
     {file = "inquirer-2.9.2.tar.gz", hash = "sha256:4a53cb9386601476e9f3241adace469ae6d1143ace2ee82f2768149e85861ab8"},
+]
+instaloader = [
+    {file = "instaloader-4.9.2.tar.gz", hash = "sha256:bb4a3a89d0476d5e30a1f9dfa2263c94ed6e2cbd880e5159fcf5843310b5346f"},
 ]
 isodate = [
     {file = "isodate-0.6.1-py2.py3-none-any.whl", hash = "sha256:0751eece944162659049d35f4f549ed815792b38793f07cf73381c1c87cbed96"},
