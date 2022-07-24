@@ -3,8 +3,8 @@ from datetime import datetime
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
-from telegram.helpers import escape_markdown
 
+import utils.string
 from config.db import redis, sqlite_conn
 from utils import readable_time, usage_string
 
@@ -20,10 +20,15 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     user_object = update.message.from_user
 
     # Set last seen time in Redis
-    redis.set(f"seen:{user_object.username}", round(datetime.now().timestamp()))
+    redis.set(
+        f"seen:{user_object.username}",
+        round(datetime.now().timestamp()),
+    )
 
     # Update user_id vs. username in Redis
-    redis.set(f"user_id:{user_object.id}", user_object.username)
+    redis.set(
+        f"user_id:{user_object.id}", user_object.username or user_object.first_name
+    )
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
@@ -83,19 +88,20 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("No messages recorded.")
         return
 
-    text = f"Stats for <b>{update.message.chat.title}:</b>\n"
+    text = f"Stats for <b>{update.message.chat.title}:</b>\n\n"
 
     # TODO: Use a NamedTuple for cleaner code
     total_count = sum(user[4] for user in users)
 
     # Ignore special case for user
     if user_object.id == 1060827049:
-        text += f"{escape_markdown(user_object.first_name)} - 100% degen\n"
+        text += (
+            f"{await utils.string.get_username(user_object.id, context)} - 100% degen\n"
+        )
 
     for _, _, timestamp, user_id, count in users:
-        chat_user = await context.bot.get_chat(user_id)
-        username = chat_user.username or chat_user.first_name
-        text += f"@{escape_markdown(username)} - {count / total_count:.2%}\n"
+        percent = round(count / total_count * 100, 2)
+        text += f"""<code>{percent if percent > 10 else f"0{percent}"}% - {await utils.string.get_username(user_id, context)}</code>\n"""
 
     await update.message.reply_text(
         text,

@@ -2,6 +2,9 @@ from datetime import datetime
 
 from telegram import Message, MessageEntity
 from telegram.constants import ParseMode
+from telegram.ext import ContextTypes
+
+from config.db import redis
 
 command_usage = {
     "seen": {
@@ -122,3 +125,20 @@ async def readable_time(input_timestamp: int) -> str:
     else:
         years = seconds // 31536000
         return f"{years} year" + ("s" if years > 1 else "")
+
+
+async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """
+    Get the username and/or first_name for a user_id.
+    """
+    username = redis.get(f"user_id:{user_id}")
+    print(f"username: {username}")
+    if username:
+        return username
+    else:
+        chat = await context.bot.get_chat(user_id)
+        if chat.username:
+            redis.set(f"user_id:{user_id}", chat.username)
+            return chat.username
+        else:
+            return chat.first_name
