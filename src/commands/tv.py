@@ -15,8 +15,8 @@ from telegram.error import BadRequest
 from telegram.ext import CallbackContext, ContextTypes
 
 import utils.cleaner
+from config.db import sqlite_conn
 from config.logger import logger
-from db import sqlite_conn
 
 TVMAZE_SEARCH_ENDPOINT = "https://api.tvmaze.com/search/shows"
 

@@ -20,9 +20,9 @@ from telegram.ext import (
 
 import commands
 import management
+from config.db import redis
 from config.logger import logger
 from config.options import config
-from db import redis
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):

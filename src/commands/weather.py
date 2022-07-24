@@ -5,7 +5,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import utils
-from db import redis
+from config.db import redis
 
 geolocator = Nominatim(user_agent="SuperSeriousBot")
 

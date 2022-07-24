@@ -9,7 +9,7 @@ from telegram.constants import ParseMode
 from telegram.ext import CallbackContext, ContextTypes
 
 import utils
-from db import sqlite_conn
+from config.db import sqlite_conn
 from .reddit_comment import reddit
 
 

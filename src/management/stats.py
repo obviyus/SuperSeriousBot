@@ -5,7 +5,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown
 
-from db import redis, sqlite_conn
+from config.db import redis, sqlite_conn
 from utils import readable_time, usage_string
 
 
