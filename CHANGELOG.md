@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.6.1...v1.7.0) (2022-07-24)
+
+
+### Features
+
+* **move:** store logic in `src` directory ([6d1f6a6](https://github.com/obviyus/SuperSeriousBot/commit/6d1f6a662353f0783db7f989559f319e0c1e6630))
+
 ## [1.6.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.6.0...v1.6.1) (2022-07-19)
 
 
