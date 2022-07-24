@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.7.0...v1.7.1) (2022-07-24)
+
+
+### Bug Fixes
+
+* **move:** move db.py to config ([442975e](https://github.com/obviyus/SuperSeriousBot/commit/442975e4ac2cd1c3482730c15c885886f06c63e3))
+
 # [1.7.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.6.1...v1.7.0) (2022-07-24)
 
 
