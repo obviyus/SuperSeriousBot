@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.9.1...v1.10.0) (2022-07-24)
+
+
+### Features
+
+* **dl:** support for downloading Instagram posts ([554ddb7](https://github.com/obviyus/SuperSeriousBot/commit/554ddb7c46f8fc5302e7c6e95bc4474b2c657178))
+
 ## [1.9.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.9.0...v1.9.1) (2022-07-24)
 
 
