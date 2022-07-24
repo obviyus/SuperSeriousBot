@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.8.0...v1.9.0) (2022-07-24)
+
+
+### Features
+
+* **gstats:** command for total chat stats ([855281f](https://github.com/obviyus/SuperSeriousBot/commit/855281fd7e7b85acbddb60ae52eb9a0a1bffd318))
+
 # [1.8.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.7.1...v1.8.0) (2022-07-24)
 
 
