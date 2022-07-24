@@ -86,6 +86,7 @@ command_list = [
     ),
     CommandHandler("weather", weather),
     CommandHandler("w", weather),
+    CommandHandler("gstats", management.get_total_chat_stats),
 ]
 
 

@@ -95,13 +95,60 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Ignore special case for user
     if user_object.id == 1060827049:
-        text += (
-            f"{await utils.string.get_username(user_object.id, context)} - 100% degen\n"
-        )
+        text += f"<code>100% degen - {await utils.string.get_username(user_object.id, context)}</code>\n"
 
     for _, _, timestamp, user_id, count in users:
         percent = round(count / total_count * 100, 2)
-        text += f"""<code>{percent if percent > 10 else f"0{percent}"}% - {await utils.string.get_username(user_id, context)}</code>\n"""
+        text += f"""<code>{percent if percent > 10 else f" {percent}"}% - {await utils.string.get_username(user_id, context)}</code>\n"""
+
+    text += f"\nTotal messages: <b>{total_count}</b>"
+
+    await update.message.reply_text(
+        text,
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def get_total_chat_stats(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """
+    Get total message count for all users.
+    """
+    chat_id = update.message.chat_id
+    user_object = update.message.from_user
+
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        SELECT *, COUNT(user_id)
+        FROM chat_stats
+        WHERE chat_id = ?
+        GROUP BY user_id
+        ORDER BY COUNT(user_id) DESC
+        LIMIT 10;
+        """,
+        (chat_id,),
+    )
+
+    users = cursor.fetchall()
+
+    if not users:
+        await update.message.reply_text("No messages recorded.")
+        return
+
+    text = f"Stats for <b>{update.message.chat.title}:</b>\n\n"
+    total_count = sum(user[4] for user in users)
+
+    # Ignore special case for user
+    if user_object.id == 1060827049:
+        text += f"<code>100% degen - {await utils.string.get_username(user_object.id, context)}</code>\n"
+
+    for _, _, timestamp, user_id, count in users:
+        percent = round(count / total_count * 100, 2)
+        text += f"""<code>{percent if percent > 10 else f" {percent}"}% - {await utils.string.get_username(user_id, context)}</code>\n"""
+
+    text += f"\nTotal messages: <b>{total_count}</b>"
 
     await update.message.reply_text(
         text,
