@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.7.1...v1.8.0) (2022-07-24)
+
+
+### Features
+
+* **stats:** reformat stats ([e48ca88](https://github.com/obviyus/SuperSeriousBot/commit/e48ca880ca506343f742dd34f1fd6f0e5f763ea9))
+
 ## [1.7.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.7.0...v1.7.1) (2022-07-24)
 
 
