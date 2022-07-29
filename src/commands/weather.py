@@ -18,8 +18,14 @@ class Point:
             self.latitude = latitude
             self.longitude = longitude
             self.address = address
+            self.found = False
         else:
             location = geolocator.geocode(name, exactly_one=True)
+            if not location:
+                self.found = False
+                return
+
+            self.found = True
             self.latitude = location.latitude
             self.longitude = location.longitude
 
@@ -56,6 +62,10 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if context.args:
         point = Point(" ".join(context.args))
+        if not point.found:
+            await update.message.reply_text("Could not find location.")
+            return
+
         point_data = {
             "latitude": point.latitude,
             "longitude": point.longitude,
