@@ -11,7 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
 # `builder-base` stage is used to build deps + create our virtual environment
 FROM python-base as builder-base
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y curl build-essential
+    && apt-get install --no-install-recommends -y curl build-essential ffmpeg
 
 RUN pip install poetry
 
