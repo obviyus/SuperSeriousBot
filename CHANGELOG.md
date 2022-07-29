@@ -1,3 +1,17 @@
+# [1.11.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.10.1...v1.11.0) (2022-07-29)
+
+
+### Bug Fixes
+
+* **async:** gather all coroutines at once ([7e0a1fd](https://github.com/obviyus/SuperSeriousBot/commit/7e0a1fdb364a3ff95643ad7bd24dfbc24e7a3f40))
+* **dl:** implement Python 3.10 match operators for URLs ([e6254e1](https://github.com/obviyus/SuperSeriousBot/commit/e6254e1e5b4684a5f286ceae619c3ea12e1d8762))
+* **weather:** check if location exists ([b982069](https://github.com/obviyus/SuperSeriousBot/commit/b98206953c5bd8dd1ae6139250b5e6cb373f5224))
+
+
+### Features
+
+* **httpx:** replace requests with httpx ([58ea116](https://github.com/obviyus/SuperSeriousBot/commit/58ea11691e73d02326967885c1a49d8d1dfc6adf))
+
 ## [1.10.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.10.0...v1.10.1) (2022-07-24)
 
 
