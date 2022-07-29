@@ -1,4 +1,4 @@
-import requests
+import httpx
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -8,7 +8,10 @@ async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message:
         return
 
-    url: str = requests.get("https://meme-api.herokuapp.com/gimme").json()["url"]
+    async with httpx.AsyncClient() as client:
+        response = await client.get("https://meme-api.herokuapp.com/gimme")
+
+    url: str = response.json()["url"]
     if url.endswith(".gif"):
         await update.message.reply_animation(
             animation=url,

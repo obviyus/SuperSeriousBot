@@ -1,6 +1,6 @@
 from typing import Dict
 
-import requests
+import httpx
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -14,7 +14,9 @@ async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     # TODO: Choose a better API, Giphy's results repeat a lot
     url: str = "https://api.giphy.com/v1/gifs/random"
 
-    response: requests.Response = requests.get(url, params=params)
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, params=params)
+
     url = response.json()["data"]["images"]["original"]["url"]
 
     await update.message.reply_animation(

@@ -1,6 +1,6 @@
 from random import choices
 
-import requests
+import httpx
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -19,7 +19,9 @@ async def get_image():
     while not url:
         chars: str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghiklmnopqrstuvwxyz"
         address: str = "https://i.imgur.com/" + "".join(choices(chars, k=5)) + ".jpg"
-        r = requests.get(address)
+
+        async with httpx.AsyncClient() as client:
+            r = await client.get(address)
 
         # Ignore any images < 1000B
         if r.url == address and int(r.headers["content-length"]) > 1000:
@@ -43,6 +45,9 @@ async def worker_image_seeder(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get random images from imgur"""
+    if len(images) == 0:
+        await get_image()
+
     await update.message.reply_photo(
         photo=images.pop(),
         parse_mode=ParseMode.HTML,

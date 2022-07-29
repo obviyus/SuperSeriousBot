@@ -1,4 +1,4 @@
-import requests
+import httpx
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -15,9 +15,11 @@ async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await utils.usage_string(update.message)
         return
 
-    response = requests.get(
-        url=f"https://api.urbandictionary.com/v0/define?term={word}",
-    ).json()
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            url=f"https://api.urbandictionary.com/v0/define?term={word}",
+        )
+        response = response.json()
 
     if "error" in response:
         await update.message.reply_text(response["error"])

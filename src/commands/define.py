@@ -1,5 +1,6 @@
 import html
 
+import httpx
 import requests
 from telegram import Update
 from telegram.constants import ParseMode
@@ -25,7 +26,9 @@ async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             lang = context.args[0]
         word = context.args[2]
 
-    response = requests.get(DICTIONARY_API_ENDPOINT + f"/{lang}/{word}")
+    async with httpx.AsyncClient() as client:
+        response = await client.get(DICTIONARY_API_ENDPOINT + f"/{lang}/{word}")
+
     if response.status_code != 200:
         await update.message.reply_text(text="Word not found.")
         return

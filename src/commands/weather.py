@@ -1,4 +1,4 @@
-import requests
+import httpx
 from geopy import Nominatim
 from telegram import Update
 from telegram.constants import ParseMode
@@ -35,19 +35,20 @@ class Point:
             except IndexError:
                 self.address = f"{location.address}"
 
-    def get_weather(self):
-        response = requests.get(
-            WEATHER_ENDPOINT,
-            params={
-                "lat": self.latitude,
-                "lon": self.longitude,
-            },
-            headers={
-                "Accept": "application/json",
-                "Accept-Language": "en-US",
-                "User-Agent": "SuperSeriousBot",
-            },
-        )
+    async def get_weather(self):
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                WEATHER_ENDPOINT,
+                params={
+                    "lat": self.latitude,
+                    "lon": self.longitude,
+                },
+                headers={
+                    "Accept": "application/json",
+                    "Accept-Language": "en-US",
+                    "User-Agent": "SuperSeriousBot",
+                },
+            )
 
         return response.json()["properties"]["timeseries"][0]["data"]
 
@@ -84,7 +85,7 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             cached_point["address"],
         )
 
-    weather_data = point.get_weather()
+    weather_data = await point.get_weather()
 
     text = f"<b>{point.address}</b>\n\n"
     text += f"""🌡️ <b>Temperature:</b> {weather_data["instant"]["details"]['air_temperature']}°C\n"""

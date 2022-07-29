@@ -2,7 +2,7 @@ import time
 from collections import defaultdict
 
 import dateparser
-import requests
+import httpx
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -124,7 +124,12 @@ async def inline_show_search(
         return
 
     # Query TVMaze API for the name of the show
-    response = requests.get(TVMAZE_SEARCH_ENDPOINT, params={"q": query})
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            TVMAZE_SEARCH_ENDPOINT,
+            params={"q": query},
+        )
+
     results = []
 
     for show in response.json():
@@ -150,9 +155,11 @@ async def insert_new_show(show_id: int) -> None:
     Given an ID, insert a new show in the DB.
     """
 
-    response = requests.get(
-        f"https://api.tvmaze.com/shows/{show_id}?embed=next_episode"
-    ).json()
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://api.tvmaze.com/shows/{show_id}?embed=next_episode"
+        )
+        response = response.json()
 
     if "_embedded" in response and "next_episode" in response["_embedded"]:
         airing_time = response["_embedded"]["next_episode"]["airstamp"]
@@ -183,9 +190,11 @@ async def inline_result_handler(
     )
 
     if not cursor.fetchone():
-        response = requests.get(
-            f"https://api.tvmaze.com/shows/{show_id}?embed=nextepisode"
-        ).json()
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://api.tvmaze.com/shows/{show_id}?embed=nextepisode"
+            )
+            response = response.json()
 
         cursor.execute(
             "INSERT INTO tv_shows (show_id, show_name, show_image) VALUES (?, ?, ?)",

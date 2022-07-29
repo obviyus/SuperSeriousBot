@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 
-import requests
+import httpx
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -17,10 +17,12 @@ async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     query: str = " ".join(context.args)
-    response = requests.get(
-        "https://www.goodreads.com/search.xml",
-        params={"q": query, "key": config["API"]["GOODREADS_API_KEY"]},
-    )
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://www.goodreads.com/search.xml",
+            params={"q": query, "key": config["API"]["GOODREADS_API_KEY"]},
+        )
 
     book_id = ET.fromstring(response.content).findtext(
         "search/results/work/best_book/id"
@@ -28,7 +30,7 @@ async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     text = ""
     if book_id:
-        text = make_result(book_id)
+        text = await make_result(book_id)
 
     if not text:
         text = "No entry found."
@@ -40,13 +42,14 @@ async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-def make_result(goodreads_id: str) -> str:
+async def make_result(goodreads_id: str) -> str:
     """Search using GoodReads ID of item"""
 
-    response = requests.get(
-        "https://www.goodreads.com/book/show.xml",
-        params={"id": goodreads_id, "key": config["API"]["GOODREADS_API_KEY"]},
-    )
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://www.goodreads.com/book/show.xml",
+            params={"id": goodreads_id, "key": config["API"]["GOODREADS_API_KEY"]},
+        )
 
     root = ET.fromstring(response.content)
     node = root.find("book")

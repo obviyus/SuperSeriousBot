@@ -82,6 +82,11 @@ command_usage = {
         "usage": "/meme",
         "example": "/meme",
     },
+    "tldr": {
+        "description": "Get a TLDR for a link.",
+        "usage": "/tldr [url]",
+        "example": "/tldr https://www.bbc.com/news/world-us-canada-21001452",
+    },
 }
 
 
@@ -90,10 +95,14 @@ async def usage_string(message: Message) -> None:
     Return the usage string for a command.
     """
     command = (
-        list(message.parse_entities(MessageEntity.BOT_COMMAND).values())[0]
+        list(message.parse_entities([MessageEntity.BOT_COMMAND]).values())[0]
         .partition("@")[0][1:]
         .lower()
     )
+
+    if command not in command_usage:
+        await message.reply_text("Command not found.")
+        return
 
     await message.reply_text(
         f"{command_usage[command]['description']}\n\n<b>Usage:</b>\n<pre>{command_usage[command]['usage']}</pre>\n\n<b>Example:</b>\n<pre>{command_usage[command]['example']}</pre>",

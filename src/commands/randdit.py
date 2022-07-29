@@ -1,7 +1,5 @@
-import asyncio
 import logging
 from random import choice
-from time import sleep
 
 from asyncpraw import models
 from asyncprawcore.exceptions import (
@@ -14,6 +12,7 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+from config import logger
 from .reddit_comment import reddit
 
 random_posts_all = set()
@@ -33,17 +32,16 @@ async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE) -> None:
         except UnavailableForLegalReasons:
             return
 
-        sleep(1)
+        logger.info("Seeding post: %s", post.url)
         if is_nsfw:
             random_posts_nsfw.add(make_response(post))
         else:
             random_posts_all.add(make_response(post))
 
     # Run the worker in a loop asynchronously
-    nsfw_coros = [runner(True) for _ in range(limit)]
-    all_coros = [runner(False) for _ in range(limit)]
-
-    await context.application.create_task(asyncio.gather(*nsfw_coros, *all_coros))
+    for _ in range(limit):
+        await context.application.create_task(runner(False))
+        await context.application.create_task(runner(True))
 
 
 def make_response(post: models.Submission) -> str:
@@ -55,7 +53,7 @@ async def nsfw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(random_posts_nsfw.pop(), parse_mode=ParseMode.HTML)
 
     if len(random_posts_nsfw) < 5:
-        context.job_queue.run_once(worker_seed_posts, 0)
+        await context.job_queue.run_once(worker_seed_posts, 0)
 
 
 async def randdit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

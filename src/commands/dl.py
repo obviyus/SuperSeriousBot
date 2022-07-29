@@ -1,6 +1,7 @@
 import os
 from urllib.parse import urlparse
 
+import httpx
 import instaloader
 import requests
 import yt_dlp
@@ -35,21 +36,24 @@ if "INSTAGRAM_SESSION_NAME" in config["API"]:
     L.load_session_from_file(config["API"]["INSTAGRAM_SESSION_NAME"])
 
 
-def get_imgur_url_list(parsed_url, count):
+async def get_imgur_url_list(parsed_url, count):
     imgur_hash: str = parsed_url.path.split("/")[-1]
 
     imgur_request_url: str = f"https://api.imgur.com/3/album/{imgur_hash}/images"
 
     try:
-        resp = requests.get(
-            imgur_request_url,
-            headers={"Authorization": f"Client-ID {config['API']['IMGUR_API_KEY']}"},
-        )
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                imgur_request_url,
+                headers={
+                    "Authorization": f"Client-ID {config['API']['IMGUR_API_KEY']}"
+                },
+            )
     except requests.RequestException:
         return []
 
-    if resp.ok:
-        return [{"image": img["link"]} for img in resp.json()["data"]][:count]
+    if response.status_code == 200:
+        return [{"image": img["link"]} for img in response.json()["data"]][:count]
     else:
         return [{"image": parsed_url.geturl()}]
 
@@ -76,7 +80,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         parsed_url = urlparse(original_url)
 
     if "imgur" in parsed_url.hostname:
-        image_list = get_imgur_url_list(parsed_url, MAX_IMAGE_COUNT)
+        image_list = await get_imgur_url_list(parsed_url, MAX_IMAGE_COUNT)
     elif parsed_url.hostname in ["i.redd.it", "preview.redd.it"]:
         image_list = [{"image": url}]
     elif "instagram.com" in parsed_url.hostname:
@@ -136,7 +140,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         elif post.domain == "imgur.com":
             # If post is an imgur album/image
             parsed_imgur_url = urlparse(post.url)
-            image_list = get_imgur_url_list(parsed_imgur_url, MAX_IMAGE_COUNT)
+            image_list = await get_imgur_url_list(parsed_imgur_url, MAX_IMAGE_COUNT)
 
     if not image_list:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
