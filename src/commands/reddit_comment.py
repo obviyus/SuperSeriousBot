@@ -1,4 +1,5 @@
 import html
+from urllib.parse import parse_qs
 
 import asyncpraw
 from telegram import Update
@@ -16,7 +17,7 @@ if "REDDIT" in config["API"]:
     )
 
 
-async def get_top_comment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Get the top Reddit comment for a URL.
     """
@@ -26,21 +27,44 @@ async def get_top_comment(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await utils.usage_string(update.message)
         return
 
-    if "reddit.com" in url or "redd.it" in url:
-        submission = await reddit.submission(url=url)
-    else:
-        subreddit = await reddit.subreddit("all")
-        try:
-            submission = await subreddit.search(f'url:"{url}"').__anext__()
-        except StopAsyncIteration:
-            await update.message.reply_text("No comments found.")
-            return
+    subreddit = await reddit.subreddit("all")
 
-        await submission.load()
+    hostname = url.hostname.replace("www.", "")
 
-    comment = submission.comments[0]
+    match hostname:
+        case ("reddit.com" | "redd.it"):
+            submission = await reddit.submission(url=url.geturl(), fetch=False)
+        case ("youtube.com" | "youtu.be"):
+            video_id = parse_qs(url.query)["v"][0]
+            submission = await subreddit.search(
+                f"url:{video_id}", limit=1, sort="top"
+            ).__anext__()
+        case _:
+            try:
+                submission = await subreddit.search(f'url:"{url}"').__anext__()
+            except StopAsyncIteration:
+                await update.message.reply_text("No comments found.")
+                return
+
+    submission.comment_sort = "top"
+    submission.comment_limit = 2
+
+    comments = await submission.comments()
+    comments.replace_more(limit=0)
+
+    comment = None
+
+    for comment in comments:
+        if comment.stickied:
+            continue
+        break
+
+    if not comment:
+        await update.message.reply_text("No comments found.")
+        return
+
     await update.message.reply_text(
-        f"""{html.escape(comment.body)}""",
+        f"""{html.escape(comment.body)}\n\n<a href='https://reddit.com{comment.permalink}'>/r/{html.escape(submission.subreddit.display_name)}</a>""",
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,
     )

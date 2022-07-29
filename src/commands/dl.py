@@ -71,87 +71,98 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await utils.usage_string(update.message)
         return
 
-    parsed_url = urlparse(url)
     image_list = []
 
     # Prefix the URL with the scheme if it is missing
-    if not parsed_url.scheme:
-        original_url = "https://" + url
-        parsed_url = urlparse(original_url)
+    if not url.scheme:
+        original_url = "https://" + url.geturl()
+        url = urlparse(original_url)
 
-    if "imgur" in parsed_url.hostname:
-        image_list = await get_imgur_url_list(parsed_url, MAX_IMAGE_COUNT)
-    elif parsed_url.hostname in ["i.redd.it", "preview.redd.it"]:
-        image_list = [{"image": url}]
-    elif "instagram.com" in parsed_url.hostname:
-        # Extract shortcode
-        shortcode = parsed_url.path.split("/")[-2]
+    hostname = url.hostname.replace("www.", "")
+    print(hostname)
 
-        # Get the media URL
-        for each in Post.from_shortcode(L.context, shortcode).get_sidecar_nodes():
-            if each.is_video:
-                image_list.append({"video": each.video_url})
-            else:
-                image_list.append({"image": each.display_url})
-    elif "v.redd.it" in parsed_url.hostname:
-        reddit.url = url
-        try:
-            file_path = reddit.download()
+    match hostname:
+        case "imgur.com":
+            image_list = await get_imgur_url_list(url, MAX_IMAGE_COUNT)
+        case ("i.redd.it" | "preview.redd.it"):
+            image_list = [{"image": url}]
+        case "instagram.com":
+            # Extract shortcode
+            shortcode = url.path.split("/")[-2]
 
-            # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
-            # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
-            await update.message.reply_video(
-                video=open(file_path, "rb"),
-            )
+            # Get the media URL
+            try:
+                for each in Post.from_shortcode(
+                    L.context, shortcode
+                ).get_sidecar_nodes():
+                    if each.is_video:
+                        image_list.append({"video": each.video_url})
+                    else:
+                        image_list.append({"image": each.display_url})
+            except Exception as e:
+                logger.error(e)
+        case "v.redd.it":
+            reddit_downloader.url = url.geturl()
+            try:
+                file_path = reddit_downloader.download()
 
-            os.remove(file_path)
-        except Exception as e:
-            logger.error(e)
-            await update.message.reply_text("Failed to download Reddit video.")
-            return
-    elif "redd.it" in parsed_url.hostname or "reddit.com" in parsed_url.hostname:  # type: ignore
-        try:
-            post = await reddit.submission(url=url)
-            await post.load()
-        except (InvalidURL, NotFound):
-            await update.message.reply_text("URL is invalid or the subreddit is banned")
-            return
-        except Forbidden:
-            await update.message.reply_text("Subreddit is quarantined or private")
-            return
+                # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
+                # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
+                await update.message.reply_video(
+                    video=open(file_path, "rb"),
+                )
 
-        # Reddit doesn't have a very clean, obvious way to detect deleted post
-        # this might not work for all cases but there's no documentation about it
-        # so this will have to do
-        if post.removed_by_category:
-            await update.message.reply_text("Post is deleted/removed.")
-            return
+                os.remove(file_path)
+                return
+            except Exception as e:
+                logger.error(e)
+        case ("redd.it" | "reddit.com"):  # type: ignore
+            try:
+                post = await reddit.submission(url=url.geturl())
+                await post.load()
+            except (InvalidURL, NotFound):
+                await update.message.reply_text(
+                    "URL is invalid or the subreddit is banned."
+                )
+                return
+            except Forbidden:
+                await update.message.reply_text("Subreddit is quarantined or private.")
+                return
 
-        if hasattr(post, "is_gallery"):
-            # If url is a reddit gallery
-            media_ids = [i["media_id"] for i in post.gallery_data["items"]]
-            image_list = [
-                {"image": post.media_metadata[media_id]["p"][-1]["u"]}
-                for media_id in media_ids[:MAX_IMAGE_COUNT]
-            ]
-        elif post.domain in ["i.redd.it", "v.redd.it"]:
-            # If derived url is a single image or video
-            image_list = [{"image": post.url}]
-        elif post.domain == "imgur.com":
-            # If post is an imgur album/image
-            parsed_imgur_url = urlparse(post.url)
-            image_list = await get_imgur_url_list(parsed_imgur_url, MAX_IMAGE_COUNT)
+            # Reddit doesn't have a very clean, obvious way to detect deleted post
+            # this might not work for all cases but there's no documentation about it
+            # so this will have to do
+            if post.removed_by_category:
+                await update.message.reply_text("Post is deleted/removed.")
+                return
+
+            if hasattr(post, "is_gallery"):
+                # If url is a reddit gallery
+                media_ids = [i["media_id"] for i in post.gallery_data["items"]]
+                image_list = [
+                    {"image": post.media_metadata[media_id]["p"][-1]["u"]}
+                    for media_id in media_ids[:MAX_IMAGE_COUNT]
+                ]
+            elif post.domain in ["i.redd.it", "v.redd.it"]:
+                # If derived url is a single image or video
+                image_list = [{"image": post.url}]
+            elif post.domain == "imgur.com":
+                # If post is an imgur album/image
+                parsed_imgur_url = urlparse(post.url)
+                image_list = await get_imgur_url_list(parsed_imgur_url, MAX_IMAGE_COUNT)
 
     if not image_list:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
                 try:
-                    info = ydl.extract_info(url)
+                    info = ydl.extract_info(url.geturl(), download=False)
                 except yt_dlp.utils.DownloadError as _:
                     await update.message.reply_text("Failed to download video.")
+                    return
 
                 if not info["url"]:
                     await update.message.reply_text("Failed to download video.")
+                    return
                 else:
                     try:
                         await update.message.reply_video(info["url"])

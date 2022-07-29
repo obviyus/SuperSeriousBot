@@ -27,7 +27,7 @@ async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         params={
             "SM_API_KEY": config["API"]["SMMRY_API_KEY"],
             "SM_LENGTH": 3,
-            "SM_URL": url,
+            "SM_URL": url.geturl(),
         },
     ).json()
 
