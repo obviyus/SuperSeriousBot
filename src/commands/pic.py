@@ -1,6 +1,8 @@
+import asyncio
 from random import choices
 
 import httpx
+from httpx import AsyncClient
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -10,7 +12,7 @@ from config import logger
 images = set()
 
 
-async def get_image():
+async def get_image(client: AsyncClient):
     """
     Get a random image from Imgur.
     """
@@ -20,8 +22,7 @@ async def get_image():
         chars: str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghiklmnopqrstuvwxyz"
         address: str = "https://i.imgur.com/" + "".join(choices(chars, k=5)) + ".jpg"
 
-        async with httpx.AsyncClient() as client:
-            r = await client.get(address)
+        r = await client.get(address)
 
         # Ignore any images < 1000B
         if r.url == address and int(r.headers["content-length"]) > 1000:
@@ -38,9 +39,14 @@ async def worker_image_seeder(context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("Pre-seeding 10 random Imgur images...")
     limit = 10
 
+    tasks = []
+
     # Run the worker in a loop asynchronously
-    for _ in range(limit):
-        await context.application.create_task(get_image())
+    async with httpx.AsyncClient() as client:
+        for _ in range(limit):
+            tasks.append(asyncio.ensure_future(get_image(client)))
+
+        await asyncio.gather(*tasks)
 
 
 async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

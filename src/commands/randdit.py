@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from random import choice
 
@@ -38,10 +39,12 @@ async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             random_posts_all.add(make_response(post))
 
-    # Run the worker in a loop asynchronously
+    tasks = []
     for _ in range(limit):
-        await context.application.create_task(runner(False))
-        await context.application.create_task(runner(True))
+        tasks.append(asyncio.ensure_future(runner(False)))
+        tasks.append(asyncio.ensure_future(runner(True)))
+
+    await asyncio.gather(*tasks)
 
 
 def make_response(post: models.Submission) -> str:
