@@ -119,9 +119,12 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     Translate a message.
     """
 
-    text = (
-        update.message.reply_to_message.text or update.message.reply_to_message.caption
-    )
+    text = None
+    if update.message.reply_to_message:
+        text = (
+            update.message.reply_to_message.text
+            or update.message.reply_to_message.caption
+        )
 
     target_language = "en"
     if len(context.args) > 0 and context.args[0] in supported_languages:
@@ -153,9 +156,12 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     Translate a message and send it as a voice message.
     """
 
-    text = (
-        update.message.reply_to_message.text or update.message.reply_to_message.caption
-    )
+    text = None
+    if update.message.reply_to_message:
+        text = (
+            update.message.reply_to_message.text
+            or update.message.reply_to_message.caption
+        )
 
     target_language = "auto"
     if len(context.args) > 0 and context.args[0] in supported_languages:
