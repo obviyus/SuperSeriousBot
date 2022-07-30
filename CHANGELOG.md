@@ -1,3 +1,13 @@
+## [1.11.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.11.0...v1.11.1) (2022-07-30)
+
+
+### Bug Fixes
+
+* **c:** handle case for `youtu.be` links ([941dfda](https://github.com/obviyus/SuperSeriousBot/commit/941dfda52aacc346964a2d4978dde2ca9f590de1))
+* **c:** improve comment loading logic ([eaa5219](https://github.com/obviyus/SuperSeriousBot/commit/eaa52191380c65de108034431520841d05f3b39d))
+* **sub:** iterate asynchronously ([a10562c](https://github.com/obviyus/SuperSeriousBot/commit/a10562c4923c568f60f5679b2d63b657647ff449))
+* **tl:** check for parent message ([139e53a](https://github.com/obviyus/SuperSeriousBot/commit/139e53a37b9c8baf7603ae5068cd5473a51d59ba))
+
 # [1.11.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.10.1...v1.11.0) (2022-07-29)
 
 
