@@ -23,6 +23,7 @@ import management
 from config.db import redis
 from config.logger import logger
 from config.options import config
+from utils import command_usage
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -37,8 +38,7 @@ async def post_init(application: Application) -> None:
     """
     Initialise the bot.
     """
-    bot = await application.bot.get_me()
-    logger.info(f"Started @{bot.username} (ID: {bot.id})")
+    logger.info(f"Started @{application.bot.username} (ID: {application.bot.id})")
     redis.set("bot_startup_time", datetime.datetime.now().timestamp())
 
     if (
@@ -51,8 +51,13 @@ async def post_init(application: Application) -> None:
 
         await application.bot.send_message(
             chat_id=config["TELEGRAM"]["LOGGING_CHANNEL_ID"],
-            text=f"📝 Started @{bot.username} (ID: {bot.id}) at {datetime.datetime.now()}",
+            text=f"📝 Started @{application.bot.username} (ID: {application.bot.id}) at {datetime.datetime.now()}",
         )
+
+    # Set commands for bot instance
+    application.bot.set_my_commands(
+        [(command, doc["description"]) for command, doc in command_usage.items()]
+    )
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
