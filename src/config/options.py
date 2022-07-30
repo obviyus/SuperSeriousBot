@@ -1,5 +1,4 @@
 import os
-from urllib.parse import urljoin
 
 from cerberus import Validator
 
@@ -97,9 +96,7 @@ config = {
         "ADMINS": os.environ.get("ADMINS", "").split(" "),
         "TOKEN": os.environ.get("TELEGRAM_TOKEN"),
         "UPDATER": os.environ.get("UPDATER"),
-        "WEBHOOK_URL": urljoin(
-            os.environ.get("WEBHOOK_URL"), os.environ.get("TELEGRAM_TOKEN")
-        ),
+        "WEBHOOK_URL": f"""{os.environ.get("WEBHOOK_URL")}/{os.environ.get("TELEGRAM_TOKEN")}""",
         "LOGGING_CHANNEL_ID": int(os.environ.get("LOGGING_CHANNEL_ID"))
         if os.environ.get("LOGGING_CHANNEL_ID")
         else None,
