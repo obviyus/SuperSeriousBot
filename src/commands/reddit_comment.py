@@ -1,7 +1,8 @@
 import html
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 
 import asyncpraw
+import requests
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -29,22 +30,45 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     subreddit = await reddit.subreddit("all")
 
+    if "redd.it" in url.hostname:
+        # Follow redirects of shortened URLs
+        url = urlparse(requests.get(url.geturl()).url)
+
     hostname = url.hostname.replace("www.", "")
 
     match hostname:
-        case ("reddit.com" | "redd.it"):
-            submission = await reddit.submission(url=url.geturl(), fetch=False)
+        case ("reddit.com" | "redd.it" | "v.redd.it" | "old.reddit.com"):
+            url = url.geturl().replace("old.", "")
+            print(url)
+            submission = await reddit.submission(url=url, fetch=False)
         case ("youtube.com" | "youtu.be"):
             video_id = parse_qs(url.query)["v"][0]
-            submission = await subreddit.search(
-                f"url:{video_id}", limit=1, sort="top"
-            ).__anext__()
+
+            try:
+                submission = await subreddit.search(
+                    f"url:{video_id}", limit=1, sort="top"
+                ).__anext__()
+            except StopAsyncIteration:
+                await update.message.reply_text(
+                    "Could not find a comment thread for this video."
+                )
+                return
         case _:
             try:
-                submission = await subreddit.search(f'url:"{url}"').__anext__()
+                submission = await subreddit.search(f'url:"{url.geturl()}"').__anext__()
             except StopAsyncIteration:
-                await update.message.reply_text("No comments found.")
-                return
+                try:
+                    if url.geturl().endswith("/"):
+                        submission = await subreddit.search(
+                            f'url:"{url.geturl()[:-1]}"'
+                        ).__anext__()
+                    else:
+                        submission = await subreddit.search(
+                            f'url:"{url.geturl()}/"'
+                        ).__anext__()
+                except StopAsyncIteration:
+                    await update.message.reply_text("No comments found.")
+                    return
 
     submission.comment_sort = "top"
     submission.comment_limit = 2
@@ -63,8 +87,11 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("No comments found.")
         return
 
+    # Special escape for Reddit's markdown. We still want the rest of the Markdown to be parsed.
+    body = comment.body.replace(".", "\.")
+
     await update.message.reply_text(
-        f"""{html.escape(comment.body)}\n\n<a href='https://reddit.com{comment.permalink}'>/r/{html.escape(submission.subreddit.display_name)}</a>""",
-        parse_mode=ParseMode.HTML,
+        f"""{body}\n\n[/r/{html.escape(submission.subreddit.display_name)}](https://reddit.com{comment.permalink})""",
+        parse_mode=ParseMode.MARKDOWN_V2,
         disable_web_page_preview=True,
     )
