@@ -42,6 +42,10 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             print(url)
             submission = await reddit.submission(url=url, fetch=False)
         case ("youtube.com" | "youtu.be"):
+            if "youtu.be" in url.hostname:
+                url = urlparse(
+                    url.geturl().replace("youtu.be/", "www.youtube.com/watch?v=")
+                )
             video_id = parse_qs(url.query)["v"][0]
 
             try:
