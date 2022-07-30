@@ -141,7 +141,6 @@ async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
     Get the username and/or first_name for a user_id.
     """
     username = redis.get(f"user_id:{user_id}")
-    print(f"username: {username}")
     if username:
         return username
     else:

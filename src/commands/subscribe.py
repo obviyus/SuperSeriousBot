@@ -170,7 +170,8 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
     )
 
     async def poster(group_id: int, user_id: int, subreddit_name: str) -> None:
-        for post in (await reddit.subreddit(subreddit_name)).hot(limit=3):
+        subreddit = await reddit.subreddit(subreddit_name)
+        async for post in subreddit.hot(limit=3):
             if post.stickied:
                 continue
 
@@ -179,21 +180,22 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
                     group_id,
                     await make_response(
                         post,
-                        context.bot.get_chat_member(group_id, user_id).user.username,
+                        await utils.get_username(user_id, context),
                     ),
                     parse_mode=ParseMode.HTML,
                 )
+                return
             except (NotFound, BadRequest, Redirect, Forbidden):
-                cursor.execute(
-                    """
-                    DELETE FROM reddit_subscriptions WHERE subreddit_name = ? AND receiver_id = ?;
-                    """
-                )
-
                 await context.bot.send_message(
                     group_id,
                     f"Removed /r/{subreddit_name} from your watchlist because it was deleted or banned.",
                     parse_mode=ParseMode.HTML,
+                )
+
+                cursor.execute(
+                    """
+                    DELETE FROM reddit_subscriptions WHERE subreddit_name = ? AND receiver_id = ?;
+                    """
                 )
 
     for row in cursor.fetchall():
