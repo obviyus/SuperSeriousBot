@@ -1,3 +1,11 @@
+# [1.12.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.11.1...v1.12.0) (2022-07-30)
+
+
+### Features
+
+* **docs:** use `set_my_commands` for docs ([165d6c9](https://github.com/obviyus/SuperSeriousBot/commit/165d6c97630a5d718314aa86ebe50b50ae036d90))
+* **object:** implement a generic object store and qouteDB ([f4c1f5d](https://github.com/obviyus/SuperSeriousBot/commit/f4c1f5d3113596bdca6264ca40c63bab5a00b15e))
+
 ## [1.11.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.11.0...v1.11.1) (2022-07-30)
 
 
