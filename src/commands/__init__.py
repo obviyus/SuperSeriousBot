@@ -31,6 +31,8 @@ from .ud import ud
 from .uwu import uwu
 from .vision import age, caption
 from .weather import weather
+from .store import set_object, get_object
+from .quote import add_quote, get_quote
 
 
 async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -85,6 +87,11 @@ command_list = [
     CommandHandler("weather", weather),
     CommandHandler("w", weather),
     CommandHandler("gstats", management.get_total_chat_stats),
+    CommandHandler("set", set_object),
+    CommandHandler("get", get_object),
+    CommandHandler("addquote", add_quote),
+    CommandHandler("quote", get_quote),
+    CommandHandler("q", get_quote),
 ]
 
 

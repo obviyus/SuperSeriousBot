@@ -87,6 +87,21 @@ command_usage = {
         "usage": "/tldr [url]",
         "example": "/tldr https://www.bbc.com/news/world-us-canada-21001452",
     },
+    "set": {
+        "description": "Reply to a media object to save it. No two files can have the same key. \n\nIf you're replying to a file and seeing this message, it's like the bot was added after the message was sent. You can try again with a forwarded message.",
+        "usage": "/set [title]",
+        "example": "/set rickroll",
+    },
+    "get": {
+        "description": "Get a media object saved with /set.",
+        "usage": "/get [title]",
+        "example": "/get rickroll",
+    },
+    "addquote": {
+        "description": "Reply to a message to add a quote to QuotesDB.",
+        "usage": "/addquote",
+        "example": "/addquote",
+    },
 }
 
 

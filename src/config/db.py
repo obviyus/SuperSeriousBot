@@ -77,3 +77,32 @@ cursor.execute(
     );
     """
 )
+
+# Table for object store
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `object_store` (
+        `id` INTEGER PRIMARY KEY,
+        `file_id` VARCHAR(255) NOT NULL,
+        `file_unique_id` VARCHAR(255) NOT NULL,
+        `key` VARCHAR(255) NOT NULL UNIQUE,
+        `user_id` INTEGER NOT NULL,
+        `type` VARCHAR(255) NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+)
+
+# Table for Quote DB
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `quote_db` (
+        `id` INTEGER PRIMARY KEY,
+        `message_id` INTEGER NOT NULL,
+        `chat_id` INTEGER NOT NULL,
+        `message_user_id` INTEGER NOT NULL,
+        `saver_user_id` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+)
