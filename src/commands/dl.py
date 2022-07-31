@@ -12,9 +12,11 @@ from telegram import InputMediaPhoto, InputMediaVideo, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
+import commands
 import utils
 from config.logger import logger
 from config.options import config
+from utils.decorators import description, example, triggers, usage
 from .reddit_comment import reddit
 
 ydl_opts = {
@@ -55,6 +57,10 @@ async def download_imgur(parsed_url, count) -> list[Dict]:
         return [{"image": parsed_url.geturl()}]
 
 
+@triggers(["dl"])
+@description("Reply to a message to download the media attached to a URL.")
+@usage("/dl")
+@example("/dl")
 async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Download the image or video from a link.
@@ -62,7 +68,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     # Parse URL entity in a given link
     url = utils.extract_link(update)
     if not url:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, downloader)
         return
 
     image_list = []

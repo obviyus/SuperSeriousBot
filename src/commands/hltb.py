@@ -2,13 +2,19 @@ from howlongtobeatpy import HowLongToBeat
 from telegram import Update
 from telegram.ext import ContextTypes
 
+import commands
 import utils
+from utils.decorators import description, example, triggers, usage
 
 
+@triggers(["hltb"])
+@description("Find how long a game takes to beat.")
+@usage("/hltb [game]")
+@example("/hltb Horizon Zero Dawn")
 async def hltb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Find how long a game takes to beat"""
     if not context.args:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, hltb)
         return
 
     game: str = " ".join(context.args) if context.args else ""

@@ -19,11 +19,9 @@ from telegram.ext import (
 )
 
 import commands
-import management
 from config.db import redis
 from config.logger import logger
 from config.options import config
-from utils import command_usage
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -55,8 +53,11 @@ async def post_init(application: Application) -> None:
         )
 
     # Set commands for bot instance
-    application.bot.set_my_commands(
-        [(command, doc["description"]) for command, doc in command_usage.items()]
+    await application.bot.set_my_commands(
+        [
+            (command.triggers[0], command.description)
+            for command in commands.list_of_commands
+        ]
     )
 
 
@@ -107,7 +108,13 @@ def main():
 
     application.add_handlers(
         handlers={
-            -1: commands.command_list,
+            # Handle every Update and increment command + message count
+            0: [
+                TypeHandler(
+                    Update,
+                    commands.increment_command_count,
+                )
+            ],
             1: [
                 MessageHandler(
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
@@ -129,13 +136,7 @@ def main():
                     commands.button_handler,
                 ),
             ],
-            # Handle every Update and increment command + message count
-            2: [
-                TypeHandler(
-                    Update,
-                    management.increment_command_count,
-                )
-            ],
+            2: commands.command_handler_list,
         }
     )
 

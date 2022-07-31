@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from telegram import Update
+from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import utils.string
 from config.db import redis, sqlite_conn
-from utils import readable_time, usage_string
+from utils import readable_time
+from utils.decorators import description, example, triggers, usage
 
 
 async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -37,13 +38,35 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Get time of last message of a user.
-    """
-    if not context.args:
-        await usage_string(update.message)
+async def stat_string_builder(
+    rows: list, message: Message, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    if not rows:
+        await message.reply_text("No messages recorded.")
         return
+
+    text = f"Stats for <b>{message.chat.title}:</b>\n\n"
+    total_count = sum(user["user_count"] for user in rows)
+
+    for _, _, timestamp, user_id, count in rows:
+        percent = round(count / total_count * 100, 2)
+        text += f"""<code>{percent:4.1f}% - {await utils.string.get_username(user_id, context)}</code>\n"""
+
+    text += f"\nTotal messages: <b>{total_count}</b>"
+    await message.reply_text(
+        text,
+        parse_mode=ParseMode.HTML,
+    )
+
+
+@triggers(["seen"])
+@description("Get duration since last message of a user.")
+@usage("/seen [username]")
+@example("/seen @obviyus")
+async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # if not context.args:
+    #     await usage_string(update.message, get_last_seen)
+    #     return
 
     username = context.args[0].split("@")[1]
 
@@ -62,16 +85,16 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
+@triggers(["stats"])
+@description("Get message count by user for the last day.")
+@usage("/stats")
+@example("/stats")
 async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Get message count by user for the last day.
-    """
     chat_id = update.message.chat_id
-    user_object = update.message.from_user
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
-        """SELECT *, COUNT(user_id) 
+        """SELECT *, COUNT(user_id) AS user_count
         FROM chat_stats 
         WHERE chat_id = ? AND 
         create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')
@@ -83,45 +106,22 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
     users = cursor.fetchall()
-
-    if not users:
-        await update.message.reply_text("No messages recorded.")
-        return
-
-    text = f"Stats for <b>{update.message.chat.title}:</b>\n\n"
-
-    # TODO: Use a NamedTuple for cleaner code
-    total_count = sum(user[4] for user in users)
-
-    # Ignore special case for user
-    if user_object.id == 1060827049:
-        text += f"<code>100% degen - {await utils.string.get_username(user_object.id, context)}</code>\n"
-
-    for _, _, timestamp, user_id, count in users:
-        percent = round(count / total_count * 100, 2)
-        text += f"""<code>{percent if percent > 10 else f" {percent}"}% - {await utils.string.get_username(user_id, context)}</code>\n"""
-
-    text += f"\nTotal messages: <b>{total_count}</b>"
-
-    await update.message.reply_text(
-        text,
-        parse_mode=ParseMode.HTML,
-    )
+    await stat_string_builder(users, update.message, context)
 
 
+@triggers(["gstats"])
+@description("Get total message count by user of this group.")
+@usage("/gstats")
+@example("/gstats")
 async def get_total_chat_stats(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """
-    Get total message count for all users.
-    """
     chat_id = update.message.chat_id
-    user_object = update.message.from_user
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
         """
-        SELECT *, COUNT(user_id)
+        SELECT *, COUNT(user_id) AS user_count
         FROM chat_stats
         WHERE chat_id = ?
         GROUP BY user_id
@@ -132,25 +132,4 @@ async def get_total_chat_stats(
     )
 
     users = cursor.fetchall()
-
-    if not users:
-        await update.message.reply_text("No messages recorded.")
-        return
-
-    text = f"Stats for <b>{update.message.chat.title}:</b>\n\n"
-    total_count = sum(user[4] for user in users)
-
-    # Ignore special case for user
-    if user_object.id == 1060827049:
-        text += f"<code>100% degen - {await utils.string.get_username(user_object.id, context)}</code>\n"
-
-    for _, _, timestamp, user_id, count in users:
-        percent = round(count / total_count * 100, 2)
-        text += f"""<code>{percent if percent > 10 else f" {percent}"}% - {await utils.string.get_username(user_id, context)}</code>\n"""
-
-    text += f"\nTotal messages: <b>{total_count}</b>"
-
-    await update.message.reply_text(
-        text,
-        parse_mode=ParseMode.HTML,
-    )
+    await stat_string_builder(users, update.message, context)

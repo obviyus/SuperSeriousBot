@@ -5,15 +5,22 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import commands
 import utils
 from config.options import config
+from utils.decorators import api_key, description, example, triggers, usage
 
 
+@triggers(["book"])
+@description("Search for a book on GoodReads.")
+@usage("/book")
+@example("/book")
+@api_key("GOODREADS_API_KEY")
 async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Query GoodReads for a book"""
 
     if not context.args:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, book)
         return
 
     query: str = " ".join(context.args)

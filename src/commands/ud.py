@@ -3,16 +3,22 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import commands
 import utils
+from utils.decorators import description, example, triggers, usage
 
 
+@triggers(["ud"])
+@description("Search a word on Urban Dictionary.")
+@usage("/ud [word]")
+@example("/ud racism")
 async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Search a word on Urban Dictionary.
     """
     word = " ".join(context.args)
     if not word:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, ud)
         return
 
     async with httpx.AsyncClient() as client:

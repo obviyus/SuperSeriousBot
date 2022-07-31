@@ -5,13 +5,20 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import commands
 import utils
 from config.logger import logger
 from config.options import config
+from utils.decorators import api_key, description, example, triggers, usage
 
 SMMRY_API_ENDPOINT: str = "https://api.smmry.com/"
 
 
+@triggers(["tldr"])
+@description("Reply to a message to generate a summary of the URL.")
+@usage("/tldr")
+@example("/tldr")
+@api_key("SMMRY_API_KEY")
 async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Generate a TLDR for a given URL.
@@ -19,7 +26,7 @@ async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     url = utils.extract_link(update)
 
     if not url:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, tldr)
         return
 
     response = requests.post(

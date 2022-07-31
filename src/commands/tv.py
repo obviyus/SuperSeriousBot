@@ -17,6 +17,7 @@ from telegram.ext import CallbackContext, ContextTypes
 import utils.cleaner
 from config.db import sqlite_conn
 from config.logger import logger
+from utils.decorators import description, example, triggers, usage
 
 TVMAZE_SEARCH_ENDPOINT = "https://api.tvmaze.com/search/shows"
 
@@ -78,6 +79,12 @@ async def tv_show_button(update: Update, context: CallbackContext) -> None:
     )
 
 
+@triggers(["tv"])
+@description(
+    "Subscribe to TV show notifications. Use /tv to list your subscriptions. Add new shows by searching for them in the inline query."
+)
+@usage("/tv")
+@example("/tv")
 async def opt_in_tv(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Displays a user's watchlist.

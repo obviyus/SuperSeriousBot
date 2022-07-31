@@ -6,8 +6,10 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import commands
 import utils
 from config.options import config
+from utils.decorators import api_key, description, example, triggers, usage
 
 AZURE_ENDPOINT = "https://tgbot.cognitiveservices.azure.com/"
 if "AZURE_API_KEY" in config["API"]:
@@ -16,6 +18,11 @@ if "AZURE_API_KEY" in config["API"]:
     )
 
 
+@triggers(["age"])
+@description("Reply to an image to use AI to estimate the age of a person.")
+@usage("/age")
+@example("/age")
+@api_key("AZURE_API_KEY")
 async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Guess the age and gender from an image.
@@ -48,11 +55,16 @@ async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             await update.message.reply_text(text=text, parse_mode=ParseMode.HTML)
     except AttributeError:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, age)
     except IndexError:
         await update.message.reply_text("No photo found.")
 
 
+@triggers(["caption"])
+@description("Reply to an image to use AI to generate a caption for the image.")
+@usage("/caption")
+@example("/caption")
+@api_key("AZURE_API_KEY")
 async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Generate a caption for an image.
@@ -77,6 +89,6 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             await update.message.reply_text(text=text, parse_mode=ParseMode.HTML)
     except AttributeError:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, caption)
     except IndexError:
         await update.message.reply_text("No photo found.")

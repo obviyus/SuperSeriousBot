@@ -2,7 +2,9 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from translatepy import Translator
 
+import commands
 import utils
+from utils.decorators import description, example, triggers, usage
 
 translator = Translator()
 
@@ -114,6 +116,12 @@ supported_languages = {
 }
 
 
+@triggers(["tl"])
+@description(
+    "Translate a message or text to the desired language. Reply to a message with just the language code to translate it."
+)
+@usage("/tl [language] - [content]")
+@example("/tl fr - Good morning!")
 async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Translate a message.
@@ -143,7 +151,7 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         text = " ".join(context.args)
 
     if not text:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, translate)
         return
 
     await update.message.reply_text(
@@ -151,6 +159,12 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+@triggers(["tts"])
+@description(
+    "Generate text-to-speech of message in the desired speaker language. Reply to a message with just the language code to TTS it."
+)
+@usage("/tts [language] - [content]")
+@example("/tts fr - Good morning!")
 async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Translate a message and send it as a voice message.
@@ -180,7 +194,7 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         text = " ".join(context.args)
 
     if not text:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, tts)
         return
 
     await update.message.reply_voice(

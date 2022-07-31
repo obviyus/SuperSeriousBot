@@ -4,11 +4,17 @@ from requests import get
 from telegram import MessageEntity, Update
 from telegram.ext import ContextTypes
 
+from utils.decorators import description, example, triggers, usage
 
+
+@triggers(["fox", "shiba", "cat"])
+@description("Get a random image of the animal.")
+@usage("/fox, /shiba, /cat")
+@example("/fox, /shiba, /cat")
 async def animal(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get animal"""
 
-    animal_choice: str
+    animal_choice = None
     if update.message.caption:
         animal_choice = list(
             update.message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values()
@@ -25,7 +31,7 @@ async def animal(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     animal_choice = animal_choice.partition("@")[0]
     urls: Dict[str, Tuple[str, Callable]] = {
         "/shiba": (
-            "http://shibe.online/api/shibes?count=1&urls=true&httpsUrls=false",
+            "https://shibe.online/api/shibes?count=1&urls=true&httpsUrls=false",
             lambda resp: update.message.reply_photo(resp[0]),
         ),
         "/fox": (

@@ -8,8 +8,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import CallbackContext, ContextTypes
 
+import commands
 import utils
 from config.db import sqlite_conn
+from utils.decorators import api_key, description, example, triggers, usage
 from .reddit_comment import reddit
 
 
@@ -17,17 +19,22 @@ async def make_response(post: models.Submission, username: str) -> str:
     return f"{post.url}\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name};</a> @{username}"
 
 
+@triggers(["sub"])
+@description("Subscribe to a subreddit for daily post notifications.")
+@usage("/sub [subreddit]")
+@example("/sub Formula1")
+@api_key("REDDIT")
 async def subscribe_reddit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Subscribe to a subreddit for daily posts.
     """
     if not context.args:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, subscribe_reddit)
         return
 
     subreddit = context.args[0].replace("r/", "").lower()
     if not subreddit:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, subscribe_reddit)
         return
 
     cursor = sqlite_conn.cursor()
@@ -98,6 +105,11 @@ async def keyboard_builder(user_id: int, group_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+@triggers(["unsub"])
+@description("Unsubscribe from a subreddit for daily post notifications.")
+@usage("/unsub [subreddit]")
+@example("/unsub Formula1")
+@api_key("REDDIT")
 async def list_reddit_subscriptions(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:

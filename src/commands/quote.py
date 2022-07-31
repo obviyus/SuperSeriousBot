@@ -4,8 +4,10 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import commands
 import utils
 from config.db import sqlite_conn
+from utils.decorators import description, example, triggers, usage
 
 
 class FileType(enum.Enum):
@@ -21,10 +23,14 @@ class FileType(enum.Enum):
     UNKNOWN = "UNKNOWN"
 
 
+@triggers(["addquote"])
+@description("Reply to a message to save it into QuotesDB.")
+@usage("/addquote")
+@example("/addquote")
 async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Save chat message to QoutesDB."""
     if not update.message.reply_to_message:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, add_quote)
         return
 
     if update.message.has_protected_content:
@@ -68,8 +74,16 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+@triggers(["quote", "q"])
+@description("Return a random message from QuotesDB for this group.")
+@usage("/quote, /q")
+@example("/quote, /q")
 async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Get a random quote from QuotesDB."""
+    """Get a quote from QuotesDB."""
+    if not context.args:
+        await commands.usage_string(update.message, get_quote)
+        return
+
     cursor = sqlite_conn.cursor()
     cursor.execute(
         """

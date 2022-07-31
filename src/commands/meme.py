@@ -2,7 +2,13 @@ import httpx
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from utils.decorators import description, example, triggers, usage
 
+
+@triggers(["meme"])
+@description("Get a random meme.")
+@usage("/meme")
+@example("/meme")
 async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random meme"""
     if not update.message:

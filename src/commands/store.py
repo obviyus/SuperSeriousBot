@@ -4,8 +4,10 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import commands
 import utils
 from config.db import sqlite_conn
+from utils.decorators import description, example, triggers, usage
 
 
 class FileType(enum.Enum):
@@ -21,10 +23,14 @@ class FileType(enum.Enum):
     UNKNOWN = "UNKNOWN"
 
 
+@triggers(["set"])
+@description("Reply to a media object to store it with a key. Get it back with /get.")
+@usage("/set [key]")
+@example("/set rickroll")
 async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Save a media object."""
     if not update.message.reply_to_message:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, set_object)
         return
 
     if update.message.reply_to_message.document:
@@ -124,10 +130,14 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     )
 
 
+@triggers(["get"])
+@description("Get an object from the store.")
+@usage("/get [key]")
+@example("/get rickroll")
 async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a media object."""
     if not context.args:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, get_object)
         return
 
     key = context.args[0]

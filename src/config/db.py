@@ -18,12 +18,25 @@ cursor.execute(
     f"""
     CREATE TABLE IF NOT EXISTS chat_stats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER,
+        chat_id INTEGER NOT NULL,
         create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-        user_id INTEGER
+        user_id INTEGER NOT NULL
     )
     """
 )
+
+# Bot command statistics table
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS command_stats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        command VARCHAR(255) NOT NULL,
+        user_id INTEGER NOT NULL,
+        create_time DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """
+)
+
 
 # Table for TV Show Notifications
 cursor.execute(

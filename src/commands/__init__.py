@@ -1,12 +1,13 @@
 """
 Commands for general use.
 """
-
+from telegram import MessageEntity
+from telegram.constants import ChatAction
 from telegram.ext import CommandHandler
 
 import management
 from config.options import config
-from main import start
+from management import *
 from .animals import animal
 from .book import book
 from .calc import calc
@@ -43,55 +44,69 @@ async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ This command is disabled.")
 
 
-command_list = [
-    CommandHandler("start", start),
-    CommandHandler("stats", management.get_chat_stats),
-    CommandHandler("botstats", management.get_command_stats),
-    CommandHandler("seen", management.get_last_seen),
-    CommandHandler("dl", downloader),
-    CommandHandler("c", get_top_comment if "REDDIT" in config["API"] else disabled),
-    CommandHandler("users", management.get_total_users),
-    CommandHandler("uptime", management.get_uptime),
-    CommandHandler("groups", management.get_total_chats),
-    CommandHandler("tv", opt_in_tv),
-    CommandHandler("cat", animal),
-    CommandHandler("shiba", animal),
-    CommandHandler("fox", animal),
-    CommandHandler("calc", calc if "WOLFRAM_APP_ID" in config["API"] else disabled),
-    CommandHandler("d", define),
-    CommandHandler("gif", gif if "GIPHY_API_KEY" in config["API"] else disabled),
-    CommandHandler("book", book if "GOODREADS_API_KEY" in config["API"] else disabled),
-    CommandHandler("hltb", hltb),
-    CommandHandler("insult", insult),
-    CommandHandler("joke", joke),
-    CommandHandler("meme", meme),
-    CommandHandler("person", person),
-    CommandHandler("pic", pic),
-    CommandHandler("r", randdit if "REDDIT" in config["API"] else disabled),
-    CommandHandler("nsfw", nsfw if "REDDIT" in config["API"] else disabled),
-    CommandHandler("spurdo", spurdo),
-    CommandHandler("sub", subscribe_reddit if "REDDIT" in config["API"] else disabled),
-    CommandHandler(
-        "unsub",
-        list_reddit_subscriptions if "REDDIT" in config["API"] else disabled,
-    ),
-    CommandHandler("tldr", tldr if "SMMRY_API_KEY" in config["API"] else disabled),
-    CommandHandler("tl", translate),
-    CommandHandler("tts", tts),
-    CommandHandler("ud", ud),
-    CommandHandler("uwu", uwu),
-    CommandHandler("age", age if "AZURE_API_KEY" in config["API"] else disabled),
-    CommandHandler(
-        "caption",
-        caption if "AZURE_API_KEY" in config["API"] else disabled,
-    ),
-    CommandHandler(["weather", "w"], weather),
-    CommandHandler("gstats", management.get_total_chat_stats),
-    CommandHandler("set", set_object),
-    CommandHandler("get", get_object),
-    CommandHandler("addquote", add_quote),
-    CommandHandler(["quote", "q"], get_quote),
+list_of_commands = [
+    add_quote,
+    animal,
+    book,
+    get_last_seen,
+    get_chat_stats,
+    get_total_chats,
+    get_total_users,
+    get_total_chat_stats,
+    get_uptime,
+    calc,
+    define,
+    downloader,
+    gif,
+    hltb,
+    insult,
+    joke,
+    meme,
+    person,
+    pic,
+    ping,
+    add_quote,
+    get_quote,
+    randdit,
+    nsfw,
+    spurdo,
+    subscribe_reddit,
+    tldr,
+    translate,
+    tts,
+    ud,
+    uwu,
+    age,
+    caption,
+    weather,
 ]
+
+command_handler_list = []
+command_doc_list = {}
+for command in list_of_commands:
+    if hasattr(command, "api_key"):
+        if command.api_key in config["API"]:
+            handler = command
+        else:
+            handler = disabled
+    else:
+        handler = command
+
+    command_handler_list.append(
+        CommandHandler(
+            command.triggers,
+            handler,
+        )
+    )
+
+    for trigger in command.triggers:
+        command_doc_list[trigger] = {
+            "description": command.description,
+            "usage": command.usage,
+            "example": command.example,
+        }
+
+print(command_doc_list)
 
 
 async def button_handler(update: Update, context: CallbackContext) -> None:
@@ -100,3 +115,49 @@ async def button_handler(update: Update, context: CallbackContext) -> None:
         await tv_show_button(update, context)
     elif query.data.startswith("unsubscribe_reddit"):
         await reddit_subscription_button_handler(update, context)
+
+
+async def usage_string(message: Message, func) -> None:
+    """
+    Return the usage string for a command.
+    """
+    await message.reply_text(
+        f"{func.description}\n\n<b>Usage:</b>\n<pre>{func.usage}</pre>\n\n<b>Example:</b>\n<pre>{func.example}</pre>",
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True,
+    )
+
+
+async def increment_command_count(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """
+    Increment command count for a /<command> invocation.
+    """
+    if not update.message:
+        return
+
+    await management.increment(update, context)
+    sent_command = next(
+        iter(update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()), None
+    )
+
+    if not sent_command:
+        return
+
+    if "@" in sent_command:
+        sent_command = sent_command[1 : sent_command.index("@")]
+
+    logger.info("/{} was used by @{}".format(sent_command, update.message.from_user.id))
+    if sent_command not in command_doc_list:
+        return
+
+    await update.message.reply_chat_action(ChatAction.TYPING)
+
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO command_stats (command, user_id) VALUES (?, ?);
+        """,
+        (sent_command, update.message.from_user.id),
+    )

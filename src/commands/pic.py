@@ -8,6 +8,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from config import logger
+from utils.decorators import description, example, triggers, usage
 
 images = set()
 
@@ -49,10 +50,15 @@ async def worker_image_seeder(context: ContextTypes.DEFAULT_TYPE) -> None:
         await asyncio.gather(*tasks)
 
 
+@triggers(["pic"])
+@description("Get a random image from Imgur.")
+@usage("/pic")
+@example("/pic")
 async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get random images from imgur"""
     if len(images) == 0:
-        await get_image()
+        async with httpx.AsyncClient() as client:
+            await get_image(client)
 
     await update.message.reply_photo(
         photo=images.pop(),

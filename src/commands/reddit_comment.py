@@ -7,8 +7,10 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import commands
 import utils
 from config.options import config
+from utils.decorators import api_key, description, example, triggers, usage
 
 if "REDDIT" in config["API"]:
     reddit = asyncpraw.Reddit(
@@ -18,6 +20,11 @@ if "REDDIT" in config["API"]:
     )
 
 
+@triggers(["c"])
+@description("Reply to a message to search Reddit for the top comment on a URL.")
+@usage("/c")
+@example("/c")
+@api_key("REDDIT")
 async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Get the top Reddit comment for a URL.
@@ -25,7 +32,7 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     url = utils.extract_link(update)
     if not url:
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, get_top_comment)
         return
 
     subreddit = await reddit.subreddit("all")

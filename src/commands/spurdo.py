@@ -2,9 +2,15 @@ from spurdify import spurdify
 from telegram import Update
 from telegram.ext import ContextTypes
 
+import commands
 import utils
+from utils.decorators import description, example, triggers, usage
 
 
+@triggers(["spurdo"])
+@description("Spurdify text.")
+@usage("/spurdo")
+@example("/spurdo")
 async def spurdo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Spurdify text"""
     text = ""
@@ -13,7 +19,7 @@ async def spurdo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             args: str = update.message.reply_to_message.text or update.message.reply_to_message.caption  # type: ignore
             text = spurdify(args)
         except AttributeError:
-            await utils.usage_string(update.message)
+            await commands.usage_string(update.message, context)
     else:
         text = spurdify(" ".join(context.args))
 

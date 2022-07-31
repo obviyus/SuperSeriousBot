@@ -4,8 +4,10 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import commands
 import utils
 from config.db import redis
+from utils.decorators import description, example, triggers, usage
 
 geolocator = Nominatim(user_agent="SuperSeriousBot")
 
@@ -53,12 +55,16 @@ class Point:
         return response.json()["properties"]["timeseries"][0]["data"]
 
 
+@triggers(["weather", "w"])
+@description("Get the weather for a location. Saves your last location.")
+@usage("/w")
+@example("/w")
 async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Get the weather for a given location.
     """
     if not context.args and not redis.exists(f"weather:{update.message.from_user.id}"):
-        await utils.usage_string(update.message)
+        await commands.usage_string(update.message, weather)
         return
 
     if context.args:
