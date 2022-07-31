@@ -1,3 +1,10 @@
+## [1.14.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.0...v1.14.1) (2022-07-31)
+
+
+### Bug Fixes
+
+* **object:** re-add object store commands ([40d7c67](https://github.com/obviyus/SuperSeriousBot/commit/40d7c6755e12589e5aa91cf8fccf7a843758ebf2))
+
 # [1.14.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.13.0...v1.14.0) (2022-07-31)
 
 
