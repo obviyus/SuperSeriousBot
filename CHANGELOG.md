@@ -1,3 +1,10 @@
+## [1.14.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.2...v1.14.3) (2022-07-31)
+
+
+### Bug Fixes
+
+* **c:** re-add command ([9b314a7](https://github.com/obviyus/SuperSeriousBot/commit/9b314a7717b475afcbcf7d884dc8e1ce39fc626f))
+
 ## [1.14.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.1...v1.14.2) (2022-07-31)
 
 
