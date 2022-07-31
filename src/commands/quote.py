@@ -80,10 +80,6 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @example("/quote, /q")
 async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a quote from QuotesDB."""
-    if not context.args:
-        await commands.usage_string(update.message, get_quote)
-        return
-
     cursor = sqlite_conn.cursor()
     cursor.execute(
         """
