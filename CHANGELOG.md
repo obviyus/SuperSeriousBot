@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.13.0...v1.14.0) (2022-07-31)
+
+
+### Features
+
+* **botstats:** use sqlite for botstats ([4b82e3e](https://github.com/obviyus/SuperSeriousBot/commit/4b82e3e67a48550e314627da3ee9913a4e14f03d))
+
 # [1.13.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.12.0...v1.13.0) (2022-07-31)
 
 
