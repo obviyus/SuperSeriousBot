@@ -1,6 +1,7 @@
 """
 Commands for general use.
 """
+
 from telegram.ext import CommandHandler
 
 import management
@@ -19,10 +20,12 @@ from .meme import meme
 from .person import person
 from .pic import pic, worker_image_seeder
 from .ping import ping
+from .quote import add_quote, get_quote
 from .randdit import nsfw, randdit, worker_seed_posts
 from .reddit_comment import get_top_comment
 from .sed import sed
 from .spurdo import spurdo
+from .store import get_object, set_object
 from .subscribe import *
 from .tldr import tldr
 from .translate import translate, tts
@@ -31,8 +34,6 @@ from .ud import ud
 from .uwu import uwu
 from .vision import age, caption
 from .weather import weather
-from .store import set_object, get_object
-from .quote import add_quote, get_quote
 
 
 async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -84,14 +85,12 @@ command_list = [
         "caption",
         caption if "AZURE_API_KEY" in config["API"] else disabled,
     ),
-    CommandHandler("weather", weather),
-    CommandHandler("w", weather),
+    CommandHandler(["weather", "w"], weather),
     CommandHandler("gstats", management.get_total_chat_stats),
     CommandHandler("set", set_object),
     CommandHandler("get", get_object),
     CommandHandler("addquote", add_quote),
-    CommandHandler("quote", get_quote),
-    CommandHandler("q", get_quote),
+    CommandHandler(["quote", "q"], get_quote),
 ]
 
 
