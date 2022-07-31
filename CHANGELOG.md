@@ -1,3 +1,11 @@
+# [1.13.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.12.0...v1.13.0) (2022-07-31)
+
+
+### Features
+
+* **decorators:** implement decorators for docs ([b3f462c](https://github.com/obviyus/SuperSeriousBot/commit/b3f462c0884b13cd17e8b36aa25c74070fe5fe88))
+* **links:** remove /dl for instagram URLs ([d94d89a](https://github.com/obviyus/SuperSeriousBot/commit/d94d89ac00ce21e0270c0d57e6b005bcc4f36413))
+
 # [1.12.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.11.1...v1.12.0) (2022-07-30)
 
 
