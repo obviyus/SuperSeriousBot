@@ -74,6 +74,8 @@ list_of_commands = [
     subscribe_reddit,
     tldr,
     translate,
+    set_object,
+    get_object,
     tts,
     ud,
     uwu,
