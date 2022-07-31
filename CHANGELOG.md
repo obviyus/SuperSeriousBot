@@ -1,3 +1,10 @@
+## [1.14.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.1...v1.14.2) (2022-07-31)
+
+
+### Bug Fixes
+
+* **quote:** quote works without args ([ad1c138](https://github.com/obviyus/SuperSeriousBot/commit/ad1c138a58eb67d832152ae973d663e0c74e8f15))
+
 ## [1.14.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.0...v1.14.1) (2022-07-31)
 
 
