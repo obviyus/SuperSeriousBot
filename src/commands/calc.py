@@ -12,8 +12,8 @@ WOLFRAM_SHORT_QUERY = "https://api.wolframalpha.com/v1/result"
 
 @triggers(["calc"])
 @description("Perform a WolframAlpha query.")
-@usage("/calc")
-@example("/calc")
+@usage("/calc [query]")
+@example("/calc 300th digit of pi")
 @api_key("WOLFRAM_APP_ID")
 async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Calculate anything using WolframAlpha"""
