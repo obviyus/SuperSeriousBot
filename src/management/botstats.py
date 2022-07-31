@@ -1,5 +1,3 @@
-import heapq
-
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -59,21 +57,26 @@ async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 @usage("/botstats")
 @example("/botstats")
 async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    commands = []
-    for command in redis.scan_iter("command:*"):
-        heapq.heappush(
-            commands,
-            (-1 * int(redis.get(command)), command.replace("command:", "")),
-        )
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        SELECT *, COUNT(id) AS command_count
+        FROM command_stats
+        GROUP BY command
+        ORDER BY COUNT(id) DESC
+        LIMIT 10;
+        """,
+    )
 
-    text, total = f"<u>Stats for @{context.bot.username}</u>:\n\n", 0
-    for count, command in heapq.nlargest(10, commands):
-        count *= -1
-        text += f"<pre>/{command:9}: {count}</pre>\n"
-        total += count
+    text = f"Stats for <b>@{context.bot.username}:</b>\n\n"
 
-    text += f"\n<b>Total: {total}</b>"
+    rows = cursor.fetchall()
+    total_count = sum(command["command_count"] for command in rows)
 
+    for row in rows:
+        text += f"""<code>{row['command_count']:4} - /{row['command']}</code>\n"""
+
+    text += f"\nTotal: <b>{total_count}</b>"
     await update.message.reply_text(
         text,
         parse_mode=ParseMode.HTML,

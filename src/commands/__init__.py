@@ -53,6 +53,7 @@ list_of_commands = [
     get_total_chats,
     get_total_users,
     get_total_chat_stats,
+    get_command_stats,
     get_uptime,
     calc,
     define,
@@ -146,7 +147,8 @@ async def increment_command_count(
         return
 
     if "@" in sent_command:
-        sent_command = sent_command[1 : sent_command.index("@")]
+        sent_command = sent_command[: sent_command.index("@")]
+    sent_command = sent_command[1:]
 
     logger.info("/{} was used by @{}".format(sent_command, update.message.from_user.id))
     if sent_command not in command_doc_list:
