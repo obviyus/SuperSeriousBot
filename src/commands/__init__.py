@@ -80,6 +80,7 @@ list_of_commands = [
     tldr,
     translate,
     tts,
+    tv,
     ud,
     uwu,
     weather,
