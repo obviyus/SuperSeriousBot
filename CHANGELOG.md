@@ -1,3 +1,10 @@
+## [1.14.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.4...v1.14.5) (2022-08-02)
+
+
+### Bug Fixes
+
+* **tv:** shortedn callback data to < 64 bytes ([75d76f6](https://github.com/obviyus/SuperSeriousBot/commit/75d76f69f458fac3a13a701c493a4f34580d6a76))
+
 ## [1.14.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.3...v1.14.4) (2022-08-02)
 
 
