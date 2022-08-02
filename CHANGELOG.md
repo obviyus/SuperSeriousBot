@@ -1,3 +1,10 @@
+## [1.14.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.5...v1.14.6) (2022-08-02)
+
+
+### Bug Fixes
+
+* **tv:** limit list response to only the chat ([80f2d81](https://github.com/obviyus/SuperSeriousBot/commit/80f2d8178b7b17d9b29a2107114b8ea54aeeda84))
+
 ## [1.14.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.4...v1.14.5) (2022-08-02)
 
 
