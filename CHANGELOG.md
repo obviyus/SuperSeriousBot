@@ -1,3 +1,10 @@
+## [1.14.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.3...v1.14.4) (2022-08-02)
+
+
+### Bug Fixes
+
+* **tv:** re-add /tv command ([6d2bcea](https://github.com/obviyus/SuperSeriousBot/commit/6d2bcea7dcddf58479cea8ad2857378a7f227083))
+
 ## [1.14.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.2...v1.14.3) (2022-07-31)
 
 
