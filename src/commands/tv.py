@@ -43,7 +43,7 @@ async def keyboard_builder(user_id: int) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     show["show_name"],
-                    callback_data=f"""remove_tv_show:{show["show_id"]},{user_id},{show["show_name"]}""",
+                    callback_data=f"""rts:{show["show_id"]},{user_id}""",
                 )
             ]
         )
@@ -54,7 +54,7 @@ async def keyboard_builder(user_id: int) -> InlineKeyboardMarkup:
 async def tv_show_button(update: Update, context: CallbackContext) -> None:
     """Remove a TV show from the watchlist."""
     query = update.callback_query
-    show_id, user_id, show_name = query.data.replace("remove_tv_show:", "").split(",")
+    show_id, user_id = query.data.replace("rts:", "").split(",")
 
     # Check user that pressed the button is the same as the user that added the show
     if query.from_user.id != int(user_id):
@@ -69,8 +69,7 @@ async def tv_show_button(update: Update, context: CallbackContext) -> None:
         (show_id, user_id),
     )
 
-    await query.answer(f"Removed {show_name} from your watchlist.")
-
+    await query.answer(f"Removed from your watchlist.")
     await context.bot.edit_message_text(
         text=f"List of your shows in this chat. Tap on a show to remove it from your watchlist:",
         chat_id=query.message.chat.id,

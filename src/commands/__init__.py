@@ -70,6 +70,7 @@ list_of_commands = [
     joke,
     meme,
     nsfw,
+    opt_in_tv,
     person,
     pic,
     ping,
@@ -80,7 +81,6 @@ list_of_commands = [
     tldr,
     translate,
     tts,
-    opt_in_tv,
     ud,
     uwu,
     weather,
@@ -116,7 +116,7 @@ print(command_doc_list)
 
 async def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    if query.data.startswith("remove_tv_show"):
+    if query.data.startswith("rts"):
         await tv_show_button(update, context)
     elif query.data.startswith("unsubscribe_reddit"):
         await reddit_subscription_button_handler(update, context)
