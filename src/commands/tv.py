@@ -22,7 +22,7 @@ from utils.decorators import description, example, triggers, usage
 TVMAZE_SEARCH_ENDPOINT = "https://api.tvmaze.com/search/shows"
 
 
-async def keyboard_builder(user_id: int) -> InlineKeyboardMarkup:
+async def keyboard_builder(user_id: int, chat_id: int) -> InlineKeyboardMarkup:
     """
     Builds a keyboard of the user's subscribed TV shows.
     """
@@ -33,9 +33,10 @@ async def keyboard_builder(user_id: int) -> InlineKeyboardMarkup:
         """SELECT tv_shows.show_id, tv_shows.show_name
             FROM tv_notifications
                      JOIN tv_shows ON tv_notifications.show_id = tv_shows.show_id
-            WHERE tv_notifications.user_id = ?
+                     JOIN main.tv_opt_in ON tv_notifications.user_id = tv_opt_in.user_id
+            WHERE tv_notifications.user_id = ? AND tv_opt_in.chat_id = ?
             ORDER BY tv_shows.show_name""",
-        (user_id,),
+        (user_id, chat_id),
     )
 
     for show in cursor.fetchall():
@@ -74,7 +75,7 @@ async def tv_show_button(update: Update, context: CallbackContext) -> None:
         text=f"List of your shows in this chat. Tap on a show to remove it from your watchlist:",
         chat_id=query.message.chat.id,
         message_id=query.message.message_id,
-        reply_markup=await keyboard_builder(user_id),
+        reply_markup=await keyboard_builder(user_id, update.message.chat_id),
     )
 
 
@@ -100,7 +101,9 @@ async def opt_in_tv(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Show all shows for the user in this chat
         await update.message.reply_text(
             "List of your shows in this chat. Tap on a show to remove it from your watchlist:",
-            reply_markup=await keyboard_builder(update.effective_user.id),
+            reply_markup=await keyboard_builder(
+                update.effective_user.id, update.message.chat_id
+            ),
         )
         return
 
