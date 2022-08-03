@@ -118,8 +118,22 @@ async def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     if query.data.startswith("rts"):
         await tv_show_button(update, context)
+    elif query.data.startswith("show_eta"):
+        await eta_keyboard_builder(update, context)
+    elif query.data.startswith("hide_eta"):
+        query = update.callback_query
+        user_id, chat_id = query.data.replace("hide_eta:", "").split(",")
+
+        await context.bot.edit_message_text(
+            text=f"List of your shows in this chat. Tap on a show to remove it from your watchlist:",
+            chat_id=query.message.chat.id,
+            message_id=query.message.message_id,
+            reply_markup=await keyboard_builder(user_id, chat_id),
+        )
     elif query.data.startswith("unsubscribe_reddit"):
         await reddit_subscription_button_handler(update, context)
+    else:
+        await query.answer("No function found for this button.")
 
 
 async def usage_string(message: Message, func) -> None:

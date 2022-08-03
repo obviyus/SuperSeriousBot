@@ -26,7 +26,13 @@ async def keyboard_builder(user_id: int, chat_id: int) -> InlineKeyboardMarkup:
     """
     Builds a keyboard of the user's subscribed TV shows.
     """
-    keyboard = []
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "⏱ Show ETA", callback_data=f"show_eta:{user_id},{chat_id}"
+            )
+        ]
+    ]
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
@@ -50,6 +56,51 @@ async def keyboard_builder(user_id: int, chat_id: int) -> InlineKeyboardMarkup:
         )
 
     return InlineKeyboardMarkup(keyboard)
+
+
+async def eta_keyboard_builder(update: Update, context: CallbackContext) -> None:
+    """
+    Builds a keyboard of the ETA to next episode of user's subscribed TV shows.
+    """
+    query = update.callback_query
+    user_id, chat_id = query.data.replace("show_eta:", "").split(",")
+
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "⏱ Hide ETA", callback_data=f"hide_eta:{user_id},{chat_id}"
+            )
+        ]
+    ]
+
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """SELECT tv_shows.show_id, tv_shows.show_name, tv_shows.next_episode_time
+            FROM tv_notifications
+                     JOIN tv_shows ON tv_notifications.show_id = tv_shows.show_id
+                     JOIN main.tv_opt_in ON tv_notifications.user_id = tv_opt_in.user_id
+            WHERE tv_notifications.user_id = ? AND tv_opt_in.chat_id = ?
+            ORDER BY tv_shows.show_name""",
+        (user_id, chat_id),
+    )
+
+    for show in cursor.fetchall():
+        print(show["show_name"], show["next_episode_time"])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"""{await utils.readable_time(show["next_episode_time"]) if show["next_episode_time"] else "No next episode."}""",
+                    callback_data="none",
+                )
+            ]
+        )
+
+    await context.bot.edit_message_text(
+        text=f"ETA of your shows in this chat:",
+        chat_id=query.message.chat.id,
+        message_id=query.message.message_id,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
 
 
 async def tv_show_button(update: Update, context: CallbackContext) -> None:
@@ -166,12 +217,12 @@ async def insert_new_show(show_id: int) -> None:
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"https://api.tvmaze.com/shows/{show_id}?embed=next_episode"
+            f"https://api.tvmaze.com/shows/{show_id}?embed=nextepisode"
         )
         response = response.json()
 
-    if "_embedded" in response and "next_episode" in response["_embedded"]:
-        airing_time = response["_embedded"]["next_episode"]["airstamp"]
+    if "_embedded" in response and "nextepisode" in response["_embedded"]:
+        airing_time = response["_embedded"]["nextepisode"]["airstamp"]
         airing_date = dateparser.parse(airing_time).timestamp()
 
         episode_string = f"""<b>{response["name"]}</b> - {response['_embedded']['nextepisode']['name']} (Season {response['_embedded']['nextepisode']['season']}: Episode {response['_embedded']['nextepisode']['number']})"""
@@ -242,6 +293,29 @@ async def worker_next_episode(context: ContextTypes.DEFAULT_TYPE) -> None:
         time.sleep(1)
         logger.info(f"Checking for new episodes of: {show['show_name']}")
         await insert_new_show(show["show_id"])
+
+    # Some shows update their episode titles
+    cursor.execute(
+        "SELECT * FROM tv_shows",
+        (current_time,),
+    )
+
+    for show in cursor.fetchall():
+        time.sleep(1)
+        logger.info(f"Checking for new titles of: {show['show_name']}")
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"""https://api.tvmaze.com/shows/{show["show_id"]}?embed=nextepisode"""
+            )
+            response = response.json()
+
+        if "_embedded" in response and "nextepisode" in response["_embedded"]:
+            episode_string = f"""<b>{response["name"]}</b> - {response['_embedded']['nextepisode']['name']} (Season {response['_embedded']['nextepisode']['season']}: Episode {response['_embedded']['nextepisode']['number']})"""
+            if episode_string != show["next_episode_name"]:
+                cursor.execute(
+                    "UPDATE tv_shows SET next_episode_name = ? WHERE show_id = ?",
+                    (episode_string, show["show_id"]),
+                )
 
 
 async def worker_episode_notifier(context: ContextTypes.DEFAULT_TYPE) -> None:
