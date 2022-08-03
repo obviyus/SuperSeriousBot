@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.6...v1.15.0) (2022-08-03)
+
+
+### Features
+
+* **tv:** show ETA for upcoming episodes ([71edb95](https://github.com/obviyus/SuperSeriousBot/commit/71edb9534e803630c1296ccf65537389dfee76f7))
+
 ## [1.14.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.5...v1.14.6) (2022-08-02)
 
 
