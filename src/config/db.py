@@ -15,12 +15,25 @@ cursor = sqlite_conn.cursor()
 
 # Chat Statistics Table
 cursor.execute(
-    f"""
+    """
     CREATE TABLE IF NOT EXISTS chat_stats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         chat_id INTEGER NOT NULL,
         create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
         user_id INTEGER NOT NULL
+    )
+    """
+)
+
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS chat_mentions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        mentioning_user_id INTEGER NOT NULL,
+        mentioned_user_id INTEGER NOT NULL,
+        message_id INTEGER NOT NULL
     )
     """
 )

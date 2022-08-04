@@ -1,6 +1,8 @@
 """
 Commands for general use.
 """
+import re
+
 from telegram import MessageEntity
 from telegram.constants import ChatAction
 from telegram.ext import CommandHandler
@@ -37,7 +39,7 @@ from .vision import age, caption
 from .weather import weather
 
 
-async def disabled(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
     """
     Disabled command handler.
     """
@@ -111,8 +113,6 @@ for command in list_of_commands:
             "example": command.example,
         }
 
-print(command_doc_list)
-
 
 async def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -147,6 +147,27 @@ async def usage_string(message: Message, func) -> None:
     )
 
 
+async def save_mentions(
+    mentioning_user_id: int,
+    mentioned_users: list[str],
+    message: Message,
+) -> None:
+    """
+    Save a mention in the database.
+    """
+    for user in mentioned_users:
+        user_id = await utils.get_user_id_from_username(user)
+        if user_id is not None:
+            cursor = sqlite_conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO chat_mentions (mentioning_user_id, mentioned_user_id, chat_id, message_id)
+                VALUES (?, ?, ?, ?)
+                """,
+                (mentioning_user_id, user_id, message.chat.id, message.message_id),
+            )
+
+
 async def increment_command_count(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -155,6 +176,18 @@ async def increment_command_count(
     """
     if not update.message:
         return
+
+    mentions = update.message.parse_entities(
+        [MessageEntity.TEXT_MENTION, MessageEntity.MENTION]
+    )
+
+    if mentions:
+        # Regex search text for @<username> mentions
+        text = update.message.text
+        usernames = set(re.findall("(@[\w|\d|_]{5,})", text))
+        await save_mentions(
+            update.message.from_user.id, [x for x in usernames], update.message
+        )
 
     await management.increment(update, context)
     sent_command = next(
@@ -168,7 +201,10 @@ async def increment_command_count(
         sent_command = sent_command[: sent_command.index("@")]
     sent_command = sent_command[1:]
 
-    logger.info("/{} was used by @{}".format(sent_command, update.message.from_user.id))
+    logger.info(
+        "/{} used by user_id:{}".format(sent_command, update.message.from_user.id)
+    )
+
     if sent_command not in command_doc_list:
         return
 

@@ -52,3 +52,11 @@ async def get_first_name(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> st
     """
     chat = await context.bot.get_chat(user_id)
     return chat.first_name
+
+
+async def get_user_id_from_username(username: str) -> int | None:
+    """
+    Get the user_id from a username.
+    """
+    user_id = redis.get(f"username:{username.replace('@', '')}")
+    return int(user_id) if user_id else None
