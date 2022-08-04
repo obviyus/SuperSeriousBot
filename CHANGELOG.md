@@ -1,3 +1,10 @@
+## [1.15.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.15.1...v1.15.2) (2022-08-04)
+
+
+### Bug Fixes
+
+* **stats:** use first_name in stats ([7a1dd58](https://github.com/obviyus/SuperSeriousBot/commit/7a1dd58db68e59e281a4d4dcd6a5d7d16cc7f172))
+
 ## [1.15.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.15.0...v1.15.1) (2022-08-04)
 
 
