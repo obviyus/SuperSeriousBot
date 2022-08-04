@@ -30,6 +30,10 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     redis.set(
         f"user_id:{user_object.id}", user_object.username or user_object.first_name
     )
+    # Update username vs. user_id in Redis
+    redis.set(
+        f"username:{user_object.username or user_object.first_name}", user_object.id
+    )
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
@@ -64,10 +68,6 @@ async def stat_string_builder(
 @usage("/seen [username]")
 @example("/seen @obviyus")
 async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # if not context.args:
-    #     await usage_string(update.message, get_last_seen)
-    #     return
-
     username = context.args[0].split("@")[1]
 
     # Get last seen time in Redis
@@ -76,7 +76,11 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text(f"@{username} has never been seen.")
         return
 
-    last_seen = int(last_seen)
+    try:
+        last_seen = int(last_seen)
+    except ValueError:
+        last_seen = datetime.fromisoformat(last_seen).timestamp()
+
     await update.message.reply_text(
         f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {await readable_time(last_seen)} ago.",
         disable_web_page_preview=True,
