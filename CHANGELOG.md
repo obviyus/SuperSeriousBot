@@ -1,3 +1,11 @@
+## [1.15.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.15.0...v1.15.1) (2022-08-04)
+
+
+### Bug Fixes
+
+* **c:** escape special Reddit markdown ([a0cb2b9](https://github.com/obviyus/SuperSeriousBot/commit/a0cb2b9191ad98dbfd5f7ebd27c34c0a425e0f55))
+* **tv:** remove excess args from SQL query ([b8a90c0](https://github.com/obviyus/SuperSeriousBot/commit/b8a90c0f1dbac41161ff518a9f75890d94a0f650))
+
 # [1.15.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.14.6...v1.15.0) (2022-08-03)
 
 
