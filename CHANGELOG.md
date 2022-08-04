@@ -1,3 +1,15 @@
+# [1.17.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.16.0...v1.17.0) (2022-08-04)
+
+
+### Bug Fixes
+
+* **seen:** fix time parsing for legacy entries ([34c01ca](https://github.com/obviyus/SuperSeriousBot/commit/34c01ca89dfc9260712d751cb1dc4927abb35158))
+
+
+### Features
+
+* **mentions:** store user mentions for future feature ([9382fc6](https://github.com/obviyus/SuperSeriousBot/commit/9382fc6fd6cde6e500dbacde95183df2e4359a7c))
+
 # [1.16.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.15.2...v1.16.0) (2022-08-04)
 
 
