@@ -277,7 +277,7 @@ async def inline_result_handler(
     )
 
 
-async def worker_next_episode(context: ContextTypes.DEFAULT_TYPE) -> None:
+async def worker_next_episode(_: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Worker that checks for upcoming episodes of shows in DB.
     """
@@ -297,7 +297,6 @@ async def worker_next_episode(context: ContextTypes.DEFAULT_TYPE) -> None:
     # Some shows update their episode titles
     cursor.execute(
         "SELECT * FROM tv_shows",
-        (current_time,),
     )
 
     for show in cursor.fetchall():
