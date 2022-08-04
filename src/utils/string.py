@@ -44,3 +44,11 @@ async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
             return chat.username
         else:
             return chat.first_name
+
+
+async def get_first_name(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """
+    Get the first_name for a user_id.
+    """
+    chat = await context.bot.get_chat(user_id)
+    return chat.first_name

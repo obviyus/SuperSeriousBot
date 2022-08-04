@@ -173,9 +173,7 @@ async def opt_in_tv(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def inline_show_search(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Searches for a TV show.
     """

@@ -50,7 +50,7 @@ async def stat_string_builder(
 
     for _, _, timestamp, user_id, count in rows:
         percent = round(count / total_count * 100, 2)
-        text += f"""<code>{percent:4.1f}% - {await utils.string.get_username(user_id, context)}</code>\n"""
+        text += f"""<code>{percent:4.1f}% - {await utils.string.get_first_name(user_id, context)}</code>\n"""
 
     text += f"\nTotal messages: <b>{total_count}</b>"
     await message.reply_text(
