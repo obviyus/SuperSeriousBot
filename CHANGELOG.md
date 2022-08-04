@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.15.2...v1.16.0) (2022-08-04)
+
+
+### Features
+
+* **db:** index busy rows ([a269a70](https://github.com/obviyus/SuperSeriousBot/commit/a269a7083a14a391e9cdd33fba3b166ee6aff293))
+
 ## [1.15.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.15.1...v1.15.2) (2022-08-04)
 
 
