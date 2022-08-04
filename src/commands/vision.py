@@ -7,7 +7,6 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
-import utils
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 

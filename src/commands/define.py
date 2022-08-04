@@ -1,13 +1,11 @@
 import html
 
 import httpx
-import requests
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
-import utils
 from utils.decorators import description, example, triggers, usage
 
 DICTIONARY_API_ENDPOINT = "https://api.dictionaryapi.dev/api/v2/entries"

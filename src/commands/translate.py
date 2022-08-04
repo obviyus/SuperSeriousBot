@@ -3,7 +3,6 @@ from telegram.ext import ContextTypes
 from translatepy import Translator
 
 import commands
-import utils
 from utils.decorators import description, example, triggers, usage
 
 translator = Translator()

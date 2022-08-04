@@ -5,7 +5,6 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
-import utils
 from config.db import sqlite_conn
 from utils.decorators import description, example, triggers, usage
 

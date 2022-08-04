@@ -4,7 +4,6 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
-import utils
 from utils.decorators import description, example, triggers, usage
 
 

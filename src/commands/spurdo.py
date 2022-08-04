@@ -3,7 +3,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 import commands
-import utils
 from utils.decorators import description, example, triggers, usage
 
 
