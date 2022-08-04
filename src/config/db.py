@@ -37,7 +37,6 @@ cursor.execute(
     """
 )
 
-
 # Table for TV Show Notifications
 cursor.execute(
     """
@@ -118,4 +117,15 @@ cursor.execute(
         `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     """
+)
+
+# Add some indexes
+cursor.execute(
+    "CREATE INDEX IF NOT EXISTS chat_stats_chat_id_user_id_index ON chat_stats (chat_id, user_id);"
+)
+cursor.execute(
+    "CREATE INDEX IF NOT EXISTS command_stats_user_id_command_index ON command_stats (command, user_id);"
+)
+cursor.execute(
+    "CREATE INDEX IF NOT EXISTS tv_opt_in_user_id_chat_id_index ON tv_opt_in (user_id, chat_id);"
 )
