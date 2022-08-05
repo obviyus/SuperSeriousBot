@@ -4,7 +4,7 @@ import json
 import os
 import traceback
 
-from telegram import Update
+from telegram import MessageEntity, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -19,6 +19,7 @@ from telegram.ext import (
 )
 
 import commands
+import misc
 from config.db import redis
 from config.logger import logger
 from config.options import config
@@ -73,7 +74,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
     # Build the message with some markup and additional information about what happened.
-    # You might need to add some logic to deal with messages longer than the 4096 character limit.
+    # You might need to add some logic to deal with messages longer than the 4096-character limit.
     update_str = update.to_dict() if isinstance(update, Update) else str(update)
     message = (
         f"An exception was raised while handling an update:\n\n"
@@ -123,6 +124,12 @@ def main():
                 MessageHandler(
                     filters.TEXT & filters.Regex(r"^ping$"),
                     commands.ping,
+                ),
+                # Filter for all URLs
+                MessageHandler(
+                    filters.Entity(MessageEntity.URL)
+                    | filters.Entity(MessageEntity.TEXT_LINK),
+                    misc.twitter_preview,
                 ),
                 # TV Show Query Handlers
                 InlineQueryHandler(

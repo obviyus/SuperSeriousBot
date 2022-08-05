@@ -1,0 +1,70 @@
+import httpx
+from dateparser import parse
+from telegram import InputMediaPhoto, Update
+from telegram.constants import ParseMode
+from telegram.ext import ContextTypes
+
+import utils
+from config import config
+
+TWEET_ENDPOINT = "https://api.twitter.com/2/tweets"
+
+
+async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Preview a tweet."""
+    url = utils.extract_link(update)
+    if (
+        not url
+        or "twitter" not in url.hostname
+        or "TWITTER_BEARER_TOKEN" not in config["API"]
+    ):
+        return
+
+    tweet_id = url.path.split("/")[-1]
+    if not tweet_id:
+        return
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            TWEET_ENDPOINT,
+            params={
+                "ids": tweet_id,
+                "expansions": "author_id,attachments.media_keys",
+                "tweet.fields": "created_at,id,text",
+                "user.fields": "name,username,verified",
+                "media.fields": "type,url,preview_image_url",
+            },
+            headers={
+                "Authorization": f"Bearer {config['API']['TWITTER_BEARER_TOKEN']}",
+            },
+        )
+
+    if response.status_code != 200:
+        return
+
+    data = response.json()
+
+    user = data["includes"]["users"][0]
+    attachments = data["includes"]["media"]
+    data = data["data"][0]
+
+    text = f"""<b>{user['name']}</b>\n(@{user['username']} {"✅" if user['verified'] else ""})"""
+    text += f" <i>{await utils.readable_time(int(parse(data['created_at']).timestamp()))} ago</i>"
+    text += f"\n\n{data['text']}"
+
+    media_group = []
+    for index, media in enumerate(attachments):
+        if media["type"] == "photo":
+            url = media["url"]
+        else:
+            url = media["preview_image_url"]
+
+        media_group.append(
+            InputMediaPhoto(
+                url, caption=text if index == 0 else None, parse_mode=ParseMode.HTML
+            )
+        )
+
+    await update.message.reply_media_group(
+        media_group,
+    )

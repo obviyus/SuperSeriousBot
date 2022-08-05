@@ -87,6 +87,10 @@ schema = {
                     },
                 },
             },
+            "TWITTER_BEARER_TOKEN": {
+                "type": "string",
+                "required": False,
+            },
         },
     },
 }
@@ -105,16 +109,17 @@ config = {
         "AZURE_API_KEY": os.environ.get("AZURE_API_KEY", ""),
         "GIPHY_API_KEY": os.environ.get("GIPHY_API_KEY", ""),
         "GOODREADS_API_KEY": os.environ.get("GOODREADS_API_KEY", ""),
-        "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
-        "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
         "IMGUR_API_KEY": os.environ.get("IMGUR_API_KEY", ""),
         "INSTAGRAM_SESSION_NAME": os.environ.get("INSTAGRAM_SESSION_NAME", ""),
-        "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
         "REDDIT": {
             "CLIENT_ID": os.environ.get("REDDIT_CLIENT_ID", ""),
             "CLIENT_SECRET": os.environ.get("REDDIT_CLIENT_SECRET", ""),
             "USER_AGENT": os.environ.get("REDDIT_USER_AGENT", ""),
         },
+        "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
+        "TWITTER_BEARER_TOKEN": os.environ.get("TWITTER_BEARER_TOKEN", ""),
+        "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
+        "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
     },
 }
 
