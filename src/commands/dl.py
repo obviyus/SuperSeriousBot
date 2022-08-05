@@ -1,6 +1,6 @@
 import os
 from typing import Dict
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
 import httpx
 import requests
@@ -9,7 +9,6 @@ from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
 from redvid import Downloader
 from telegram import InputMediaPhoto, InputMediaVideo, Update
-from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 import commands
@@ -19,20 +18,30 @@ from config.options import config
 from utils.decorators import description, example, triggers, usage
 from .reddit_comment import reddit
 
-ydl_opts = {
-    "format": "b[filesize<=?50M]",
-    "outtmpl": "-",
-    "logger": logger,
-    "skip_download": True,
-    "age_limit": 33,
-    "geo_bypass": True,
-}
-
 reddit_downloader = Downloader()
 reddit_downloader.auto_max = True
 reddit_downloader.max_s = 50 * (1 << 20)
 
 MAX_IMAGE_COUNT = 10
+
+
+async def yt_dl_downloader(url: ParseResult) -> str:
+    ydl_opts = {
+        "format": "b[filesize<=?50M]",
+        "outtmpl": "-",
+        "logger": logger,
+        "skip_download": True,
+        "age_limit": 33,
+        "geo_bypass": True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url.geturl(), download=False)
+
+        if "url" not in info:
+            raise Exception("Could not download video.")
+
+        return info["url"]
 
 
 async def download_imgur(parsed_url, count) -> list[Dict]:
@@ -136,27 +145,13 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 image_list = await download_imgur(parsed_imgur_url, MAX_IMAGE_COUNT)
 
     if not image_list:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            try:
-                try:
-                    info = ydl.extract_info(url.geturl(), download=False)
-                except yt_dlp.utils.DownloadError as _:
-                    await update.message.reply_text("Failed to download video.")
-                    return
-
-                if not info["url"]:
-                    await update.message.reply_text("Failed to download video.")
-                    return
-                else:
-                    try:
-                        await update.message.reply_video(info["url"])
-                    except BadRequest:
-                        logger.error("BadRequest: %s", info["url"])
-                        await update.message.reply_text("Failed to download video.")
-            except Exception as e:
-                logger.error(e)
-
-                await update.message.reply_text("Failed to download video.")
+        try:
+            await update.message.reply_to_message.reply_video(
+                await yt_dl_downloader(url)
+            )
+        except Exception as _:
+            await update.message.reply_text("Could not download video.")
+            return
     else:
         await update.message.reply_media_group(
             [

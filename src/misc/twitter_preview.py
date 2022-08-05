@@ -1,10 +1,11 @@
 import httpx
 from dateparser import parse
-from telegram import InputMediaPhoto, Update
+from telegram import InputMediaPhoto, InputMediaVideo, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import utils
+from commands.dl import yt_dl_downloader
 from config import config
 
 TWEET_ENDPOINT = "https://api.twitter.com/2/tweets"
@@ -45,10 +46,10 @@ async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     data = response.json()
 
     user = data["includes"]["users"][0]
-    attachments = data["includes"]["media"]
+    attachments = data["includes"]["media"] if "media" in data["includes"] else []
     data = data["data"][0]
 
-    text = f"""<b>{user['name']}</b>\n(@{user['username']} {"✅" if user['verified'] else ""})"""
+    text = f"""<b>{user['name']}</b>\n(@{user['username']}{" ✅" if user['verified'] else ""})"""
     text += f" <i>{await utils.readable_time(int(parse(data['created_at']).timestamp()))} ago</i>"
     text += f"\n\n{data['text']}"
 
@@ -57,7 +58,17 @@ async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         if media["type"] == "photo":
             url = media["url"]
         else:
-            url = media["preview_image_url"]
+            try:
+                # If a downloadable non-image type is available, send only that
+                content_url = await yt_dl_downloader(url)
+                media_group = [
+                    InputMediaVideo(
+                        content_url, caption=text, parse_mode=ParseMode.HTML
+                    )
+                ]
+                break
+            except Exception as _:
+                url = media["preview_image_url"]
 
         media_group.append(
             InputMediaPhoto(
@@ -65,6 +76,12 @@ async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             )
         )
 
-    await update.message.reply_media_group(
-        media_group,
-    )
+    if len(media_group):
+        await update.message.reply_media_group(
+            media_group,
+        )
+    else:
+        await update.message.reply_text(
+            text,
+            parse_mode=ParseMode.HTML,
+        )
