@@ -94,9 +94,9 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             image_list = await download_imgur(url, MAX_IMAGE_COUNT)
         case ("i.redd.it" | "preview.redd.it"):
             image_list = [{"image": url}]
-        case ("redd.it" | "reddit.com"):  # type: ignore
+        case ("redd.it" | "reddit.com"):
             try:
-                post = await reddit.submission(url=url.geturl())
+                post = await reddit.submission(url=url.geturl().replace("old.", ""))
                 await post.load()
             except (InvalidURL, NotFound):
                 await update.message.reply_text(
