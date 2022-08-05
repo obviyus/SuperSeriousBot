@@ -1,3 +1,10 @@
+## [1.18.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.18.0...v1.18.1) (2022-08-05)
+
+
+### Bug Fixes
+
+* **dl:** refactor youtube-dl function ([9788cf7](https://github.com/obviyus/SuperSeriousBot/commit/9788cf79437344fad65b2e16e64600eff2ea3beb))
+
 # [1.18.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.17.0...v1.18.0) (2022-08-05)
 
 
