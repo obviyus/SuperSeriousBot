@@ -80,6 +80,7 @@ list_of_commands = [
     set_object,
     spurdo,
     subscribe_reddit,
+    list_reddit_subscriptions,
     tldr,
     translate,
     tts,
