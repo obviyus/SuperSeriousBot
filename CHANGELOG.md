@@ -1,3 +1,10 @@
+# [1.18.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.17.0...v1.18.0) (2022-08-05)
+
+
+### Features
+
+* **tweet:** return Twitter tweet previews ([09f28d4](https://github.com/obviyus/SuperSeriousBot/commit/09f28d47a5a198bb63dc6e707648b152c8a8dec8))
+
 # [1.17.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.16.0...v1.17.0) (2022-08-04)
 
 
