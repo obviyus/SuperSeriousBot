@@ -1,3 +1,11 @@
+## [1.18.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.18.1...v1.18.2) (2022-08-05)
+
+
+### Bug Fixes
+
+* **dl:** remove `old.` prefix from Reddit URLs ([7406601](https://github.com/obviyus/SuperSeriousBot/commit/7406601e9d53c6a48b7a0099dff62bff4acae75f))
+* **subs:** re-add list subscriptions command ([5506c39](https://github.com/obviyus/SuperSeriousBot/commit/5506c3988b505793cc661a46ea563d98314975db))
+
 ## [1.18.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.18.0...v1.18.1) (2022-08-05)
 
 
