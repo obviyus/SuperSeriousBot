@@ -1,3 +1,10 @@
+# [1.20.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.19.0...v1.20.0) (2022-08-06)
+
+
+### Features
+
+* **viz:** visualise social graph for chats ([095cc6d](https://github.com/obviyus/SuperSeriousBot/commit/095cc6dcb18576986c4aa2cba49e2ad9c15f366c))
+
 # [1.19.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.18.2...v1.19.0) (2022-08-06)
 
 
