@@ -1,3 +1,15 @@
+# [1.21.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.20.0...v1.21.0) (2022-08-06)
+
+
+### Bug Fixes
+
+* **string:** round readable numbers ([e6b7bf4](https://github.com/obviyus/SuperSeriousBot/commit/e6b7bf4445e278fb109dab9f87386cb05b713657))
+
+
+### Features
+
+* **viz:** change solver to `forceAtlas2Based` ([8b68e73](https://github.com/obviyus/SuperSeriousBot/commit/8b68e73dd10ad1a3eaa3a21147f78a3b78f76b6b))
+
 # [1.20.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.19.0...v1.20.0) (2022-08-06)
 
 
