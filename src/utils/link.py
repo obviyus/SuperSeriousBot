@@ -1,4 +1,3 @@
-from turtle import update
 from typing import Dict
 from urllib.parse import ParseResult, urlparse
 
