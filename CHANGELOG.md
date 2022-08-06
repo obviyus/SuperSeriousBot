@@ -1,3 +1,10 @@
+## [1.21.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.21.0...v1.21.1) (2022-08-06)
+
+
+### Bug Fixes
+
+* **link:** handle reply checker with exceptions ([a0c9d9d](https://github.com/obviyus/SuperSeriousBot/commit/a0c9d9d8451a05936bf466eb7ab896fc94ce1358))
+
 # [1.21.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.20.0...v1.21.0) (2022-08-06)
 
 
