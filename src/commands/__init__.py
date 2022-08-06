@@ -150,14 +150,18 @@ async def usage_string(message: Message, func) -> None:
 
 async def save_mentions(
     mentioning_user_id: int,
-    mentioned_users: list[str],
+    mentioned_users: list[str | int],
     message: Message,
 ) -> None:
     """
     Save a mention in the database.
     """
     for user in mentioned_users:
-        user_id = await utils.get_user_id_from_username(user)
+        if isinstance(user, str):
+            user_id = await utils.get_user_id_from_username(user)
+        else:
+            user_id = user
+
         if user_id is not None:
             cursor = sqlite_conn.cursor()
             cursor.execute(
@@ -188,6 +192,12 @@ async def increment_command_count(
         usernames = set(re.findall("(@[\w|\d|_]{5,})", text))
         await save_mentions(
             update.message.from_user.id, [x for x in usernames], update.message
+        )
+    elif update.message.reply_to_message:
+        await save_mentions(
+            update.message.from_user.id,
+            [update.message.reply_to_message.from_user.id],
+            update.message,
         )
 
     await management.increment(update, context)
