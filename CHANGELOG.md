@@ -1,3 +1,10 @@
+## [1.21.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.21.1...v1.21.2) (2022-08-06)
+
+
+### Bug Fixes
+
+* **links:** fix regression from last commit ([b285f71](https://github.com/obviyus/SuperSeriousBot/commit/b285f71056d313e84b58034a4a504b29540853ab))
+
 ## [1.21.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.21.0...v1.21.1) (2022-08-06)
 
 
