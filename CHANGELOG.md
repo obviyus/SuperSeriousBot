@@ -1,3 +1,10 @@
+## [1.21.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.21.2...v1.21.3) (2022-08-06)
+
+
+### Bug Fixes
+
+* **link:** remove broken import ([aa3abf0](https://github.com/obviyus/SuperSeriousBot/commit/aa3abf08b22f819c57c84ee9683e9465c51dbb60))
+
 ## [1.21.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.21.1...v1.21.2) (2022-08-06)
 
 
