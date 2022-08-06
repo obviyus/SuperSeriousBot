@@ -9,11 +9,10 @@ def extract_link(update: Update) -> ParseResult | None:
     Extract the first URL from a given update.
     https://github.com/python-telegram-bot/ptbcontrib/blob/main/ptbcontrib/extract_urls/extracturls.py
     """
-    message = (
-        update.message.reply_to_message
-        if update.message.reply_to_message
-        else update.message
-    )
+    try:
+        message = update.message.reply_to_message
+    except AttributeError:
+        message = update.message
 
     types = [MessageEntity.URL, MessageEntity.TEXT_LINK]
     results = message.parse_entities(types=types)
