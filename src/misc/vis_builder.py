@@ -43,8 +43,8 @@ async def generate_network_for_chat(
 
     network = Network(
         heading=chat_title,
-        height=600,
-        width=600,
+        height=1000,
+        width=1000,
     )
 
     mappings = defaultdict(lambda: defaultdict(int))
@@ -77,6 +77,17 @@ async def generate_network_for_chat(
     if not os.path.exists(f"{os.getcwd()}/vis"):
         os.mkdir(f"{os.getcwd()}/vis")
 
+    network.set_options(
+        """"const options = {
+  "physics": {
+    "solver": "forceAtlas2Based",
+    "forceAtlas2Based": {
+      "gravitationalConstant": -500,
+      "springLength": 305
+    }
+  }
+}"""
+    )
     network.save_graph(f"vis/{chat_id}.html")
 
 
