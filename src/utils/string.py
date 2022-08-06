@@ -14,20 +14,20 @@ async def readable_time(input_timestamp: int) -> str:
     if seconds < 60:
         return f"{seconds} second" + ("s" if seconds > 1 else "")
     elif seconds < 3600:
-        minutes = seconds // 60
-        return f"{minutes} minute" + ("s" if minutes > 1 else "")
+        minutes = seconds / 60
+        return f"{minutes:.1g} minute" + ("s" if minutes > 1 else "")
     elif seconds < 86400:
-        hours = seconds // 3600
-        return f"{hours} hour" + ("s" if hours > 1 else "")
+        hours = seconds / 3600
+        return f"{hours:.1g} hour" + ("s" if hours > 1 else "")
     elif seconds < 604800:
-        days = seconds // 86400
-        return f"{days} day" + ("s" if days > 1 else "")
+        days = seconds / 86400
+        return f"{days:.1g} day" + ("s" if days > 1 else "")
     elif seconds < 31536000:
-        weeks = seconds // 604800
-        return f"{weeks} week" + ("s" if weeks > 1 else "")
+        weeks = seconds / 604800
+        return f"{weeks:.1g} week" + ("s" if weeks > 1 else "")
     else:
-        years = seconds // 31536000
-        return f"{years} year" + ("s" if years > 1 else "")
+        years = seconds / 31536000
+        return f"{years:.1g} year" + ("s" if years > 1 else "")
 
 
 async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
