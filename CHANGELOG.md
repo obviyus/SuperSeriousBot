@@ -1,3 +1,10 @@
+# [1.19.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.18.2...v1.19.0) (2022-08-06)
+
+
+### Features
+
+* **mentions:** measure reply frequency ([4bbc72b](https://github.com/obviyus/SuperSeriousBot/commit/4bbc72be301a82157e127c5ae675d401b1ed440f))
+
 ## [1.18.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.18.1...v1.18.2) (2022-08-05)
 
 
