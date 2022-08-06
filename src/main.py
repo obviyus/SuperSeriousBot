@@ -150,6 +150,7 @@ def main():
     # TV Show notification workers
     job_queue.run_daily(commands.worker_next_episode, time=datetime.time(0, 0))
     job_queue.run_repeating(commands.worker_episode_notifier, interval=300, first=10)
+    job_queue.run_repeating(misc.worker_build_network, interval=1800, first=10)
 
     # Deliver Reddit subscriptions
     job_queue.run_daily(

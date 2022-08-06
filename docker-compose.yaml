@@ -1,10 +1,12 @@
 version: "3"
 services:
   ssgbot:
+    # image: ghcr.io/obviyus/superseriousbot:latest
     build: .
     volumes:
       - ./db/:/db/
       - ./src:/code/src
+      - ./vis/:/code/vis/
     env_file:
       - ssgbot.env
     depends_on:
