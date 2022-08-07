@@ -11,11 +11,11 @@ from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 
 
-@triggers(["book"])
-@description("Search for a book on GoodReads.")
 @usage("/book")
 @example("/book")
+@triggers(["book"])
 @api_key("GOODREADS_API_KEY")
+@description("Search for a book on GoodReads.")
 async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Query GoodReads for a book"""
 

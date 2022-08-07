@@ -17,11 +17,11 @@ if "AZURE_API_KEY" in config["API"]:
     )
 
 
-@triggers(["age"])
-@description("Reply to an image to use AI to estimate the age of a person.")
 @usage("/age")
 @example("/age")
+@triggers(["age"])
 @api_key("AZURE_API_KEY")
+@description("Reply to an image to use AI to estimate the age of a person.")
 async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Guess the age and gender from an image.
@@ -59,11 +59,11 @@ async def age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("No photo found.")
 
 
-@triggers(["caption"])
-@description("Reply to an image to use AI to generate a caption for the image.")
 @usage("/caption")
 @example("/caption")
+@triggers(["caption"])
 @api_key("AZURE_API_KEY")
+@description("Reply to an image to use AI to generate a caption for the image.")
 async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Generate a caption for an image.

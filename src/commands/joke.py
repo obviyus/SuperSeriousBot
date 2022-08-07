@@ -8,10 +8,10 @@ from telegram.ext import ContextTypes
 from utils.decorators import description, example, triggers, usage
 
 
-@triggers(["joke"])
-@description("Get a two part joke.")
 @usage("/joke")
 @example("/joke")
+@triggers(["joke"])
+@description("Get a two part joke.")
 async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random joke"""
     response = get("https://v2.jokeapi.dev/joke/Any?type=twopart").json()

@@ -116,11 +116,11 @@ supported_languages = {
 
 
 @triggers(["tl"])
+@example("/tl fr - Good morning!")
+@usage("/tl [language] - [content]")
 @description(
     "Translate a message or text to the desired language. Reply to a message with just the language code to translate it."
 )
-@usage("/tl [language] - [content]")
-@example("/tl fr - Good morning!")
 async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Translate a message.
@@ -159,11 +159,11 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 @triggers(["tts"])
+@example("/tts fr - Good morning!")
+@usage("/tts [language] - [content]")
 @description(
     "Generate text-to-speech of message in the desired speaker language. Reply to a message with just the language code to TTS it."
 )
-@usage("/tts [language] - [content]")
-@example("/tts fr - Good morning!")
 async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Translate a message and send it as a voice message.

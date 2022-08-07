@@ -7,9 +7,9 @@ from utils.decorators import description, example, triggers, usage
 
 
 @triggers(["uwu"])
-@description("Uwuify a message. Reply to a message to uwuify it.")
 @usage("/uwu [text]")
 @example("/uwu Hello")
+@description("Uwuify a message. Reply to a message to uwuify it.")
 async def uwu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Uwuify a message.

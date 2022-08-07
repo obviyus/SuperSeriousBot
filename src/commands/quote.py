@@ -23,10 +23,10 @@ class FileType(enum.Enum):
     UNKNOWN = "UNKNOWN"
 
 
-@triggers(["addquote"])
-@description("Reply to a message to save it into QuotesDB.")
 @usage("/addquote")
 @example("/addquote")
+@triggers(["addquote"])
+@description("Reply to a message to save it into QuotesDB.")
 async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Save chat message to QoutesDB."""
     if not update.message.reply_to_message:
@@ -74,10 +74,10 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-@triggers(["quote", "q"])
-@description("Return a random message from QuotesDB for this group.")
 @usage("/quote, /q")
 @example("/quote, /q")
+@triggers(["quote", "q"])
+@description("Return a random message from QuotesDB for this group.")
 async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a quote from QuotesDB."""
     cursor = sqlite_conn.cursor()

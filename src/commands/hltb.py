@@ -7,9 +7,9 @@ from utils.decorators import description, example, triggers, usage
 
 
 @triggers(["hltb"])
-@description("Find how long a game takes to beat.")
 @usage("/hltb [game]")
 @example("/hltb Horizon Zero Dawn")
+@description("Find how long a game takes to beat.")
 async def hltb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Find how long a game takes to beat"""
     if not context.args:

@@ -5,10 +5,10 @@ from telegram.ext import ContextTypes
 from utils.decorators import description, example, triggers, usage
 
 
-@triggers(["person"])
-@description("Get an AI generated face.")
 @usage("/person")
 @example("/person")
+@triggers(["person"])
+@description("Get an AI generated face.")
 async def person(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a face from thispersondoesnotexist.com"""
 

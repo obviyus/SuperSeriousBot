@@ -52,11 +52,11 @@ def make_response(post: models.Submission) -> str:
     return f"{post.url}\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}</a>"
 
 
-@triggers(["nsfw"])
-@description("Get random NSFW post from Reddit.")
 @usage("/nsfw")
 @example("/nsfw")
 @api_key("REDDIT")
+@triggers(["nsfw"])
+@description("Get random NSFW post from Reddit.")
 async def nsfw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random NSFW post from Reddit"""
     await update.message.reply_text(random_posts_nsfw.pop(), parse_mode=ParseMode.HTML)
@@ -65,11 +65,11 @@ async def nsfw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await context.job_queue.run_once(worker_seed_posts, 0)
 
 
-@triggers(["r"])
-@description("Get a random post from Reddit. Optionally specify the subreddit.")
-@usage("/r [subreddit (optional)]")
 @example("/r")
+@triggers(["r"])
 @api_key("REDDIT")
+@usage("/r [subreddit (optional)]")
+@description("Get a random post from Reddit. Optionally specify the subreddit.")
 async def randdit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random post from a subreddit"""
     subreddit: str = context.args[0] if context.args else ""

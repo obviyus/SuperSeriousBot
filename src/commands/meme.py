@@ -5,10 +5,10 @@ from telegram.ext import ContextTypes
 from utils.decorators import description, example, triggers, usage
 
 
-@triggers(["meme"])
-@description("Get a random meme.")
 @usage("/meme")
 @example("/meme")
+@triggers(["meme"])
+@description("Get a random meme.")
 async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random meme"""
     if not update.message:

@@ -7,10 +7,10 @@ from utils import readable_time
 from utils.decorators import description, example, triggers, usage
 
 
-@triggers(["users"])
-@description("Get number of users that user this bot.")
 @usage("/users")
 @example("/users")
+@triggers(["users"])
+@description("Get number of users that user this bot.")
 async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     cursor = sqlite_conn.cursor()
     cursor.execute("SELECT COUNT(DISTINCT user_id) FROM chat_stats;")
@@ -21,10 +21,10 @@ async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
-@triggers(["groups"])
-@description("Get number of groups that use bot.")
 @usage("/groups")
 @example("/groups")
+@triggers(["groups"])
+@description("Get number of groups that use bot.")
 async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     cursor = sqlite_conn.cursor()
     cursor.execute("SELECT COUNT(DISTINCT chat_id) FROM chat_stats;")
@@ -35,10 +35,10 @@ async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
-@triggers(["uptime"])
-@description("Get duration since the bot instance was started.")
 @usage("/uptime")
 @example("/uptime")
+@triggers(["uptime"])
+@description("Get duration since the bot instance was started.")
 async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     uptime = redis.get("bot_startup_time")
     if not uptime:
@@ -52,10 +52,10 @@ async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     )
 
 
-@triggers(["botstats"])
-@description("Get usage stats of all bot commands.")
 @usage("/botstats")
 @example("/botstats")
+@triggers(["botstats"])
+@description("Get usage stats of all bot commands.")
 async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     cursor = sqlite_conn.cursor()
     cursor.execute(

@@ -66,10 +66,10 @@ async def download_imgur(parsed_url, count) -> list[Dict]:
         return [{"image": parsed_url.geturl()}]
 
 
-@triggers(["dl"])
-@description("Reply to a message to download the media attached to a URL.")
 @usage("/dl")
 @example("/dl")
+@triggers(["dl"])
+@description("Reply to a message to download the media attached to a URL.")
 async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Download the image or video from a link.

@@ -12,8 +12,8 @@ DICTIONARY_API_ENDPOINT = "https://api.dictionaryapi.dev/api/v2/entries"
 
 
 @triggers(["define"])
-@description("Define a word.")
 @usage("/define [word]")
+@description("Define a word.")
 @example("/define posthumous")
 async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Define a word"""

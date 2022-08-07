@@ -123,19 +123,19 @@ async def tv_show_button(update: Update, context: CallbackContext) -> None:
 
     await query.answer(f"Removed from your watchlist.")
     await context.bot.edit_message_text(
-        text=f"List of your shows in this chat. Tap on a show to remove it from your watchlist:",
+        text=f"List of your shows in this chat. Add new shows by inlining @{context.bot.username}. Tap on a show to remove it from your watchlist:",
         chat_id=query.message.chat.id,
         message_id=query.message.message_id,
         reply_markup=await keyboard_builder(user_id, update.message.chat_id),
     )
 
 
+@usage("/tv")
+@example("/tv")
 @triggers(["tv"])
 @description(
     "Subscribe to TV show notifications. Use /tv to list your subscriptions. Add new shows by searching for them in the inline query."
 )
-@usage("/tv")
-@example("/tv")
 async def opt_in_tv(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Displays a user's watchlist.
@@ -151,7 +151,7 @@ async def opt_in_tv(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if cursor.fetchone():
         # Show all shows for the user in this chat
         await update.message.reply_text(
-            "List of your shows in this chat. Tap on a show to remove it from your watchlist:",
+            f"List of your shows in this chat. Add new shows by inlining @{context.bot.username}. Tap on a show to remove it from your watchlist:",
             reply_markup=await keyboard_builder(
                 update.effective_user.id, update.message.chat_id
             ),

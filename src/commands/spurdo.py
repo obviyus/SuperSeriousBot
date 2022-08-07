@@ -6,10 +6,10 @@ import commands
 from utils.decorators import description, example, triggers, usage
 
 
-@triggers(["spurdo"])
-@description("Spurdify text.")
 @usage("/spurdo")
 @example("/spurdo")
+@triggers(["spurdo"])
+@description("Spurdify text.")
 async def spurdo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Spurdify text"""
     text = ""

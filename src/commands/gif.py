@@ -8,11 +8,11 @@ from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 
 
-@triggers(["gif"])
-@description("Get a random GIF from giphy.")
 @usage("/gif")
 @example("/gif")
+@triggers(["gif"])
 @api_key("GIPHY_API_KEY")
+@description("Get a random GIF from giphy.")
 async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random GIF from giphy"""
     params: Dict[str, str] = {"api_key": config["API"]["GIPHY_API_KEY"]}

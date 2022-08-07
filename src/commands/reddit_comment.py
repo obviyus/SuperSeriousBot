@@ -20,11 +20,11 @@ if "REDDIT" in config["API"]:
     )
 
 
-@triggers(["c"])
-@description("Reply to a message to search Reddit for the top comment on a URL.")
 @usage("/c")
 @example("/c")
+@triggers(["c"])
 @api_key("REDDIT")
+@description("Reply to a message to search Reddit for the top comment on a URL.")
 async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Get the top Reddit comment for a URL.

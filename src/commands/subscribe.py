@@ -20,10 +20,10 @@ async def make_response(post: models.Submission, username: str) -> str:
 
 
 @triggers(["sub"])
-@description("Subscribe to a subreddit for daily post notifications.")
-@usage("/sub [subreddit]")
-@example("/sub Formula1")
 @api_key("REDDIT")
+@example("/sub Formula1")
+@usage("/sub [subreddit]")
+@description("Subscribe to a subreddit for daily post notifications.")
 async def subscribe_reddit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Subscribe to a subreddit for daily posts.
@@ -87,7 +87,7 @@ async def keyboard_builder(user_id: int, group_id: int) -> InlineKeyboardMarkup:
         """
         SELECT * FROM reddit_subscriptions WHERE group_id = ? AND receiver_id = ?;
         """,
-        (user_id, group_id),
+        (group_id, user_id),
     )
 
     keyboard = []
@@ -96,7 +96,7 @@ async def keyboard_builder(user_id: int, group_id: int) -> InlineKeyboardMarkup:
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    f"""{subreddit["subreddit_name"]} ({await utils.readable_time(int(dateparser.parse(subreddit["create_time"]).timestamp()))})""",
+                    f"""{subreddit["subreddit_name"]} ({await utils.readable_time(int(dateparser.parse(subreddit["create_time"]).timestamp()))} ago)""",
                     callback_data=f"""unsubscribe_reddit:{subreddit["subreddit_name"]},{subreddit["receiver_id"]}""",
                 )
             ]
@@ -105,11 +105,11 @@ async def keyboard_builder(user_id: int, group_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
-@triggers(["unsub"])
-@description("Unsubscribe from a subreddit for daily post notifications.")
-@usage("/unsub [subreddit]")
-@example("/unsub Formula1")
 @api_key("REDDIT")
+@triggers(["unsub"])
+@example("/unsub Formula1")
+@usage("/unsub [subreddit]")
+@description("Unsubscribe from a subreddit for daily post notifications.")
 async def list_reddit_subscriptions(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:

@@ -5,10 +5,10 @@ from telegram.ext import ContextTypes
 from utils.decorators import description, example, triggers, usage
 
 
-@triggers(["insult"])
-@description("Send a random insult. Reply to a person to insult them.")
 @usage("/insult")
 @example("/insult")
+@triggers(["insult"])
+@description("Send a random insult. Reply to a person to insult them.")
 async def insult(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random insult"""
     insult_response: str = get(

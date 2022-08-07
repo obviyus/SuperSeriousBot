@@ -7,10 +7,10 @@ from telegram.ext import ContextTypes
 from utils.decorators import description, example, triggers, usage
 
 
-@triggers(["fox", "shiba", "cat"])
-@description("Get a random image of the animal.")
 @usage("/fox, /shiba, /cat")
 @example("/fox, /shiba, /cat")
+@triggers(["fox", "shiba", "cat"])
+@description("Get a random image of the animal.")
 async def animal(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get animal"""
 

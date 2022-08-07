@@ -23,9 +23,9 @@ class FileType(enum.Enum):
 
 
 @triggers(["set"])
-@description("Reply to a media object to store it with a key. Get it back with /get.")
 @usage("/set [key]")
 @example("/set rickroll")
+@description("Reply to a media object to store it with a key. Get it back with /get.")
 async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Save a media object."""
     if not update.message.reply_to_message:
@@ -130,9 +130,9 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 @triggers(["get"])
-@description("Get an object from the store.")
 @usage("/get [key]")
 @example("/get rickroll")
+@description("Get an object from the store.")
 async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a media object."""
     if not context.args:

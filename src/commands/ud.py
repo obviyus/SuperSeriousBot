@@ -8,9 +8,9 @@ from utils.decorators import description, example, triggers, usage
 
 
 @triggers(["ud"])
-@description("Search a word on Urban Dictionary.")
 @usage("/ud [word]")
 @example("/ud racism")
+@description("Search a word on Urban Dictionary.")
 async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Search a word on Urban Dictionary.

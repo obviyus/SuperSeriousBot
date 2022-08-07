@@ -64,9 +64,9 @@ async def stat_string_builder(
 
 
 @triggers(["seen"])
-@description("Get duration since last message of a user.")
 @usage("/seen [username]")
 @example("/seen @obviyus")
+@description("Get duration since last message of a user.")
 async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     username = context.args[0].split("@")[1]
 
@@ -89,10 +89,10 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
-@triggers(["stats"])
-@description("Get message count by user for the last day.")
 @usage("/stats")
 @example("/stats")
+@triggers(["stats"])
+@description("Get message count by user for the last day.")
 async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
 
@@ -113,10 +113,10 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await stat_string_builder(users, update.message, context)
 
 
-@triggers(["gstats"])
-@description("Get total message count by user of this group.")
 @usage("/gstats")
 @example("/gstats")
+@triggers(["gstats"])
+@description("Get total message count by user of this group.")
 async def get_total_chat_stats(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:

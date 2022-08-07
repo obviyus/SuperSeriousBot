@@ -50,10 +50,10 @@ async def worker_image_seeder(context: ContextTypes.DEFAULT_TYPE) -> None:
         await asyncio.gather(*tasks)
 
 
-@triggers(["pic"])
-@description("Get a random image from Imgur.")
 @usage("/pic")
 @example("/pic")
+@triggers(["pic"])
+@description("Get a random image from Imgur.")
 async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get random images from imgur"""
     if len(images) == 0:

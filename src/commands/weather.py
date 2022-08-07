@@ -54,10 +54,10 @@ class Point:
         return response.json()["properties"]["timeseries"][0]["data"]
 
 
-@triggers(["weather", "w"])
-@description("Get the weather for a location. Saves your last location.")
 @usage("/w")
 @example("/w")
+@triggers(["weather", "w"])
+@description("Get the weather for a location. Saves your last location.")
 async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Get the weather for a given location.

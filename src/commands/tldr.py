@@ -14,11 +14,11 @@ from utils.decorators import api_key, description, example, triggers, usage
 SMMRY_API_ENDPOINT: str = "https://api.smmry.com/"
 
 
-@triggers(["tldr"])
-@description("Reply to a message to generate a summary of the URL.")
 @usage("/tldr")
 @example("/tldr")
+@triggers(["tldr"])
 @api_key("SMMRY_API_KEY")
+@description("Reply to a message to generate a summary of the URL.")
 async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Generate a TLDR for a given URL.
