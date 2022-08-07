@@ -1,3 +1,10 @@
+# [1.22.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.21.3...v1.22.0) (2022-08-07)
+
+
+### Features
+
+* **mj:** create command for returning random MidJourney images ([2d18d85](https://github.com/obviyus/SuperSeriousBot/commit/2d18d85024262e19fba8e9744ed680051a8113c4))
+
 ## [1.21.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.21.2...v1.21.3) (2022-08-06)
 
 
