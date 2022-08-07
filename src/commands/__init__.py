@@ -34,6 +34,7 @@ from .tldr import tldr
 from .translate import translate, tts
 from .tv import *
 from .ud import ud
+from .midjourney import midjourney
 from .uwu import uwu
 from .vision import age, caption
 from .weather import weather
@@ -70,7 +71,9 @@ list_of_commands = [
     hltb,
     insult,
     joke,
+    list_reddit_subscriptions,
     meme,
+    midjourney,
     nsfw,
     opt_in_tv,
     person,
@@ -80,7 +83,6 @@ list_of_commands = [
     set_object,
     spurdo,
     subscribe_reddit,
-    list_reddit_subscriptions,
     tldr,
     translate,
     tts,
