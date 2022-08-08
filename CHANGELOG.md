@@ -1,3 +1,10 @@
+## [1.22.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.0...v1.22.1) (2022-08-08)
+
+
+### Bug Fixes
+
+* **c:** escape `(` and `)` in Reddit markdown ([33622cf](https://github.com/obviyus/SuperSeriousBot/commit/33622cf3747f6fc389328fd6aa72de812e3b17c6))
+
 # [1.22.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.21.3...v1.22.0) (2022-08-07)
 
 
