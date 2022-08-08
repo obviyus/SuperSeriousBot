@@ -99,7 +99,13 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     # Special escape for Reddit's markdown. We still want the rest of the Markdown to be parsed.
-    body = comment.body.replace(".", "\.").replace("!", "\!").replace("#", "\#")
+    body = (
+        comment.body.replace(".", "\.")
+        .replace("!", "\!")
+        .replace("#", "\#")
+        .replace("(", "\(")
+        .replace(")", "\)")
+    )
     await update.message.reply_text(
         f"""{body}\n\n[/r/{html.escape(submission.subreddit.display_name)}](https://reddit.com{comment.permalink})""",
         parse_mode=ParseMode.MARKDOWN_V2,
