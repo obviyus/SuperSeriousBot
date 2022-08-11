@@ -1,3 +1,10 @@
+## [1.22.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.1...v1.22.2) (2022-08-11)
+
+
+### Bug Fixes
+
+* **str:** improve numeric formatting ([653eb93](https://github.com/obviyus/SuperSeriousBot/commit/653eb93097e52549737716636ccd7b8902eab0c9))
+
 ## [1.22.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.0...v1.22.1) (2022-08-08)
 
 
