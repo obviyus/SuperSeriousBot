@@ -1,3 +1,10 @@
+## [1.22.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.2...v1.22.3) (2022-08-11)
+
+
+### Bug Fixes
+
+* **dl:** perform check for file in redvid ([0c1b400](https://github.com/obviyus/SuperSeriousBot/commit/0c1b4000163c02f32fd09f9e8a82584c7f4284bd))
+
 ## [1.22.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.1...v1.22.2) (2022-08-11)
 
 
