@@ -12,22 +12,34 @@ async def readable_time(input_timestamp: int) -> str:
     seconds = abs(round(datetime.now().timestamp()) - input_timestamp)
 
     if seconds < 60:
-        return f"{seconds} second" + ("s" if seconds > 1 else "")
+        return "{0:.1f} second".format(seconds).rstrip("0").rstrip(".") + (
+            "s" if seconds > 1 else ""
+        )
     elif seconds < 3600:
         minutes = seconds / 60
-        return f"{minutes:.1g} minute" + ("s" if minutes > 1 else "")
+        return "{0:.1f} minute".format(minutes).rstrip("0").rstrip(".") + (
+            "s" if minutes > 1 else ""
+        )
     elif seconds < 86400:
         hours = seconds / 3600
-        return f"{hours:.1g} hour" + ("s" if hours > 1 else "")
+        return "{0:.1f} hour".format(hours).rstrip("0").rstrip(".") + (
+            "s" if hours > 1 else ""
+        )
     elif seconds < 604800:
         days = seconds / 86400
-        return f"{days:.1g} day" + ("s" if days > 1 else "")
+        return "{0:.1f} day".format(days).rstrip("0").rstrip(".") + (
+            "s" if days > 1 else ""
+        )
     elif seconds < 31536000:
         weeks = seconds / 604800
-        return f"{weeks:.1g} week" + ("s" if weeks > 1 else "")
+        return "{0:.1f} week".format(weeks).rstrip("0").rstrip(".") + (
+            "s" if weeks > 1 else ""
+        )
     else:
         years = seconds / 31536000
-        return f"{years:.1g} year" + ("s" if years > 1 else "")
+        return "{0:.1f} year".format(years).rstrip("0").rstrip(".") + (
+            "s" if years > 1 else ""
+        )
 
 
 async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
