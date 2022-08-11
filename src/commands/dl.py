@@ -1,4 +1,3 @@
-import os
 from typing import Dict
 from urllib.parse import ParseResult, urlparse
 
@@ -125,6 +124,13 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 reddit_downloader.url = url.geturl()
                 try:
                     file_path = reddit_downloader.download()
+                    if file_path == 0:
+                        await update.message.reply_text(
+                            "Video too large to send over Telegram."
+                        )
+                        return
+                    if file_path == 2:
+                        file_path = reddit_downloader.file_name
 
                     # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
                     # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
@@ -132,7 +138,6 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                         video=open(file_path, "rb"),
                     )
 
-                    os.remove(file_path)
                     return
                 except Exception as e:
                     logger.error(e)
