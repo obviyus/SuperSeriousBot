@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from config.db import redis
@@ -62,7 +63,11 @@ async def get_first_name(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> st
     """
     Get the first_name for a user_id.
     """
-    chat = await context.bot.get_chat(user_id)
+    try:
+        chat = await context.bot.get_chat(user_id)
+    except BadRequest:
+        return f"{user_id}"
+
     return chat.first_name
 
 

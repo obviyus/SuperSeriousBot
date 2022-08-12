@@ -71,7 +71,13 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     text = f"Stats for <b>@{context.bot.username}:</b>\n\n"
 
     rows = cursor.fetchall()
-    total_count = sum(command["command_count"] for command in rows)
+    cursor.execute(
+        """
+        SELECT id FROM main.command_stats ORDER BY id DESC LIMIT 1; 
+        """
+    )
+
+    total_count = cursor.fetchone()["id"]
 
     for row in rows:
         text += f"""<code>{row['command_count']:4} - /{row['command']}</code>\n"""

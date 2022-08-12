@@ -43,15 +43,16 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def stat_string_builder(
-    rows: list, message: Message, context: ContextTypes.DEFAULT_TYPE
+    rows: list,
+    message: Message,
+    context: ContextTypes.DEFAULT_TYPE,
+    total_count: int,
 ) -> None:
     if not rows:
         await message.reply_text("No messages recorded.")
         return
 
     text = f"Stats for <b>{message.chat.title}:</b>\n\n"
-    total_count = sum(user["user_count"] for user in rows)
-
     for _, _, timestamp, user_id, count in rows:
         percent = round(count / total_count * 100, 2)
         text += f"""<code>{percent:4.1f}% - {await utils.string.get_first_name(user_id, context)}</code>\n"""
@@ -110,7 +111,18 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
     users = cursor.fetchall()
-    await stat_string_builder(users, update.message, context)
+    cursor.execute(
+        """SELECT COUNT(id) AS total_count
+        FROM chat_stats 
+        WHERE chat_id = ? AND 
+        create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime');
+        """,
+        (chat_id,),
+    )
+
+    await stat_string_builder(
+        users, update.message, context, cursor.fetchone()["total_count"]
+    )
 
 
 @usage("/gstats")
@@ -136,4 +148,15 @@ async def get_total_chat_stats(
     )
 
     users = cursor.fetchall()
-    await stat_string_builder(users, update.message, context)
+    cursor.execute(
+        """
+        SELECT COUNT(id) AS total_count
+        FROM chat_stats
+        WHERE chat_id = ?;
+        """,
+        (chat_id,),
+    )
+
+    await stat_string_builder(
+        users, update.message, context, cursor.fetchone()["total_count"]
+    )
