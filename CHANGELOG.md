@@ -1,3 +1,10 @@
+## [1.22.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.4...v1.22.5) (2022-08-12)
+
+
+### Bug Fixes
+
+* **stats:** use total count for stats ([e47a1c6](https://github.com/obviyus/SuperSeriousBot/commit/e47a1c60d5fdfa4c9f0fb2689e149733250df7d6))
+
 ## [1.22.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.3...v1.22.4) (2022-08-12)
 
 
