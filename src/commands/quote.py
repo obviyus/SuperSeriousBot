@@ -2,6 +2,7 @@ import enum
 
 from telegram import Update
 from telegram.constants import ParseMode
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 import commands
@@ -96,4 +97,16 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    await update.message.chat.forward_from(row["chat_id"], row["message_id"])
+    try:
+        await update.message.chat.forward_from(row["chat_id"], row["message_id"])
+    except BadRequest:
+        await update.message.reply_text(
+            f"Quoted message deleted. Removing the quote.",
+            parse_mode=ParseMode.HTML,
+        )
+        cursor.execute(
+            """
+            DELETE FROM quote_db WHERE id = ?;
+            """,
+            (row["id"],),
+        )
