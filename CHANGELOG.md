@@ -1,3 +1,10 @@
+## [1.22.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.3...v1.22.4) (2022-08-12)
+
+
+### Bug Fixes
+
+* **r:** await coroutines in fallback post ([aa52518](https://github.com/obviyus/SuperSeriousBot/commit/aa525187ea923b322610f0f7b6198200003dba60))
+
 ## [1.22.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.2...v1.22.3) (2022-08-11)
 
 
