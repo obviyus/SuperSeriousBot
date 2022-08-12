@@ -89,14 +89,14 @@ async def randdit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             post = await (await reddit.subreddit(subreddit)).random()
             if not post:
                 # Fallback to hot post
-                posts = list(reddit.subreddit(subreddit).hot(limit=5))
-                post = choice(posts)
+                hot_posts = (await reddit.subreddit(subreddit)).hot(limit=3)
+                posts = [post async for post in hot_posts if not post.spoiler]
 
                 if len(posts) == 0:
                     text = f"/r/{subreddit} is empty."
                 else:
                     text = (
-                        make_response(post)
+                        make_response(choice(posts))
                         + '\n<span class="tg-spoiler">(subreddit does not allow random posts)</span>'
                     )
             else:
