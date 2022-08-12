@@ -1,3 +1,10 @@
+## [1.22.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.5...v1.22.6) (2022-08-12)
+
+
+### Bug Fixes
+
+* **quote:** handle deleted messages ([369accc](https://github.com/obviyus/SuperSeriousBot/commit/369accc102544e173e6bb87cbaf1eccbfeb0bb83))
+
 ## [1.22.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.4...v1.22.5) (2022-08-12)
 
 
