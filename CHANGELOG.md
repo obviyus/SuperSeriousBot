@@ -1,3 +1,10 @@
+## [1.22.8](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.7...v1.22.8) (2022-08-16)
+
+
+### Bug Fixes
+
+* **tv:** use `chat_id` in callback data ([502067b](https://github.com/obviyus/SuperSeriousBot/commit/502067be292432a166bd172ea69a03684be1a897))
+
 ## [1.22.7](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.6...v1.22.7) (2022-08-16)
 
 
