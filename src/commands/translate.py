@@ -1,6 +1,8 @@
-from telegram import Update
+from telegram import Message, Update
+from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from translatepy import Translator
+from translatepy.exceptions import NoResult, UnknownLanguage
 
 import commands
 from utils.decorators import description, example, triggers, usage
@@ -115,11 +117,31 @@ supported_languages = {
 }
 
 
+async def translate_and_reply(
+    message: Message, text: str, target_language: str
+) -> None:
+    try:
+        translated = translator.translate(text, target_language).result
+        await message.reply_text(
+            translated,
+        )
+    except NoResult:
+        await message.reply_text("No service returned a valid result.")
+    except UnknownLanguage as e:
+        await message.reply_text(
+            f"Couldn't recognize the given language: <b>{target_language}</b>."
+            f"\n\nDid you mean: {e.guessed_language[:2]} ({e.guessed_language})? "
+            f"\n<b>Similarity: {e.similarity:.2f}%</b>",
+            parse_mode=ParseMode.HTML,
+        )
+
+
 @triggers(["tl"])
 @example("/tl fr - Good morning!")
 @usage("/tl [language] - [content]")
 @description(
-    "Translate a message or text to the desired language. Reply to a message with just the language code to translate it."
+    "Translate a message or text to the desired language. "
+    "Reply to a message with just the language code to translate it."
 )
 async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -138,9 +160,7 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         target_language = context.args[0]
 
     if text:
-        await update.message.reply_text(
-            translator.translate(text, target_language).result,
-        )
+        await translate_and_reply(update.message, text, target_language)
         return
 
     if context.args[1:2] == ["-"]:
@@ -153,16 +173,15 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, translate)
         return
 
-    await update.message.reply_text(
-        translator.translate(text, target_language).result,
-    )
+    await translate_and_reply(update.message, text, target_language)
 
 
 @triggers(["tts"])
 @example("/tts fr - Good morning!")
 @usage("/tts [language] - [content]")
 @description(
-    "Generate text-to-speech of message in the desired speaker language. Reply to a message with just the language code to TTS it."
+    "Generate text-to-speech of message in the desired speaker language. "
+    "Reply to a message with just the language code to TTS it."
 )
 async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
