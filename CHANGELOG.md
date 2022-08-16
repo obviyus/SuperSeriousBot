@@ -1,3 +1,11 @@
+## [1.22.7](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.6...v1.22.7) (2022-08-16)
+
+
+### Bug Fixes
+
+* **r:** avoid await inside a job queue ([893ab78](https://github.com/obviyus/SuperSeriousBot/commit/893ab78e1f010124b81c1a6ade8d8c447ebc9bc7))
+* **tl:** improve error handling ([a65a9f1](https://github.com/obviyus/SuperSeriousBot/commit/a65a9f15d9a57507f19ae253e046f5c068271ba2))
+
 ## [1.22.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.5...v1.22.6) (2022-08-12)
 
 
