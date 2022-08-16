@@ -1,3 +1,10 @@
+## [1.22.9](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.8...v1.22.9) (2022-08-16)
+
+
+### Bug Fixes
+
+* **link:** check for empty hostname ([bc5e439](https://github.com/obviyus/SuperSeriousBot/commit/bc5e439a062f90d21055763fc0fd1f70d3a8d2b6))
+
 ## [1.22.8](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.7...v1.22.8) (2022-08-16)
 
 
