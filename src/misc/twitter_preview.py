@@ -16,6 +16,7 @@ async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     url = utils.extract_link(update)
     if (
         not url
+        or not url.hostname
         or "twitter" not in url.hostname
         or "TWITTER_BEARER_TOKEN" not in config["API"]
     ):
