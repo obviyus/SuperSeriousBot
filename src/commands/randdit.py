@@ -62,7 +62,7 @@ async def nsfw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(random_posts_nsfw.pop(), parse_mode=ParseMode.HTML)
 
     if len(random_posts_nsfw) < 5:
-        await context.job_queue.run_once(worker_seed_posts, 0)
+        context.job_queue.run_once(worker_seed_posts, 0)
 
 
 @example("/r")
