@@ -1,3 +1,10 @@
+## [1.22.10](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.9...v1.22.10) (2022-08-16)
+
+
+### Bug Fixes
+
+* **tv:** handle shows without a cover image ([592a19f](https://github.com/obviyus/SuperSeriousBot/commit/592a19f11d82746d03c2a15e302d26e47491bad4))
+
 ## [1.22.9](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.8...v1.22.9) (2022-08-16)
 
 
