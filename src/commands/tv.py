@@ -259,7 +259,7 @@ async def inline_result_handler(
             (
                 show_id,
                 response["name"],
-                response["image"]["original"],
+                response["image"]["original"] if response["image"] else "",
             ),
         )
 
