@@ -50,7 +50,7 @@ async def keyboard_builder(user_id: int, chat_id: int) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     show["show_name"],
-                    callback_data=f"""rts:{show["show_id"]},{user_id}""",
+                    callback_data=f"""rts:{show["show_id"]},{user_id},{chat_id}""",
                 )
             ]
         )
@@ -106,7 +106,7 @@ async def eta_keyboard_builder(update: Update, context: CallbackContext) -> None
 async def tv_show_button(update: Update, context: CallbackContext) -> None:
     """Remove a TV show from the watchlist."""
     query = update.callback_query
-    show_id, user_id = query.data.replace("rts:", "").split(",")
+    show_id, user_id, chat_id = query.data.replace("rts:", "").split(",")
 
     # Check user that pressed the button is the same as the user that added the show
     if query.from_user.id != int(user_id):
@@ -126,7 +126,7 @@ async def tv_show_button(update: Update, context: CallbackContext) -> None:
         text=f"List of your shows in this chat. Add new shows by inlining @{context.bot.username}. Tap on a show to remove it from your watchlist:",
         chat_id=query.message.chat.id,
         message_id=query.message.message_id,
-        reply_markup=await keyboard_builder(user_id, update.message.chat_id),
+        reply_markup=await keyboard_builder(user_id, chat_id),
     )
 
 
