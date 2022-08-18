@@ -1,7 +1,5 @@
 import asyncio
 import logging
-from random import choice
-
 from asyncpraw import models
 from asyncprawcore.exceptions import (
     BadRequest,
@@ -9,6 +7,7 @@ from asyncprawcore.exceptions import (
     NotFound,
     UnavailableForLegalReasons,
 )
+from random import choice
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -101,7 +100,7 @@ async def randdit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     )
             else:
                 while post.spoiler:
-                    post = (await reddit.subreddit(subreddit)).random()
+                    post = await (await reddit.subreddit(subreddit)).random()
 
                 text = make_response(post)
         except (NotFound, BadRequest):
