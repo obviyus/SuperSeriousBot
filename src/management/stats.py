@@ -4,6 +4,7 @@ from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+import commands
 import utils.string
 from config.db import redis, sqlite_conn
 from utils import readable_time
@@ -69,7 +70,16 @@ async def stat_string_builder(
 @example("/seen @obviyus")
 @description("Get duration since last message of a user.")
 async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    username = context.args[0].split("@")[1]
+    if not context.args:
+        await commands.usage_string(update.message, context)
+        return
+
+    username = context.args[0].split("@")
+    if len(username) <= 1:
+        await commands.usage_string(update.message, context)
+        return
+
+    username = username[1]
 
     # Get last seen time in Redis
     last_seen = redis.get(f"seen:{username}")
