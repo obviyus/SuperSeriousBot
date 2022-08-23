@@ -1,3 +1,10 @@
+## [1.22.12](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.11...v1.22.12) (2022-08-23)
+
+
+### Bug Fixes
+
+* **seen:** use correct func argument ([bde79e7](https://github.com/obviyus/SuperSeriousBot/commit/bde79e7623343bdf22da386690030c5f1d7d38e4))
+
 ## [1.22.11](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.10...v1.22.11) (2022-08-23)
 
 
