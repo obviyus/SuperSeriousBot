@@ -1,3 +1,11 @@
+## [1.22.11](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.10...v1.22.11) (2022-08-23)
+
+
+### Bug Fixes
+
+* **r:** await coroutine in spoiler check ([f1a6468](https://github.com/obviyus/SuperSeriousBot/commit/f1a6468960d5263fdaaf6de61b5858ea7fa01cbf))
+* **stats:** check for username in seen ([c4e7e33](https://github.com/obviyus/SuperSeriousBot/commit/c4e7e33c4177e479cae90e91ae52b52b797a5988))
+
 ## [1.22.10](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.9...v1.22.10) (2022-08-16)
 
 
