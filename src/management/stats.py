@@ -71,12 +71,12 @@ async def stat_string_builder(
 @description("Get duration since last message of a user.")
 async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not context.args:
-        await commands.usage_string(update.message, context)
+        await commands.usage_string(update.message, get_last_seen)
         return
 
     username = context.args[0].split("@")
     if len(username) <= 1:
-        await commands.usage_string(update.message, context)
+        await commands.usage_string(update.message, get_last_seen)
         return
 
     username = username[1]
