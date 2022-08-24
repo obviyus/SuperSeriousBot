@@ -1,3 +1,10 @@
+## [1.23.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.23.0...v1.23.1) (2022-08-24)
+
+
+### Bug Fixes
+
+* **main:** remove chosen result handler ([3dde62a](https://github.com/obviyus/SuperSeriousBot/commit/3dde62aacc44bed43b1cfcf45732b38c87111d7f))
+
 # [1.23.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.12...v1.23.0) (2022-08-24)
 
 
