@@ -1,3 +1,10 @@
+# [1.23.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.12...v1.23.0) (2022-08-24)
+
+
+### Features
+
+* **tv:** Add IMDb search inline ([c268967](https://github.com/obviyus/SuperSeriousBot/commit/c268967817d77452da64e002de79f757f5a278f9))
+
 ## [1.22.12](https://github.com/obviyus/SuperSeriousBot/compare/v1.22.11...v1.22.12) (2022-08-23)
 
 
