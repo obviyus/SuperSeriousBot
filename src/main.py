@@ -10,7 +10,6 @@ from telegram.ext import (
     Application,
     ApplicationBuilder,
     CallbackQueryHandler,
-    ChosenInlineResultHandler,
     ContextTypes,
     InlineQueryHandler,
     MessageHandler,
@@ -134,9 +133,6 @@ def main():
                 # TV Show Query Handlers
                 InlineQueryHandler(
                     commands.inline_show_search,
-                ),
-                ChosenInlineResultHandler(
-                    commands.subscribe_show,
                 ),
                 # Master Button Handler
                 CallbackQueryHandler(
