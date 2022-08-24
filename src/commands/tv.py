@@ -3,6 +3,7 @@ from collections import defaultdict
 
 import dateparser
 import httpx
+from imdb import Cinemagoer
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -20,6 +21,8 @@ from config.logger import logger
 from utils.decorators import description, example, triggers, usage
 
 TVMAZE_SEARCH_ENDPOINT = "https://api.tvmaze.com/search/shows"
+
+ia = Cinemagoer()
 
 
 async def keyboard_builder(user_id: int, chat_id: int) -> InlineKeyboardMarkup:
@@ -181,27 +184,44 @@ async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> No
     if len(query) < 3:
         return
 
-    # Query TVMaze API for the name of the show
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            TVMAZE_SEARCH_ENDPOINT,
-            params={"q": query},
-        )
+    search_results = ia.search_movie_advanced(query, results=10)
+    results, seen = [], set()
 
-    results = []
+    for movie in search_results:
+        movie = utils.get_fields(movie)
+        if movie["id"] not in seen:
+            seen.add(movie["id"])
+        else:
+            continue
 
-    for show in response.json():
-        show = show["show"]
         results.append(
             InlineQueryResultArticle(
-                id=show["id"],
-                title=show["name"],
-                description=utils.cleaner.scrub_html_tags(show["summary"]),
-                thumb_url=show["image"]["medium"] if show["image"] else "",
+                id=movie["id"],
+                title=movie["long imdb title"],
+                description=movie["plot"],
+                thumb_url=movie["cover url"],
                 input_message_content=InputTextMessageContent(
-                    f"""Added <b>{show['name']}</b> to your watchlist.""",
+                    f"<b>Title</b>: {movie['long imdb title']}"
+                    f"\n<b>Rating</b>: ⭐ {movie['rating']} / 10"
+                    f"\n<b>Genre</b>: {movie['genres']}"
+                    f"\n<b>Directors</b>: {movie['directors']}"
+                    f"\n<b>Cast</b>: {movie['cast']}"
+                    f"\n\n{movie['plot']}"
+                    f"<a href='{movie['full-size cover url']}'>&#8205;</a>",
                     parse_mode=ParseMode.HTML,
                 ),
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "Add to Watchlist",
+                                callback_data=f"as:{movie['id']}",
+                            )
+                        ]
+                    ]
+                )
+                if movie["kind"] == "tv series"
+                else None,
             )
         )
 
@@ -232,16 +252,44 @@ async def insert_new_show(show_id: int) -> None:
         )
 
 
-async def inline_result_handler(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def subscribe_show(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handles the inline query result.
     """
-    show_id = int(update.chosen_inline_result.result_id)
+    show_id = update.callback_query.data.replace("as:", "")
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.tvmaze.com/lookup/shows",
+            params={"imdb": f"tt{show_id}"},
+            follow_redirects=True,
+        )
+        response = response.json()
+
+        try:
+            show_id = response["id"]
+        except KeyError:
+            await update.callback_query.answer("Show not found.")
+            return
+
+        if response["status"] != "Running":
+            await update.callback_query.answer("Show has ended.")
+            return
+
+    # Check if user has opted in
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        "SELECT * FROM tv_opt_in WHERE user_id = ?",
+        (update.effective_user.id,),
+    )
+
+    if not cursor.fetchone():
+        await update.message.reply_text(
+            f"You have not opted in for TV Episode notifications. Use /tv to opt in."
+        )
+        return
 
     # Check if the show_id exists in the DB
-    cursor = sqlite_conn.cursor()
     cursor.execute(
         "SELECT * FROM tv_shows WHERE show_id = ?",
         (show_id,),
@@ -265,14 +313,16 @@ async def inline_result_handler(
 
         await insert_new_show(show_id)
 
-        # Add show to user's watchlist
+    # Add show to user's watchlist
     cursor.execute(
         "INSERT INTO tv_notifications (user_id, show_id) VALUES (?, ?)",
         (
-            update.chosen_inline_result.from_user.id,
-            update.chosen_inline_result.result_id,
+            update.effective_user.id,
+            show_id,
         ),
     )
+
+    await update.callback_query.answer(f'Added {response["name"]} to your watchlist.')
 
 
 async def worker_next_episode(_: ContextTypes.DEFAULT_TYPE) -> None:

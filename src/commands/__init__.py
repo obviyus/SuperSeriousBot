@@ -20,6 +20,7 @@ from .hltb import hltb
 from .insult import insult
 from .joke import joke
 from .meme import meme
+from .midjourney import midjourney
 from .person import person
 from .pic import pic, worker_image_seeder
 from .ping import ping
@@ -34,7 +35,6 @@ from .tldr import tldr
 from .translate import translate, tts
 from .tv import *
 from .ud import ud
-from .midjourney import midjourney
 from .uwu import uwu
 from .vision import age, caption
 from .weather import weather
@@ -121,6 +121,8 @@ async def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     if query.data.startswith("rts"):
         await tv_show_button(update, context)
+    if query.data.startswith("as"):
+        await subscribe_show(update, context)
     elif query.data.startswith("show_eta"):
         await eta_keyboard_builder(update, context)
     elif query.data.startswith("hide_eta"):

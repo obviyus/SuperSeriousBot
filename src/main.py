@@ -136,7 +136,7 @@ def main():
                     commands.inline_show_search,
                 ),
                 ChosenInlineResultHandler(
-                    commands.inline_result_handler,
+                    commands.subscribe_show,
                 ),
                 # Master Button Handler
                 CallbackQueryHandler(
