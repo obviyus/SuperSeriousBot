@@ -68,8 +68,8 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         try:
             strongest_from = heappop(edges_from)
             text += (
-                f"- You have the strongest connection with @{await utils.get_username(strongest_from[1], context)} with"
-                f" a strength of {-1 * strongest_from[0]}."
+                f"\n\n- You have the strongest connection with @{await utils.get_username(strongest_from[1], context)} with"
+                f" a strength of <b>{-1 * strongest_from[0]}</b>."
             )
         except IndexError:
             pass
@@ -77,13 +77,13 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         try:
             strongest_to = heappop(edges_to)
             text += (
-                f"- \n\n@{await utils.get_username(strongest_to[1], context)} has the strongest connection to you with"
-                f" a strength of {-1 * strongest_to[0]}."
+                f"\n\n- @{await utils.get_username(strongest_to[1], context)} has the strongest connection to you with"
+                f" a strength of <b>{-1 * strongest_to[0]}</b>."
             )
         except IndexError:
             pass
 
-        await update.message.reply_text(text)
+        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     except KeyError:
         await update.message.reply_text("This group has no social graph yet.")
         return
