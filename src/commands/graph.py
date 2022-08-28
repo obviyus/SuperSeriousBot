@@ -63,23 +63,27 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             if edge["to"] == user_id:
                 heappush(edges_to, (-1 * edge["value"], edge["from"]))
 
-        text = f"From the social graph of <b>{update.message.chat.title}</b>"
+        text = f"From the social graph of <b>{update.message.chat.title}</b>:"
 
         try:
-            strongest_from = heappop(edges_from)
-            text += (
-                f"\n\n- You have the strongest connection with @{await utils.get_username(strongest_from[1], context)} with"
-                f" a strength of <b>{-1 * strongest_from[0]}</b>."
-            )
+            text += "\n\nYou have the strongest connections with:"
+            for _ in range(3):
+                strongest_connection = heappop(edges_from)
+                text += (
+                    f"\n<code>{strongest_connection[0] * -1:6}"
+                    f" ⟶ {await utils.get_first_name(strongest_connection[1], context)}</code>"
+                )
         except IndexError:
             pass
 
         try:
-            strongest_to = heappop(edges_to)
-            text += (
-                f"\n\n- @{await utils.get_username(strongest_to[1], context)} has the strongest connection to you with"
-                f" a strength of <b>{-1 * strongest_to[0]}</b>."
-            )
+            text += f"\n\nYou have the strongest connections from:"
+            for _ in range(3):
+                strongest_connection = heappop(edges_to)
+                text += (
+                    f"\n<code>{strongest_connection[0] * -1:6}"
+                    f" ⟶ {await utils.get_first_name(strongest_connection[1], context)}</code>"
+                )
         except IndexError:
             pass
 
