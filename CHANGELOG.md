@@ -1,3 +1,15 @@
+# [1.28.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.27.1...v1.28.0) (2022-08-28)
+
+
+### Bug Fixes
+
+* **utils:** fallback to user_id ([379a0e1](https://github.com/obviyus/SuperSeriousBot/commit/379a0e19c0f6e123a49d95c49ab2a53166100b11))
+
+
+### Features
+
+* **graph:** show top 3 ranks ([32b2ce5](https://github.com/obviyus/SuperSeriousBot/commit/32b2ce547085ec3ca8725d962a2c5e56a7f8a010))
+
 ## [1.27.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.27.0...v1.27.1) (2022-08-28)
 
 
