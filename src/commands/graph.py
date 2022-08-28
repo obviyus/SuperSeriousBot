@@ -6,6 +6,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import utils
+from config.db import sqlite_conn
 from utils.decorators import description, example, triggers, usage
 
 
@@ -15,8 +16,24 @@ from utils.decorators import description, example, triggers, usage
 @description("Get the social graph of this group.")
 async def get_graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the social graph of this group."""
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        SELECT create_time FROM main.chat_mentions WHERE chat_id = ? ORDER BY create_time LIMIT 1;
+        """,
+        (update.message.chat_id,),
+    )
+
+    oldest_mention = cursor.fetchone()
+    if not oldest_mention:
+        await update.message.reply_text(
+            text="This group has no recorded activity.", parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
     await update.message.reply_text(
-        f"This group's social graph is available at: https://bot.superserio.us/{update.message.chat_id}.html",
+        f"This group's social graph is available at: https://bot.superserio.us/{update.message.chat_id}.html."
+        f"\n\nBuilt using data since {oldest_mention[0]}.",
         parse_mode=ParseMode.HTML,
     )
 
