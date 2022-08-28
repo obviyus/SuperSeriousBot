@@ -1,3 +1,16 @@
+# [1.25.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.24.0...v1.25.0) (2022-08-28)
+
+
+### Bug Fixes
+
+* **dl:** remove ParseReddit from Reddit URLs ([cee0795](https://github.com/obviyus/SuperSeriousBot/commit/cee0795d3530ccc3cbc7a07b4fdf10bcf1bc6edc))
+* **d:** remove optional lang parameter ([1004d73](https://github.com/obviyus/SuperSeriousBot/commit/1004d73bec4b205974f27560b4fff91643bf7f22))
+
+
+### Features
+
+* **graph:** create commands for social graph ([c3dae9d](https://github.com/obviyus/SuperSeriousBot/commit/c3dae9d0af1ac9d6de37636e6df69479cc84c805))
+
 # [1.24.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.23.1...v1.24.0) (2022-08-28)
 
 
