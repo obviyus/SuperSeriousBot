@@ -32,7 +32,7 @@ async def get_graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     await update.message.reply_text(
-        f"This group's social graph is available at: https://bot.superserio.us/{update.message.chat_id}.html."
+        f"This group's social graph is available at: https://bot.superserio.us/vis/{update.message.chat_id}.html."
         f"\n\nBuilt using data since {oldest_mention[0]}.",
         parse_mode=ParseMode.HTML,
     )
