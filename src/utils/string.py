@@ -55,8 +55,10 @@ async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
         if chat.username:
             redis.set(f"user_id:{user_id}", chat.username)
             return chat.username
-        else:
+        elif chat.first_name:
             return chat.first_name
+        else:
+            return f"{user_id}"
 
 
 async def get_first_name(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
