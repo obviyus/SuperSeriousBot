@@ -68,7 +68,15 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         try:
             text += "\n\nYou have the strongest connections with:"
-            for edge in edges_outgoing[:3]:
+            count = 0
+            for edge in edges_outgoing:
+                if edge[1] == user_id:
+                    continue
+
+                if count >= 3:
+                    break
+                count += 1
+
                 text += (
                     f"\n<code>{edge[2]['weight']:6}"
                     f" ⟶ {await utils.get_first_name(edge[1], context)}</code>"
@@ -78,7 +86,15 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         try:
             text += f"\n\nYou have the strongest connections from:"
+            count = 0
             for edge in edges_incoming[:3]:
+                if edge[1] == user_id:
+                    continue
+
+                if count >= 3:
+                    break
+                count += 1
+
                 text += (
                     f"\n<code>{edge[2]['weight']:6}"
                     f" ⟶ {await utils.get_first_name(edge[0], context)}</code>"
