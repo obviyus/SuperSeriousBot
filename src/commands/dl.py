@@ -8,6 +8,7 @@ from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
 from redvid import Downloader
 from telegram import InputMediaPhoto, InputMediaVideo, Update
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 import commands
@@ -92,7 +93,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         case "imgur.com":
             image_list = await download_imgur(url, MAX_IMAGE_COUNT)
         case ("i.redd.it" | "preview.redd.it"):
-            image_list = [{"image": url}]
+            image_list = [{"image": url.geturl()}]
         case ("redd.it" | "reddit.com"):
             try:
                 post = await reddit.submission(url=url.geturl().replace("old.", ""))
@@ -158,11 +159,17 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await update.message.reply_text("Could not download video.")
             return
     else:
-        await update.message.reply_media_group(
-            [
-                InputMediaPhoto(content["image"])
-                if "image" in content
-                else InputMediaVideo(content["video"])
-                for content in image_list
-            ]
-        )
+        try:
+            await update.message.reply_media_group(
+                [
+                    InputMediaPhoto(content["image"])
+                    if "image" in content
+                    else InputMediaVideo(content["video"])
+                    for content in image_list
+                ]
+            )
+        except BadRequest:
+            await update.message.reply_text(
+                "Could not download media. The file was probably deleted."
+            )
+            return
