@@ -1,3 +1,15 @@
+# [1.24.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.23.1...v1.24.0) (2022-08-28)
+
+
+### Bug Fixes
+
+* **sleep:** remove Reddit delivery sleep ([b2e437a](https://github.com/obviyus/SuperSeriousBot/commit/b2e437ab4e58708421cf6b4ab3557b3a89d3eae5))
+
+
+### Features
+
+* **rate:** use AIORateLimiter ([3da6671](https://github.com/obviyus/SuperSeriousBot/commit/3da66719b1a38388475e2ea973bfcd1fea4200ad))
+
 ## [1.23.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.23.0...v1.23.1) (2022-08-24)
 
 
