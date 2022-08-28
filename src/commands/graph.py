@@ -1,6 +1,4 @@
-from heapq import heappop, heappush
-
-from pyvis.network import Network
+from networkx import DiGraph
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -45,44 +43,45 @@ async def get_graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the strongest connected user to your account."""
     try:
-        network: Network = context.bot_data.__getitem__(
+        graph: DiGraph = context.bot_data.__getitem__(
             f"network_{update.message.chat_id}"
         )
 
         user_id = int(update.message.from_user.id)
 
-        user_node = next(node for node in network.nodes if node["id"] == user_id)
-        if not user_node:
+        if not graph.has_node(user_id):
             await update.message.reply_text("You are not in this group's social graph.")
             return
 
-        edges_from, edges_to = [], []
-        for edge in network.edges:
-            if edge["from"] == user_id:
-                heappush(edges_from, (-1 * edge["value"], edge["to"]))
-            if edge["to"] == user_id:
-                heappush(edges_to, (-1 * edge["value"], edge["from"]))
+        edges_incoming = sorted(
+            graph.in_edges(user_id, data=True),
+            key=lambda x: x[2].get("weight", 0),
+            reverse=True,
+        )
+        edges_outgoing = sorted(
+            graph.out_edges(user_id, data=True),
+            key=lambda x: x[2].get("weight", 0),
+            reverse=True,
+        )
 
         text = f"From the social graph of <b>{update.message.chat.title}</b>:"
 
         try:
             text += "\n\nYou have the strongest connections with:"
-            for _ in range(3):
-                strongest_connection = heappop(edges_from)
+            for edge in edges_outgoing[:3]:
                 text += (
-                    f"\n<code>{strongest_connection[0] * -1:6}"
-                    f" ⟶ {await utils.get_first_name(strongest_connection[1], context)}</code>"
+                    f"\n<code>{edge[2]['weight']:6}"
+                    f" ⟶ {await utils.get_first_name(edge[1], context)}</code>"
                 )
         except IndexError:
             pass
 
         try:
             text += f"\n\nYou have the strongest connections from:"
-            for _ in range(3):
-                strongest_connection = heappop(edges_to)
+            for edge in edges_incoming[:3]:
                 text += (
-                    f"\n<code>{strongest_connection[0] * -1:6}"
-                    f" ⟶ {await utils.get_first_name(strongest_connection[1], context)}</code>"
+                    f"\n<code>{edge[2]['weight']:6}"
+                    f" ⟶ {await utils.get_first_name(edge[0], context)}</code>"
                 )
         except IndexError:
             pass

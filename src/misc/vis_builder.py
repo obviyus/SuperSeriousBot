@@ -2,6 +2,7 @@ import asyncio
 import os
 from collections import defaultdict
 
+import networkx as nx
 from pyvis.network import Network
 from telegram.error import BadRequest, Forbidden
 from telegram.ext import ContextTypes
@@ -25,6 +26,7 @@ async def generate_network_for_chat(
     Generate a JSON file of nodes and edges for a chat. This data will be
     fed into vis.js to generate a graph.
     """
+    graph = nx.DiGraph()
 
     logger.info(f"Generating network for chat_id: {chat_id}")
     cursor = sqlite_conn.cursor()
@@ -63,18 +65,19 @@ async def generate_network_for_chat(
 
     for source, targets in mappings.items():
         for target, count in targets.items():
-            network.add_node(source, label=user_id_to_name[source])
-            network.add_node(target, label=user_id_to_name[target])
+            graph.add_node(source, label=user_id_to_name[source])
+            graph.add_node(target, label=user_id_to_name[target])
 
-            logger.info(f"Adding edge from {source} to {target} with weight {count}")
-            network.add_edge(source, target, value=count)
+            graph.add_edge(source, target, weight=count)
+
+    network.from_nx(graph)
 
     logger.info(
         f"Finished generating a network with {len(network.nodes)} nodes and {len(network.edges)} edges"
     )
 
     # Cache the network for the chat
-    context.bot_data.__setitem__(f"network_{chat_id}", network)
+    context.bot_data.__setitem__(f"network_{chat_id}", graph)
 
     # Make directory if it doesn't exist
     if not os.path.exists(f"{os.getcwd()}/vis"):
