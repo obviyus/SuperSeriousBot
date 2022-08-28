@@ -1,3 +1,10 @@
+## [1.29.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.29.1...v1.29.2) (2022-08-28)
+
+
+### Bug Fixes
+
+* **graph:** fix edge mapping ([d052e13](https://github.com/obviyus/SuperSeriousBot/commit/d052e134f61fbc0aef73fc5fa4280b8f8a829cc3))
+
 ## [1.29.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.29.0...v1.29.1) (2022-08-28)
 
 
