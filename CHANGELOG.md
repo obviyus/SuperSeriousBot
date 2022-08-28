@@ -1,3 +1,10 @@
+# [1.26.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.25.0...v1.26.0) (2022-08-28)
+
+
+### Features
+
+* **graph:** include check for activity ([e9a01dc](https://github.com/obviyus/SuperSeriousBot/commit/e9a01dcd5c2d4f412f83710d50bf4e99c7ebd6db))
+
 # [1.25.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.24.0...v1.25.0) (2022-08-28)
 
 
