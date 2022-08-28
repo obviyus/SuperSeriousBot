@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.26.0...v1.27.0) (2022-08-28)
+
+
+### Features
+
+* **graph:** fix formatting ([405fdfc](https://github.com/obviyus/SuperSeriousBot/commit/405fdfce855bfa9f36af9faf5e113531eda00474))
+
 # [1.26.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.25.0...v1.26.0) (2022-08-28)
 
 
