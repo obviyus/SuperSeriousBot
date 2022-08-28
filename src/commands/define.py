@@ -23,15 +23,11 @@ async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, define)
         return
 
-    if len(context.args) < 2:
-        word = context.args[0]
-    else:
-        if context.args[1:2] == ["-"]:
-            lang = context.args[0]
-        word = context.args[2]
+    word = " ".join(context.args)
 
     async with httpx.AsyncClient() as client:
         response = await client.get(DICTIONARY_API_ENDPOINT + f"/{lang}/{word}")
+        print(response.url)
 
     if response.status_code != 200:
         await update.message.reply_text(text="Word not found.")
