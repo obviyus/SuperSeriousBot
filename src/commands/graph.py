@@ -88,7 +88,7 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             text += f"\n\nYou have the strongest connections from:"
             count = 0
             for edge in edges_incoming[:3]:
-                if edge[1] == user_id:
+                if edge[0] == user_id:
                     continue
 
                 if count >= 3:
