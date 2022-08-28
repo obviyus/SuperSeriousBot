@@ -16,6 +16,7 @@ from .calc import calc
 from .define import define
 from .dl import downloader
 from .gif import gif
+from .graph import get_friends, get_graph
 from .hltb import hltb
 from .insult import insult
 from .joke import joke
@@ -59,6 +60,8 @@ list_of_commands = [
     downloader,
     get_chat_stats,
     get_command_stats,
+    get_friends,
+    get_graph,
     get_last_seen,
     get_object,
     get_quote,

@@ -73,6 +73,9 @@ async def generate_network_for_chat(
         f"Finished generating a network with {len(network.nodes)} nodes and {len(network.edges)} edges"
     )
 
+    # Cache the network for the chat
+    context.bot_data.__setitem__(f"network_{chat_id}", network)
+
     # Make directory if it doesn't exist
     if not os.path.exists(f"{os.getcwd()}/vis"):
         os.mkdir(f"{os.getcwd()}/vis")
