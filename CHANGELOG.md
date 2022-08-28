@@ -1,3 +1,10 @@
+## [1.29.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.29.0...v1.29.1) (2022-08-28)
+
+
+### Bug Fixes
+
+* **graph:** remove interactions with self ([e0168a0](https://github.com/obviyus/SuperSeriousBot/commit/e0168a009f34687009355c1b04ec3798b6a283e3))
+
 # [1.29.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.28.0...v1.29.0) (2022-08-28)
 
 
