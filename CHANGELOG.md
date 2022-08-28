@@ -1,3 +1,10 @@
+# [1.29.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.28.0...v1.29.0) (2022-08-28)
+
+
+### Features
+
+* **graph:** use networkx for graph building ([0ba2fa5](https://github.com/obviyus/SuperSeriousBot/commit/0ba2fa5f3c07f97e689d7b398e8b7775e21d9b5a))
+
 # [1.28.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.27.1...v1.28.0) (2022-08-28)
 
 
