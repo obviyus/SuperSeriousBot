@@ -25,6 +25,7 @@ geopy = "^2.2.0"
 httpx = "^0.23.0"
 pyvis = "^0.2.1"
 cinemagoer = "^2022.2.11"
+networkx = "^2.8.6"
 
 [tool.poetry.dev-dependencies]
 

@@ -1349,7 +1349,7 @@ websockets = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.10,<3.11"
-content-hash = "8a5620e573a77128d135a23927b3f71e62d73590d7ebfcd09a9525f74b0a3f5e"
+content-hash = "2c8714e4e086fafdbb6b42c57cd9dca6f7ced3c64241fbb9de8966b7a0ebe013"
 
 [metadata.files]
 aiofiles = [
