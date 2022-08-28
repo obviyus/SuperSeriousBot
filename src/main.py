@@ -7,6 +7,7 @@ import traceback
 from telegram import MessageEntity, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
+    AIORateLimiter,
     Application,
     ApplicationBuilder,
     CallbackQueryHandler,
@@ -98,6 +99,7 @@ def main():
     application = (
         ApplicationBuilder()
         .token(config["TELEGRAM"]["TOKEN"])
+        .rate_limiter(AIORateLimiter())
         .concurrent_updates(True)
         .post_init(post_init)
         .build()
