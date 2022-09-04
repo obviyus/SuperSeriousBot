@@ -6,22 +6,24 @@ def get_fields(imdb_data):
     title_id = imdb_data.getID()
 
     fields = {
-        "title": "N/A",
-        "plot": "N/A",
-        "end_year": None,
-        "year": None,
-        "genres": "N/A",
-        "rating": "N/A",
-        "kind": "N/A",
         "cast": "N/A",
-        "long imdb title": "N/A",
         "cover url": na_cover,
-        "full-size cover url": na_cover,
-        "series title": "N/A",
-        "season": "N/A",
-        "episode": "N/A",
-        "id": title_id,
         "directors": "N/A",
+        "end_year": None,
+        "episode": "N/A",
+        "full-size cover url": na_cover,
+        "genres": "N/A",
+        "id": title_id,
+        "kind": "N/A",
+        "long imdb title": "N/A",
+        "plot": "N/A",
+        "rating": "N/A",
+        "runtime": "N/A",
+        "season": "N/A",
+        "series title": "N/A",
+        "title": "N/A",
+        "year": None,
+        "year": None,
     }
 
     for field in fields:

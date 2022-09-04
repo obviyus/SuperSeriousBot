@@ -197,12 +197,13 @@ async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> No
         results.append(
             InlineQueryResultArticle(
                 id=movie["id"],
-                title=movie["long imdb title"],
+                title=f"{movie['title']} ({movie['year']})",
                 description=movie["plot"],
                 thumb_url=movie["cover url"],
                 input_message_content=InputTextMessageContent(
-                    f"<b>Title</b>: {movie['long imdb title']}"
+                    f"<b>Title</b>: {movie['title']} <b>({movie['year']})</b>"
                     f"\n<b>Rating</b>: ⭐ {movie['rating']} / 10"
+                    f"\n<b>Runtime</b>: {movie['runtime']} minutes"
                     f"\n<b>Genre</b>: {movie['genres']}"
                     f"\n<b>Directors</b>: {movie['directors']}"
                     f"\n<b>Cast</b>: {movie['cast']}"
@@ -222,6 +223,17 @@ async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> No
                 )
                 if movie["kind"] == "tv series"
                 else None,
+            )
+        )
+
+    if len(results) == 0:
+        results.append(
+            InlineQueryResultArticle(
+                id="0",
+                title="No results found.",
+                input_message_content=InputTextMessageContent(
+                    "No results found. Try searching with a different title."
+                ),
             )
         )
 
