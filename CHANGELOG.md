@@ -1,3 +1,15 @@
+# [1.30.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.29.2...v1.30.0) (2022-09-04)
+
+
+### Bug Fixes
+
+* **tl:** handle NoResult ([1f54ebd](https://github.com/obviyus/SuperSeriousBot/commit/1f54ebd9a4ad9beffe19b0e527d9715fab502e67))
+
+
+### Features
+
+* **tv:** include runtime in response ([9d0a407](https://github.com/obviyus/SuperSeriousBot/commit/9d0a40798f17223ebd7f0d74028d0a825075435b))
+
 ## [1.29.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.29.1...v1.29.2) (2022-08-28)
 
 
