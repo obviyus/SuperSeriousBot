@@ -200,10 +200,14 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         target_language = context.args[0]
 
     if text:
-        await update.message.reply_voice(
-            translator.text_to_speech(text, source_language=target_language).result,
-        )
-        return
+        try:
+            await update.message.reply_voice(
+                translator.text_to_speech(text, source_language=target_language).result,
+            )
+            return
+        except NoResult:
+            await update.message.reply_text("No service returned a valid result.")
+            return
 
     if context.args[1:2] == ["-"]:
         target_language = context.args[0]
@@ -215,6 +219,9 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, tts)
         return
 
-    await update.message.reply_voice(
-        translator.text_to_speech(text, source_language=target_language).result,
-    )
+    try:
+        await update.message.reply_voice(
+            translator.text_to_speech(text, source_language=target_language).result,
+        )
+    except NoResult:
+        await update.message.reply_text("No service returned a valid result.")
