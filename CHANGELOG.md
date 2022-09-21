@@ -1,3 +1,10 @@
+## [1.30.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.30.0...v1.30.1) (2022-09-21)
+
+
+### Bug Fixes
+
+* **link:** set `Timeout=None` for Twitter previews ([d9cc15a](https://github.com/obviyus/SuperSeriousBot/commit/d9cc15aee2e4cc53acf49a58d9403e10921dabe9))
+
 # [1.30.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.29.2...v1.30.0) (2022-09-04)
 
 
