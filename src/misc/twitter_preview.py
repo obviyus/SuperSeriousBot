@@ -26,7 +26,7 @@ async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     if not tweet_id:
         return
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=None) as client:
         response = await client.get(
             TWEET_ENDPOINT,
             params={
