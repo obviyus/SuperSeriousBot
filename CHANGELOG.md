@@ -1,3 +1,10 @@
+## [1.30.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.30.1...v1.30.2) (2022-09-24)
+
+
+### Bug Fixes
+
+* **rate:** set `max_retries` to 10 ([721f22b](https://github.com/obviyus/SuperSeriousBot/commit/721f22bd8aba0691ee5ea921893838d11101dc2b))
+
 ## [1.30.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.30.0...v1.30.1) (2022-09-21)
 
 
