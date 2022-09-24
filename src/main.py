@@ -99,7 +99,7 @@ def main():
     application = (
         ApplicationBuilder()
         .token(config["TELEGRAM"]["TOKEN"])
-        .rate_limiter(AIORateLimiter())
+        .rate_limiter(AIORateLimiter(max_retries=10))
         .concurrent_updates(True)
         .post_init(post_init)
         .build()
