@@ -20,7 +20,7 @@ from .graph import get_friends, get_graph
 from .hltb import hltb
 from .insult import insult
 from .joke import joke
-from .law import crpc, ipc
+from .law import cpc, crpc, ipc
 from .meme import meme
 from .midjourney import midjourney
 from .person import person
@@ -57,6 +57,7 @@ list_of_commands = [
     book,
     calc,
     caption,
+    cpc,
     crpc,
     define,
     downloader,
