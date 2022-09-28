@@ -5,7 +5,13 @@ import redis
 sqlite_conn = sqlite3.connect(
     "/db/SuperSeriousBot.db", check_same_thread=False, isolation_level=None
 )
+
+sqlite_conn_law_database = sqlite3.connect(
+    "/db/IndiaLaw.db", check_same_thread=False, isolation_level=None
+)
+
 sqlite_conn.row_factory = sqlite3.Row
+sqlite_conn_law_database.row_factory = sqlite3.Row
 
 redis = redis.StrictRedis(
     host="redis", port=6379, db=0, decode_responses=True, charset="utf-8"
