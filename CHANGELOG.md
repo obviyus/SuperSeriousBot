@@ -1,3 +1,10 @@
+# [1.31.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.30.2...v1.31.0) (2022-09-28)
+
+
+### Features
+
+* **ipc:** create new /ipc and /crpc commands ([5af9d45](https://github.com/obviyus/SuperSeriousBot/commit/5af9d4541be79d19e307fabec8b833c3133966f7))
+
 ## [1.30.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.30.1...v1.30.2) (2022-09-24)
 
 
