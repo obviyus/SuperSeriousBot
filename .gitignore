@@ -2,7 +2,6 @@
 config.yaml
 ssgbot.env
 .vscode
-*.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -137,5 +136,4 @@ dmypy.json
 *.swp
 
 # Project Specific
-db/
 *.html
