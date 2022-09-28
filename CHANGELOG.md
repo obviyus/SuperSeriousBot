@@ -1,3 +1,10 @@
+## [1.32.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.0...v1.32.1) (2022-09-28)
+
+
+### Bug Fixes
+
+* **usage:** fix usage_string for /spurdo ([8f81bcd](https://github.com/obviyus/SuperSeriousBot/commit/8f81bcdba4734c2133eb93e2c0d781dd5ff53d2a))
+
 # [1.32.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.31.0...v1.32.0) (2022-09-28)
 
 
