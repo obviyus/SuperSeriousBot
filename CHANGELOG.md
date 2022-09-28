@@ -1,3 +1,10 @@
+# [1.32.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.31.0...v1.32.0) (2022-09-28)
+
+
+### Features
+
+* **law:** create `/cpc` command ([33b6f5b](https://github.com/obviyus/SuperSeriousBot/commit/33b6f5b2972d29b1cb6005cdbfd14753f0a21504))
+
 # [1.31.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.30.2...v1.31.0) (2022-09-28)
 
 
