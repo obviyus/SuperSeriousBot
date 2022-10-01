@@ -45,6 +45,8 @@ async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     data = response.json()
+    if not data["data"]:
+        return
 
     user = data["includes"]["users"][0]
     attachments = data["includes"]["media"] if "media" in data["includes"] else []
