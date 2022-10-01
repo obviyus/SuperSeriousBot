@@ -1,3 +1,10 @@
+## [1.32.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.1...v1.32.2) (2022-10-01)
+
+
+### Bug Fixes
+
+* **twitter:** check for error ([648042e](https://github.com/obviyus/SuperSeriousBot/commit/648042eb74ca9d78d4a817f95d83af8faf11df0a))
+
 ## [1.32.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.0...v1.32.1) (2022-09-28)
 
 
