@@ -1,3 +1,10 @@
+## [1.32.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.2...v1.32.3) (2022-10-02)
+
+
+### Bug Fixes
+
+* **link:** send text if no video available ([bfce732](https://github.com/obviyus/SuperSeriousBot/commit/bfce7322239d4145140d1e240f7b53a26821a875))
+
 ## [1.32.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.1...v1.32.2) (2022-10-01)
 
 
