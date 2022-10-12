@@ -1,3 +1,10 @@
+## [1.32.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.3...v1.32.4) (2022-10-12)
+
+
+### Bug Fixes
+
+* **dl:** fix pattern match for `v.redd.it` links ([b4af92b](https://github.com/obviyus/SuperSeriousBot/commit/b4af92ba169ada368c592d25485e2a85f0034fdf))
+
 ## [1.32.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.2...v1.32.3) (2022-10-02)
 
 
