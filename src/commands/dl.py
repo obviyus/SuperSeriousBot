@@ -88,12 +88,32 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         url = urlparse(original_url)
 
     hostname = url.hostname.replace("www.", "")
-
     match hostname:
         case "imgur.com":
             image_list = await download_imgur(url, MAX_IMAGE_COUNT)
         case ("i.redd.it" | "preview.redd.it"):
             image_list = [{"image": url.geturl()}]
+        case "v.redd.it":
+            reddit_downloader.url = url.geturl()
+            try:
+                file_path = reddit_downloader.download()
+                if file_path == 0:
+                    await update.message.reply_text(
+                        "Video too large to send over Telegram."
+                    )
+                    return
+                if file_path == 2:
+                    file_path = reddit_downloader.file_name
+
+                # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
+                # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
+                await update.message.reply_video(
+                    video=open(file_path, "rb"),
+                )
+
+                return
+            except Exception as e:
+                logger.error(e)
         case ("redd.it" | "reddit.com"):
             try:
                 post = await reddit.submission(url=url.geturl().replace("old.", ""))
@@ -121,27 +141,6 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                     {"image": post.media_metadata[media_id]["p"][-1]["u"]}
                     for media_id in media_ids[:MAX_IMAGE_COUNT]
                 ]
-            elif post.domain == "v.redd.it":
-                reddit_downloader.url = url.geturl()
-                try:
-                    file_path = reddit_downloader.download()
-                    if file_path == 0:
-                        await update.message.reply_text(
-                            "Video too large to send over Telegram."
-                        )
-                        return
-                    if file_path == 2:
-                        file_path = reddit_downloader.file_name
-
-                    # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
-                    # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
-                    await update.message.reply_video(
-                        video=open(file_path, "rb"),
-                    )
-
-                    return
-                except Exception as e:
-                    logger.error(e)
             elif post.domain == "i.redd.it":
                 # If derived url is a single image or video
                 image_list = [{"image": post.url}]
