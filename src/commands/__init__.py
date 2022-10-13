@@ -7,9 +7,6 @@ from telegram import MessageEntity
 from telegram.constants import ChatAction
 from telegram.ext import CommandHandler
 
-import management
-from config.options import config
-from management import *
 from .animals import animal
 from .book import book
 from .calc import calc
@@ -34,12 +31,16 @@ from .spurdo import spurdo
 from .store import get_object, set_object
 from .subscribe import *
 from .tldr import tldr
+from .transcribe import transcribe
 from .translate import translate, tts
 from .tv import *
 from .ud import ud
 from .uwu import uwu
 from .vision import age, caption
 from .weather import weather
+from config.options import config
+from management import *
+import management
 
 
 async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
@@ -91,6 +92,7 @@ list_of_commands = [
     spurdo,
     subscribe_reddit,
     tldr,
+    transcribe,
     translate,
     tts,
     ud,
