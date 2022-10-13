@@ -2,8 +2,8 @@ import httpx
 from dateparser import parse
 from telegram import InputMediaPhoto, InputMediaVideo, Update
 from telegram.constants import ParseMode
-from telegram.ext import ContextTypes
 from telegram.error import BadRequest
+from telegram.ext import ContextTypes
 
 import utils
 from commands.dl import yt_dl_downloader
@@ -76,7 +76,9 @@ async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
         media_group.append(
             InputMediaPhoto(
-                content_url, caption=text if index == 0 else None, parse_mode=ParseMode.HTML
+                content_url,
+                caption=text if index == 0 else None,
+                parse_mode=ParseMode.HTML,
             )
         )
 
