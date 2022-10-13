@@ -17,5 +17,5 @@ async def ping(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     time = datetime.now().timestamp() - update.message.date.timestamp()
 
     await update.message.reply_text(
-        "pong ({0:.2f}ms)".format(time).rstrip('0').rstrip('.')
+        "pong ({0:.2f}ms)".format(time).rstrip("0").rstrip(".")
     )
