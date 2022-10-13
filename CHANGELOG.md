@@ -1,3 +1,10 @@
+# [1.33.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.4...v1.33.0) (2022-10-13)
+
+
+### Features
+
+* **tr:** transcribe audio using Whisper ([c415360](https://github.com/obviyus/SuperSeriousBot/commit/c415360faf65f4761c983e7340cd98e136f0fc11))
+
 ## [1.32.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.3...v1.32.4) (2022-10-12)
 
 
