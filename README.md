@@ -41,7 +41,7 @@ By adding this bot to your group you can use this growing set of functions. Nota
 - [x] Generate a TLDR of any article
 - [x] QuoteDB for adding and retreiving messages
 - [x] A social graph of all members in a chat using [`visjs`](https://visjs.org/)
-- [x] Azure Computer Vision APIs to generate a caption for an image + guess the age of people in an image
+- [x] Audio transcription using OpenAI Whisper
 
 ... and many more! To see a complete list of commands send `/help` to [@SuperSeriousBot](https://t.me/superseriousbot)
 
