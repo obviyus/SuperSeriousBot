@@ -7,6 +7,9 @@ from telegram import MessageEntity
 from telegram.constants import ChatAction
 from telegram.ext import CommandHandler
 
+import management
+from config.options import config
+from management import *
 from .animals import animal
 from .book import book
 from .calc import calc
@@ -36,11 +39,7 @@ from .translate import translate, tts
 from .tv import *
 from .ud import ud
 from .uwu import uwu
-from .vision import age, caption
 from .weather import weather
-from config.options import config
-from management import *
-import management
 
 
 async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
@@ -53,11 +52,9 @@ async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
 list_of_commands = [
     add_quote,
     add_quote,
-    age,
     animal,
     book,
     calc,
-    caption,
     cpc,
     crpc,
     define,

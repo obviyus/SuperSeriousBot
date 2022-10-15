@@ -38,10 +38,6 @@ schema = {
     "API": {
         "type": "dict",
         "schema": {
-            "AZURE_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
             "GIPHY_API_KEY": {
                 "type": "string",
                 "required": False,
@@ -106,7 +102,6 @@ config = {
         else None,
     },
     "API": {
-        "AZURE_API_KEY": os.environ.get("AZURE_API_KEY", ""),
         "GIPHY_API_KEY": os.environ.get("GIPHY_API_KEY", ""),
         "GOODREADS_API_KEY": os.environ.get("GOODREADS_API_KEY", ""),
         "IMGUR_API_KEY": os.environ.get("IMGUR_API_KEY", ""),

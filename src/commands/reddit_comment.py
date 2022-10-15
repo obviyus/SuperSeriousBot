@@ -105,6 +105,7 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         .replace("#", "\#")
         .replace("(", "\(")
         .replace(")", "\)")
+        .replace("-", "\-")
     )
     await update.message.reply_text(
         f"""{body}\n\n[/r/{html.escape(submission.subreddit.display_name)}](https://reddit.com{comment.permalink})""",
