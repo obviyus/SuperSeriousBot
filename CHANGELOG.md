@@ -1,3 +1,13 @@
+## [1.33.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.33.0...v1.33.1) (2022-10-15)
+
+
+### Bug Fixes
+
+* **c:** escape `-` character ([0dd99f8](https://github.com/obviyus/SuperSeriousBot/commit/0dd99f8b7f3ef0865ca76bcd4a8f3670c0db161c))
+* **graph:** update networkx API ([e16e811](https://github.com/obviyus/SuperSeriousBot/commit/e16e811809786e34de51a2cc23b6c0ff5ad9c0ed))
+* **hltb:** update API consumers for new response ([f0c46c5](https://github.com/obviyus/SuperSeriousBot/commit/f0c46c5ad05271dfbf5b19e3752ba10f8a701199))
+* **vision:** remove Azure APIs ([cf207bc](https://github.com/obviyus/SuperSeriousBot/commit/cf207bc7e2c959eea165c91f3fbea14938b86790))
+
 # [1.33.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.32.4...v1.33.0) (2022-10-13)
 
 
