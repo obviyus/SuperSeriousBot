@@ -65,6 +65,9 @@ async def generate_network_for_chat(
 
     for source, targets in mappings.items():
         for target, count in targets.items():
+            if source == target:
+                continue
+
             graph.add_node(source, label=user_id_to_name[source])
             graph.add_node(target, label=user_id_to_name[target])
 

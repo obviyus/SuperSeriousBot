@@ -12,7 +12,7 @@ from utils.decorators import description, example, triggers, usage
 @example("/graph")
 @triggers(["graph"])
 @description("Get the social graph of this group.")
-async def get_graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def get_graph(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the social graph of this group."""
     cursor = sqlite_conn.cursor()
     cursor.execute(
@@ -55,19 +55,19 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         edges_incoming = sorted(
             graph.in_edges(user_id, data=True),
-            key=lambda x: x[2].get("weight", 0),
+            key=lambda x: x[2].get("width", 0),
             reverse=True,
         )
         edges_outgoing = sorted(
             graph.out_edges(user_id, data=True),
-            key=lambda x: x[2].get("weight", 0),
+            key=lambda x: x[2].get("width", 0),
             reverse=True,
         )
 
         text = f"From the social graph of <b>{update.message.chat.title}</b>:"
 
         try:
-            text += "\n\nYou have the strongest connections with:"
+            text += "\n\nYou have the strongest connections to:"
             count = 0
             for edge in edges_outgoing:
                 if edge[1] == user_id:
@@ -78,7 +78,7 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 count += 1
 
                 text += (
-                    f"\n<code>{edge[2]['weight']:6}"
+                    f"\n<code>{edge[2]['width']:6}"
                     f" ⟶ {await utils.get_first_name(edge[1], context)}</code>"
                 )
         except IndexError:
@@ -96,13 +96,13 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 count += 1
 
                 text += (
-                    f"\n<code>{edge[2]['weight']:6}"
-                    f" ⟶ {await utils.get_first_name(edge[0], context)}</code>"
+                    f"\n<code>{edge[2]['width']:6}"
+                    f" ← {await utils.get_first_name(edge[0], context)}</code>"
                 )
         except IndexError:
             pass
 
         await update.message.reply_text(text, parse_mode=ParseMode.HTML)
-    except KeyError:
+    except KeyError as e:
         await update.message.reply_text("This group has no social graph yet.")
         return
