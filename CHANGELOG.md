@@ -1,3 +1,10 @@
+## [1.33.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.33.2...v1.33.3) (2022-10-16)
+
+
+### Bug Fixes
+
+* **r:** fix command for alternate usage ([80e843d](https://github.com/obviyus/SuperSeriousBot/commit/80e843da85b79473632b64a1d5d9a2df7f7fa5c9))
+
 ## [1.33.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.33.1...v1.33.2) (2022-10-16)
 
 
