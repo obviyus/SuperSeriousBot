@@ -61,9 +61,7 @@ async def nsfw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if len(random_posts_nsfw) < 5:
         context.job_queue.run_once(worker_seed_posts, 0)
 
-    await update.message.reply_text(
-        "No posts in cache, please try again in a few seconds."
-    )
+    await update.message.reply_text(random_posts_nsfw.pop(), parse_mode=ParseMode.HTML)
 
 
 @example("/r")
