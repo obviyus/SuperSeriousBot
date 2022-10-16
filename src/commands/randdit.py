@@ -58,10 +58,12 @@ def make_response(post: models.Submission) -> str:
 @description("Get random NSFW post from Reddit.")
 async def nsfw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random NSFW post from Reddit"""
-    await update.message.reply_text(random_posts_nsfw.pop(), parse_mode=ParseMode.HTML)
-
     if len(random_posts_nsfw) < 5:
         context.job_queue.run_once(worker_seed_posts, 0)
+
+    await update.message.reply_text(
+        "No posts in cache, please try again in a few seconds."
+    )
 
 
 @example("/r")
@@ -77,12 +79,12 @@ async def randdit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         subreddit = subreddit[2:]
 
     if not subreddit:
+        if len(random_posts_all) < 5:
+            context.job_queue.run_once(worker_seed_posts, 0)
+
         await update.message.reply_text(
             random_posts_all.pop(), parse_mode=ParseMode.HTML
         )
-
-        if len(random_posts_all) < 5:
-            context.job_queue.run_once(worker_seed_posts, 0)
     else:
         try:
             post = await (await reddit.subreddit(subreddit)).random()
