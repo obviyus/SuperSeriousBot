@@ -1,3 +1,10 @@
+## [1.33.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.33.1...v1.33.2) (2022-10-16)
+
+
+### Bug Fixes
+
+* **r:** perform check before to avoid exception ([b121d39](https://github.com/obviyus/SuperSeriousBot/commit/b121d39b3fac63e01ea78a56b64f638c0cca6ab9))
+
 ## [1.33.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.33.0...v1.33.1) (2022-10-15)
 
 
