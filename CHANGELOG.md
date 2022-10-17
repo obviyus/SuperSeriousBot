@@ -1,3 +1,10 @@
+# [1.34.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.33.3...v1.34.0) (2022-10-17)
+
+
+### Features
+
+* **er:** steam playtime for ER ([d092fd9](https://github.com/obviyus/SuperSeriousBot/commit/d092fd9aab67d3e9e84bd1d24fa26786a09b0fb1))
+
 ## [1.33.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.33.2...v1.33.3) (2022-10-16)
 
 
