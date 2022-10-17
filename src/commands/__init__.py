@@ -21,7 +21,7 @@ from .hltb import hltb
 from .insult import insult
 from .joke import joke
 from .law import cpc, crpc, ipc
-from .meme import meme
+from .meme import meme, tyag
 from .midjourney import midjourney
 from .person import person
 from .pic import pic, worker_image_seeder
@@ -92,6 +92,7 @@ list_of_commands = [
     transcribe,
     translate,
     tts,
+    tyag,
     ud,
     uwu,
     weather,
