@@ -1,3 +1,10 @@
+## [1.35.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.35.0...v1.35.1) (2022-10-17)
+
+
+### Bug Fixes
+
+* **r:** fix immediate response when empty ([885f43a](https://github.com/obviyus/SuperSeriousBot/commit/885f43a0aaa164b187f71209128447cb3142b15b))
+
 # [1.35.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.34.0...v1.35.0) (2022-10-17)
 
 
