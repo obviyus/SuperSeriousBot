@@ -21,7 +21,7 @@ from .hltb import hltb
 from .insult import insult
 from .joke import joke
 from .law import cpc, crpc, ipc
-from .meme import meme, tyag
+from .meme import kinji, meme, tyag, udit
 from .midjourney import midjourney
 from .person import person
 from .pic import pic, worker_image_seeder
@@ -76,6 +76,7 @@ list_of_commands = [
     insult,
     ipc,
     joke,
+    kinji,
     list_reddit_subscriptions,
     meme,
     midjourney,
@@ -94,6 +95,7 @@ list_of_commands = [
     tts,
     tyag,
     ud,
+    udit,
     uwu,
     weather,
 ]

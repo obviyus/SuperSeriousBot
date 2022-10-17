@@ -50,6 +50,10 @@ schema = {
                 "type": "string",
                 "required": False,
             },
+            "STEAM_API_KEY": {
+                "type": "string",
+                "required": False,
+            },
             "WOLFRAM_APP_ID": {
                 "type": "string",
                 "required": False,
@@ -112,6 +116,7 @@ config = {
             "USER_AGENT": os.environ.get("REDDIT_USER_AGENT", ""),
         },
         "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
+        "STEAM_API_KEY": os.environ.get("STEAM_API_KEY", ""),
         "TWITTER_BEARER_TOKEN": os.environ.get("TWITTER_BEARER_TOKEN", ""),
         "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
         "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
