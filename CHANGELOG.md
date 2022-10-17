@@ -1,3 +1,10 @@
+# [1.35.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.34.0...v1.35.0) (2022-10-17)
+
+
+### Features
+
+* **misc:** create more playtime commands ([1654f53](https://github.com/obviyus/SuperSeriousBot/commit/1654f53c245c0fb4deedd7555b3bcd9cf4d2bd4a))
+
 # [1.34.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.33.3...v1.34.0) (2022-10-17)
 
 
