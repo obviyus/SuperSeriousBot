@@ -20,10 +20,9 @@ random_posts_all = set()
 random_posts_nsfw = set()
 
 
-async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE) -> None:
+async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE, limit = 10) -> None:
     """Pre-seed the random posts cache when the bot starts"""
     logging.info("Pre-seeding 10 random posts...")
-    limit = 10
 
     async def runner(is_nsfw):
         try:
@@ -60,6 +59,7 @@ async def nsfw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random NSFW post from Reddit"""
     if len(random_posts_nsfw) < 5:
         context.job_queue.run_once(worker_seed_posts, 0)
+        await worker_seed_posts(context, 2)
 
     await update.message.reply_text(random_posts_nsfw.pop(), parse_mode=ParseMode.HTML)
 
@@ -79,6 +79,7 @@ async def randdit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not subreddit:
         if len(random_posts_all) < 5:
             context.job_queue.run_once(worker_seed_posts, 0)
+            await worker_seed_posts(context, 2)
 
         await update.message.reply_text(
             random_posts_all.pop(), parse_mode=ParseMode.HTML
