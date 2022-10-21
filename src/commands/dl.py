@@ -107,9 +107,14 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
                 # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
                 # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
-                await update.message.reply_video(
-                    video=open(file_path, "rb"),
-                )
+                try:
+                    await update.message.reply_video(
+                        video=open(file_path, "rb"),
+                    )
+                except BadRequest:
+                    await update.message.reply_text(
+                        "Video too large to send over Telegram."
+                    )
 
                 return
             except Exception as e:
