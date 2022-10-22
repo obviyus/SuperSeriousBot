@@ -1,3 +1,10 @@
+## [1.36.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.0...v1.36.1) (2022-10-22)
+
+
+### Bug Fixes
+
+* **summon:** fix string for usage ([80d3f80](https://github.com/obviyus/SuperSeriousBot/commit/80d3f8094b52e33b4c819fcd2f718af236fd4b1f))
+
 # [1.36.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.35.3...v1.36.0) (2022-10-22)
 
 
