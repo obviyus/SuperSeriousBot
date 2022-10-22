@@ -7,7 +7,7 @@ import yt_dlp
 from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
 from redvid import Downloader
-from telegram import InputMediaPhoto, InputMediaVideo, Update
+from telegram import InputMediaPhoto, InputMediaVideo, Message, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
@@ -66,6 +66,27 @@ async def download_imgur(parsed_url, count) -> list[Dict]:
         return [{"image": parsed_url.geturl()}]
 
 
+async def download_reddit_video(parsed_url: str, message: Message):
+    reddit_downloader.url = parsed_url
+    try:
+        file_path = reddit_downloader.download()
+        if file_path == 0:
+            await message.reply_text("Video too large to send over Telegram.")
+            return
+        if file_path == 2:
+            file_path = reddit_downloader.file_name
+
+        # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
+        # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
+        await message.reply_video(
+            video=open(file_path, "rb"),
+        )
+
+        return
+    except Exception as e:
+        logger.error(e)
+
+
 @usage("/dl")
 @example("/dl")
 @triggers(["dl"])
@@ -94,30 +115,15 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         case ("i.redd.it" | "preview.redd.it"):
             image_list = [{"image": url.geturl()}]
         case "v.redd.it":
-            reddit_downloader.url = url.geturl()
-            try:
-                file_path = reddit_downloader.download()
-                if file_path == 0:
-                    await update.message.reply_text(
-                        "Video too large to send over Telegram."
-                    )
-                    return
-                if file_path == 2:
-                    file_path = reddit_downloader.file_name
-
-                # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
-                # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
-                await update.message.reply_video(
-                    video=open(file_path, "rb"),
-                )
-
-                return
-            except Exception as e:
-                logger.error(e)
+            await download_reddit_video(url.geturl(), update.message)
+            return
         case ("redd.it" | "reddit.com"):
             try:
                 post = await reddit.submission(url=url.geturl().replace("old.", ""))
-                await post.load()
+                if post.crosspost_parent:
+                    post = await reddit.submission(
+                        id=post.crosspost_parent.split("_")[1]
+                    )
             except (InvalidURL, NotFound):
                 await update.message.reply_text(
                     "URL is invalid or the subreddit is banned."
@@ -126,12 +132,9 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             except Forbidden:
                 await update.message.reply_text("Subreddit is quarantined or private.")
                 return
-
-            # Reddit doesn't have a very clean, obvious way to detect deleted post
-            # this might not work for all cases but there's no documentation about it
-            # so this will have to do
-            if post.removed_by_category:
-                await update.message.reply_text("Post is deleted/removed.")
+            except Exception as e:
+                logger.error(e)
+                await update.message.reply_text("Something went wrong.")
                 return
 
             if hasattr(post, "is_gallery"):
@@ -141,6 +144,9 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                     {"image": post.media_metadata[media_id]["p"][-1]["u"]}
                     for media_id in media_ids[:MAX_IMAGE_COUNT]
                 ]
+            elif hasattr(post, "is_video") or post.domain == "v.redd.it":
+                await download_reddit_video(post.url, update.message)
+                return
             elif post.domain == "i.redd.it":
                 # If derived url is a single image or video
                 image_list = [{"image": post.url}]
@@ -154,7 +160,8 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await update.message.reply_to_message.reply_video(
                 await yt_dl_downloader(url)
             )
-        except Exception as _:
+        except Exception as e:
+            logger.error(e)
             await update.message.reply_text("Could not download video.")
             return
     else:
