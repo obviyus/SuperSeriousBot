@@ -20,7 +20,7 @@ from .reddit_comment import reddit
 
 reddit_downloader = Downloader()
 reddit_downloader.auto_max = True
-reddit_downloader.max_s = 50 * (1 << 20)
+reddit_downloader.max_s = 45 * (1 << 20)
 
 MAX_IMAGE_COUNT = 10
 
@@ -107,14 +107,9 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
                 # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
                 # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
-                try:
-                    await update.message.reply_video(
-                        video=open(file_path, "rb"),
-                    )
-                except BadRequest:
-                    await update.message.reply_text(
-                        "Video too large to send over Telegram."
-                    )
+                await update.message.reply_video(
+                    video=open(file_path, "rb"),
+                )
 
                 return
             except Exception as e:
