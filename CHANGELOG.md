@@ -1,3 +1,11 @@
+## [1.35.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.35.2...v1.35.3) (2022-10-22)
+
+
+### Bug Fixes
+
+* **c:** escape more chars from Reddit MD ([466a254](https://github.com/obviyus/SuperSeriousBot/commit/466a2546ac691522a78b81a4124c308e34a78f8d))
+* **dl:** reduce max size to 45M ([6834cf5](https://github.com/obviyus/SuperSeriousBot/commit/6834cf5d3a1066288e1df2c0d7accf3b8097a929))
+
 ## [1.35.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.35.1...v1.35.2) (2022-10-21)
 
 
