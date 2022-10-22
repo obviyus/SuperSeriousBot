@@ -1,20 +1,39 @@
+import os
 import sqlite3
 
 import redis
 
+
+def is_docker():
+    path = "/proc/self/cgroup"
+    return (
+        os.path.exists("/.dockerenv")
+        or os.path.isfile(path)
+        and any("docker" in line for line in open(path))
+    )
+
+
 sqlite_conn = sqlite3.connect(
-    "/db/SuperSeriousBot.db", check_same_thread=False, isolation_level=None
+    f"{os.getcwd() if not is_docker() else '/db'}/SuperSeriousBot.db",
+    check_same_thread=False,
+    isolation_level=None,
 )
 
 sqlite_conn_law_database = sqlite3.connect(
-    "/db/IndiaLaw.db", check_same_thread=False, isolation_level=None
+    f"{os.getcwd() if not is_docker() else '/db'}/IndiaLaw.db",
+    check_same_thread=False,
+    isolation_level=None,
 )
 
 sqlite_conn.row_factory = sqlite3.Row
 sqlite_conn_law_database.row_factory = sqlite3.Row
 
 redis = redis.StrictRedis(
-    host="redis", port=6379, db=0, decode_responses=True, charset="utf-8"
+    host=f"{'redis' if is_docker() else '127.0.0.1'}",
+    port=6379,
+    db=0,
+    decode_responses=True,
+    charset="utf-8",
 )
 
 cursor = sqlite_conn.cursor()
@@ -138,6 +157,30 @@ cursor.execute(
     """
 )
 
+# Table for Summon Groups
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `summon_groups` (
+        `id` INTEGER PRIMARY KEY,
+        `chat_id` INTEGER NOT NULL,
+        `group_name` VARCHAR(255) NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `creator_id` INTEGER NOT NULL
+    );
+    """
+)
+
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `summon_group_members` (
+        `id` INTEGER PRIMARY KEY,
+        `group_id` INTEGER NOT NULL,
+        `user_id` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+)
+
 # Add some indexes
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS chat_stats_chat_id_user_id_index ON chat_stats (chat_id, user_id);"
@@ -147,4 +190,7 @@ cursor.execute(
 )
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS tv_opt_in_user_id_chat_id_index ON tv_opt_in (user_id, chat_id);"
+)
+cursor.execute(
+    "CREATE INDEX IF NOT EXISTS summon_groups_group_name_index ON summon_groups (group_name);"
 )

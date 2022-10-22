@@ -33,6 +33,7 @@ from .sed import sed
 from .spurdo import spurdo
 from .store import get_object, set_object
 from .subscribe import *
+from .summon import summon, summon_keyboard_button
 from .tldr import tldr
 from .transcribe import transcribe
 from .translate import translate, tts
@@ -89,6 +90,7 @@ list_of_commands = [
     set_object,
     spurdo,
     subscribe_reddit,
+    summon,
     tldr,
     transcribe,
     translate,
@@ -130,7 +132,9 @@ async def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     if query.data.startswith("rts"):
         await tv_show_button(update, context)
-    if query.data.startswith("as"):
+    elif query.data.startswith("sg"):
+        await summon_keyboard_button(update, context)
+    elif query.data.startswith("as"):
         await subscribe_show(update, context)
     elif query.data.startswith("show_eta"):
         await eta_keyboard_builder(update, context)
