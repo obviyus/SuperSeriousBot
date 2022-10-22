@@ -1,3 +1,10 @@
+## [1.35.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.35.1...v1.35.2) (2022-10-21)
+
+
+### Bug Fixes
+
+* **dl:** return reason for failure ([f52f378](https://github.com/obviyus/SuperSeriousBot/commit/f52f378812ac1d2fcc740f413c96ab3ffa48bc48))
+
 ## [1.35.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.35.0...v1.35.1) (2022-10-17)
 
 
