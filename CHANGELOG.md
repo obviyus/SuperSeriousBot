@@ -1,3 +1,10 @@
+# [1.36.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.35.3...v1.36.0) (2022-10-22)
+
+
+### Features
+
+* **summon:** create summon command ([1020f06](https://github.com/obviyus/SuperSeriousBot/commit/1020f06931643f5c9e6d18cfa800d515a6e481a9))
+
 ## [1.35.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.35.2...v1.35.3) (2022-10-22)
 
 
