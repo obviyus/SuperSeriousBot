@@ -64,10 +64,10 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
             await query.answer("You are not a part of this group.")
 
 
-@usage("/summon <GROUP_NAME>")
+@usage("/summon [GROUP_NAME]")
 @example("/summon SwitchPlayers")
 @triggers(["summon"])
-@description("Tag users present in a group.")
+@description("Tag users present in a group of tags. Join by using keyboard buttons.")
 async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tag users present in a group in a chat."""
     if len(context.args) == 0:
