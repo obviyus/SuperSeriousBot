@@ -1,3 +1,10 @@
+## [1.36.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.1...v1.36.2) (2022-10-22)
+
+
+### Bug Fixes
+
+* **dl:** handle Reddit crossposts ([67e18b1](https://github.com/obviyus/SuperSeriousBot/commit/67e18b11dafbce5ac7493a95de1823e38578ac70))
+
 ## [1.36.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.0...v1.36.1) (2022-10-22)
 
 
