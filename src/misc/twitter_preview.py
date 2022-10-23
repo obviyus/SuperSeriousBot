@@ -46,7 +46,7 @@ async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     data = response.json()
-    if not data["data"]:
+    if "errors" in data:
         return
 
     user = data["includes"]["users"][0]
