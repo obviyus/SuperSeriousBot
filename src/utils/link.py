@@ -5,6 +5,9 @@ from telegram import Message, MessageEntity
 
 
 def grab_links(message: Message) -> dict[MessageEntity, str]:
+    if not message:
+        return {}
+
     types = [MessageEntity.URL, MessageEntity.TEXT_LINK]
     results = message.parse_entities(types=types)
     results.update(message.parse_caption_entities(types=types))
@@ -18,11 +21,11 @@ def extract_link(message: Message) -> ParseResult | None:
     https://github.com/python-telegram-bot/ptbcontrib/blob/main/ptbcontrib/extract_urls/extracturls.py
     """
     results = grab_links(message)
-    if not results:
+    if not results and message.reply_to_message:
         results = grab_links(message.reply_to_message)
 
     if not results:
-        return None
+        return
 
     # Get the actual urls
     for key in results:
