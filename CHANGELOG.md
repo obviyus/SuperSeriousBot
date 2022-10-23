@@ -1,3 +1,10 @@
+## [1.36.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.3...v1.36.4) (2022-10-23)
+
+
+### Bug Fixes
+
+* **link:** return None if empty message ([54f8555](https://github.com/obviyus/SuperSeriousBot/commit/54f8555de0f7d66e465e248acb6be5dab060fe0e))
+
 ## [1.36.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.2...v1.36.3) (2022-10-23)
 
 
