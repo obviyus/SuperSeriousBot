@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -117,6 +119,29 @@ supported_languages = {
 }
 
 
+async def text_grabber(
+    message: Message, context: ContextTypes.DEFAULT_TYPE
+) -> Tuple[str, str] | None:
+    text = None
+    if not context.args and not message.reply_to_message:
+        return
+
+    if message.reply_to_message:
+        text = message.reply_to_message.text or message.reply_to_message.caption
+
+    target_language = "en"
+    if len(context.args) > 0 and context.args[0] in supported_languages:
+        target_language = context.args[0]
+
+    if len(context.args) > 1 and context.args[1:2] == ["-"]:
+        target_language = context.args[0]
+        text = " ".join(context.args[2:])
+    elif len(context.args) >= 1:
+        text = " ".join(context.args)
+
+    return text, target_language
+
+
 async def translate_and_reply(
     message: Message, text: str, target_language: str
 ) -> None:
@@ -147,33 +172,12 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Translate a message.
     """
-
-    text = None
-    if update.message.reply_to_message:
-        text = (
-            update.message.reply_to_message.text
-            or update.message.reply_to_message.caption
-        )
-
-    target_language = "en"
-    if len(context.args) > 0 and context.args[0] in supported_languages:
-        target_language = context.args[0]
-
-    if text:
-        await translate_and_reply(update.message, text, target_language)
-        return
-
-    if context.args[1:2] == ["-"]:
-        target_language = context.args[0]
-        text = " ".join(context.args[2:])
-    else:
-        text = " ".join(context.args)
-
-    if not text:
+    result = await text_grabber(update.message, context)
+    if not result:
         await commands.usage_string(update.message, translate)
         return
 
-    await translate_and_reply(update.message, text, target_language)
+    await translate_and_reply(update.message, result[0], result[1])
 
 
 @triggers(["tts"])
@@ -185,43 +189,16 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 )
 async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Translate a message and send it as a voice message.
+    Transcribe a message and send it as a voice message.
     """
-
-    text = None
-    if update.message.reply_to_message:
-        text = (
-            update.message.reply_to_message.text
-            or update.message.reply_to_message.caption
-        )
-
-    target_language = "auto"
-    if len(context.args) > 0 and context.args[0] in supported_languages:
-        target_language = context.args[0]
-
-    if text:
-        try:
-            await update.message.reply_voice(
-                translator.text_to_speech(text, source_language=target_language).result,
-            )
-            return
-        except NoResult:
-            await update.message.reply_text("No service returned a valid result.")
-            return
-
-    if context.args[1:2] == ["-"]:
-        target_language = context.args[0]
-        text = " ".join(context.args[2:])
-    else:
-        text = " ".join(context.args)
-
-    if not text:
+    result = await text_grabber(update.message, context)
+    if not result:
         await commands.usage_string(update.message, tts)
         return
 
     try:
         await update.message.reply_voice(
-            translator.text_to_speech(text, source_language=target_language).result,
+            translator.text_to_speech(result[0], source_language=result[1]).result,
         )
     except NoResult:
         await update.message.reply_text("No service returned a valid result.")
