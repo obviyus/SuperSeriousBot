@@ -1,3 +1,12 @@
+## [1.36.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.2...v1.36.3) (2022-10-23)
+
+
+### Bug Fixes
+
+* **links:** improve link parsing logic ([b979aec](https://github.com/obviyus/SuperSeriousBot/commit/b979aec16b9e0c7c4d708b0ef61ae5bc52a3489c))
+* **tl|tts:** improve text grabbing logic ([68319f5](https://github.com/obviyus/SuperSeriousBot/commit/68319f505b3535f44758171d5803f413ca9f4e6a))
+* **twitter:** fix check for error ([5eb0f37](https://github.com/obviyus/SuperSeriousBot/commit/5eb0f37c859406f342f3302122bf6b5c82da23a0))
+
 ## [1.36.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.1...v1.36.2) (2022-10-22)
 
 
