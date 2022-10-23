@@ -91,12 +91,12 @@ async def download_reddit_video(parsed_url: str, message: Message):
 @example("/dl")
 @triggers(["dl"])
 @description("Reply to a message to download the media attached to a URL.")
-async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def downloader(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Download the image or video from a link.
     """
     # Parse URL entity in a given link
-    url = utils.extract_link(update)
+    url = utils.extract_link(update.message)
     if not url:
         await commands.usage_string(update.message, downloader)
         return
@@ -108,7 +108,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         original_url = "https://" + url.geturl()
         url = urlparse(original_url)
 
-    hostname = url.hostname.replace("www.", "")
+    hostname = url.hostname.replace("www.", "").replace("m.", "").replace("old.", "")
     match hostname:
         case "imgur.com":
             image_list = await download_imgur(url, MAX_IMAGE_COUNT)
@@ -120,7 +120,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         case ("redd.it" | "reddit.com"):
             try:
                 post = await reddit.submission(url=url.geturl().replace("old.", ""))
-                if post.crosspost_parent:
+                if hasattr(post, "crosspost_parent") and post.crosspost_parent:
                     post = await reddit.submission(
                         id=post.crosspost_parent.split("_")[1]
                     )

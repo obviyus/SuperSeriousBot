@@ -30,7 +30,7 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     Get the top Reddit comment for a URL.
     """
 
-    url = utils.extract_link(update)
+    url = utils.extract_link(update.message)
     if not url:
         await commands.usage_string(update.message, get_top_comment)
         return
@@ -46,7 +46,6 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     match hostname:
         case ("reddit.com" | "redd.it" | "v.redd.it" | "old.reddit.com"):
             url = url.geturl().replace("old.", "")
-            print(url)
             submission = await reddit.submission(url=url, fetch=False)
         case ("youtube.com" | "youtu.be"):
             if "youtu.be" in url.hostname:

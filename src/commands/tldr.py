@@ -19,11 +19,11 @@ SMMRY_API_ENDPOINT: str = "https://api.smmry.com/"
 @triggers(["tldr"])
 @api_key("SMMRY_API_KEY")
 @description("Reply to a message to generate a summary of the URL.")
-async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Generate a TLDR for a given URL.
     """
-    url = utils.extract_link(update)
+    url = utils.extract_link(update.message)
 
     if not url:
         await commands.usage_string(update.message, tldr)

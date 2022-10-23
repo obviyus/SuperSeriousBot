@@ -14,7 +14,7 @@ TWEET_ENDPOINT = "https://api.twitter.com/2/tweets"
 
 async def twitter_preview(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Preview a tweet."""
-    url = utils.extract_link(update)
+    url = utils.extract_link(update.message)
     if (
         not url
         or not url.hostname
