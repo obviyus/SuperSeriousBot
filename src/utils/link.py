@@ -20,6 +20,9 @@ def extract_link(message: Message) -> ParseResult | None:
     Extract the first URL from a given update.
     https://github.com/python-telegram-bot/ptbcontrib/blob/main/ptbcontrib/extract_urls/extracturls.py
     """
+    if not message:
+        return
+
     results = grab_links(message)
     if not results and message.reply_to_message:
         results = grab_links(message.reply_to_message)
