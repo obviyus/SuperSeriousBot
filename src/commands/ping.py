@@ -14,8 +14,7 @@ async def ping(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Ping with estimated latency.
     """
-    time = datetime.now().timestamp() - update.message.date.timestamp()
-
+    time_delta = datetime.now(tz=update.message.date.tzinfo) - update.message.date
     await update.message.reply_text(
-        "pong ({0:.2f}ms)".format(time).rstrip("0").rstrip(".")
+        text=f"pong ({time_delta.microseconds / 1000:.2f}ms)",
     )
