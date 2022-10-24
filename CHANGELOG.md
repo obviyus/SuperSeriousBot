@@ -1,3 +1,10 @@
+## [1.36.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.5...v1.36.6) (2022-10-24)
+
+
+### Bug Fixes
+
+* **ping:** fix latency measurement ([c03bf23](https://github.com/obviyus/SuperSeriousBot/commit/c03bf23ee664115b9e8035ef68bab7276ff5f606))
+
 ## [1.36.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.4...v1.36.5) (2022-10-24)
 
 
