@@ -1,3 +1,10 @@
+## [1.36.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.4...v1.36.5) (2022-10-24)
+
+
+### Bug Fixes
+
+* **link:** check for message in link grabber ([b8ec067](https://github.com/obviyus/SuperSeriousBot/commit/b8ec0677b5b4b95f2e8c2de70511630082b8376d))
+
 ## [1.36.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.3...v1.36.4) (2022-10-23)
 
 
