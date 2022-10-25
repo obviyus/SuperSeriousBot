@@ -63,6 +63,10 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
         else:
             await query.answer("You are not a part of this group.")
 
+        await update.effective_message.edit_reply_markup(
+            reply_markup=await summon_keyboard(group_id),
+        )
+
 
 @usage("/summon [GROUP_NAME]")
 @example("/summon SwitchPlayers")
@@ -74,14 +78,14 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, summon)
         return
 
-    group_name = context.args[0]
+    group_name = context.args[0].lower()
     cursor = sqlite_conn.cursor()
 
     cursor.execute(
         """
         SELECT summon_group_members.user_id, summon_groups.id FROM summon_groups 
         LEFT JOIN summon_group_members ON summon_groups.id = summon_group_members.group_id
-        WHERE group_name = ? AND chat_id = ? COLLATE NOCASE
+        WHERE group_name = ? COLLATE NOCASE AND chat_id = ?
         """,
         (group_name, update.message.chat_id),
     )
