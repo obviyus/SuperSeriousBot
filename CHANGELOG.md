@@ -1,3 +1,15 @@
+# [1.38.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.37.0...v1.38.0) (2022-10-25)
+
+
+### Bug Fixes
+
+* **summon:** make group names case insensitive ([b4dc25b](https://github.com/obviyus/SuperSeriousBot/commit/b4dc25b492239dc13c71d0c3c15aa33f1bc661c5))
+
+
+### Features
+
+* **highlight:** create new highlights feature ([26f5e2c](https://github.com/obviyus/SuperSeriousBot/commit/26f5e2c3badc8cb690463ec02dca12e6c025322d))
+
 # [1.37.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.6...v1.37.0) (2022-10-25)
 
 
