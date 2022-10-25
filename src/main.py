@@ -23,6 +23,7 @@ import misc
 from config.db import redis
 from config.logger import logger
 from config.options import config
+from misc.highlight import highlight_worker
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -112,19 +113,17 @@ def main():
         handlers={
             # Handle every Update and increment command + message count
             0: [
-                TypeHandler(
-                    Update,
-                    commands.increment_command_count,
-                )
-            ],
-            1: [
-                MessageHandler(
-                    filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
-                    commands.sed,
-                ),
                 MessageHandler(
                     filters.TEXT & filters.Regex(r"^ping$"),
                     commands.ping,
+                ),
+                MessageHandler(filters.COMMAND, commands.increment_command_count),
+            ],
+            1: commands.command_handler_list,
+            2: [
+                MessageHandler(
+                    filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
+                    commands.sed,
                 ),
                 # Filter for all URLs
                 MessageHandler(
@@ -141,7 +140,18 @@ def main():
                     commands.button_handler,
                 ),
             ],
-            2: commands.command_handler_list,
+            3: [
+                TypeHandler(
+                    Update,
+                    commands.mention_parser,
+                ),
+            ],
+            4: [
+                MessageHandler(
+                    ~filters.ChatType.PRIVATE,
+                    highlight_worker,
+                ),
+            ],
         }
     )
 

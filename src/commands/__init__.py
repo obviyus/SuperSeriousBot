@@ -10,6 +10,7 @@ from telegram.ext import CommandHandler
 import management
 from config.options import config
 from management import *
+from misc.highlight import highlight_button_handler, highlighter
 from .animals import animal
 from .book import book
 from .calc import calc
@@ -73,6 +74,7 @@ list_of_commands = [
     get_total_users,
     get_uptime,
     gif,
+    highlighter,
     hltb,
     insult,
     ipc,
@@ -132,6 +134,8 @@ async def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     if query.data.startswith("rts"):
         await tv_show_button(update, context)
+    elif query.data.startswith("hl"):
+        await highlight_button_handler(update, context)
     elif query.data.startswith("sg"):
         await summon_keyboard_button(update, context)
     elif query.data.startswith("as"):
@@ -196,6 +200,39 @@ async def increment_command_count(
     """
     Increment command count for a /<command> invocation.
     """
+    sent_command = next(
+        iter(update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()), None
+    )
+
+    if not sent_command:
+        return
+
+    if "@" in sent_command:
+        sent_command = sent_command[: sent_command.index("@")]
+    sent_command = sent_command[1:]
+
+    if sent_command not in command_doc_list:
+        return
+
+    await management.increment(update, context)
+    logger.info(
+        "/{} used by user_id:{}".format(sent_command, update.message.from_user.id)
+    )
+
+    await update.message.reply_chat_action(ChatAction.TYPING)
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO command_stats (command, user_id) VALUES (?, ?);
+        """,
+        (sent_command, update.message.from_user.id),
+    )
+
+
+async def mention_parser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Parse mentions in messages.
+    """
     if not update.message:
         return
 
@@ -218,30 +255,3 @@ async def increment_command_count(
         )
 
     await management.increment(update, context)
-    sent_command = next(
-        iter(update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()), None
-    )
-
-    if not sent_command:
-        return
-
-    if "@" in sent_command:
-        sent_command = sent_command[: sent_command.index("@")]
-    sent_command = sent_command[1:]
-
-    logger.info(
-        "/{} used by user_id:{}".format(sent_command, update.message.from_user.id)
-    )
-
-    if sent_command not in command_doc_list:
-        return
-
-    await update.message.reply_chat_action(ChatAction.TYPING)
-
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO command_stats (command, user_id) VALUES (?, ?);
-        """,
-        (sent_command, update.message.from_user.id),
-    )

@@ -181,6 +181,20 @@ cursor.execute(
     """
 )
 
+# Table for highlight words
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `highlights` (
+        `id` INTEGER PRIMARY KEY,
+        `string` VARCHAR(255) NOT NULL,
+        `user_id` INTEGER NOT NULL,
+        `chat_id` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `enabled` INTEGER NOT NULL DEFAULT 1
+    )
+    """
+)
+
 # Add some indexes
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS chat_stats_chat_id_user_id_index ON chat_stats (chat_id, user_id);"
@@ -193,4 +207,7 @@ cursor.execute(
 )
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS summon_groups_group_name_index ON summon_groups (group_name);"
+)
+cursor.execute(
+    "CREATE INDEX IF NOT EXISTS highlight_words_word_index ON highlights (string);"
 )
