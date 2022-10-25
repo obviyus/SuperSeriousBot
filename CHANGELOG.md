@@ -1,3 +1,10 @@
+## [1.38.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.38.0...v1.38.1) (2022-10-25)
+
+
+### Bug Fixes
+
+* **highlight:** make function case insensitive ([95f21f6](https://github.com/obviyus/SuperSeriousBot/commit/95f21f69045443bdbfb1bdbbd07ea45ab6482585))
+
 # [1.38.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.37.0...v1.38.0) (2022-10-25)
 
 
