@@ -81,7 +81,7 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
         SELECT summon_group_members.user_id, summon_groups.id FROM summon_groups 
         LEFT JOIN summon_group_members ON summon_groups.id = summon_group_members.group_id
-        WHERE group_name = ? AND chat_id = ?
+        WHERE group_name = ? AND chat_id = ? COLLATE NOCASE
         """,
         (group_name, update.message.chat_id),
     )
