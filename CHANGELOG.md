@@ -1,3 +1,10 @@
+# [1.37.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.6...v1.37.0) (2022-10-25)
+
+
+### Features
+
+* **summon:** make group name case insensitive ([0a09157](https://github.com/obviyus/SuperSeriousBot/commit/0a09157fed437753fe77549c8fdd107b193239a5))
+
 ## [1.36.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.36.5...v1.36.6) (2022-10-24)
 
 
