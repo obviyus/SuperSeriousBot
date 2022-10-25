@@ -112,7 +112,7 @@ async def highlighter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Check if a highlight is mentioned."""
-    if not update.message:
+    if not update.message or not update.message.text:
         return
 
     cursor = sqlite_conn.cursor()
@@ -122,7 +122,7 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     ).fetchall()
 
     for row in result:
-        if row["string"] in update.message.text:
+        if row["string"] in update.message.text.lower():
             await context.bot.send_message(
                 row["user_id"],
                 f"Your highlight <code>{row['string']}</code> was mentioned "
