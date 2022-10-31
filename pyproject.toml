@@ -29,7 +29,7 @@ cinemagoer = "^2022.2.11"
 networkx = "^2.8.7"
 # All Whisper dependencies
 whisper = { git = "https://github.com/openai/whisper.git" }
-torch = "^1.12.1"
+torch = "^1.13.0"
 tqdm = "^4.64.1"
 numpy = "^1.23.4"
 transformers = "^4.23.1"
