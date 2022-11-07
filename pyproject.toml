@@ -32,7 +32,7 @@ whisper = { git = "https://github.com/openai/whisper.git" }
 torch = "^1.12.1"
 tqdm = "^4.64.1"
 numpy = "^1.23.4"
-transformers = "^4.23.1"
+transformers = "^4.24.0"
 ffmpeg-python = "^0.2.0"
 
 [build-system]
