@@ -77,3 +77,17 @@ def api_key(name: str):
         return func
 
     return wrapper
+
+
+def deprecated(message: str):
+    """Deprecated decorator for commands.
+
+    :param message: The message to display when the command is used.
+    :return: The decorated function.
+    """
+
+    def wrapper(func):
+        func.deprecated = message
+        return func
+
+    return wrapper
