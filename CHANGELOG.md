@@ -1,3 +1,17 @@
+# [1.39.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.38.1...v1.39.0) (2022-11-13)
+
+
+### Bug Fixes
+
+* **c:** improved comment escaping by Markdown ([a56f428](https://github.com/obviyus/SuperSeriousBot/commit/a56f4282d4d9815ec981ec5e545d614969502776))
+* **dl:** always reply to invoking message ([99e8626](https://github.com/obviyus/SuperSeriousBot/commit/99e862619d0fe06cdb5a72b67718ab652c7ca2ad))
+* **tl:** handle unknown language error ([45fac2e](https://github.com/obviyus/SuperSeriousBot/commit/45fac2e0fa04e9964caf1ae884056c3599317079))
+
+
+### Features
+
+* **3.11:** bump to Python 3.11 ([88bbfb1](https://github.com/obviyus/SuperSeriousBot/commit/88bbfb1a8528bcbe162717e668844bda6aafc102))
+
 ## [1.38.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.38.0...v1.38.1) (2022-10-25)
 
 
