@@ -1,4 +1,4 @@
-FROM python:3.10-slim as python-base
+FROM python:3.11-slim as python-base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -11,7 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
 # `builder-base` stage is used to build deps + create our virtual environment
 FROM python-base as builder-base
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y curl build-essential ffmpeg
+    && apt-get install --no-install-recommends -y curl build-essential libxml2-dev libxslt1-dev libz-dev
 
 RUN pip install poetry
 
