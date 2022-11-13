@@ -200,5 +200,11 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_voice(
             translator.text_to_speech(result[0], source_language=result[1]).result,
         )
+    except UnknownLanguage as e:
+        await update.message.reply_text(
+            f"Couldn't recognize the given language: <b>{result[1]}</b>. "
+            f"Did you mean: {e.guessed_language[:2]} ({e.guessed_language})? <b>Similarity: {e.similarity:.2f}%</b>",
+            parse_mode=ParseMode.HTML,
+        )
     except NoResult:
         await update.message.reply_text("No service returned a valid result.")
