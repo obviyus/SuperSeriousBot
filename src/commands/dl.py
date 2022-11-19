@@ -24,24 +24,26 @@ reddit_downloader.max_s = 45 * (1 << 20)
 
 MAX_IMAGE_COUNT = 10
 
-
-async def yt_dl_downloader(url: ParseResult) -> str:
-    ydl_opts = {
+ydl = yt_dlp.YoutubeDL(
+    {
         "format": "b[filesize<=?50M]",
         "outtmpl": "-",
         "logger": logger,
         "skip_download": True,
         "age_limit": 33,
         "geo_bypass": True,
+        "playlistend": 1,
     }
+)
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url.geturl(), download=False)
 
-        if "url" not in info:
-            raise Exception("Could not download video.")
+async def yt_dl_downloader(url: ParseResult) -> str:
+    info = ydl.extract_info(url.geturl(), download=False)
 
-        return info["url"]
+    if "url" not in info:
+        raise Exception("Could not download video.")
+
+    return info["url"]
 
 
 async def download_imgur(parsed_url, count) -> list[Dict]:

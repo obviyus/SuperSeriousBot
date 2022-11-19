@@ -195,6 +195,31 @@ cursor.execute(
     """
 )
 
+# Table for YouTube Subscriptions
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `youtube_subscriptions` (
+        `id` INTEGER PRIMARY KEY,
+        `chat_id` INTEGER NOT NULL,
+        `channel_id` VARCHAR(255) NOT NULL,
+        `latest_video_id` VARCHAR(255) NOT NULL,
+        `creator_id` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+)
+
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `youtube_subscribers` (
+        `id` INTEGER PRIMARY KEY,
+        `subscription_id` INTEGER NOT NULL,
+        `user_id` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+)
+
 # Add some indexes
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS chat_stats_chat_id_user_id_index ON chat_stats (chat_id, user_id);"

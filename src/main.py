@@ -155,10 +155,12 @@ def main():
         }
     )
 
-    # TV Show notification workers
+    # Notification workers
     job_queue.run_daily(commands.worker_next_episode, time=datetime.time(0, 0))
     job_queue.run_repeating(commands.worker_episode_notifier, interval=300, first=10)
-    job_queue.run_repeating(misc.worker_build_network, interval=1800, first=10)
+    job_queue.run_repeating(
+        commands.youtube.worker_youtube_subscriptions, interval=300, first=10
+    )
 
     # Deliver Reddit subscriptions
     job_queue.run_daily(
@@ -168,6 +170,9 @@ def main():
     # Seed random Reddit posts
     job_queue.run_once(commands.worker_seed_posts, 10)
     job_queue.run_once(commands.worker_image_seeder, 10)
+
+    # Build social graph
+    job_queue.run_repeating(misc.worker_build_network, interval=1800, first=10)
 
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']}")

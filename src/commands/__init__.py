@@ -42,6 +42,7 @@ from .tv import *
 from .ud import ud
 from .uwu import uwu
 from .weather import weather
+from .youtube import subscribe_youtube, youtube_button
 
 
 async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
@@ -92,6 +93,7 @@ list_of_commands = [
     set_object,
     spurdo,
     subscribe_reddit,
+    subscribe_youtube,
     summon,
     tldr,
     transcribe,
@@ -138,6 +140,8 @@ async def button_handler(update: Update, context: CallbackContext) -> None:
         await highlight_button_handler(update, context)
     elif query.data.startswith("sg"):
         await summon_keyboard_button(update, context)
+    elif query.data.startswith("yt"):
+        await youtube_button(update, context)
     elif query.data.startswith("as"):
         await subscribe_show(update, context)
     elif query.data.startswith("show_eta"):
