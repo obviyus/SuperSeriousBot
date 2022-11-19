@@ -1,3 +1,10 @@
+## [1.39.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.39.0...v1.39.1) (2022-11-19)
+
+
+### Bug Fixes
+
+* **build:** re-add ffmpeg dependency ([9b5f415](https://github.com/obviyus/SuperSeriousBot/commit/9b5f415f84e7ea4345dbdb37daff4591ec3fd011))
+
 # [1.39.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.38.1...v1.39.0) (2022-11-13)
 
 
