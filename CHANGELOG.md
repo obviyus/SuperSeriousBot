@@ -1,3 +1,10 @@
+# [1.40.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.39.1...v1.40.0) (2022-11-19)
+
+
+### Features
+
+* **yt:** new function to subscribe to YouTube channels ([343f3b0](https://github.com/obviyus/SuperSeriousBot/commit/343f3b0f9901360b162dd4838dfc13ad9502ffe7))
+
 ## [1.39.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.39.0...v1.39.1) (2022-11-19)
 
 
