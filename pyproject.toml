@@ -14,7 +14,7 @@ python-telegram-bot = { version = "^20.0a4", allow-prereleases = true, extras = 
     "rate-limiter",
 ] }
 yt-dlp = "^2022.10.4"
-asyncpraw = "^7.6.0"
+asyncpraw = "^7.6.1"
 dateparser = "^1.1.3"
 coloredlogs = "^15.0.1"
 howlongtobeatpy = "^1.0.2"
