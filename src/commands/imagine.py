@@ -34,9 +34,5 @@ async def imagine(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         image_url = response["data"][0]["url"]
         await update.message.reply_photo(image_url)
     except openai.error.OpenAIError as e:
-        if e.http_status == 429:
-            await update.message.reply_text("Too many requests. Try again later.")
-            logger.warning(e)
-        else:
-            await update.message.reply_text("Something went wrong. Try again later.")
-            logger.error(e)
+        await update.message.reply_text(e.user_message)
+        logger.error(e)
