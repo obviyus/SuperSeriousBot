@@ -1,3 +1,10 @@
+# [1.41.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.40.0...v1.41.0) (2022-12-02)
+
+
+### Features
+
+* **imagine:** create command to invoke Dall-E ([0707b7d](https://github.com/obviyus/SuperSeriousBot/commit/0707b7d5e4c7aed8e9823180b7338e1392c17e61))
+
 # [1.40.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.39.1...v1.40.0) (2022-11-19)
 
 
