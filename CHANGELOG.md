@@ -1,3 +1,10 @@
+## [1.41.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.0...v1.41.1) (2022-12-02)
+
+
+### Bug Fixes
+
+* **deps:** create dep for APScheduler ([c1cdc0b](https://github.com/obviyus/SuperSeriousBot/commit/c1cdc0bef81c418e0a6faa2e463454af4df20cee))
+
 # [1.41.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.40.0...v1.41.0) (2022-12-02)
 
 
