@@ -1,3 +1,10 @@
+## [1.41.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.1...v1.41.2) (2022-12-02)
+
+
+### Bug Fixes
+
+* **imagine:** verbose error messages ([31de5e0](https://github.com/obviyus/SuperSeriousBot/commit/31de5e07ade2934bacb08d276562c384449b7fa2))
+
 ## [1.41.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.0...v1.41.1) (2022-12-02)
 
 
