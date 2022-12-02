@@ -19,6 +19,7 @@ from .dl import downloader
 from .gif import gif
 from .graph import get_friends, get_graph
 from .hltb import hltb
+from .imagine import imagine
 from .insult import insult
 from .joke import joke
 from .law import cpc, crpc, ipc
@@ -96,6 +97,7 @@ list_of_commands = [
     subscribe_youtube,
     summon,
     tldr,
+    imagine,
     transcribe,
     translate,
     tts,
