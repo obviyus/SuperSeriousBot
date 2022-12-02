@@ -8,24 +8,25 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 Cerberus = "^1.3.4"
-redis = "^4.3.4"
+redis = "^4.3.5"
 redvid = "^1.2.0"
-python-telegram-bot = { version = "^20.0a4", allow-prereleases = true, extras = [
+python-telegram-bot = { version = "^20.0a6", allow-prereleases = true, extras = [
     "rate-limiter",
 ] }
-yt-dlp = "^2022.10.4"
-asyncpraw = "^7.6.0"
-dateparser = "^1.1.3"
+yt-dlp = "^2022.11.11"
+asyncpraw = "^7.6.1"
+dateparser = "^1.1.4"
 coloredlogs = "^15.0.1"
 howlongtobeatpy = "^1.0.2"
 spurdify = "^0.3.0"
 translatepy = "^2.3"
 uwuify = "^1.1.0"
 geopy = "^2.3.0"
-httpx = "^0.23.0"
-pyvis = "^0.3.0"
+httpx = "^0.23.1"
+pyvis = "^0.3.1"
 cinemagoer = "^2022.2.11"
 networkx = "^2.8.8"
+openai = "^0.25.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
