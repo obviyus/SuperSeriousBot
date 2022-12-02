@@ -12,6 +12,7 @@ redis = "^4.3.5"
 redvid = "^1.2.0"
 python-telegram-bot = { version = "^20.0a6", allow-prereleases = true, extras = [
     "rate-limiter",
+    "job-queue",
 ] }
 yt-dlp = "^2022.11.11"
 asyncpraw = "^7.6.1"
