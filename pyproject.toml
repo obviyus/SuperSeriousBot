@@ -26,7 +26,7 @@ uwuify = "^1.1.0"
 geopy = "^2.3.0"
 httpx = "^0.23.1"
 pyvis = "^0.3.1"
-cinemagoer = "^2022.2.11"
+cinemagoer = "^2022.12.4"
 networkx = "^2.8.8"
 openai = "^0.25.0"
 
