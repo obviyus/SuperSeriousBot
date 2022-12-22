@@ -1,3 +1,10 @@
+## [1.41.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.2...v1.41.3) (2022-12-22)
+
+
+### Bug Fixes
+
+* **summon:** update group list on join/part ([1123b7d](https://github.com/obviyus/SuperSeriousBot/commit/1123b7dd9e2f2c07f24f2a36de5fb862d6ff6a02))
+
 ## [1.41.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.1...v1.41.2) (2022-12-02)
 
 
