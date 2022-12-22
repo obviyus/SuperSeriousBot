@@ -8,6 +8,21 @@ from config.db import sqlite_conn
 from utils.decorators import description, example, triggers, usage
 
 
+async def get_group_members(group_id: int, context: CallbackContext) -> list:
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        SELECT user_id FROM summon_group_members WHERE group_id = ?
+        """,
+        (group_id,),
+    )
+
+    return [
+        f"@{await utils.get_username(user_id, context)}"
+        for user_id, in cursor.fetchall()
+    ]
+
+
 async def summon_keyboard(group_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
@@ -26,7 +41,7 @@ async def summon_keyboard(group_id: int) -> InlineKeyboardMarkup:
 
 
 async def summon_keyboard_button(update: Update, context: CallbackContext) -> None:
-    """Remove a TV show from the watchlist."""
+    """Handle button for summon group."""
     query = update.callback_query
     action, group_id = query.data.replace("sg:", "").split(",")
 
@@ -63,9 +78,13 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
         else:
             await query.answer("You are not a part of this group.")
 
-        await update.effective_message.edit_reply_markup(
-            reply_markup=await summon_keyboard(group_id),
-        )
+    current_group_members = await get_group_members(group_id, context)
+    await update.effective_message.edit_text(
+        " ".join(current_group_members)
+        if current_group_members
+        else "No members in group.",
+        reply_markup=await summon_keyboard(group_id),
+    )
 
 
 @usage("/summon [GROUP_NAME]")
