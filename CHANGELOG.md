@@ -1,3 +1,10 @@
+## [1.41.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.3...v1.41.4) (2023-01-11)
+
+
+### Bug Fixes
+
+* **imagine:** remove unused command ([689b07a](https://github.com/obviyus/SuperSeriousBot/commit/689b07aa8c0a560e7e67775b175b8e10e4e0938c))
+
 ## [1.41.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.2...v1.41.3) (2022-12-22)
 
 
