@@ -1,3 +1,10 @@
+# [1.42.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.4...v1.42.0) (2023-01-22)
+
+
+### Features
+
+* **quote:** `/addquote` now forwards messages to channel ([d786194](https://github.com/obviyus/SuperSeriousBot/commit/d786194f28e3b6b6408f59c86faf7fec2920c306))
+
 ## [1.41.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.3...v1.41.4) (2023-01-11)
 
 
