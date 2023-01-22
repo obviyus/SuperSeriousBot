@@ -1,5 +1,3 @@
-import enum
-
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
@@ -7,29 +5,18 @@ from telegram.ext import ContextTypes
 
 import commands
 import utils
+from config import config
 from config.db import sqlite_conn
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import api_key, description, example, triggers, usage
 
 
-class FileType(enum.Enum):
-    """File type enum."""
-
-    DOCUMENT = "DOCUMENT"
-    PHOTO = "PHOTO"
-    AUDIO = "AUDIO"
-    VIDEO = "VIDEO"
-    ANIMATION = "ANIMATION"
-    VOICE = "VOICE"
-    STICKER = "STICKER"
-    UNKNOWN = "UNKNOWN"
-
-
-@usage("/addquote")
+@api_key("QUOTE_CHANNEL_ID")
+@description("Reply to a message to save it into QuotesDB.")
 @example("/addquote")
 @triggers(["addquote"])
-@description("Reply to a message to save it into QuotesDB.")
+@usage("/addquote")
 async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Save chat message to QoutesDB."""
+    """Save chat message to QuotesDB."""
     if not update.message.reply_to_message:
         await commands.usage_string(update.message, add_quote)
         return
@@ -57,15 +44,27 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    # Forward message to Quotes Channel
+    try:
+        forwarded_message = await quote_message.forward(
+            chat_id=config["TELEGRAM"]["QUOTE_CHANNEL_ID"],
+        )
+    except BadRequest:
+        await update.message.reply_text(
+            "This message cannot be stored.",
+        )
+        return
+
     cursor.execute(
         """
-        INSERT INTO quote_db (message_id, chat_id, message_user_id, saver_user_id) VALUES (?, ?, ?, ?);
+        INSERT INTO quote_db (message_id, chat_id, message_user_id, saver_user_id, forwarded_message_id) VALUES (?, ?, ?, ?, ?);
         """,
         (
             quote_message.message_id,
             quote_message.chat_id,
             quote_message.from_user.id,
             update.message.from_user.id,
+            forwarded_message.message_id,
         ),
     )
 
@@ -98,7 +97,9 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     try:
-        await update.message.chat.forward_from(row["chat_id"], row["message_id"])
+        await update.message.chat.forward_from(
+            config["TELEGRAM"]["QUOTE_CHANNEL_ID"], row["forwarded_message_id"]
+        )
     except BadRequest:
         await update.message.reply_text(
             f"Quoted message deleted. Removing the quote.",
@@ -109,4 +110,41 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             DELETE FROM quote_db WHERE id = ?;
             """,
             (row["id"],),
+        )
+
+
+async def migrate_quote_db(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Migrate old QuoteDB to quote channel."""
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        SELECT * FROM quote_db WHERE forwarded_message_id IS NULL;
+        """,
+    )
+
+    row = cursor.fetchall()
+    if not row:
+        return
+
+    for quote in row:
+        try:
+            message = await context.bot.forward_message(
+                chat_id=config["TELEGRAM"]["QUOTE_CHANNEL_ID"],
+                from_chat_id=quote["chat_id"],
+                message_id=quote["message_id"],
+            )
+        except BadRequest:
+            cursor.execute(
+                """
+                DELETE FROM quote_db WHERE id = ?;
+                """,
+                (quote["id"],),
+            )
+            continue
+
+        cursor.execute(
+            """
+            UPDATE quote_db SET forwarded_message_id = ? WHERE id = ?;
+            """,
+            (message.message_id, quote["id"]),
         )

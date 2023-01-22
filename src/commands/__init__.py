@@ -27,7 +27,7 @@ from .midjourney import midjourney
 from .person import person
 from .pic import pic, worker_image_seeder
 from .ping import ping
-from .quote import add_quote, get_quote
+from .quote import add_quote, get_quote, migrate_quote_db
 from .randdit import nsfw, randdit, worker_seed_posts
 from .reddit_comment import get_top_comment
 from .sed import sed

@@ -157,6 +157,22 @@ cursor.execute(
     """
 )
 
+# Check if forwarded_message_id column exists in quote_db table
+cursor.execute(
+    """
+    SELECT COUNT(*) FROM PRAGMA_TABLE_INFO('quote_db') WHERE name='forwarded_message_id';
+    """
+)
+
+if cursor.fetchone()[0] == 0:
+    # Create a column for the forwarded message id
+    cursor.execute(
+        """
+        ALTER TABLE `quote_db`
+        ADD COLUMN `forwarded_message_id` INTEGER NULL;
+        """
+    )
+
 # Table for Summon Groups
 cursor.execute(
     """

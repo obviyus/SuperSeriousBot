@@ -107,7 +107,6 @@ def main():
     )
 
     application.add_error_handler(error_handler)
-    job_queue = application.job_queue
 
     application.add_handlers(
         handlers={
@@ -155,6 +154,8 @@ def main():
         }
     )
 
+    job_queue = application.job_queue
+
     # Notification workers
     job_queue.run_daily(commands.worker_next_episode, time=datetime.time(0, 0))
     job_queue.run_repeating(commands.worker_episode_notifier, interval=300, first=10)
@@ -170,6 +171,9 @@ def main():
     # Seed random Reddit posts
     job_queue.run_once(commands.worker_seed_posts, 10)
     job_queue.run_once(commands.worker_image_seeder, 10)
+
+    # Check for DB migrations
+    job_queue.run_once(commands.migrate_quote_db, 10)
 
     # Build social graph
     job_queue.run_repeating(misc.worker_build_network, interval=1800, first=10)

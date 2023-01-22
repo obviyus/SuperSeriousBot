@@ -33,6 +33,11 @@ schema = {
                 "required": False,
                 "nullable": True,
             },
+            "QUOTE_CHANNEL_ID": {
+                "type": "integer",
+                "required": True,
+                "nullable": False,
+            },
         },
     },
     "API": {
@@ -107,6 +112,9 @@ config = {
         "WEBHOOK_URL": f"""{os.environ.get("WEBHOOK_URL")}/{os.environ.get("TELEGRAM_TOKEN")}""",
         "LOGGING_CHANNEL_ID": int(os.environ.get("LOGGING_CHANNEL_ID"))
         if os.environ.get("LOGGING_CHANNEL_ID")
+        else None,
+        "QUOTE_CHANNEL_ID": int(os.environ.get("QUOTE_CHANNEL_ID"))
+        if os.environ.get("QUOTE_CHANNEL_ID")
         else None,
     },
     "API": {
