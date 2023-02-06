@@ -17,7 +17,7 @@ python-telegram-bot = { version = "^20.0", allow-prereleases = true, extras = [
 ] }
 yt-dlp = "^2023.1.6"
 asyncpraw = "^7.6.1"
-dateparser = "^1.1.6"
+dateparser = "^1.1.7"
 coloredlogs = "^15.0.1"
 howlongtobeatpy = "^1.0.5"
 spurdify = "^0.3.0"
