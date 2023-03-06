@@ -25,7 +25,7 @@ translatepy = "^2.3"
 uwuify = "^1.2.1"
 geopy = "^2.3.0"
 httpx = "^0.23.3"
-pyvis = "^0.3.1"
+pyvis = "^0.3.2"
 cinemagoer = "^2022.12.27"
 networkx = "^3.0"
 
