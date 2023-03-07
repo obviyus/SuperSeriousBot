@@ -20,6 +20,7 @@ from telegram.ext import (
 
 import commands
 import misc
+import utils.command_limits
 from config.db import redis
 from config.logger import logger
 from config.options import config
@@ -166,6 +167,11 @@ def main():
     # Deliver Reddit subscriptions
     job_queue.run_daily(
         commands.worker_reddit_subscriptions, time=datetime.time(17, 30)
+    )
+
+    # Reset command usage count every day at 12:00 UTC
+    job_queue.run_daily(
+        utils.command_limits.reset_command_limits, time=datetime.time(0, 0)
     )
 
     # Seed random Reddit posts

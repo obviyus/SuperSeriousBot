@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 import commands
+from config.db import sqlite_conn
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 
@@ -22,6 +23,11 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     query: str = " ".join(context.args)
+    token_count = len(context.args)
+
+    if token_count > 64:
+        await update.message.reply_text("Please keep your query under 64 words.")
+        return
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -52,6 +58,30 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not context.args:
         await commands.usage_string(update.message, ask)
         return
+
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        "SELECT * FROM user_command_limits WHERE user_id = ?",
+        (update.message.from_user.id,),
+    )
+
+    result = cursor.fetchone()
+    if not result:
+        cursor.execute(
+            "INSERT INTO user_command_limits (user_id, command, `limit`) VALUES (?, ?, ?)",
+            (update.message.from_user.id, "based", 5),
+        )
+    else:
+        if result["current_usage"] >= result["limit"]:
+            await update.message.reply_text(
+                f'You have reached your daily limit ({result["limit"]}) for this command.'
+            )
+            return
+
+    cursor.execute(
+        "UPDATE user_command_limits SET current_usage = current_usage + 1 WHERE user_id = ? AND command = ?",
+        (update.message.from_user.id, "based"),
+    )
 
     query: str = " ".join(context.args)
 

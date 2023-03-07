@@ -236,6 +236,20 @@ cursor.execute(
     """
 )
 
+# Table for limiting command usage per user per day
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `user_command_limits` (
+        `id` INTEGER PRIMARY KEY,
+        `user_id` INTEGER NOT NULL,
+        `command` VARCHAR(255) NOT NULL,
+        `limit` INTEGER NOT NULL,
+        `current_usage` INTEGER NOT NULL DEFAULT 0,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+)
+
 # Add some indexes
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS chat_stats_chat_id_user_id_index ON chat_stats (chat_id, user_id);"
