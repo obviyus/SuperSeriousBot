@@ -1,3 +1,10 @@
+# [1.45.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.44.0...v1.45.0) (2023-03-07)
+
+
+### Features
+
+* **limit:** limit command usage ([bbfea64](https://github.com/obviyus/SuperSeriousBot/commit/bbfea64807523f88d816273a4fc6e02c981ef8bc))
+
 # [1.44.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.43.0...v1.44.0) (2023-03-07)
 
 
