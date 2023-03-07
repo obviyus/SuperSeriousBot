@@ -1,3 +1,10 @@
+# [1.44.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.43.0...v1.44.0) (2023-03-07)
+
+
+### Features
+
+* **gpt:** create GPT jailbreak command ([6aa6127](https://github.com/obviyus/SuperSeriousBot/commit/6aa612711bce8dbfc84ffe78c2c4a93a0d01a21d))
+
 # [1.43.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.42.0...v1.43.0) (2023-03-07)
 
 
