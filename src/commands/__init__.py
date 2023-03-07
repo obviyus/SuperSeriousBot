@@ -12,6 +12,7 @@ from config.options import config
 from management import *
 from misc.highlight import highlight_button_handler, highlighter
 from .animals import animal
+from .ask import ask
 from .book import book
 from .calc import calc
 from .define import define
@@ -56,6 +57,7 @@ list_of_commands = [
     add_quote,
     add_quote,
     animal,
+    ask,
     book,
     calc,
     cpc,
