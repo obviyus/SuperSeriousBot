@@ -1,3 +1,10 @@
+# [1.43.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.42.0...v1.43.0) (2023-03-07)
+
+
+### Features
+
+* **ask:** implement /ask using GPT-3.5-turbo ([507e36b](https://github.com/obviyus/SuperSeriousBot/commit/507e36babee30913a6b736cadccf52c712a76d41))
+
 # [1.42.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.41.4...v1.42.0) (2023-01-22)
 
 
