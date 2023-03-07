@@ -15,8 +15,8 @@ python-telegram-bot = { version = "^20.1", allow-prereleases = true, extras = [
     "job-queue",
     "webhooks"
 ] }
-yt-dlp = "^2023.2.17"
-asyncpraw = "^7.6.1"
+yt-dlp = "^2023.3.4"
+asyncpraw = "^7.7.0"
 dateparser = "^1.1.7"
 coloredlogs = "^15.0.1"
 howlongtobeatpy = "^1.0.5"
@@ -25,9 +25,10 @@ translatepy = "^2.3"
 uwuify = "^1.2.1"
 geopy = "^2.3.0"
 httpx = "^0.23.3"
-pyvis = "^0.3.1"
+pyvis = "^0.3.2"
 cinemagoer = "^2022.12.27"
 networkx = "^3.0"
+openai = "^0.27.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
