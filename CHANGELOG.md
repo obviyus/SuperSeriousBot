@@ -1,3 +1,10 @@
+## [1.45.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.45.0...v1.45.1) (2023-03-09)
+
+
+### Bug Fixes
+
+* **limits:** fix for resetting command usage limits ([40f31a0](https://github.com/obviyus/SuperSeriousBot/commit/40f31a05c8906717b2dae78198bc9e03b4721346))
+
 # [1.45.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.44.0...v1.45.0) (2023-03-07)
 
 
