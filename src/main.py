@@ -171,7 +171,7 @@ def main():
 
     # Reset command usage count every day at 12:00 UTC
     job_queue.run_daily(
-        utils.command_limits.reset_command_limits, time=datetime.time(0, 0)
+        utils.command_limits.reset_command_limits, time=datetime.time(17, 30)
     )
 
     # Seed random Reddit posts

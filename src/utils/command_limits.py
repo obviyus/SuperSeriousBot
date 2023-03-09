@@ -11,3 +11,5 @@ async def reset_command_limits() -> None:
         UPDATE user_command_limits SET current_usage = 0;
         """
     )
+
+    sqlite_conn.commit()
