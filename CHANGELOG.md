@@ -1,3 +1,10 @@
+## [1.45.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.45.1...v1.45.2) (2023-03-10)
+
+
+### Bug Fixes
+
+* **reset:** update reset query ([3c5d0a6](https://github.com/obviyus/SuperSeriousBot/commit/3c5d0a6f552244786199baa8d308e9e0e28542de))
+
 ## [1.45.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.45.0...v1.45.1) (2023-03-09)
 
 
