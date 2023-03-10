@@ -8,7 +8,7 @@ async def reset_command_limits() -> None:
     cursor = sqlite_conn.cursor()
     cursor.execute(
         """
-        UPDATE user_command_limits SET current_usage = 0;
+        UPDATE user_command_limits SET current_usage = 0 WHERE current_usage > 0;
         """
     )
 
