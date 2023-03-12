@@ -1,3 +1,10 @@
+## [1.46.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.46.1...v1.46.2) (2023-03-12)
+
+
+### Bug Fixes
+
+* **dl:** fix check for hostname ([882f54c](https://github.com/obviyus/SuperSeriousBot/commit/882f54c45a3c5aef318537209d37002023238842))
+
 ## [1.46.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.46.0...v1.46.1) (2023-03-12)
 
 
