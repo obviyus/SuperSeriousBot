@@ -149,6 +149,9 @@ async def downloader(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         case "v.redd.it":
             await download_reddit_video(url.geturl(), update.message)
             return
+        case "instagram.com":
+            await instagram_download(url.geturl(), update.message)
+            return
         case ("redd.it" | "reddit.com"):
             try:
                 post = await reddit.submission(url=url.geturl().replace("old.", ""))
