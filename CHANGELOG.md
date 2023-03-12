@@ -1,3 +1,10 @@
+## [1.46.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.46.0...v1.46.1) (2023-03-12)
+
+
+### Bug Fixes
+
+* **dl:** handle case for insgram.com URLs ([60ccf7d](https://github.com/obviyus/SuperSeriousBot/commit/60ccf7d260fe3b944e767aa80520ad4b5551c13a))
+
 # [1.46.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.45.2...v1.46.0) (2023-03-12)
 
 
