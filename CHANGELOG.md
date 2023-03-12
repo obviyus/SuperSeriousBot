@@ -1,3 +1,10 @@
+# [1.46.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.45.2...v1.46.0) (2023-03-12)
+
+
+### Features
+
+* **dl:** support Instagram downloads with RapidAPI ([c6ca26c](https://github.com/obviyus/SuperSeriousBot/commit/c6ca26c30fa44ad01fa7df00a54c944e5ef1fc58))
+
 ## [1.45.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.45.1...v1.45.2) (2023-03-10)
 
 
