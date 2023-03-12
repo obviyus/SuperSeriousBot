@@ -96,6 +96,10 @@ schema = {
                     },
                 },
             },
+            "RAPID_API_KEY": {
+                "type": "string",
+                "required": False,
+            },
             "TWITTER_BEARER_TOKEN": {
                 "type": "string",
                 "required": False,
@@ -127,6 +131,7 @@ config = {
             "CLIENT_SECRET": os.environ.get("REDDIT_CLIENT_SECRET", ""),
             "USER_AGENT": os.environ.get("REDDIT_USER_AGENT", ""),
         },
+        "RAPID_API_KEY": os.environ.get("RAPID_API_KEY", ""),
         "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
         "STEAM_API_KEY": os.environ.get("STEAM_API_KEY", ""),
         "TWITTER_BEARER_TOKEN": os.environ.get("TWITTER_BEARER_TOKEN", ""),

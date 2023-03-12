@@ -89,6 +89,36 @@ async def download_reddit_video(parsed_url: str, message: Message):
         logger.error(e)
 
 
+async def instagram_download(parsed_url: str, message: Message):
+    if not config["API"]["RAPID_API_KEY"]:
+        await message.reply_text(
+            "Instagram API key missing, command disabled. Contact the bot owner to enable it."
+        )
+        return
+
+    headers = {
+        "X-RapidAPI-Key": config["API"]["RAPID_API_KEY"],
+        "X-RapidAPI-Host": "instagram-media-downloader.p.rapidapi.com",
+    }
+
+    response = requests.request(
+        "GET",
+        "https://instagram-media-downloader.p.rapidapi.com/rapid/post.php",
+        headers=headers,
+        params={
+            "url": parsed_url,
+        },
+    ).json()
+
+    if "video" in response:
+        await message.reply_video(
+            video=response["video"],
+        )
+        return
+
+    await message.reply_text("Unhandled case of download.")
+
+
 @usage("/dl")
 @example("/dl")
 @triggers(["dl"])
