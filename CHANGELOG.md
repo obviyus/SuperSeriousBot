@@ -1,3 +1,10 @@
+# [1.47.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.46.2...v1.47.0) (2023-03-13)
+
+
+### Features
+
+* **summon:** split summons when > 5 ([a133cb7](https://github.com/obviyus/SuperSeriousBot/commit/a133cb7e8308dab5f7a176129accabee4a6cbe42))
+
 ## [1.46.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.46.1...v1.46.2) (2023-03-12)
 
 
