@@ -111,18 +111,29 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     result = cursor.fetchall()
     if result:
-        await update.message.reply_text(
-            " ".join(
-                [
-                    f"@{await utils.get_username(user['user_id'], context)}"
-                    for user in result
-                ]
+        if not result[0]["user_id"]:
+            await update.message.reply_text(
+                "No users in this group.",
+                reply_markup=await summon_keyboard(result[0]["id"]),
+                parse_mode=ParseMode.HTML,
             )
-            if result[0]["user_id"]
-            else "No users in this group.",
-            reply_markup=await summon_keyboard(result[0]["id"]),
-            parse_mode=ParseMode.HTML,
-        )
+            return
+
+        for idx in range(0, len(result), 5):
+            chunk = result[idx : idx + 5]
+
+            await update.message.reply_text(
+                " ".join(
+                    [
+                        f"@{await utils.get_username(user['user_id'], context)}"
+                        for user in chunk
+                    ]
+                )
+                if result[0]["user_id"]
+                else "No users in this group.",
+                reply_markup=await summon_keyboard(result[0]["id"]),
+                parse_mode=ParseMode.HTML,
+            )
     else:
         cursor.execute(
             """INSERT INTO summon_groups (group_name, chat_id, creator_id) VALUES (?, ?, ?)""",
