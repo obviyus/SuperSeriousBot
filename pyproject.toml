@@ -28,7 +28,7 @@ httpx = "^0.23.3"
 pyvis = "^0.3.2"
 cinemagoer = "^2022.12.27"
 networkx = "^3.0"
-openai = "^0.27.1"
+openai = "^0.27.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
