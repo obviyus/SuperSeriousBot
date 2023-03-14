@@ -1,7 +1,9 @@
+from telegram.ext import ContextTypes
+
 from config.db import sqlite_conn
 
 
-async def reset_command_limits() -> None:
+async def reset_command_limits(_: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Reset command limits for all users.
     """
