@@ -1,3 +1,11 @@
+## [1.47.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.0...v1.47.1) (2023-03-14)
+
+
+### Bug Fixes
+
+* **worker:** change command reset time ([24ca596](https://github.com/obviyus/SuperSeriousBot/commit/24ca5962c055e1b8fa2b38fc96d5082bd563b1a6))
+* **worker:** change command signature for reset ([db823f1](https://github.com/obviyus/SuperSeriousBot/commit/db823f1279344db6b2eecab5eb14789d7ae60fdf))
+
 # [1.47.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.46.2...v1.47.0) (2023-03-13)
 
 
