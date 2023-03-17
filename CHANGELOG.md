@@ -1,3 +1,10 @@
+## [1.47.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.1...v1.47.2) (2023-03-17)
+
+
+### Bug Fixes
+
+* **http:** downgrade to HTTP/1.1 ([69c8812](https://github.com/obviyus/SuperSeriousBot/commit/69c881228fc9ed5cfb1361c465f9c9543524f229))
+
 ## [1.47.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.0...v1.47.1) (2023-03-14)
 
 
