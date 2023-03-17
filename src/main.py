@@ -104,6 +104,8 @@ def main():
         .rate_limiter(AIORateLimiter(max_retries=10))
         .concurrent_updates(True)
         .post_init(post_init)
+        .get_updates_http_version("1.1")
+        .http_version("1.1")
         .build()
     )
 
@@ -193,7 +195,7 @@ def main():
             webhook_url=config["TELEGRAM"]["WEBHOOK_URL"],
         )
     else:
-        logger.info(f"Using polling...")
+        logger.info("Using polling...")
         application.run_polling(drop_pending_updates=True)
 
 
