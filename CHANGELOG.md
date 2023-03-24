@@ -1,3 +1,10 @@
+## [1.47.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.2...v1.47.3) (2023-03-24)
+
+
+### Bug Fixes
+
+* **meme:** update endpoint for meme ([b1c99d1](https://github.com/obviyus/SuperSeriousBot/commit/b1c99d123ae0f93934d0a78b75ad89bd15ff228e))
+
 ## [1.47.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.1...v1.47.2) (2023-03-17)
 
 
