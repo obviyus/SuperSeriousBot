@@ -21,6 +21,13 @@ from telegram.ext import (
 import commands
 import misc
 import utils.command_limits
+from commands.pic import worker_image_seeder
+from commands.quote import migrate_quote_db
+from commands.randdit import worker_seed_posts
+from commands.sed import sed
+from commands.subscribe import worker_reddit_subscriptions
+from commands.tv import inline_show_search, worker_episode_notifier, worker_next_episode
+from commands.youtube import worker_youtube_subscriptions
 from config.db import redis
 from config.logger import logger
 from config.options import config
@@ -125,7 +132,7 @@ def main():
             2: [
                 MessageHandler(
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
-                    commands.sed,
+                    sed,
                 ),
                 # Filter for all URLs
                 MessageHandler(
@@ -135,7 +142,7 @@ def main():
                 ),
                 # TV Show Query Handlers
                 InlineQueryHandler(
-                    commands.inline_show_search,
+                    inline_show_search,
                 ),
                 # Master Button Handler
                 CallbackQueryHandler(
@@ -160,16 +167,12 @@ def main():
     job_queue = application.job_queue
 
     # Notification workers
-    job_queue.run_daily(commands.worker_next_episode, time=datetime.time(0, 0))
-    job_queue.run_repeating(commands.worker_episode_notifier, interval=300, first=10)
-    job_queue.run_repeating(
-        commands.youtube.worker_youtube_subscriptions, interval=300, first=10
-    )
+    job_queue.run_daily(worker_next_episode, time=datetime.time(0, 0))
+    job_queue.run_repeating(worker_episode_notifier, interval=300, first=10)
+    job_queue.run_repeating(worker_youtube_subscriptions, interval=300, first=10)
 
     # Deliver Reddit subscriptions
-    job_queue.run_daily(
-        commands.worker_reddit_subscriptions, time=datetime.time(17, 30)
-    )
+    job_queue.run_daily(worker_reddit_subscriptions, time=datetime.time(17, 30))
 
     # Reset command usage count every day at 12:00 UTC
     job_queue.run_daily(
@@ -177,11 +180,11 @@ def main():
     )
 
     # Seed random Reddit posts
-    job_queue.run_once(commands.worker_seed_posts, 10)
-    job_queue.run_once(commands.worker_image_seeder, 10)
+    job_queue.run_once(worker_seed_posts, 10)
+    job_queue.run_once(worker_image_seeder, 10)
 
     # Check for DB migrations
-    job_queue.run_once(commands.migrate_quote_db, 10)
+    job_queue.run_once(migrate_quote_db, 10)
 
     # Build social graph
     job_queue.run_repeating(misc.worker_build_network, interval=1800, first=10)

@@ -3,13 +3,34 @@ Commands for general use.
 """
 import re
 
-from telegram import MessageEntity
-from telegram.constants import ChatAction
-from telegram.ext import CommandHandler
+from telegram import Message, MessageEntity, Update
+from telegram.constants import ChatAction, ParseMode
+from telegram.ext import CommandHandler, ContextTypes
 
 import management
+import utils
+from commands.subscribe import (
+    list_reddit_subscriptions,
+    reddit_subscription_button_handler,
+    subscribe_reddit,
+)
+from commands.tv import (
+    eta_keyboard_builder,
+    keyboard_builder,
+    opt_in_tv,
+    subscribe_show,
+    tv_show_button,
+)
+from config import logger
+from config.db import sqlite_conn
 from config.options import config
-from management import *
+from management.botstats import (
+    get_command_stats,
+    get_total_chats,
+    get_total_users,
+    get_uptime,
+)
+from management.stats import get_chat_stats, get_last_seen, get_total_chat_stats
 from misc.highlight import highlight_button_handler, highlighter
 from .animals import animal
 from .ask import ask, based
@@ -23,23 +44,20 @@ from .hltb import hltb
 from .insult import insult
 from .joke import joke
 from .law import cpc, crpc, ipc
-from .meme import kinji, meme, tyag, udit
+from .meme import meme
 from .midjourney import midjourney
 from .person import person
-from .pic import pic, worker_image_seeder
+from .pic import pic
 from .ping import ping
-from .quote import add_quote, get_quote, migrate_quote_db
-from .randdit import nsfw, randdit, worker_seed_posts
+from .quote import add_quote, get_quote
+from .randdit import nsfw, randdit
 from .reddit_comment import get_top_comment
-from .sed import sed
 from .spurdo import spurdo
 from .store import get_object, set_object
-from .subscribe import *
 from .summon import summon, summon_keyboard_button
 from .tldr import tldr
 from .transcribe import transcribe
 from .translate import translate, tts
-from .tv import *
 from .ud import ud
 from .uwu import uwu
 from .weather import weather
@@ -83,7 +101,6 @@ list_of_commands = [
     insult,
     ipc,
     joke,
-    kinji,
     list_reddit_subscriptions,
     meme,
     midjourney,
@@ -102,9 +119,7 @@ list_of_commands = [
     transcribe,
     translate,
     tts,
-    tyag,
     ud,
-    udit,
     uwu,
     weather,
 ]
@@ -135,7 +150,7 @@ for command in list_of_commands:
         }
 
 
-async def button_handler(update: Update, context: CallbackContext) -> None:
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query.data.startswith("rts"):
         await tv_show_button(update, context)
@@ -154,7 +169,7 @@ async def button_handler(update: Update, context: CallbackContext) -> None:
         user_id, chat_id = query.data.replace("hide_eta:", "").split(",")
 
         await context.bot.edit_message_text(
-            text=f"List of your shows in this chat. Tap on a show to remove it from your watchlist:",
+            text="List of your shows in this chat. Tap on a show to remove it from your watchlist:",
             chat_id=query.message.chat.id,
             message_id=query.message.message_id,
             reply_markup=await keyboard_builder(user_id, chat_id),
