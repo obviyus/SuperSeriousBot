@@ -1,3 +1,10 @@
+## [1.47.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.3...v1.47.4) (2023-03-24)
+
+
+### Bug Fixes
+
+* **imports:** update imports for ruff ([31f0505](https://github.com/obviyus/SuperSeriousBot/commit/31f0505a03ef2457bae21613bfb4374b51f4d506))
+
 ## [1.47.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.2...v1.47.3) (2023-03-24)
 
 
