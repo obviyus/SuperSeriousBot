@@ -111,8 +111,6 @@ def main():
         .rate_limiter(AIORateLimiter(max_retries=10))
         .concurrent_updates(True)
         .post_init(post_init)
-        .get_updates_http_version("1.1")
-        .http_version("1.1")
         .build()
     )
 
