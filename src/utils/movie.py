@@ -23,7 +23,6 @@ def get_fields(imdb_data):
         "series title": "N/A",
         "title": "N/A",
         "year": None,
-        "year": None,
     }
 
     for field in fields:
