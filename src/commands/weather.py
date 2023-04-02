@@ -11,6 +11,7 @@ from utils.decorators import description, example, triggers, usage
 geolocator = Nominatim(user_agent="SuperSeriousBot")
 
 WEATHER_ENDPOINT = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+AQI_ENDPOINT = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
 
 class Point:
@@ -52,6 +53,24 @@ class Point:
             )
 
         return response.json()["properties"]["timeseries"][0]["data"]
+
+    async def get_pm25(self):
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                AQI_ENDPOINT,
+                params={
+                    "latitude": self.latitude,
+                    "longitude": self.longitude,
+                    "hourly": "pm2_5",
+                },
+                headers={
+                    "Accept": "application/json",
+                    "Accept-Language": "en-US",
+                    "User-Agent": "SuperSeriousBot",
+                },
+            )
+
+            return f"""{response.json()["hourly"]["pm2_5"][0]} {response.json()["hourly_units"]["pm2_5"]}"""
 
 
 @usage("/w")
@@ -96,12 +115,8 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text += f"""🌡️ <b>Temperature:</b> {weather_data["instant"]["details"]['air_temperature']}°C\n"""
     text += f"""💦 <b>Humidity:</b> {weather_data["instant"]["details"]['relative_humidity']}%\n"""
     text += (
-        f"""💨 <b>Wind:</b> {weather_data["instant"]["details"]['wind_speed']} m/s\n\n"""
+        f"""💨 <b>Wind:</b> {weather_data["instant"]["details"]['wind_speed']} m/s\n"""
     )
-
-    text += """🛰️ <b>Forecast:</b>\n"""
-    text += f"""<pre>1  hour </pre>: {weather_data["next_1_hours"]["summary"]["symbol_code"]}\n"""
-    text += f"""<pre>6  hours</pre>: {weather_data["next_6_hours"]["summary"]["symbol_code"]}\n"""
-    text += f"""<pre>12 hours</pre>: {weather_data["next_12_hours"]["summary"]["symbol_code"]}\n"""
+    text += f"""🛰 <b>AQI:</b> {await point.get_pm25()}\n\n"""
 
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
