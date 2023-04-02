@@ -1,3 +1,15 @@
+# [1.48.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.4...v1.48.0) (2023-04-02)
+
+
+### Bug Fixes
+
+* **movie:** remove duplicate key ([8c48589](https://github.com/obviyus/SuperSeriousBot/commit/8c48589e7cd619be598d618241d3887df251662a))
+
+
+### Features
+
+* **weather:** include AQI and remove forecast ([4a0d41a](https://github.com/obviyus/SuperSeriousBot/commit/4a0d41aa2530df104b91fdcb6c0d9187ffa08f26))
+
 ## [1.47.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.3...v1.47.4) (2023-03-24)
 
 
