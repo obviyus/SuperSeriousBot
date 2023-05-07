@@ -1,3 +1,5 @@
+from html import escape
+
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
@@ -39,7 +41,7 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if cursor.fetchone():
         await update.message.reply_text(
-            f"This message has already been saved.",
+            "This message has already been saved.",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -57,7 +59,9 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     cursor.execute(
         """
-        INSERT INTO quote_db (message_id, chat_id, message_user_id, saver_user_id, forwarded_message_id) VALUES (?, ?, ?, ?, ?);
+        INSERT INTO quote_db 
+        (message_id, chat_id, message_user_id, saver_user_id, forwarded_message_id) 
+        VALUES (?, ?, ?, ?, ?);
         """,
         (
             quote_message.message_id,
@@ -74,27 +78,56 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-@usage("/quote, /q")
-@example("/quote, /q")
+@usage("/quote [OPTIONAL_USERNAME>], /q [OPTIONAL_USERNAME]")
+@example("/quote @obviyus, /q @obviyus")
 @triggers(["quote", "q"])
 @description("Return a random message from QuotesDB for this group.")
 async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a quote from QuotesDB."""
     cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT * FROM quote_db WHERE chat_id = ? ORDER BY RANDOM() LIMIT 1;
-        """,
-        (update.message.chat_id,),
-    )
 
-    row = cursor.fetchone()
-    if not row:
-        await update.message.reply_text(
-            f"No quotes found in this chat.",
-            parse_mode=ParseMode.HTML,
+    if context.args:
+        author_username = context.args[0].replace("@", "")
+        author_user_id = await utils.string.get_user_id_from_username(author_username)
+
+        if not author_user_id:
+            await update.message.reply_text(
+                f"@{escape(author_username)} not found.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+
+        cursor.execute(
+            """
+            SELECT * FROM quote_db 
+            WHERE chat_id = ? AND message_user_id = ? 
+            ORDER BY RANDOM() LIMIT 1;
+            """,
+            (update.message.chat_id, author_user_id),
         )
-        return
+
+        row = cursor.fetchone()
+        if not row:
+            await update.message.reply_text(
+                f"No quotes found by @{escape(author_username)}.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+    else:
+        cursor.execute(
+            """
+            SELECT * FROM quote_db WHERE chat_id = ? ORDER BY RANDOM() LIMIT 1;
+            """,
+            (update.message.chat_id,),
+        )
+
+        row = cursor.fetchone()
+        if not row:
+            await update.message.reply_text(
+                "No quotes found in this chat.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
 
     try:
         await update.message.chat.forward_from(
@@ -102,7 +135,7 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except BadRequest:
         await update.message.reply_text(
-            f"Quoted message deleted. Removing the quote.",
+            "Quoted message deleted. Removing the quote.",
             parse_mode=ParseMode.HTML,
         )
         cursor.execute(
