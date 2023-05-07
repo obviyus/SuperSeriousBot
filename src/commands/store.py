@@ -19,6 +19,7 @@ class FileType(enum.Enum):
     ANIMATION = "ANIMATION"
     VOICE = "VOICE"
     STICKER = "STICKER"
+    VIDEO_NOTE = "VIDEO_NOTE"
     UNKNOWN = "UNKNOWN"
 
 
@@ -73,6 +74,12 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             update.message.reply_to_message.sticker.file_id,
             update.message.reply_to_message.sticker.file_unique_id,
             FileType.STICKER,
+        )
+    elif update.message.reply_to_message.video_note:
+        file_id, file_unique_id, file_type = (
+            update.message.reply_to_message.video_note.file_id,
+            update.message.reply_to_message.video_note.file_unique_id,
+            FileType.VIDEO_NOTE,
         )
     else:
         await update.message.reply_text("Could not find a media object in the message.")
@@ -190,9 +197,20 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await update.message.reply_to_message.reply_sticker(
                 sticker=file_id,
             )
+        case FileType.VIDEO_NOTE:
+            await update.message.reply_to_message.reply_video_note(
+                video_note=file_id,
+            )
         case FileType.UNKNOWN:
             await update.message.reply_to_message.reply_text(
                 f"Object with key <code>{key}</code> is of unknown type.",
                 parse_mode=ParseMode.HTML,
             )
             return
+
+    cursor.execute(
+        """
+        UPDATE object_store SET fetch_count = fetch_count + 1 WHERE key = ?;
+        """,
+        (key,),
+    )

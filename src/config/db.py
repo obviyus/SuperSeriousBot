@@ -143,6 +143,13 @@ cursor.execute(
     """
 )
 
+# Add column for fetch count in object_store table
+cursor.execute(
+    """
+    ALTER TABLE `object_store` ADD `fetch_count` INTEGER NOT NULL DEFAULT 0;
+    """,
+)
+
 # Table for Quote DB
 cursor.execute(
     """
