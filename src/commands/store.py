@@ -168,45 +168,86 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     file_id, file_type = row["file_id"], row["type"]
 
     # TODO: Refactor into a generic function.
-    match FileType(file_type):
-        case FileType.DOCUMENT:
-            await update.message.reply_to_message.reply_document(
-                document=file_id,
-            )
-        case FileType.PHOTO:
-            await update.message.reply_to_message.reply_photo(
-                photo=file_id,
-            )
-        case FileType.AUDIO:
-            await update.message.reply_to_message.reply_audio(
-                audio=file_id,
-            )
-        case FileType.VIDEO:
-            await update.message.reply_to_message.reply_video(
-                video=file_id,
-            )
-        case FileType.ANIMATION:
-            await update.message.reply_to_message.reply_animation(
-                animation=file_id,
-            )
-        case FileType.VOICE:
-            await update.message.reply_to_message.reply_voice(
-                voice=file_id,
-            )
-        case FileType.STICKER:
-            await update.message.reply_to_message.reply_sticker(
-                sticker=file_id,
-            )
-        case FileType.VIDEO_NOTE:
-            await update.message.reply_to_message.reply_video_note(
-                video_note=file_id,
-            )
-        case FileType.UNKNOWN:
-            await update.message.reply_to_message.reply_text(
-                f"Object with key <code>{key}</code> is of unknown type.",
-                parse_mode=ParseMode.HTML,
-            )
-            return
+    if update.message.reply_to_message:
+        match FileType(file_type):
+            case FileType.DOCUMENT:
+                await update.message.reply_to_message.reply_document(
+                    document=file_id,
+                )
+            case FileType.PHOTO:
+                await update.message.reply_to_message.reply_photo(
+                    photo=file_id,
+                )
+            case FileType.AUDIO:
+                await update.message.reply_to_message.reply_audio(
+                    audio=file_id,
+                )
+            case FileType.VIDEO:
+                await update.message.reply_to_message.reply_video(
+                    video=file_id,
+                )
+            case FileType.ANIMATION:
+                await update.message.reply_to_message.reply_animation(
+                    animation=file_id,
+                )
+            case FileType.VOICE:
+                await update.message.reply_to_message.reply_voice(
+                    voice=file_id,
+                )
+            case FileType.STICKER:
+                await update.message.reply_to_message.reply_sticker(
+                    sticker=file_id,
+                )
+            case FileType.VIDEO_NOTE:
+                await update.message.reply_to_message.reply_video_note(
+                    video_note=file_id,
+                )
+            case FileType.UNKNOWN:
+                await update.message.reply_to_message.reply_text(
+                    f"Object with key <code>{key}</code> is of unknown type.",
+                    parse_mode=ParseMode.HTML,
+                )
+                return
+    else:
+        match FileType(file_type):
+            case FileType.DOCUMENT:
+                await update.message.reply_document(
+                    document=file_id,
+                )
+            case FileType.PHOTO:
+                await update.message.reply_photo(
+                    photo=file_id,
+                )
+            case FileType.AUDIO:
+                await update.message.reply_audio(
+                    audio=file_id,
+                )
+            case FileType.VIDEO:
+                await update.message.reply_video(
+                    video=file_id,
+                )
+            case FileType.ANIMATION:
+                await update.message.reply_animation(
+                    animation=file_id,
+                )
+            case FileType.VOICE:
+                await update.message.reply_voice(
+                    voice=file_id,
+                )
+            case FileType.STICKER:
+                await update.message.reply_sticker(
+                    sticker=file_id,
+                )
+            case FileType.VIDEO_NOTE:
+                await update.message.reply_video_note(
+                    video_note=file_id,
+                )
+            case FileType.UNKNOWN:
+                await update.message.reply_text(
+                    f"Object with key <code>{key}</code> is of unknown type.",
+                    parse_mode=ParseMode.HTML,
+                )
+                return
 
     cursor.execute(
         """
