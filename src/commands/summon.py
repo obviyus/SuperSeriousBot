@@ -1,4 +1,4 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import ChatMember, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import CallbackContext, ContextTypes
 
@@ -110,6 +110,23 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
     result = cursor.fetchall()
+    filtered_row = []
+    for row in result:
+        # Check if user_id is still in the group
+        check = await context.bot.get_chat_member(update.message.chat_id, row[0])
+        if check.status == ChatMember.LEFT or check.status == ChatMember.BANNED:
+            cursor.execute(
+                """
+                DELETE FROM summon_group_members WHERE group_id = ? AND user_id = ?
+                """,
+                (row[1], row[0]),
+            )
+            continue
+
+        filtered_row.append(row)
+
+    result = filtered_row
+
     if result:
         if not result[0]["user_id"]:
             await update.message.reply_text(
