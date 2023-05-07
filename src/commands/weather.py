@@ -1,3 +1,7 @@
+import asyncio
+import time
+
+import dateparser
 import httpx
 from geopy import Nominatim
 from telegram import Update
@@ -10,7 +14,7 @@ from utils.decorators import description, example, triggers, usage
 
 geolocator = Nominatim(user_agent="SuperSeriousBot")
 
-WEATHER_ENDPOINT = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+WEATHER_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
 AQI_ENDPOINT = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
 
@@ -42,8 +46,9 @@ class Point:
             response = await client.get(
                 WEATHER_ENDPOINT,
                 params={
-                    "lat": self.latitude,
-                    "lon": self.longitude,
+                    "latitude": self.latitude,
+                    "longitude": self.longitude,
+                    "hourly": "temperature_2m,apparent_temperature,windspeed_10m,relativehumidity_1000hPa",
                 },
                 headers={
                     "Accept": "application/json",
@@ -52,7 +57,30 @@ class Point:
                 },
             )
 
-        return response.json()["properties"]["timeseries"][0]["data"]
+        # Find index in the time series that is closest to BEFORE the current time
+        current_time, current_time_index = time.time(), 0
+        parsed_response = response.json()
+
+        for index, data in enumerate(parsed_response["hourly"]["time"]):
+            parsed_time = dateparser.parse(data)
+            if parsed_time.timestamp() > current_time:
+                current_time_index = index - 1 if index > 0 else 0
+                break
+
+        return {
+            "temperature": f"""{parsed_response["hourly"]["temperature_2m"][
+                current_time_index
+            ]} {parsed_response["hourly_units"]["temperature_2m"]}""",
+            "apparent_temperature": f"""{parsed_response["hourly"]["apparent_temperature"][
+                current_time_index
+            ]} {parsed_response["hourly_units"]["apparent_temperature"]}""",
+            "windspeed": f"""{parsed_response["hourly"]["windspeed_10m"][
+                current_time_index
+            ]} {parsed_response["hourly_units"]["windspeed_10m"]}""",
+            "relative_humidity": f"""{parsed_response["hourly"]["relativehumidity_1000hPa"][
+                current_time_index
+            ]} {parsed_response["hourly_units"]["relativehumidity_1000hPa"]}""",
+        }
 
     async def get_pm25(self):
         async with httpx.AsyncClient() as client:
@@ -70,7 +98,17 @@ class Point:
                 },
             )
 
-            return f"""{response.json()["hourly"]["pm2_5"][0]} {response.json()["hourly_units"]["pm2_5"]}"""
+            # Find index in the time series that is closest to BEFORE the current time
+            current_time, current_time_index = time.time(), 0
+            parsed_response = response.json()
+
+            for index, data in enumerate(parsed_response["hourly"]["time"]):
+                parsed_time = dateparser.parse(data)
+                if parsed_time.timestamp() > current_time:
+                    current_time_index = index - 1 if index > 0 else 0
+                    break
+
+            return f"""{parsed_response["hourly"]["pm2_5"][current_time_index]} {parsed_response["hourly_units"]["pm2_5"]}"""
 
 
 @usage("/w")
@@ -109,14 +147,14 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             cached_point["address"],
         )
 
-    weather_data = await point.get_weather()
+    # Await both together
+    weather_data, aqi = await asyncio.gather(point.get_weather(), point.get_pm25())
 
     text = f"<b>{point.address}</b>\n\n"
-    text += f"""🌡️ <b>Temperature:</b> {weather_data["instant"]["details"]['air_temperature']}°C\n"""
-    text += f"""💦 <b>Humidity:</b> {weather_data["instant"]["details"]['relative_humidity']}%\n"""
-    text += (
-        f"""💨 <b>Wind:</b> {weather_data["instant"]["details"]['wind_speed']} m/s\n"""
-    )
-    text += f"""🛰 <b>AQI:</b> {await point.get_pm25()}\n\n"""
+    text += f"""🌡️ <b>Temperature:</b> {weather_data["temperature"]}\n"""
+    text += f"""☁️️ <b>Feels like:</b> {weather_data["apparent_temperature"]}\n"""
+    text += f"""💦 <b>Humidity:</b> {weather_data["relative_humidity"]}\n"""
+    text += f"""💨 <b>Wind:</b> {weather_data["windspeed"]}\n"""
+    text += f"""🛰 <b>AQI:</b> {aqi}\n\n"""
 
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
