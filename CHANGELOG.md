@@ -1,3 +1,20 @@
+# [1.49.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.48.0...v1.49.0) (2023-05-07)
+
+
+### Bug Fixes
+
+* **store:** re-add reply to get'd object ([351f9d0](https://github.com/obviyus/SuperSeriousBot/commit/351f9d0eb8ae42cf49da7f990859972bf14120a6))
+
+
+### Features
+
+* **object:** return fetch count for objects ([6669238](https://github.com/obviyus/SuperSeriousBot/commit/666923866838e26f6665553845e99671fcda0eb4))
+* **quote:** allow filtering quote by user ([3eb6189](https://github.com/obviyus/SuperSeriousBot/commit/3eb61898f1ec41977851f81e28375cf4db90e488))
+* **store:** don't delete on /get reply ([bd58e76](https://github.com/obviyus/SuperSeriousBot/commit/bd58e76ee651c70d8b990c89f5024566d0d41025))
+* **store:** increment fetch count for objects ([c5dfb0c](https://github.com/obviyus/SuperSeriousBot/commit/c5dfb0cd86bec9faef4a563dc9f2d87fb3378969))
+* **summon:** filter out removed users ([6bbf2fa](https://github.com/obviyus/SuperSeriousBot/commit/6bbf2fa89b1e4bc9970c036aa90b3dd70f3f9555))
+* **weather:** include apparent temperature ([fbbf3cf](https://github.com/obviyus/SuperSeriousBot/commit/fbbf3cf8002ae5cc24cbb09506bd03b992ae0313))
+
 # [1.48.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.47.4...v1.48.0) (2023-04-02)
 
 
