@@ -87,3 +87,39 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         text,
         parse_mode=ParseMode.HTML,
     )
+
+
+@usage("/objects")
+@example("/objects")
+@triggers(["objects"])
+@description("Get the top 10 most fetched objects from the object store.")
+async def get_object_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        SELECT key, fetch_count
+        FROM object_store
+        ORDER BY fetch_count DESC
+        LIMIT 10;
+        """,
+    )
+
+    text = f"Object Stats for <b>@{context.bot.username}:</b>\n\n"
+
+    rows = cursor.fetchall()
+    cursor.execute(
+        """
+        SELECT SUM(fetch_count) AS fetch_count FROM main.object_store; 
+        """
+    )
+
+    total_fetch_count = cursor.fetchone()["fetch_count"]
+
+    for row in rows:
+        text += f"""<code>{row['key']:4} - {row['fetch_count']}</code>\n"""
+
+    text += f"\nTotal: <b>{total_fetch_count}</b>"
+    await update.message.reply_text(
+        text,
+        parse_mode=ParseMode.HTML,
+    )

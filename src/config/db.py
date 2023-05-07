@@ -144,11 +144,19 @@ cursor.execute(
 )
 
 # Add column for fetch count in object_store table
+# Check if fetch_count column exists in object_store table
 cursor.execute(
     """
-    ALTER TABLE `object_store` ADD `fetch_count` INTEGER NOT NULL DEFAULT 0;
-    """,
+    SELECT COUNT(*) FROM PRAGMA_TABLE_INFO('object_store') WHERE name='fetch_count';
+    """
 )
+
+if cursor.fetchone()[0] == 0:
+    cursor.execute(
+        """
+        ALTER TABLE `object_store` ADD `fetch_count` INTEGER NOT NULL DEFAULT 0;
+        """,
+    )
 
 # Table for Quote DB
 cursor.execute(

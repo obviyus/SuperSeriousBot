@@ -26,6 +26,7 @@ from config.db import sqlite_conn
 from config.options import config
 from management.botstats import (
     get_command_stats,
+    get_object_stats,
     get_total_chats,
     get_total_users,
     get_uptime,
@@ -88,6 +89,7 @@ list_of_commands = [
     get_friends,
     get_graph,
     get_last_seen,
+    get_object_stats,
     get_object,
     get_quote,
     get_top_comment,
