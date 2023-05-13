@@ -40,7 +40,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     if "sm_api_error" in response:
         logger.error(f"Error: {response['sm_api_error']}")
-        await update.message.reply_text(response["sm_api_error"])
+        await update.message.reply_text(response["sm_api_message"])
         return
 
     await update.message.reply_text(
