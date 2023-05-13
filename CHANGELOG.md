@@ -1,3 +1,10 @@
+## [1.49.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.49.0...v1.49.1) (2023-05-13)
+
+
+### Bug Fixes
+
+* **tldr:** return correct error message ([d1e9ddc](https://github.com/obviyus/SuperSeriousBot/commit/d1e9ddc4df3331c4c9cdc189db247549e078c84f))
+
 # [1.49.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.48.0...v1.49.0) (2023-05-07)
 
 
