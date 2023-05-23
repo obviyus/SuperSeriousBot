@@ -1,3 +1,16 @@
+# [1.50.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.49.1...v1.50.0) (2023-05-23)
+
+
+### Bug Fixes
+
+* **ask:** make queries async ([0a47c93](https://github.com/obviyus/SuperSeriousBot/commit/0a47c934f33e932cc35894ee626cb46dadb0fdb3))
+* **ud:** handle long messages ([98be12a](https://github.com/obviyus/SuperSeriousBot/commit/98be12a83c81b1a2a424213500c6636992e67046))
+
+
+### Features
+
+* **ask:** improve based GPT jailbreak ([a204cd3](https://github.com/obviyus/SuperSeriousBot/commit/a204cd39f2403ebaee5313646e2624b369f463e9))
+
 ## [1.49.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.49.0...v1.49.1) (2023-05-13)
 
 
