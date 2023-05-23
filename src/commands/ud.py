@@ -35,7 +35,24 @@ async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     result = max(response["list"], key=lambda x: x["thumbs_up"])
+
+    definition = (
+        result["definition"]
+        if len(result["definition"]) <= 1000
+        else result["definition"][:1000] + "..."
+    ).strip()
+
+    ud_example = (
+        result["example"]
+        if len(result["example"]) <= 1000
+        else result["example"][:1000] + "..."
+    ).strip()
+
     await update.message.reply_text(
-        f"<b>{result['word']}</b>\n\n{result['definition']}\n\n<i>{result['example']}</i>\n\n<pre>👍 × {result['thumbs_up']}</pre>",
+        f"<a href='{result['permalink']}'><b>{result['word']}</b></a>"
+        f"\n\n{definition}"
+        f"\n\n<i>{ud_example}</i>"
+        f"\n\n<pre>👍 × {result['thumbs_up']}</pre>",
         parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True,
     )
