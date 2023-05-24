@@ -1,3 +1,10 @@
+## [1.50.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.50.0...v1.50.1) (2023-05-24)
+
+
+### Bug Fixes
+
+* **ask:** reply on exceptions ([0a03449](https://github.com/obviyus/SuperSeriousBot/commit/0a034498ed43b5ac4c8f6e9d6c33f943671c56ae))
+
 # [1.50.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.49.1...v1.50.0) (2023-05-23)
 
 
