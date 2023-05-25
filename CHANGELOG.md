@@ -1,3 +1,10 @@
+## [1.51.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.51.0...v1.51.1) (2023-05-25)
+
+
+### Bug Fixes
+
+* **mj:** fix broken function definitions ([335e22d](https://github.com/obviyus/SuperSeriousBot/commit/335e22d5cdaf241efa420e578cb543e966930709))
+
 # [1.51.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.50.1...v1.51.0) (2023-05-25)
 
 
