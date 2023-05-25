@@ -1,3 +1,10 @@
+# [1.51.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.50.1...v1.51.0) (2023-05-25)
+
+
+### Features
+
+* **mj:** deprecate /mj command ([b5d8968](https://github.com/obviyus/SuperSeriousBot/commit/b5d89680927cd37242e00a9ed16da66130de9ce3))
+
 ## [1.50.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.50.0...v1.50.1) (2023-05-24)
 
 
