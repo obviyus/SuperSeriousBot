@@ -1,3 +1,4 @@
+import asyncio
 import html
 
 import dateparser
@@ -216,9 +217,16 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
     for row in cursor.fetchall():
         await poster(row["group_id"], row["receiver_id"], row["subreddit_name"])
 
+    tasks = []
     for post in collected_posts:
-        await context.bot.send_message(
-            post["group_id"],
-            post["post_response"],
-            parse_mode=ParseMode.HTML,
+        tasks.append(
+            asyncio.ensure_future(
+                await context.bot.send_message(
+                    post["group_id"],
+                    post["post_response"],
+                    parse_mode=ParseMode.HTML,
+                )
+            )
         )
+
+    await asyncio.gather(*tasks)
