@@ -1,5 +1,4 @@
 import html
-from asyncio import sleep
 
 import dateparser
 from asyncpraw import models
@@ -181,20 +180,24 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
         """
     )
 
+    collected_posts = []
+
     async def poster(group_id: int, user_id: int, subreddit_name: str) -> None:
         subreddit = await reddit.subreddit(subreddit_name)
-        async for post in subreddit.hot(limit=3):
-            if post.stickied:
+        async for subreddit_submission in subreddit.hot(limit=3):
+            if subreddit_submission.stickied:
                 continue
 
             try:
-                await context.bot.send_message(
-                    group_id,
-                    await make_response(
-                        post,
-                        await utils.get_username(user_id, context),
-                    ),
-                    parse_mode=ParseMode.HTML,
+                collected_posts.append(
+                    {
+                        "group_id": group_id,
+                        "user_id": user_id,
+                        "post_response": make_response(
+                            subreddit_submission,
+                            await utils.get_username(user_id, context),
+                        ),
+                    }
                 )
                 return
             except (NotFound, BadRequest, Redirect, Forbidden):
@@ -212,3 +215,10 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
 
     for row in cursor.fetchall():
         await poster(row["group_id"], row["receiver_id"], row["subreddit_name"])
+
+    for post in collected_posts:
+        await context.bot.send_message(
+            post["group_id"],
+            post["post_response"],
+            parse_mode=ParseMode.HTML,
+        )
