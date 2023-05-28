@@ -1,5 +1,7 @@
 import asyncio
 import logging
+from random import choice
+
 from asyncpraw import models
 from asyncprawcore.exceptions import (
     BadRequest,
@@ -7,7 +9,6 @@ from asyncprawcore.exceptions import (
     NotFound,
     UnavailableForLegalReasons,
 )
-from random import choice
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -20,7 +21,7 @@ random_posts_all = set()
 random_posts_nsfw = set()
 
 
-async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE, limit = 10) -> None:
+async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE, limit=10) -> None:
     """Pre-seed the random posts cache when the bot starts"""
     logging.info("Pre-seeding 10 random posts...")
 
@@ -47,7 +48,11 @@ async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE, limit = 10) -> N
 
 
 def make_response(post: models.Submission) -> str:
-    return f"{post.url}\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}</a>"
+    return (
+        f"<b>{post.title}</b>"
+        f"\n\n{post.url}"
+        f"\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}</a>"
+    )
 
 
 @usage("/nsfw")
