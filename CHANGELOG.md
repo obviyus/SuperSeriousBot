@@ -1,3 +1,11 @@
+# [1.52.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.51.1...v1.52.0) (2023-05-28)
+
+
+### Features
+
+* **reddit:** include title in post ([57945c2](https://github.com/obviyus/SuperSeriousBot/commit/57945c2c088ee33d6dad3562836c5bea49e68383))
+* **subscribe:** pre-seed posts before sending ([47b4c1c](https://github.com/obviyus/SuperSeriousBot/commit/47b4c1c5a66c12da954a97a9f479c7fd47a05407))
+
 ## [1.51.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.51.0...v1.51.1) (2023-05-25)
 
 
