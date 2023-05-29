@@ -1,3 +1,11 @@
+## [1.53.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.53.0...v1.53.1) (2023-05-29)
+
+
+### Bug Fixes
+
+* **subscribe:** change subscribe time ([6976e04](https://github.com/obviyus/SuperSeriousBot/commit/6976e04db54a6b5919a855c81d4e053bc2ce5f6f))
+* **subscribe:** fix incorrect command invocation ([83b2f23](https://github.com/obviyus/SuperSeriousBot/commit/83b2f23e0e442e9f1d3622a8ed613f41adc9d81b))
+
 # [1.53.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.52.0...v1.53.0) (2023-05-29)
 
 
