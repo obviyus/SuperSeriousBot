@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import httpx
 import telegram.error
 from telegram import Update
@@ -23,7 +25,11 @@ async def camera(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, camera)
         return
 
-    point = Point(" ".join(context.args))
+    try:
+        point = Point(" ".join(context.args))
+    except AttributeError:
+        await update.message.reply_text(text="Invalid location.")
+        return
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
@@ -33,7 +39,6 @@ async def camera(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "x-windy-key": config["API"]["WINDY_API_KEY"],
             },
         )
-        print(response.url)
 
     if response.status_code != 200:
         await update.message.reply_text(text="No cameras found.")
@@ -47,11 +52,13 @@ async def camera(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     webcam = response["result"]["webcams"][0]
 
     try:
+        time_since_update = datetime.now().timestamp() - webcam["image"]["update"]
         await update.message.reply_photo(
             photo=webcam["image"]["current"]["preview"],
             caption=f"""📹 <b>{webcam["title"]}</b> ({webcam["status"]})
-            \n{webcam["location"]["city"]} (<i>{webcam["location"]["latitude"]}, {webcam["location"]["longitude"]}</i>)
-            \nTimezone: {webcam["location"]["timezone"]}""",
+            \n🕒 Last updated: {int(time_since_update / 60)} minutes ago
+            \n📍 {webcam["location"]["city"]} (<i>{webcam["location"]["latitude"]}, {webcam["location"]["longitude"]}</i>)
+            \n🧭 Timezone: {webcam["location"]["timezone"]}""",
             parse_mode=ParseMode.HTML,
         )
     except telegram.error.BadRequest:
