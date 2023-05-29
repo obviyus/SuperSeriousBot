@@ -1,3 +1,10 @@
+## [1.53.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.53.1...v1.53.2) (2023-05-29)
+
+
+### Bug Fixes
+
+* **subscribe:** re-add `@` symbol in delivery ([7d2ea07](https://github.com/obviyus/SuperSeriousBot/commit/7d2ea0774d72c054b3322c4eac65c1dbaf540c8a))
+
 ## [1.53.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.53.0...v1.53.1) (2023-05-29)
 
 
