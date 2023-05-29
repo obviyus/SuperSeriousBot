@@ -37,6 +37,7 @@ from .animals import animal
 from .ask import ask, based
 from .book import book
 from .calc import calc
+from .camera import camera
 from .define import define
 from .dl import downloader
 from .gif import gif
@@ -80,6 +81,7 @@ list_of_commands = [
     based,
     book,
     calc,
+    camera,
     cpc,
     crpc,
     define,

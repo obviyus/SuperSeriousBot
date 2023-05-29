@@ -104,6 +104,10 @@ schema = {
                 "type": "string",
                 "required": False,
             },
+            "WINDY_API_KEY": {
+                "type": "string",
+                "required": False,
+            },
         },
     },
 }
@@ -137,6 +141,7 @@ config = {
         "TWITTER_BEARER_TOKEN": os.environ.get("TWITTER_BEARER_TOKEN", ""),
         "OPEN_AI_API_KEY": os.environ.get("OPEN_AI_API_KEY", ""),
         "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
+        "WINDY_API_KEY": os.environ.get("WINDY_API_KEY", ""),
         "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
     },
 }
