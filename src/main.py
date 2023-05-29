@@ -170,7 +170,7 @@ def main():
     job_queue.run_repeating(worker_youtube_subscriptions, interval=300, first=10)
 
     # Deliver Reddit subscriptions
-    job_queue.run_daily(worker_reddit_subscriptions, time=datetime.time(18, 00))
+    job_queue.run_daily(worker_reddit_subscriptions, time=datetime.time(17, 30))
 
     # Reset command usage count every day at 12:00 UTC
     job_queue.run_daily(

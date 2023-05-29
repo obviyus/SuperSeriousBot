@@ -52,7 +52,7 @@ def make_response(post: models.Submission, username=None) -> str:
         f"<b>{post.title}</b>"
         f"\n\n{post.url}"
         f"\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}</a>"
-        f"\n\n{username if username else ''}"
+        f"\n\n{'@' + username if username else ''}"
     )
 
 
