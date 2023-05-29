@@ -3,6 +3,22 @@
 
 ### Bug Fixes
 
+* **camera:** formatting ([a66d51c](https://github.com/obviyus/SuperSeriousBot/commit/a66d51cd0d93cfe0b4e9bc0174c135824873190d))
+* **camera:** handle invalid address ([2b637d2](https://github.com/obviyus/SuperSeriousBot/commit/2b637d2ee9676686889a432d8b97079ecd8252d3))
+* **camera:** improve formatting ([5495b62](https://github.com/obviyus/SuperSeriousBot/commit/5495b6216ec5a72afd35e1978df7e7b383134d77))
+* **camera:** include time since update ([bacd454](https://github.com/obviyus/SuperSeriousBot/commit/bacd45438e49ffcc8d5546da1c9cc68102a8a931))
+* **subscribe:** fix incorrect asyncio implementation ([16568a9](https://github.com/obviyus/SuperSeriousBot/commit/16568a9862b82af42f452882a782043a99fc6605))
+
+
+### Features
+
+* **camera:** create new command `/cam` ([a844ca2](https://github.com/obviyus/SuperSeriousBot/commit/a844ca2d1c923b30f1c19914945cbe7f7a070cea))
+
+# [1.53.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.52.0...v1.53.0) (2023-05-29)
+
+
+### Bug Fixes
+
 * **camera:** handle invalid address ([2b637d2](https://github.com/obviyus/SuperSeriousBot/commit/2b637d2ee9676686889a432d8b97079ecd8252d3))
 * **camera:** improve formatting ([5495b62](https://github.com/obviyus/SuperSeriousBot/commit/5495b6216ec5a72afd35e1978df7e7b383134d77))
 * **camera:** include time since update ([bacd454](https://github.com/obviyus/SuperSeriousBot/commit/bacd45438e49ffcc8d5546da1c9cc68102a8a931))
