@@ -1,3 +1,15 @@
+# [1.53.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.52.0...v1.53.0) (2023-05-29)
+
+
+### Bug Fixes
+
+* **subscribe:** fix incorrect asyncio implementation ([16568a9](https://github.com/obviyus/SuperSeriousBot/commit/16568a9862b82af42f452882a782043a99fc6605))
+
+
+### Features
+
+* **camera:** create new command `/cam` ([a844ca2](https://github.com/obviyus/SuperSeriousBot/commit/a844ca2d1c923b30f1c19914945cbe7f7a070cea))
+
 # [1.52.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.51.1...v1.52.0) (2023-05-28)
 
 
