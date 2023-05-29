@@ -47,11 +47,12 @@ async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE, limit=10) -> Non
     await asyncio.gather(*tasks)
 
 
-def make_response(post: models.Submission) -> str:
+def make_response(post: models.Submission, username=None) -> str:
     return (
         f"<b>{post.title}</b>"
         f"\n\n{post.url}"
         f"\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}</a>"
+        f"\n\n{username if username else ''}"
     )
 
 

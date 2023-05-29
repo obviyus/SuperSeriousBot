@@ -11,6 +11,7 @@ import commands
 import utils
 from config.db import sqlite_conn
 from utils.decorators import api_key, description, example, triggers, usage
+from .randdit import make_response
 from .reddit_comment import reddit
 
 
@@ -189,7 +190,7 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
                     {
                         "group_id": group_id,
                         "user_id": user_id,
-                        "post_response": await reddit.make_response(
+                        "post_response": make_response(
                             subreddit_submission,
                             await utils.get_username(user_id, context),
                         ),
