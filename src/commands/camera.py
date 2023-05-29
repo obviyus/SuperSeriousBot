@@ -25,10 +25,9 @@ async def camera(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, camera)
         return
 
-    try:
-        point = Point(" ".join(context.args))
-    except AttributeError:
-        await update.message.reply_text(text="Invalid location.")
+    point = Point(" ".join(context.args))
+    if not point.found:
+        await update.message.reply_text("Could not find location.")
         return
 
     async with httpx.AsyncClient() as client:
