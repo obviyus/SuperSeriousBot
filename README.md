@@ -5,7 +5,7 @@
 <p align="center">
   <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/m/obviyus/SuperSeriousBot">
   <img alt="Build" src="https://github.com/obviyus/SuperSeriousBot/actions/workflows/release.yml/badge.svg">
-  <img alt="Docker Image Size" src="https://ghcr-badge.herokuapp.com/obviyus/superseriousbot/size">
+  <img alt="Docker Image Size" src="https://ghcr-badge.egpl.dev/obviyus/superseriousbot/size">
 </p>
 <p align="center">
   <a href="https://github.com/obviyus/SuperSeriousBot/blob/master/LICENSE"><img alt="GitHub license" src="https://img.shields.io/github/license/obviyus/SuperSeriousBot"></a>
