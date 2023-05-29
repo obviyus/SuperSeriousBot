@@ -54,10 +54,11 @@ async def camera(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         time_since_update = datetime.now().timestamp() - webcam["image"]["update"]
         await update.message.reply_photo(
             photo=webcam["image"]["current"]["preview"],
-            caption=f"""📹 <b>{webcam["title"]}</b> ({webcam["status"]})
-            \n🕒 Last updated: {int(time_since_update / 60)} minutes ago
-            \n📍 {webcam["location"]["city"]} (<i>{webcam["location"]["latitude"]}, {webcam["location"]["longitude"]}</i>)
-            \n🧭 Timezone: {webcam["location"]["timezone"]}""",
+            caption=f'📹 <b>{webcam["title"]}</b> ({webcam["status"]})'
+            f"\n\n🕒 Last updated: {int(time_since_update / 60)} minutes ago"
+            f'\n📍 {webcam["location"]["city"]} (<i>{webcam["location"]["latitude"]}, '
+            f'{webcam["location"]["longitude"]}</i>)'
+            f'\n🧭 Timezone: {webcam["location"]["timezone"]}"""',
             parse_mode=ParseMode.HTML,
         )
     except telegram.error.BadRequest:
