@@ -2,7 +2,6 @@ import asyncio
 import html
 
 import dateparser
-from asyncpraw import models
 from asyncprawcore import BadRequest, Forbidden, NotFound, Redirect
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
@@ -13,10 +12,6 @@ import utils
 from config.db import sqlite_conn
 from utils.decorators import api_key, description, example, triggers, usage
 from .reddit_comment import reddit
-
-
-async def make_response(post: models.Submission, username: str) -> str:
-    return f"{post.url}\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name};</a> @{username}"
 
 
 @triggers(["sub"])
@@ -194,7 +189,7 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
                     {
                         "group_id": group_id,
                         "user_id": user_id,
-                        "post_response": make_response(
+                        "post_response": await reddit.make_response(
                             subreddit_submission,
                             await utils.get_username(user_id, context),
                         ),
@@ -221,7 +216,7 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
     for post in collected_posts:
         tasks.append(
             asyncio.ensure_future(
-                await context.bot.send_message(
+                context.bot.send_message(
                     post["group_id"],
                     post["post_response"],
                     parse_mode=ParseMode.HTML,
