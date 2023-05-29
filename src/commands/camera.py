@@ -58,7 +58,7 @@ async def camera(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"\n\n🕒 Last updated: {int(time_since_update / 60)} minutes ago"
             f'\n📍 {webcam["location"]["city"]} (<i>{webcam["location"]["latitude"]}, '
             f'{webcam["location"]["longitude"]}</i>)'
-            f'\n🧭 Timezone: {webcam["location"]["timezone"]}"""',
+            f'\n🧭 Timezone: {webcam["location"]["timezone"]}',
             parse_mode=ParseMode.HTML,
         )
     except telegram.error.BadRequest:
