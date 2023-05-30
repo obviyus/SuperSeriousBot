@@ -171,16 +171,12 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
     Worker function to scan dB and send posts.
     """
     cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT * FROM reddit_subscriptions;
-        """
-    )
-
     collected_posts = []
 
     async def poster(group_id: int, user_id: int, subreddit_name: str) -> None:
         subreddit = await reddit.subreddit(subreddit_name)
+        username = await utils.get_username(user_id, context)
+
         async for subreddit_submission in subreddit.hot(limit=3):
             if subreddit_submission.stickied:
                 continue
@@ -192,7 +188,7 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
                         "user_id": user_id,
                         "post_response": make_response(
                             subreddit_submission,
-                            await utils.get_username(user_id, context),
+                            username,
                         ),
                     }
                 )
@@ -200,7 +196,7 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
             except (NotFound, BadRequest, Redirect, Forbidden):
                 await context.bot.send_message(
                     group_id,
-                    f"Removed /r/{subreddit_name} from your watchlist because it was deleted or banned.",
+                    f"@{username}: removed /r/{subreddit_name} from your watchlist because it was deleted or banned.",
                     parse_mode=ParseMode.HTML,
                 )
 
@@ -210,6 +206,11 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
                     """
                 )
 
+    cursor.execute(
+        """
+        SELECT * FROM reddit_subscriptions ORDER BY group_id;
+        """
+    )
     for row in cursor.fetchall():
         await poster(row["group_id"], row["receiver_id"], row["subreddit_name"])
 
