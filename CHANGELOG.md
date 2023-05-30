@@ -1,3 +1,10 @@
+## [1.53.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.53.2...v1.53.3) (2023-05-30)
+
+
+### Bug Fixes
+
+* **subscribe:** re-order subscription delivery ([517e2ed](https://github.com/obviyus/SuperSeriousBot/commit/517e2ed3959efc57682ee6b909430780b27ae246))
+
 ## [1.53.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.53.1...v1.53.2) (2023-05-29)
 
 
