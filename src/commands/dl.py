@@ -6,6 +6,7 @@ import requests
 import yt_dlp
 from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
+from bs4 import BeautifulSoup
 from redvid import Downloader
 from telegram import InputMediaPhoto, InputMediaVideo, Message, Update
 from telegram.error import BadRequest
@@ -90,29 +91,50 @@ async def download_reddit_video(parsed_url: str, message: Message):
 
 
 async def instagram_download(parsed_url: str, message: Message):
-    if not config["API"]["RAPID_API_KEY"]:
+    if "RAPID_API_KEY" not in config["API"]:
         await message.reply_text(
             "Instagram API key missing, command disabled. Contact the bot owner to enable it."
         )
         return
 
-    headers = {
-        "X-RapidAPI-Key": config["API"]["RAPID_API_KEY"],
-        "X-RapidAPI-Host": "instagram-media-downloader.p.rapidapi.com",
-    }
+    fallback_url = parsed_url.replace("instagram", "ddinstagram")
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            fallback_url,
+            headers={
+                "User-Agent": "SuperSeriousBot",
+            },
+            follow_redirects=True,
+        )
 
-    response = requests.request(
-        "GET",
-        "https://instagram-media-downloader.p.rapidapi.com/rapid/post.php",
-        headers=headers,
-        params={
-            "url": parsed_url,
-        },
-    ).json()
+    source = response.text
+    soup = BeautifulSoup(source, "html.parser")
+
+    video = soup.find("meta", property="og:video")
+
+    if video:
+        await message.reply_video(
+            video=f'https://ddinstagram.com{video["content"]}',
+        )
+        return
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://instagram-media-downloader.p.rapidapi.com/rapid/post.php",
+            headers={
+                "X-RapidAPI-Key": config["API"]["RAPID_API_KEY"],
+                "X-RapidAPI-Host": "instagram-media-downloader.p.rapidapi.com",
+            },
+            params={
+                "url": parsed_url,
+            },
+        )
+
+    data = response.json()
 
     if "video" in response:
         await message.reply_video(
-            video=response["video"],
+            video=data["video"],
         )
         return
 
