@@ -1,3 +1,10 @@
+# [1.54.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.53.3...v1.54.0) (2023-06-02)
+
+
+### Features
+
+* **dl:** handle fallback instagram case ([f59c9b7](https://github.com/obviyus/SuperSeriousBot/commit/f59c9b739fdb7596b51157c8c922baad43238f8f))
+
 ## [1.53.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.53.2...v1.53.3) (2023-05-30)
 
 
