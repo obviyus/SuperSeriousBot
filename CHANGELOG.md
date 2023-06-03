@@ -1,3 +1,10 @@
+## [1.54.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.0...v1.54.1) (2023-06-03)
+
+
+### Bug Fixes
+
+* **utils:** make username search case insensitive ([0186ede](https://github.com/obviyus/SuperSeriousBot/commit/0186edeeaee60373faddddf86027ec962be8383c))
+
 # [1.54.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.53.3...v1.54.0) (2023-06-02)
 
 
