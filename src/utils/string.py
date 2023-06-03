@@ -77,5 +77,5 @@ async def get_user_id_from_username(username: str) -> int | None:
     """
     Get the user_id from a username.
     """
-    user_id = redis.get(f"username:{username.replace('@', '')}")
+    user_id = redis.get(f"username:{username.lower().replace('@', '')}")
     return int(user_id) if user_id else None

@@ -33,12 +33,13 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     )
     # Update username vs. user_id in Redis
     redis.set(
-        f"username:{user_object.username or user_object.first_name}", user_object.id
+        f"username:{user_object.username.lower() or user_object.first_name}",
+        user_object.id,
     )
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
-        f"INSERT INTO chat_stats (chat_id, user_id) VALUES (?, ?)",
+        "INSERT INTO chat_stats (chat_id, user_id) VALUES (?, ?)",
         (chat_id, user_object.id),
     )
 
