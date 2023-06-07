@@ -28,7 +28,7 @@ httpx = "^0.24.1"
 pyvis = "^0.3.2"
 cinemagoer = "^2023.5.1"
 networkx = "^3.1"
-openai = "^0.27.7"
+openai = "^0.27.8"
 rotten-tomatoes-client = "^0.0.3"
 beautifulsoup4 = "^4.12.2"
 
