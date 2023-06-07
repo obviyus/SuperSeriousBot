@@ -1,3 +1,10 @@
+## [1.54.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.1...v1.54.2) (2023-06-07)
+
+
+### Bug Fixes
+
+* **jobs:** allow misfire grace time for long jobs ([b4b6fcf](https://github.com/obviyus/SuperSeriousBot/commit/b4b6fcfb120d720f1a0ad3cedc4a19b1ad827397))
+
 ## [1.54.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.0...v1.54.1) (2023-06-03)
 
 
