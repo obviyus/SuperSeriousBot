@@ -33,7 +33,7 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     )
     # Update username vs. user_id in Redis
     redis.set(
-        f"username:{user_object.username.lower() or user_object.first_name}",
+        f"username:{user_object.username.lower() if user_object.username else user_object.first_name}",
         user_object.id,
     )
 
