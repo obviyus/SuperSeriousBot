@@ -1,3 +1,10 @@
+## [1.54.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.2...v1.54.3) (2023-06-08)
+
+
+### Bug Fixes
+
+* **stats:** handle missing username ([927a3d3](https://github.com/obviyus/SuperSeriousBot/commit/927a3d3205888f50dcb5ed3f12098ae53c48d814))
+
 ## [1.54.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.1...v1.54.2) (2023-06-07)
 
 
