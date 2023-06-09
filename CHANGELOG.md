@@ -1,3 +1,10 @@
+## [1.54.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.3...v1.54.4) (2023-06-09)
+
+
+### Bug Fixes
+
+* **summon:** fix incorrect callback argument ([8e1d879](https://github.com/obviyus/SuperSeriousBot/commit/8e1d879cde88a6775bdb08f71312b3d47e82c196))
+
 ## [1.54.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.2...v1.54.3) (2023-06-08)
 
 
