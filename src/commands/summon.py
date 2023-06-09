@@ -61,7 +61,7 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
         else:
             cursor.execute(
                 """
-                INSERT INTO 'summon_group_members' (group_id, user_id) VALUES (?, ?)
+                INSERT INTO summon_group_members (group_id, user_id) VALUES (?, ?)
                 """,
                 (group_id, query.from_user.id),
             )
@@ -70,7 +70,7 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
         if result:
             cursor.execute(
                 """
-                DELETE FROM 'summon_group_members' WHERE group_id = ? AND user_id = ?
+                DELETE FROM summon_group_members WHERE group_id = ? AND user_id = ?
                 """,
                 (group_id, query.from_user.id),
             )
@@ -155,22 +155,23 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         cursor.execute(
             """INSERT INTO summon_groups (group_name, chat_id, creator_id) VALUES (?, ?, ?)""",
             (
-                group_name,
+                group_name.lower(),
                 update.message.chat_id,
                 update.message.from_user.id,
             ),
         )
 
+        group_id = cursor.lastrowid
         cursor.execute(
             """INSERT INTO summon_group_members (group_id, user_id) VALUES (?, ?)""",
             (
-                cursor.lastrowid,
+                group_id,
                 update.message.from_user.id,
             ),
         )
 
         await update.message.reply_text(
             f"Group <code>{group_name}</code> created. Tag all users in it using <code>/summon {group_name}</code>.",
-            reply_markup=await summon_keyboard(group_name),
+            reply_markup=await summon_keyboard(group_id),
             parse_mode=ParseMode.HTML,
         )
