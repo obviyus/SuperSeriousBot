@@ -1,3 +1,10 @@
+# [1.55.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.4...v1.55.0) (2023-06-10)
+
+
+### Features
+
+* **redis:** allow specifying REDIS_HOST ([ae43eaa](https://github.com/obviyus/SuperSeriousBot/commit/ae43eaa7897d57af6ad8cfc74b6615bc00bcb1c5))
+
 ## [1.54.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.3...v1.54.4) (2023-06-09)
 
 
