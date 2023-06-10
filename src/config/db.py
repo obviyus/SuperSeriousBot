@@ -29,7 +29,7 @@ sqlite_conn.row_factory = sqlite3.Row
 sqlite_conn_law_database.row_factory = sqlite3.Row
 
 redis = redis.StrictRedis(
-    host=f"{'redis' if is_docker() else '127.0.0.1'}",
+    host=f"{os.environ.get('REDIS_HOST', None) if os.environ.get('REDIS_HOST', None) else 'redis' if is_docker() else '127.0.0.1'}",
     port=6379,
     db=0,
     decode_responses=True,
