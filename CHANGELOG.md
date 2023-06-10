@@ -1,3 +1,10 @@
+## [1.55.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.55.0...v1.55.1) (2023-06-10)
+
+
+### Bug Fixes
+
+* **redis:** allow setting REDIS_PORT ([3f6914b](https://github.com/obviyus/SuperSeriousBot/commit/3f6914b379379a115bfecc1b5703441fe0c986cb))
+
 # [1.55.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.54.4...v1.55.0) (2023-06-10)
 
 
