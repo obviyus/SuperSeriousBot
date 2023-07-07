@@ -1,3 +1,10 @@
+# [1.56.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.55.1...v1.56.0) (2023-07-07)
+
+
+### Features
+
+* **ask:** use `simpleaichat` instead of raw API calls ([dbc83f0](https://github.com/obviyus/SuperSeriousBot/commit/dbc83f0d0236c5063425c0242ead7f9964a3d43a))
+
 ## [1.55.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.55.0...v1.55.1) (2023-06-10)
 
 
