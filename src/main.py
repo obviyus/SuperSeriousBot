@@ -4,6 +4,21 @@ import json
 import os
 import traceback
 
+import commands
+import misc
+import utils.command_limits
+from commands.habit import worker_habit_tracker
+from commands.pic import worker_image_seeder
+from commands.quote import migrate_quote_db
+from commands.randdit import worker_seed_posts
+from commands.sed import sed
+from commands.subscribe import worker_reddit_subscriptions
+from commands.tv import inline_show_search, worker_episode_notifier, worker_next_episode
+from commands.youtube import worker_youtube_subscriptions
+from config.db import redis
+from config.logger import logger
+from config.options import config
+from misc.highlight import highlight_worker
 from telegram import MessageEntity, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -17,21 +32,6 @@ from telegram.ext import (
     TypeHandler,
     filters,
 )
-
-import commands
-import misc
-import utils.command_limits
-from commands.pic import worker_image_seeder
-from commands.quote import migrate_quote_db
-from commands.randdit import worker_seed_posts
-from commands.sed import sed
-from commands.subscribe import worker_reddit_subscriptions
-from commands.tv import inline_show_search, worker_episode_notifier, worker_next_episode
-from commands.youtube import worker_youtube_subscriptions
-from config.db import redis
-from config.logger import logger
-from config.options import config
-from misc.highlight import highlight_worker
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -166,6 +166,7 @@ def main():
 
     # Notification workers
     job_queue.run_daily(worker_next_episode, time=datetime.time(0, 0))
+    job_queue.run_daily(worker_habit_tracker, time=datetime.time(2, 30))
     job_queue.run_repeating(worker_episode_notifier, interval=300, first=10)
     job_queue.run_repeating(worker_youtube_subscriptions, interval=300, first=10)
 
