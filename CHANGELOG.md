@@ -1,3 +1,12 @@
+# [1.57.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.56.0...v1.57.0) (2023-07-09)
+
+
+### Features
+
+* **db:** create tables for habits ([706d24e](https://github.com/obviyus/SuperSeriousBot/commit/706d24e49c4a83fc72f27cf901b26144d4672e2c))
+* **habit:** new command for `/habit` ([6071534](https://github.com/obviyus/SuperSeriousBot/commit/6071534383f5cbb38c856dd64b7bbd2ccd9e7cab))
+* **habits:** add habit worker and button handlers ([6172bac](https://github.com/obviyus/SuperSeriousBot/commit/6172bac8d8be41be6ff8210d43c16f1c9ed040ae))
+
 # [1.56.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.55.1...v1.56.0) (2023-07-07)
 
 
