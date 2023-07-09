@@ -265,6 +265,44 @@ cursor.execute(
     """
 )
 
+# Tables for tracking habits per group
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `habit` (
+        `id` INTEGER PRIMARY KEY,
+        `chat_id` INTEGER NOT NULL,
+        `habit_name` VARCHAR(255) NOT NULL,
+        `weekly_goal` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `creator_id` INTEGER NOT NULL
+    );
+    """
+)
+
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `habit_members` (
+        `habit_id` INTEGER NOT NULL,
+        `user_id` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (habit_id) REFERENCES habit(id),
+        PRIMARY KEY (habit_id, user_id)
+    );
+    """
+)
+
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `habit_log` (
+        `id` INTEGER PRIMARY KEY,
+        `habit_id` INTEGER NOT NULL,
+        `user_id` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (habit_id) REFERENCES habit(id)
+    );
+    """
+)
+
 # Add some indexes
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS chat_stats_chat_id_user_id_index ON chat_stats (chat_id, user_id);"
