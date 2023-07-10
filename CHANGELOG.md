@@ -1,3 +1,10 @@
+## [1.57.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.57.0...v1.57.1) (2023-07-10)
+
+
+### Bug Fixes
+
+* **habit:** fix SQL query to since 12AM Monday ([a17201f](https://github.com/obviyus/SuperSeriousBot/commit/a17201f0621162030fdbe4b100827241fccc870e))
+
 # [1.57.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.56.0...v1.57.0) (2023-07-09)
 
 
