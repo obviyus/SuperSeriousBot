@@ -50,7 +50,7 @@ async def habit_message_builder(
             SELECT user_id, COUNT(*) AS week_count
             FROM habit_log
             WHERE habit_id = ? 
-                AND create_time > DATETIME('now', 'weekday 0', '-7 days')
+                AND create_time >= DATETIME('now', 'weekday 0', 'start of day', '-6 days')
                 AND user_id = ?
             """,
             (habit_id, habit_logged["user_id"]),
