@@ -4,6 +4,20 @@ import json
 import os
 import traceback
 
+from telegram import MessageEntity, Update
+from telegram.constants import ParseMode
+from telegram.ext import (
+    AIORateLimiter,
+    Application,
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    ContextTypes,
+    InlineQueryHandler,
+    MessageHandler,
+    TypeHandler,
+    filters,
+)
+
 import commands
 import misc
 import utils.command_limits
@@ -19,19 +33,6 @@ from config.db import redis
 from config.logger import logger
 from config.options import config
 from misc.highlight import highlight_worker
-from telegram import MessageEntity, Update
-from telegram.constants import ParseMode
-from telegram.ext import (
-    AIORateLimiter,
-    Application,
-    ApplicationBuilder,
-    CallbackQueryHandler,
-    ContextTypes,
-    InlineQueryHandler,
-    MessageHandler,
-    TypeHandler,
-    filters,
-)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -166,7 +167,7 @@ def main():
 
     # Notification workers
     job_queue.run_daily(worker_next_episode, time=datetime.time(0, 0))
-    job_queue.run_daily(worker_habit_tracker, time=datetime.time(2, 30))
+    job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
     job_queue.run_repeating(worker_episode_notifier, interval=300, first=10)
     job_queue.run_repeating(worker_youtube_subscriptions, interval=300, first=10)
 
