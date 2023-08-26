@@ -9,6 +9,7 @@ from telegram.ext import CallbackContext, ContextTypes
 
 import commands
 import utils
+from config import logger
 from config.db import sqlite_conn
 from utils.decorators import api_key, description, example, triggers, usage
 from .randdit import make_response
@@ -177,34 +178,39 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
         subreddit = await reddit.subreddit(subreddit_name)
         username = await utils.get_username(user_id, context)
 
-        async for subreddit_submission in subreddit.hot(limit=3):
-            if subreddit_submission.stickied:
-                continue
+        try:
+            async for subreddit_submission in subreddit.hot(limit=3):
+                if subreddit_submission.stickied:
+                    continue
 
-            try:
-                collected_posts.append(
-                    {
-                        "group_id": group_id,
-                        "user_id": user_id,
-                        "post_response": make_response(
-                            subreddit_submission,
-                            username,
-                        ),
-                    }
-                )
-                return
-            except (NotFound, BadRequest, Redirect, Forbidden):
-                await context.bot.send_message(
-                    group_id,
-                    f"@{username}: removed /r/{subreddit_name} from your watchlist because it was deleted or banned.",
-                    parse_mode=ParseMode.HTML,
-                )
+                try:
+                    collected_posts.append(
+                        {
+                            "group_id": group_id,
+                            "user_id": user_id,
+                            "post_response": make_response(
+                                subreddit_submission,
+                                username,
+                            ),
+                        }
+                    )
+                    return
+                except (NotFound, BadRequest, Redirect, Forbidden):
+                    await context.bot.send_message(
+                        group_id,
+                        f"@{username}: removed /r/{subreddit_name} from your watchlist because it was deleted or banned.",
+                        parse_mode=ParseMode.HTML,
+                    )
 
-                cursor.execute(
-                    """
-                    DELETE FROM reddit_subscriptions WHERE subreddit_name = ? AND receiver_id = ?;
-                    """
-                )
+                    cursor.execute(
+                        """
+                        DELETE FROM reddit_subscriptions WHERE subreddit_name = ? AND receiver_id = ?;
+                        """
+                    )
+        except Exception as e:
+            logger.error(e)
+            logger.error(f"Error in worker_reddit_subscriptions for {subreddit_name}")
+            return
 
     cursor.execute(
         """
