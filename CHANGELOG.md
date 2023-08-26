@@ -1,3 +1,10 @@
+## [1.57.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.57.1...v1.57.2) (2023-08-26)
+
+
+### Bug Fixes
+
+* **reddit:** handle exceptions in reddit worker ([f879242](https://github.com/obviyus/SuperSeriousBot/commit/f8792427623f3e079e6d054c47fde64fcc63388e))
+
 ## [1.57.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.57.0...v1.57.1) (2023-07-10)
 
 
