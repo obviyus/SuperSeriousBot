@@ -1,3 +1,10 @@
+## [1.57.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.57.2...v1.57.3) (2023-09-01)
+
+
+### Bug Fixes
+
+* **ask:** downgrade to 3.5-turbo ([7a9f3a6](https://github.com/obviyus/SuperSeriousBot/commit/7a9f3a62afa86548c56d29a53fc728650cf31dcc))
+
 ## [1.57.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.57.1...v1.57.2) (2023-08-26)
 
 
