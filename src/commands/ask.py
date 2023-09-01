@@ -14,7 +14,7 @@ if config["API"]["OPEN_AI_API_KEY"]:
 ai = AIChat(
     console=False,
     save_messages=False,
-    model="gpt-4",
+    model="gpt-3.5-turbo",
     api_key=config["API"]["OPEN_AI_API_KEY"],
 )
 
@@ -47,7 +47,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     except Exception:
         await update.message.reply_text(
-            f"An error occurred while processing your request. Please try again later."
+            "An error occurred while processing your request. Please try again later."
         )
         return
 
@@ -108,6 +108,6 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     except Exception:
         await update.message.reply_text(
-            f"An error occurred while processing your request. Please try again later."
+            "An error occurred while processing your request. Please try again later."
         )
         return
