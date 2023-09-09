@@ -1,3 +1,15 @@
+# [1.58.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.57.3...v1.58.0) (2023-09-09)
+
+
+### Bug Fixes
+
+* **dl:** fix improper response access ([987369c](https://github.com/obviyus/SuperSeriousBot/commit/987369c51507470409ab8b8cf12fba34c30379af))
+
+
+### Features
+
+* **summon:** create resummon button ([cee4188](https://github.com/obviyus/SuperSeriousBot/commit/cee418886058e3aa2e3bc834d7b614ad9ad54755))
+
 ## [1.57.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.57.2...v1.57.3) (2023-09-01)
 
 
