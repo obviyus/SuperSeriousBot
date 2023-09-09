@@ -113,10 +113,13 @@ async def instagram_download(parsed_url: str, message: Message):
     video = soup.find("meta", property="og:video")
 
     if video:
-        await message.reply_video(
-            video=f'https://ddinstagram.com{video["content"]}',
-        )
-        return
+        try:
+            await message.reply_video(
+                video=f'https://ddinstagram.com{video["content"]}',
+            )
+            return
+        except BadRequest:
+            pass
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
@@ -132,13 +135,13 @@ async def instagram_download(parsed_url: str, message: Message):
 
     data = response.json()
 
-    if "video" in response:
+    if "video" in data:
         await message.reply_video(
             video=data["video"],
         )
         return
 
-    await message.reply_text("Unhandled case of download.")
+    await message.reply_text("Fallbacks exhausted, could not download video.")
 
 
 @usage("/dl")
