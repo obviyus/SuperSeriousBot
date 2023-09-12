@@ -196,9 +196,8 @@ def main():
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']}")
         application.run_webhook(
-            listen="0.0.0.0",
+            listen="127.0.0.1",
             port=int(os.environ.get("PORT", "8443")),
-            url_path=config["TELEGRAM"]["TOKEN"],
             webhook_url=config["TELEGRAM"]["WEBHOOK_URL"],
         )
     else:
