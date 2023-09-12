@@ -1,3 +1,10 @@
+## [1.58.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.58.1...v1.58.2) (2023-09-12)
+
+
+### Bug Fixes
+
+* **webhook:** embed port in webhook URL ([99cbe58](https://github.com/obviyus/SuperSeriousBot/commit/99cbe5802fa5e1f2cbd991d4bbb3287061a572af))
+
 ## [1.58.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.58.0...v1.58.1) (2023-09-12)
 
 
