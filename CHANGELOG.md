@@ -1,3 +1,10 @@
+## [1.58.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.58.2...v1.58.3) (2023-09-12)
+
+
+### Bug Fixes
+
+* **webhook:** remove port from webhook URL ([a867816](https://github.com/obviyus/SuperSeriousBot/commit/a867816edd7f8c7ad87b67eae030933cf27b1b37))
+
 ## [1.58.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.58.1...v1.58.2) (2023-09-12)
 
 
