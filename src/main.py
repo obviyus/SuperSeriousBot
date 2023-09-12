@@ -22,7 +22,6 @@ import commands
 import misc
 import utils.command_limits
 from commands.habit import worker_habit_tracker
-from commands.pic import worker_image_seeder
 from commands.quote import migrate_quote_db
 from commands.randdit import worker_seed_posts
 from commands.sed import sed
