@@ -51,7 +51,6 @@ from .law import cpc, crpc, ipc
 from .meme import meme
 from .midjourney import midjourney
 from .person import person
-from .pic import pic
 from .ping import ping
 from .quote import add_quote, get_quote
 from .randdit import nsfw, randdit
@@ -114,7 +113,6 @@ list_of_commands = [
     nsfw,
     opt_in_tv,
     person,
-    pic,
     ping,
     randdit,
     set_object,

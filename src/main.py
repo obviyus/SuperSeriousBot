@@ -185,7 +185,6 @@ def main():
 
     # Seed random Reddit posts
     job_queue.run_once(worker_seed_posts, 10)
-    job_queue.run_once(worker_image_seeder, 10)
 
     # Check for DB migrations
     job_queue.run_once(migrate_quote_db, 10)
