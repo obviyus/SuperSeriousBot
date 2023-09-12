@@ -1,3 +1,10 @@
+## [1.58.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.58.0...v1.58.1) (2023-09-12)
+
+
+### Bug Fixes
+
+* **webhook:** simplify webhook config ([a0f7f24](https://github.com/obviyus/SuperSeriousBot/commit/a0f7f24ee73d00e23d6bee17f7fa6ba262c8da17))
+
 # [1.58.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.57.3...v1.58.0) (2023-09-09)
 
 
