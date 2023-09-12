@@ -194,7 +194,9 @@ def main():
     job_queue.run_repeating(misc.worker_build_network, interval=1800, first=10)
 
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
-        logger.info(f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']}")
+        logger.info(
+            f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']} with port {os.environ.get('PORT', '8443')}"
+        )
         application.run_webhook(
             listen="0.0.0.0",
             port=int(os.environ.get("PORT", "8443")),
