@@ -1,3 +1,10 @@
+# [1.59.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.58.3...v1.59.0) (2023-09-12)
+
+
+### Features
+
+* **webhook:** log port during webhook init ([136ea7c](https://github.com/obviyus/SuperSeriousBot/commit/136ea7c370b7c1280a1e4f4937ad3acf72703c51))
+
 ## [1.58.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.58.2...v1.58.3) (2023-09-12)
 
 
