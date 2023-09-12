@@ -1,3 +1,10 @@
+## [1.59.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.59.0...v1.59.1) (2023-09-12)
+
+
+### Bug Fixes
+
+* **pic:** remove /pic command ([ae74358](https://github.com/obviyus/SuperSeriousBot/commit/ae7435818e422c5de9f2a12594911cbd94f90ee4))
+
 # [1.59.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.58.3...v1.59.0) (2023-09-12)
 
 
