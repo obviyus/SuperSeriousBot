@@ -1,3 +1,10 @@
+# [1.61.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.60.0...v1.61.0) (2023-09-24)
+
+
+### Features
+
+* **tv:** handle TV streams ([821a388](https://github.com/obviyus/SuperSeriousBot/commit/821a3881a6eca28123700638e4dd471964f335fc))
+
 # [1.60.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.59.2...v1.60.0) (2023-09-24)
 
 
