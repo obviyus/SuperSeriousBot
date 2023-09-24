@@ -29,6 +29,17 @@ async def button_builder(movie) -> InlineKeyboardMarkup:
                 ]
             ]
         )
+    elif movie["kind"] == "tv series":
+        return InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "Launch Stream 🍿",
+                        url=f"https://vidsrc.to/embed/tv/tt{movie['id']}",
+                    )
+                ]
+            ]
+        )
 
 
 async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
