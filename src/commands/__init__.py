@@ -3,8 +3,17 @@ Commands for general use.
 """
 import re
 
+from telegram import Message, MessageEntity, Update
+from telegram.constants import ChatAction, ParseMode
+from telegram.ext import CommandHandler, ContextTypes
+
 import management
 import utils
+from commands.subscribe import (
+    list_reddit_subscriptions,
+    reddit_subscription_button_handler,
+    subscribe_reddit,
+)
 from config import logger
 from config.db import sqlite_conn
 from config.options import config
@@ -17,23 +26,6 @@ from management.botstats import (
 )
 from management.stats import get_chat_stats, get_last_seen, get_total_chat_stats
 from misc.highlight import highlight_button_handler, highlighter
-from telegram import Message, MessageEntity, Update
-from telegram.constants import ChatAction, ParseMode
-from telegram.ext import CommandHandler, ContextTypes
-
-from commands.subscribe import (
-    list_reddit_subscriptions,
-    reddit_subscription_button_handler,
-    subscribe_reddit,
-)
-from commands.tv import (
-    eta_keyboard_builder,
-    keyboard_builder,
-    opt_in_tv,
-    subscribe_show,
-    tv_show_button,
-)
-
 from .animals import animal
 from .ask import ask, based
 from .book import book
@@ -111,7 +103,6 @@ list_of_commands = [
     meme,
     midjourney,
     nsfw,
-    opt_in_tv,
     person,
     ping,
     randdit,
@@ -157,9 +148,7 @@ for command in list_of_commands:
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    if query.data.startswith("rts"):
-        await tv_show_button(update, context)
-    elif query.data.startswith("hb"):
+    if query.data.startswith("hb"):
         await habit_button_handler(update, context)
     elif query.data.startswith("hl"):
         await highlight_button_handler(update, context)
@@ -167,20 +156,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await summon_keyboard_button(update, context)
     elif query.data.startswith("yt"):
         await youtube_button(update, context)
-    elif query.data.startswith("as"):
-        await subscribe_show(update, context)
-    elif query.data.startswith("show_eta"):
-        await eta_keyboard_builder(update, context)
-    elif query.data.startswith("hide_eta"):
-        query = update.callback_query
-        user_id, chat_id = query.data.replace("hide_eta:", "").split(",")
-
-        await context.bot.edit_message_text(
-            text="List of your shows in this chat. Tap on a show to remove it from your watchlist:",
-            chat_id=query.message.chat.id,
-            message_id=query.message.message_id,
-            reply_markup=await keyboard_builder(user_id, chat_id),
-        )
     elif query.data.startswith("unsubscribe_reddit"):
         await reddit_subscription_button_handler(update, context)
     else:

@@ -26,7 +26,7 @@ from commands.quote import migrate_quote_db
 from commands.randdit import worker_seed_posts
 from commands.sed import sed
 from commands.subscribe import worker_reddit_subscriptions
-from commands.tv import inline_show_search, worker_episode_notifier, worker_next_episode
+from commands.tv import inline_show_search
 from commands.youtube import worker_youtube_subscriptions
 from config.db import redis
 from config.logger import logger
@@ -165,9 +165,7 @@ def main():
     job_queue = application.job_queue
 
     # Notification workers
-    job_queue.run_daily(worker_next_episode, time=datetime.time(0, 0))
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
-    job_queue.run_repeating(worker_episode_notifier, interval=300, first=10)
     job_queue.run_repeating(worker_youtube_subscriptions, interval=300, first=10)
 
     # Deliver Reddit subscriptions
