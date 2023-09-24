@@ -1,3 +1,10 @@
+## [1.61.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.61.0...v1.61.1) (2023-09-24)
+
+
+### Bug Fixes
+
+* **inline:** defer data get until chosen inline result ([481e7ca](https://github.com/obviyus/SuperSeriousBot/commit/481e7ca9312a16244d78f188e11a10b59ae101a2))
+
 # [1.61.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.60.0...v1.61.0) (2023-09-24)
 
 
