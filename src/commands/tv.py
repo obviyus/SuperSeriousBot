@@ -35,7 +35,11 @@ async def link_builder(movie):
         if response.status_code != 200:
             return
 
+    content_url_cache[movie.movieID] = content_url
     return content_url
+
+
+content_url_cache = {}
 
 
 async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -118,4 +122,14 @@ async def handle_chosen_movie(
         f"<a href='{movie['full-size cover url']}'>&#8205;</a>",
         parse_mode=ParseMode.HTML,
         inline_message_id=update.chosen_inline_result.inline_message_id,
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "Launch Stream 🍿",
+                        url=content_url_cache[update.chosen_inline_result.result_id],
+                    )
+                ]
+            ]
+        ),
     )
