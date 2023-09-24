@@ -1,3 +1,10 @@
+# [1.60.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.59.2...v1.60.0) (2023-09-24)
+
+
+### Features
+
+* **tv:** generate streaming links & deprecate TV notifications ([8f4f253](https://github.com/obviyus/SuperSeriousBot/commit/8f4f253c89b69bae455a84486289f58b45839af7))
+
 ## [1.59.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.59.1...v1.59.2) (2023-09-12)
 
 
