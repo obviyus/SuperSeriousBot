@@ -11,6 +11,7 @@ from telegram.ext import (
     Application,
     ApplicationBuilder,
     CallbackQueryHandler,
+    ChosenInlineResultHandler,
     ContextTypes,
     InlineQueryHandler,
     MessageHandler,
@@ -26,7 +27,7 @@ from commands.quote import migrate_quote_db
 from commands.randdit import worker_seed_posts
 from commands.sed import sed
 from commands.subscribe import worker_reddit_subscriptions
-from commands.tv import inline_show_search
+from commands.tv import handle_chosen_movie, inline_show_search
 from commands.youtube import worker_youtube_subscriptions
 from config.db import redis
 from config.logger import logger
@@ -142,6 +143,8 @@ def main():
                 InlineQueryHandler(
                     inline_show_search,
                 ),
+                # Handle chosen show
+                ChosenInlineResultHandler(handle_chosen_movie),
                 # Master Button Handler
                 CallbackQueryHandler(
                     commands.button_handler,

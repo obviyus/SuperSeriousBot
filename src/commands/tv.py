@@ -1,3 +1,6 @@
+import asyncio
+
+import httpx
 from imdb import Cinemagoer
 from telegram import (
     InlineKeyboardButton,
@@ -9,37 +12,30 @@ from telegram import (
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-import utils.cleaner
+import utils
 
 ia = Cinemagoer()
 
 
-async def button_builder(movie) -> InlineKeyboardMarkup:
-    """
-    Builds the button for the movie
-    """
-    if movie["kind"] == "movie":
-        return InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "Launch Stream 🍿",
-                        url=f"https://vidsrc.to/embed/movie/tt{movie['id']}",
-                    )
-                ]
-            ]
-        )
-    elif movie["kind"] == "tv series":
-        return InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "Launch Stream 🍿",
-                        url=f"https://vidsrc.to/embed/tv/tt{movie['id']}",
-                    )
-                ]
-            ]
-        )
+async def link_builder(movie):
+    if "kind" not in movie.data:
+        return None
+
+    content_url = None
+    if movie.data["kind"] == "movie":
+        content_url = f"https://vidsrc.to/embed/movie/tt{movie.movieID}"
+    elif movie.data["kind"] == "tv series":
+        content_url = f"https://vidsrc.to/embed/tv/tt{movie.movieID}"
+
+    if not content_url:
+        return
+
+    async with httpx.AsyncClient() as client:
+        response = await client.head(content_url)
+        if response.status_code != 200:
+            return
+
+    return content_url
 
 
 async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -50,34 +46,38 @@ async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> No
     if len(query) < 3:
         return
 
-    search_results = ia.search_movie_advanced(query, results=10)
+    search_results = ia.search_movie(query, results=5)
     results, seen = [], set()
 
-    for movie in search_results:
-        movie = utils.get_fields(movie)
-        if movie["id"] not in seen:
-            seen.add(movie["id"])
+    # Filter out objects that don't have a valid content link
+    tasks = [link_builder(movie) for movie in search_results]
+    content_urls = await asyncio.gather(*tasks)
+
+    for movie, content_url in zip(search_results, content_urls):
+        if not content_url:
+            continue
+
+        if movie.movieID not in seen:
+            seen.add(movie.movieID)
         else:
             continue
 
         results.append(
             InlineQueryResultArticle(
-                id=movie["id"],
-                title=f"{movie['title']} ({movie['year']})",
-                description=movie["plot"],
-                thumbnail_url=movie["cover url"],
-                input_message_content=InputTextMessageContent(
-                    f"<b>Title</b>: {movie['title']} <b>({movie['year']})</b>"
-                    f"\n<b>Rating</b>: ⭐ {movie['rating']} / 10"
-                    f"\n<b>Runtime</b>: {movie['runtime']} minutes"
-                    f"\n<b>Genre</b>: {movie['genres']}"
-                    f"\n<b>Directors</b>: {movie['directors']}"
-                    f"\n<b>Cast</b>: {movie['cast']}"
-                    f"\n\n{movie['plot']}"
-                    f"<a href='{movie['full-size cover url']}'>&#8205;</a>",
-                    parse_mode=ParseMode.HTML,
+                id=movie.movieID,
+                title=f"{movie['title']} {movie['year'] if 'year' in movie else ''})",
+                thumbnail_url=movie["cover url"] if "cover url" in movie else None,
+                input_message_content=InputTextMessageContent("Loading..."),
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "Launch Stream 🍿",
+                                url=content_url,
+                            )
+                        ]
+                    ]
                 ),
-                reply_markup=await button_builder(movie),
             )
         )
 
@@ -93,3 +93,29 @@ async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> No
         )
 
     await update.inline_query.answer(results)
+
+
+async def handle_chosen_movie(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """
+    Handles inline query results.
+    """
+    if update.chosen_inline_result.result_id == "0":
+        return
+
+    movie = ia.get_movie(update.chosen_inline_result.result_id)
+    movie = utils.get_fields(movie)
+
+    await context.bot.edit_message_text(
+        f"<b>Title</b>: {movie['title']} <b>({movie['year']})</b>"
+        f"\n<b>Rating</b>: ⭐ {movie['rating']} / 10"
+        f"\n<b>Runtime</b>: {movie['runtime']} minutes"
+        f"\n<b>Genre</b>: {movie['genres']}"
+        f"\n<b>Directors</b>: {movie['directors']}"
+        f"\n<b>Cast</b>: {movie['cast']}"
+        f"\n\n{movie['plot'][0:500]}..."
+        f"<a href='{movie['full-size cover url']}'>&#8205;</a>",
+        parse_mode=ParseMode.HTML,
+        inline_message_id=update.chosen_inline_result.inline_message_id,
+    )
