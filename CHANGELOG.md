@@ -1,3 +1,10 @@
+# [1.62.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.61.1...v1.62.0) (2023-09-24)
+
+
+### Features
+
+* **inline:** cache content URLs ([79df3a9](https://github.com/obviyus/SuperSeriousBot/commit/79df3a99f9eb2db41f2a1e8270e1f7508051c68d))
+
 ## [1.61.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.61.0...v1.61.1) (2023-09-24)
 
 
