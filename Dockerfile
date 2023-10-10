@@ -8,19 +8,35 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1
 
-# `builder-base` stage is used to build deps + create our virtual environment
 FROM python-base as builder-base
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y curl build-essential libxml2-dev libxslt1-dev libz-dev ffmpeg
+    && apt-get install --no-install-recommends -y \
+    curl \
+    build-essential \
+    libxml2-dev \
+    libxslt1-dev \
+    libz-dev \
+    ffmpeg
 
 RUN pip install poetry
 
 WORKDIR /code
 COPY poetry.lock pyproject.toml /code/
-RUN poetry install
+
+RUN poetry install --no-dev
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y dumb-init \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd appuser && mkdir -p /home/appuser \
+    && chown appuser:appuser /home/appuser
+USER appuser
 
 COPY . .
 
-ENTRYPOINT ["poetry", "run", "python", "src/main.py"]
+ENTRYPOINT ["dumb-init", "--", "poetry", "run"]
+CMD ["python", "src/main.py"]
 
 LABEL org.opencontainers.image.source="https://github.com/obviyus/SuperSeriousBot"
