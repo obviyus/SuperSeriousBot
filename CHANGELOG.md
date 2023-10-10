@@ -1,3 +1,16 @@
+# [1.63.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.62.0...v1.63.0) (2023-10-10)
+
+
+### Bug Fixes
+
+* **worker:** reduce social graph frequency ([5e55288](https://github.com/obviyus/SuperSeriousBot/commit/5e552889b5948f56fa9d4b4067a71ebd9fb9ff41))
+
+
+### Features
+
+* **docker:** use dumb-init ([63e9943](https://github.com/obviyus/SuperSeriousBot/commit/63e994323dc60351c206c0800da91efc78cad2dd))
+* **memo:** memoize network call fns ([a1e63b8](https://github.com/obviyus/SuperSeriousBot/commit/a1e63b89b781ec389cc44136ad4cf1b30f1273e8))
+
 # [1.62.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.61.1...v1.62.0) (2023-09-24)
 
 
