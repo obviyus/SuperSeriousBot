@@ -1,3 +1,10 @@
+## [1.63.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.63.0...v1.63.1) (2023-10-10)
+
+
+### Bug Fixes
+
+* **docker:** remove user clause ([6319493](https://github.com/obviyus/SuperSeriousBot/commit/6319493e81e5f79bbf800180c05cfcc8d8e358a6))
+
 # [1.63.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.62.0...v1.63.0) (2023-10-10)
 
 
