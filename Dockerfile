@@ -30,10 +30,6 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd appuser && mkdir -p /home/appuser \
-    && chown appuser:appuser /home/appuser
-USER appuser
-
 COPY . .
 
 ENTRYPOINT ["dumb-init", "--", "poetry", "run"]
