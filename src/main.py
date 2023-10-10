@@ -182,15 +182,14 @@ def main():
     job_queue.run_daily(
         utils.command_limits.reset_command_limits, time=datetime.time(18, 30)
     )
+    # Build social graph
+    job_queue.run_daily(misc.worker_build_network, time=datetime.time(19, 30))
 
     # Seed random Reddit posts
     job_queue.run_once(worker_seed_posts, 10)
 
     # Check for DB migrations
     job_queue.run_once(migrate_quote_db, 10)
-
-    # Build social graph
-    job_queue.run_repeating(misc.worker_build_network, interval=1800, first=10)
 
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(
