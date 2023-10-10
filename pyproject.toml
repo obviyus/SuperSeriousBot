@@ -15,7 +15,7 @@ python-telegram-bot = { version = "^20.6", extras = [
     "job-queue",
     "webhooks",
 ] }
-yt-dlp = "^2023.9.24"
+yt-dlp = "^2023.10.7"
 asyncpraw = "^7.7.1"
 dateparser = "^1.1.8"
 coloredlogs = "^15.0.1"
