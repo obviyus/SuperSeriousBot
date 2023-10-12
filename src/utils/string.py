@@ -1,5 +1,5 @@
 from datetime import datetime
-import functools
+from async_lru import alru_cache
 
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
@@ -44,7 +44,7 @@ async def readable_time(input_timestamp: int) -> str:
         )
 
 
-@functools.lru_cache(maxsize=128)
+@alru_cache(maxsize=128)
 async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
     """
     Get the username and/or first_name for a user_id.
@@ -63,7 +63,7 @@ async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
             return f"{user_id}"
 
 
-@functools.lru_cache(maxsize=128)
+@alru_cache(maxsize=128)
 async def get_first_name(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
     """
     Get the first_name for a user_id.
@@ -76,7 +76,7 @@ async def get_first_name(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> st
     return chat.first_name
 
 
-@functools.lru_cache(maxsize=128)
+@alru_cache(maxsize=128)
 async def get_user_id_from_username(username: str) -> int | None:
     """
     Get the user_id from a username.
