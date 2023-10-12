@@ -31,6 +31,7 @@ rotten-tomatoes-client = "^0.0.3"
 beautifulsoup4 = "^4.12.2"
 simpleaichat = "^0.2.2"
 cinemagoer = { git = "https://github.com/cinemagoer/cinemagoer" }
+async-lru = "^2.0.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
