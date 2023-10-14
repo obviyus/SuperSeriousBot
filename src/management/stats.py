@@ -21,11 +21,14 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat.id
     user_object = update.message.from_user
 
-    # Set last seen time in Redis
+    # Set last seen time and message link in Redis
     redis.set(
         f"seen:{user_object.username}",
         round(datetime.now().timestamp()),
     )
+
+    if update.message.link:
+        redis.set(f"seen_message:{user_object.username}", update.message.link)
 
     # Update user_id vs. username in Redis
     redis.set(
@@ -88,13 +91,18 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text(f"@{username} has never been seen.")
         return
 
+    message_link = redis.get(f"seen_message:{username}")
+
     try:
         last_seen = int(last_seen)
     except ValueError:
         last_seen = datetime.fromisoformat(last_seen).timestamp()
 
     await update.message.reply_text(
-        f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {await readable_time(last_seen)} ago.",
+        f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {await readable_time(last_seen)} ago."
+        + f"\n\n🔗 <a href='{message_link}'>Link</a>"
+        if message_link
+        else "",
         disable_web_page_preview=True,
         disable_notification=True,
         parse_mode=ParseMode.HTML,
