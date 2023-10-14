@@ -92,6 +92,7 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     message_link = redis.get(f"seen_message:{username}")
+    html_message = f"\n\n🔗 <a href='{message_link}'>Link</a>" if message_link else ""
 
     try:
         last_seen = int(last_seen)
@@ -100,9 +101,7 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     await update.message.reply_text(
         f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {await readable_time(last_seen)} ago."
-        + f"\n\n🔗 <a href='{message_link}'>Link</a>"
-        if message_link
-        else "",
+        f"{html_message}",
         disable_web_page_preview=True,
         disable_notification=True,
         parse_mode=ParseMode.HTML,
