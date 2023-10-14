@@ -1,3 +1,17 @@
+# [1.64.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.63.2...v1.64.0) (2023-10-14)
+
+
+### Bug Fixes
+
+* **camera:** upgrade to Windy API v3 ([dc24c83](https://github.com/obviyus/SuperSeriousBot/commit/dc24c832902e57d2cfcaea3fc58cebe8c13eb84e))
+* **c:** escape markdown for /c ([bee7b79](https://github.com/obviyus/SuperSeriousBot/commit/bee7b79b4b4f46d815b59f03c98279bd7d7cc21d))
+* **tl:** translate replied to message ([83d48d5](https://github.com/obviyus/SuperSeriousBot/commit/83d48d54459cc92292f8426bb2ac363356945e1c))
+
+
+### Features
+
+* **stats:** store last message of user ([246e099](https://github.com/obviyus/SuperSeriousBot/commit/246e099b6b0d7ff8d66a56584737f11124964d83))
+
 ## [1.63.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.63.1...v1.63.2) (2023-10-12)
 
 
