@@ -1,3 +1,10 @@
+## [1.63.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.63.1...v1.63.2) (2023-10-12)
+
+
+### Bug Fixes
+
+* **lru:** cache async routines using alru_cache ([f965532](https://github.com/obviyus/SuperSeriousBot/commit/f965532fc62894b21360247aaea42cbd84d17701))
+
 ## [1.63.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.63.0...v1.63.1) (2023-10-10)
 
 
