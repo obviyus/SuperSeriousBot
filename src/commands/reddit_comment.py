@@ -6,6 +6,7 @@ import requests
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
+from telegram.helpers import escape_markdown
 
 import commands
 import utils
@@ -98,7 +99,7 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     await update.message.reply_text(
-        f"""{comment.body}\n\n[/r/{html.escape(submission.subreddit.display_name)}](https://reddit.com{comment.permalink})""",
+        f"""{escape_markdown(comment.body)}\n\n[/r/{html.escape(submission.subreddit.display_name)}](https://reddit.com{comment.permalink})""",
         parse_mode=ParseMode.MARKDOWN,
         disable_web_page_preview=True,
     )
