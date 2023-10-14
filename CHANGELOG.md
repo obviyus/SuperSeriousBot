@@ -1,3 +1,10 @@
+## [1.64.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.64.0...v1.64.1) (2023-10-14)
+
+
+### Bug Fixes
+
+* **seen:** improve check for message link ([bb49d11](https://github.com/obviyus/SuperSeriousBot/commit/bb49d114ed030bb8601d4a132f9a2c2a79a3c056))
+
 # [1.64.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.63.2...v1.64.0) (2023-10-14)
 
 
