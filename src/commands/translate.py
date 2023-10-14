@@ -136,8 +136,6 @@ async def text_grabber(
     if len(context.args) > 1 and context.args[1:2] == ["-"]:
         target_language = context.args[0]
         text = " ".join(context.args[2:])
-    elif len(context.args) >= 1:
-        text = " ".join(context.args)
 
     return text, target_language
 
