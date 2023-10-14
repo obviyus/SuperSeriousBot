@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import dateparser
 import httpx
 import telegram.error
 from telegram import Update
@@ -11,7 +12,7 @@ from commands.weather import Point
 from config import config
 from utils.decorators import api_key, description, example, triggers, usage
 
-WEBCAM_API = "https://api.windy.com/api/webcams/v2/list/nearby="
+WEBCAM_API = "https://api.windy.com/webcams/api/v3/webcams"
 
 
 @triggers(["camera", "cam"])
@@ -32,10 +33,14 @@ async def camera(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            WEBCAM_API
-            + f"{point.latitude},{point.longitude},radius=250?show=webcams:location,image&limit=1",
+            WEBCAM_API,
+            params={
+                "nearby": f"{point.latitude},{point.longitude},250",
+                "include": "location,images",
+                "limit": 1,
+            },
             headers={
-                "x-windy-key": config["API"]["WINDY_API_KEY"],
+                "X-WINDY-API-KEY": config["API"]["WINDY_API_KEY"],
             },
         )
 
@@ -44,21 +49,23 @@ async def camera(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     response = response.json()
-    if len(response["result"]["webcams"]) == 0:
+    if len(response["webcams"]) == 0:
         await update.message.reply_text(text="No cameras found.")
         return
 
-    webcam = response["result"]["webcams"][0]
+    webcam = response["webcams"][0]
 
     try:
-        time_since_update = datetime.now().timestamp() - webcam["image"]["update"]
+        time_since_update = (
+            datetime.now().timestamp()
+            - dateparser.parse(webcam["lastUpdatedOn"]).timestamp()
+        )
         await update.message.reply_photo(
-            photo=webcam["image"]["current"]["preview"],
+            photo=webcam["images"]["current"]["preview"],
             caption=f'📹 <b>{webcam["title"]}</b> ({webcam["status"]})'
             f"\n\n🕒 Last updated: {int(time_since_update / 60)} minutes ago"
             f'\n📍 {webcam["location"]["city"]} (<i>{webcam["location"]["latitude"]}, '
-            f'{webcam["location"]["longitude"]}</i>)'
-            f'\n🧭 Timezone: {webcam["location"]["timezone"]}',
+            f'{webcam["location"]["longitude"]}</i>)',
             parse_mode=ParseMode.HTML,
         )
     except telegram.error.BadRequest:
