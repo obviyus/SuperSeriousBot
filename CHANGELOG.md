@@ -1,3 +1,10 @@
+# [1.65.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.64.1...v1.65.0) (2023-10-19)
+
+
+### Features
+
+* **cleanup:** remove unused Twitter code ([4003a2c](https://github.com/obviyus/SuperSeriousBot/commit/4003a2cdc70f8e5e2fe3a209ca37298c5e45ca15))
+
 ## [1.64.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.64.0...v1.64.1) (2023-10-14)
 
 
