@@ -100,10 +100,6 @@ schema = {
                 "type": "string",
                 "required": False,
             },
-            "TWITTER_BEARER_TOKEN": {
-                "type": "string",
-                "required": False,
-            },
             "WINDY_API_KEY": {
                 "type": "string",
                 "required": False,
@@ -138,7 +134,6 @@ config = {
         "RAPID_API_KEY": os.environ.get("RAPID_API_KEY", ""),
         "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
         "STEAM_API_KEY": os.environ.get("STEAM_API_KEY", ""),
-        "TWITTER_BEARER_TOKEN": os.environ.get("TWITTER_BEARER_TOKEN", ""),
         "OPEN_AI_API_KEY": os.environ.get("OPEN_AI_API_KEY", ""),
         "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
         "WINDY_API_KEY": os.environ.get("WINDY_API_KEY", ""),

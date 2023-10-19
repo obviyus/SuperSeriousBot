@@ -4,7 +4,7 @@ import json
 import os
 import traceback
 
-from telegram import MessageEntity, Update
+from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import (
     AIORateLimiter,
@@ -132,12 +132,6 @@ def main():
                 MessageHandler(
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
                     sed,
-                ),
-                # Filter for all URLs
-                MessageHandler(
-                    filters.Entity(MessageEntity.URL)
-                    | filters.Entity(MessageEntity.TEXT_LINK),
-                    misc.twitter_preview,
                 ),
                 # TV Show Query Handlers
                 InlineQueryHandler(
