@@ -1,3 +1,10 @@
+## [1.65.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.65.0...v1.65.1) (2023-10-20)
+
+
+### Bug Fixes
+
+* **ud:** set User-Agent in call ([3e6571a](https://github.com/obviyus/SuperSeriousBot/commit/3e6571aa034aca370b4d37da2eea5e2c366ba54b))
+
 # [1.65.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.64.1...v1.65.0) (2023-10-19)
 
 
