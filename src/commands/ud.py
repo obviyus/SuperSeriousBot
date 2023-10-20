@@ -23,6 +23,10 @@ async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     async with httpx.AsyncClient() as client:
         response = await client.get(
             url=f"https://api.urbandictionary.com/v0/define?term={word}",
+            headers={
+                "User-Agent": "SuperSeriousBot",
+                "Accept": "application/json",
+            },
         )
         response = response.json()
 
