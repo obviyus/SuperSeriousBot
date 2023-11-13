@@ -1,3 +1,10 @@
+# [1.66.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.65.1...v1.66.0) (2023-11-13)
+
+
+### Features
+
+* **ask:** gate /ask behind whitelist ([69407c2](https://github.com/obviyus/SuperSeriousBot/commit/69407c20182f03aad67997576fe6475be51cdc46))
+
 ## [1.65.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.65.0...v1.65.1) (2023-10-20)
 
 
