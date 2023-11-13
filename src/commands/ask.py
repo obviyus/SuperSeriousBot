@@ -1,6 +1,7 @@
 import openai
 from simpleaichat import AIChat
 from telegram import Update
+from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 import commands
@@ -26,9 +27,33 @@ ai = AIChat(
 @description("Ask anything using OpenAI's GPT-3.5 Turbo API.")
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Ask anything using OpenAI's GPT-3.5 Turbo API."""
+    if update.message.chat.type == ChatType.PRIVATE:
+        await update.message.reply_text(
+            "This command is not available in private chats."
+        )
+        return
+
     if not context.args:
         await commands.usage_string(update.message, ask)
         return
+
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        "SELECT whitelist_type, whitelist_id FROM command_whitelist WHERE command = 'ask';",
+    )
+
+    result = cursor.fetchone()
+    if result:
+        if result["whitelist_type"] == "chat":
+            if update.message.chat.id != result["whitelist_id"]:
+                await update.message.reply_text(
+                    "This command is not available in this chat."
+                )
+                return
+        elif result["whitelist_type"] == "user":
+            if update.message.from_user.id != result["whitelist_id"]:
+                await update.message.reply_text("This command is not available to you.")
+                return
 
     query: str = " ".join(context.args)
     token_count = len(context.args)

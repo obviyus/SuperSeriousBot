@@ -13,14 +13,17 @@ def is_docker():
     )
 
 
+PRIMARY_DB_PATH = f"{os.getcwd() if not is_docker() else '/db'}/SuperSeriousBot.db"
+INDIA_LAW_DB_PATH = f"{os.getcwd() if not is_docker() else '/db'}/IndiaLaw.db"
+
 sqlite_conn = sqlite3.connect(
-    f"{os.getcwd() if not is_docker() else '/db'}/SuperSeriousBot.db",
+    PRIMARY_DB_PATH,
     check_same_thread=False,
     isolation_level=None,
 )
 
 sqlite_conn_law_database = sqlite3.connect(
-    f"{os.getcwd() if not is_docker() else '/db'}/IndiaLaw.db",
+    INDIA_LAW_DB_PATH,
     check_same_thread=False,
     isolation_level=None,
 )
@@ -299,6 +302,18 @@ cursor.execute(
         `user_id` INTEGER NOT NULL,
         `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (habit_id) REFERENCES habit(id)
+    );
+    """
+)
+
+# Command whitelist
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `command_whitelist` (
+        `command` VARCHAR(255) NOT NULL PRIMARY KEY,
+        `whitelist_type` VARCHAR(255) NOT NULL DEFAULT 'USER',
+        `whitelist_id` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     """
 )
