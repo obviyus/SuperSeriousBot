@@ -1,3 +1,10 @@
+## [1.66.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.66.0...v1.66.1) (2023-11-14)
+
+
+### Bug Fixes
+
+* **whitelist:** filter whitelist by type and ID ([02a3980](https://github.com/obviyus/SuperSeriousBot/commit/02a39801a5ea706ac5d254d937986584b1e13c51))
+
 # [1.66.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.65.1...v1.66.0) (2023-11-13)
 
 
