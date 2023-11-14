@@ -310,10 +310,11 @@ cursor.execute(
 cursor.execute(
     """
     CREATE TABLE IF NOT EXISTS `command_whitelist` (
-        `command` VARCHAR(255) NOT NULL PRIMARY KEY,
+        `command` VARCHAR(255) NOT NULL,
         `whitelist_type` VARCHAR(255) NOT NULL DEFAULT 'USER',
         `whitelist_id` INTEGER NOT NULL,
-        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (command, whitelist_type, whitelist_id)
     );
     """
 )

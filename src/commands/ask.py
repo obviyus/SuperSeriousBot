@@ -39,21 +39,23 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
-        "SELECT whitelist_type, whitelist_id FROM command_whitelist WHERE command = 'ask';",
+        """
+        SELECT 1
+        FROM command_whitelist 
+        WHERE command = 'ask' 
+        AND (whitelist_type = 'chat' AND whitelist_id = ?)
+        OR (whitelist_type = 'user' AND whitelist_id = ?);
+        """,
+        (update.message.chat.id, update.message.from_user.id),
     )
 
     result = cursor.fetchone()
-    if result:
-        if result["whitelist_type"] == "chat":
-            if update.message.chat.id != result["whitelist_id"]:
-                await update.message.reply_text(
-                    "This command is not available in this chat."
-                )
-                return
-        elif result["whitelist_type"] == "user":
-            if update.message.from_user.id != result["whitelist_id"]:
-                await update.message.reply_text("This command is not available to you.")
-                return
+    if not result:
+        await update.message.reply_text(
+            "This command is not available in this chat."
+            "Please contact an admin to whitelist this command."
+        )
+        return
 
     query: str = " ".join(context.args)
     token_count = len(context.args)
