@@ -1,3 +1,10 @@
+## [1.66.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.66.1...v1.66.2) (2023-12-08)
+
+
+### Bug Fixes
+
+* **dl:** download actual YouTube videos ([9137327](https://github.com/obviyus/SuperSeriousBot/commit/9137327709b0c55e56a716a63122c158a9eb6e33))
+
 ## [1.66.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.66.0...v1.66.1) (2023-11-14)
 
 
