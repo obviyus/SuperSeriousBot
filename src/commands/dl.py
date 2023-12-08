@@ -1,3 +1,5 @@
+import asyncio
+import os
 from typing import Dict
 from urllib.parse import ParseResult, urlparse
 
@@ -38,13 +40,30 @@ ydl = yt_dlp.YoutubeDL(
 )
 
 
-async def yt_dl_downloader(url: ParseResult) -> str:
-    info = ydl.extract_info(url.geturl(), download=False)
+async def yt_dl_downloader(url: ParseResult, message: Message) -> None:
+    # YouTube has started embedding the client IP address in the direct URL. The URL cannot be forwarded to
+    # Telegram's servers for download. Downloading the video is necessary.
+    ydl_opts = {
+        "format": "b[filesize<=?50M]",
+        "logger": logger,
+        "age_limit": 33,
+        "geo_bypass": True,
+        "playlistend": 1,
+        "outtmpl": "%(id)s",
+    }
 
-    if "url" not in info:
-        raise Exception("Could not download video.")
+    def download_video():
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url.geturl()])
+            extracted_info = ydl.extract_info(url.geturl(), download=False)
+            return extracted_info
 
-    return info["url"]
+    # Run the synchronous code in an executor
+    loop = asyncio.get_running_loop()
+    info = await loop.run_in_executor(None, download_video)
+
+    await message.reply_video(video=open(info["id"], "rb"))
+    os.remove(info["id"])
 
 
 async def download_imgur(parsed_url, count) -> list[Dict]:
@@ -217,8 +236,7 @@ async def downloader(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not image_list:
         try:
-            await update.message.reply_video(await yt_dl_downloader(url))
-            return
+            return (await yt_dl_downloader(url, update.message),)
         except Exception as e:
             logger.error(e)
             await update.message.reply_text("Could not download video.")
