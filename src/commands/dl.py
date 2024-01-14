@@ -103,6 +103,7 @@ async def download_reddit_video(parsed_url: str, message: Message):
         await message.reply_video(
             video=open(file_path, "rb"),
         )
+        os.remove(file_path)
 
         return
     except Exception as e:
@@ -133,8 +134,21 @@ async def instagram_download(parsed_url: str, message: Message):
 
     if video:
         try:
+            content_url = video["content"]
+            # Follow redirect to get the final URL
+            async with httpx.AsyncClient() as client:
+                response = await client.head(
+                    f"https://ddinstagram.com{content_url}",
+                    headers={
+                        "User-Agent": "SuperSeriousBot",
+                    },
+                    follow_redirects=True,
+                )
+
+            # Get complete URL including query parameters
+            content_url = response.url.raw_path
             await message.reply_video(
-                video=f'https://ddinstagram.com{video["content"]}',
+                video=content_url,
             )
             return
         except BadRequest:
