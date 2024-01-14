@@ -1,3 +1,10 @@
+## [1.66.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.66.2...v1.66.3) (2024-01-14)
+
+
+### Bug Fixes
+
+* **dl:** follow redirect in /dl ([06402de](https://github.com/obviyus/SuperSeriousBot/commit/06402de5acabf96acc36d8a0ae6717dc64fb44a8))
+
 ## [1.66.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.66.1...v1.66.2) (2023-12-08)
 
 
