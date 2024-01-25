@@ -1,3 +1,10 @@
+# [1.67.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.66.3...v1.67.0) (2024-01-25)
+
+
+### Features
+
+* **caption:** implement /caption ([909c73f](https://github.com/obviyus/SuperSeriousBot/commit/909c73f7580a587db97d4d0974dd60f71ad2bd81))
+
 ## [1.66.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.66.2...v1.66.3) (2024-01-14)
 
 
