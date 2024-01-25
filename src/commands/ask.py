@@ -183,6 +183,8 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     photo = update.message.reply_to_message.photo[-1]
     file = await context.bot.getFile(photo.file_id)
 
+    custom_prompt = " ".join(context.args) or ""
+
     response = client.chat.completions.create(
         model="gpt-4-vision-preview",
         messages=[
@@ -191,7 +193,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "content": [
                     {
                         "type": "text",
-                        "text": "What’s in this image? Be concise but divide your response into paragraphs to keep it readable if it's long.",
+                        "text": f"Describe this image, but be short and concise. Here are custom instructions from the user, follow them to the best of your ability: {custom_prompt}",
                     },
                     {
                         "type": "image_url",
