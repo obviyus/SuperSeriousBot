@@ -1,3 +1,10 @@
+# [1.68.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.67.1...v1.68.0) (2024-01-25)
+
+
+### Features
+
+* **caption:** allow custom prompts ([ce25e19](https://github.com/obviyus/SuperSeriousBot/commit/ce25e197dd3d009b3f0aa5d1d284c2ace9543226))
+
 ## [1.67.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.67.0...v1.67.1) (2024-01-25)
 
 
