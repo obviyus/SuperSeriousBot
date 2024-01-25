@@ -147,7 +147,7 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @usage("/caption]")
 @api_key("OPEN_AI_API_KEY")
 @example("/caption")
-@description("Describe an image using the GPT-V API.")
+@description("Reply to an image to caption it using the GPT-V API.")
 async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Describe an image using the GPT-V API."""
     if update.message.chat.type == ChatType.PRIVATE:
@@ -156,8 +156,8 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    if not context.args:
-        await commands.usage_string(update.message, ask)
+    if not update.message.reply_to_message.photo:
+        await commands.usage_string(update.message, caption)
         return
 
     cursor = sqlite_conn.cursor()
@@ -178,10 +178,6 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "This command is not available in this chat."
             "Please contact an admin to whitelist this command."
         )
-        return
-
-    if not update.message.reply_to_message.photo:
-        await update.message.reply_text("No image found. Please reply to an image")
         return
 
     photo = update.message.reply_to_message.photo[-1]
