@@ -1,4 +1,5 @@
 import openai
+from openai import OpenAI
 from simpleaichat import AIChat
 from telegram import Update
 from telegram.constants import ChatType
@@ -18,6 +19,8 @@ ai = AIChat(
     model="gpt-3.5-turbo",
     api_key=config["API"]["OPEN_AI_API_KEY"],
 )
+
+client = OpenAI(api_key=openai.api_key)
 
 
 @triggers(["ask"])
@@ -138,3 +141,70 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "An error occurred while processing your request. Please try again later."
         )
         return
+
+
+@triggers(["caption"])
+@usage("/caption]")
+@api_key("OPEN_AI_API_KEY")
+@example("/caption")
+@description("Describe an image using the GPT-V API.")
+async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Describe an image using the GPT-V API."""
+    if update.message.chat.type == ChatType.PRIVATE:
+        await update.message.reply_text(
+            "This command is not available in private chats."
+        )
+        return
+
+    if not context.args:
+        await commands.usage_string(update.message, ask)
+        return
+
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        SELECT 1
+        FROM command_whitelist
+        WHERE command = 'caption'
+        AND (whitelist_type = 'chat' AND whitelist_id = ?)
+        OR (whitelist_type = 'user' AND whitelist_id = ?);
+        """,
+        (update.message.chat.id, update.message.from_user.id),
+    )
+
+    result = cursor.fetchone()
+    if not result:
+        await update.message.reply_text(
+            "This command is not available in this chat."
+            "Please contact an admin to whitelist this command."
+        )
+        return
+
+    if not update.message.reply_to_message.photo:
+        await update.message.reply_text("No image found. Please reply to an image")
+        return
+
+    photo = update.message.reply_to_message.photo[-1]
+    file = await context.bot.getFile(photo.file_id)
+
+    response = client.chat.completions.create(
+        model="gpt-4-vision-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "What’s in this image? Be concise but divide your response into paragraphs to keep it readable if it's long.",
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": file.file_path,
+                    },
+                ],
+            }
+        ],
+        max_tokens=300,
+    )
+
+    await update.message.reply_text(response.choices[0].message.content)

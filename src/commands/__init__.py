@@ -27,7 +27,7 @@ from management.botstats import (
 from management.stats import get_chat_stats, get_last_seen, get_total_chat_stats
 from misc.highlight import highlight_button_handler, highlighter
 from .animals import animal
-from .ask import ask, based
+from .ask import ask, based, caption
 from .book import book
 from .calc import calc
 from .camera import camera
@@ -75,6 +75,7 @@ list_of_commands = [
     book,
     calc,
     camera,
+    caption,
     cpc,
     crpc,
     define,
