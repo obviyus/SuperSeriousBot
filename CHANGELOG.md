@@ -1,3 +1,10 @@
+## [1.67.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.67.0...v1.67.1) (2024-01-25)
+
+
+### Bug Fixes
+
+* **caption:** fix check for parent ([0a4659a](https://github.com/obviyus/SuperSeriousBot/commit/0a4659ade908ac0e42b68e505220013939553b05))
+
 # [1.67.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.66.3...v1.67.0) (2024-01-25)
 
 
