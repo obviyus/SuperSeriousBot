@@ -69,7 +69,7 @@ async def inline_show_search(update: Update, _: ContextTypes.DEFAULT_TYPE) -> No
         results.append(
             InlineQueryResultArticle(
                 id=movie.movieID,
-                title=f"{movie['title']} {movie['year'] if 'year' in movie else ''})",
+                title=f"{movie['title']} {movie['year'] if 'year' in movie else ''}",
                 thumbnail_url=movie["cover url"] if "cover url" in movie else None,
                 input_message_content=InputTextMessageContent("Loading..."),
                 reply_markup=InlineKeyboardMarkup(
