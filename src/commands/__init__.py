@@ -1,10 +1,13 @@
 """
 Commands for general use.
 """
+
 import re
+import time
+from typing import Callable
 
 from telegram import Message, MessageEntity, Update
-from telegram.constants import ChatAction, ParseMode
+from telegram.constants import ChatAction, ParseMode, ReactionEmoji
 from telegram.ext import CommandHandler, ContextTypes
 
 import management
@@ -47,6 +50,7 @@ from .ping import ping
 from .quote import add_quote, get_quote
 from .randdit import nsfw, randdit
 from .reddit_comment import get_top_comment
+from .remind import remind
 from .spurdo import spurdo
 from .store import get_object, set_object
 from .summon import summon, summon_keyboard_button
@@ -107,6 +111,7 @@ list_of_commands = [
     person,
     ping,
     randdit,
+    remind,
     set_object,
     spurdo,
     subscribe_reddit,
@@ -131,6 +136,60 @@ for command in list_of_commands:
             handler = disabled
     else:
         handler = command
+
+    def command_wrapper(fn: Callable, command=command):  # Add default parameter
+        async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            message = update.message
+            await message.set_reaction(ReactionEmoji.WRITING_HAND)
+            await message.reply_chat_action(ChatAction.TYPING)
+
+            start = time.time()
+            # Use the command parameter from the wrapper function's default argument
+            await fn(update, context)
+
+            logger.info(
+                f"[{time.time() - start:.2f}s] - /{command} from {update.message.from_user}"
+            )
+
+            sent_command = next(
+                iter(
+                    update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()
+                ),
+                None,
+            )
+
+            if not sent_command:
+                return
+
+            if "@" in sent_command:
+                sent_command = sent_command[: sent_command.index("@")]
+
+            sent_command = sent_command[1:]
+            if sent_command not in command_doc_list:
+                return
+
+            await management.increment(update, context)
+
+            cursor = sqlite_conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO command_stats (command, user_id) VALUES (?, ?);
+                """,
+                (sent_command, update.message.from_user.id),
+            )
+
+        # Copy other function attributes
+        wrapped_command.description = fn.description
+        wrapped_command.triggers = fn.triggers
+        wrapped_command.usage = fn.usage
+        wrapped_command.example = fn.example
+
+        if hasattr(fn, "api_key"):
+            wrapped_command.api_key = fn.api_key
+
+        return wrapped_command
+
+    handler = command_wrapper(handler)
 
     command_handler_list.append(
         CommandHandler(
@@ -197,41 +256,6 @@ async def save_mentions(
                 """,
                 (mentioning_user_id, user_id, message.chat.id, message.message_id),
             )
-
-
-async def increment_command_count(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
-    """
-    Increment command count for a /<command> invocation.
-    """
-    sent_command = next(
-        iter(update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()), None
-    )
-
-    if not sent_command:
-        return
-
-    if "@" in sent_command:
-        sent_command = sent_command[: sent_command.index("@")]
-    sent_command = sent_command[1:]
-
-    if sent_command not in command_doc_list:
-        return
-
-    await management.increment(update, context)
-    logger.info(
-        "/{} used by user_id:{}".format(sent_command, update.message.from_user.id)
-    )
-
-    await update.message.reply_chat_action(ChatAction.TYPING)
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO command_stats (command, user_id) VALUES (?, ?);
-        """,
-        (sent_command, update.message.from_user.id),
-    )
 
 
 async def mention_parser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

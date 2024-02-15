@@ -1,3 +1,10 @@
+# [1.69.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.68.0...v1.69.0) (2024-02-15)
+
+
+### Features
+
+* **remind:** reminder feature ([4da0071](https://github.com/obviyus/SuperSeriousBot/commit/4da00710ad3cf40868ed3de48b739c92df3380e3))
+
 # [1.68.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.67.1...v1.68.0) (2024-01-25)
 
 
