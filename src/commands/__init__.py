@@ -50,6 +50,7 @@ from .ping import ping
 from .quote import add_quote, get_quote
 from .randdit import nsfw, randdit
 from .reddit_comment import get_top_comment
+from .remind import remind
 from .spurdo import spurdo
 from .store import get_object, set_object
 from .summon import summon, summon_keyboard_button
@@ -110,6 +111,7 @@ list_of_commands = [
     person,
     ping,
     randdit,
+    remind,
     set_object,
     spurdo,
     subscribe_reddit,

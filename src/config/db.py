@@ -319,6 +319,20 @@ cursor.execute(
     """
 )
 
+# Reminders
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `reminders` (
+        `id` INTEGER PRIMARY KEY,
+        `chat_id` INTEGER NOT NULL,
+        `user_id` INTEGER NOT NULL,
+        `title` VARCHAR(255) NOT NULL,
+        `target_time` INTEGER NOT NULL,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+)
+
 # Add some indexes
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS chat_stats_chat_id_user_id_index ON chat_stats (chat_id, user_id);"
