@@ -1,3 +1,10 @@
+## [1.69.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.0...v1.69.1) (2024-02-21)
+
+
+### Bug Fixes
+
+* **ask:** use temperature 1.3 ([c230b76](https://github.com/obviyus/SuperSeriousBot/commit/c230b76b2401bf8139be95d1fa05cbe8d25ad0e7))
+
 # [1.69.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.68.0...v1.69.0) (2024-02-15)
 
 
