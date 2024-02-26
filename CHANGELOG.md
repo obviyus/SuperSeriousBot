@@ -1,3 +1,10 @@
+## [1.69.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.1...v1.69.2) (2024-02-26)
+
+
+### Bug Fixes
+
+* **db:** allow configurable DB path prefix ([41e4348](https://github.com/obviyus/SuperSeriousBot/commit/41e434857578ac1b22d441a6eba74f5003196733))
+
 ## [1.69.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.0...v1.69.1) (2024-02-21)
 
 
