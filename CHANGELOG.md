@@ -1,3 +1,10 @@
+## [1.69.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.2...v1.69.3) (2024-02-27)
+
+
+### Bug Fixes
+
+* **dl:** remove ddinstagram fallback ([fe001fc](https://github.com/obviyus/SuperSeriousBot/commit/fe001fc0a486135396b6c0d27e58a41212ad9773))
+
 ## [1.69.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.1...v1.69.2) (2024-02-26)
 
 
