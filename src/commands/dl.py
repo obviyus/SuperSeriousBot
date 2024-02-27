@@ -8,7 +8,6 @@ import requests
 import yt_dlp
 from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
-from bs4 import BeautifulSoup
 from redvid import Downloader
 from telegram import InputMediaPhoto, InputMediaVideo, Message, Update
 from telegram.error import BadRequest
@@ -117,43 +116,6 @@ async def instagram_download(parsed_url: str, message: Message):
         )
         return
 
-    fallback_url = parsed_url.replace("instagram", "ddinstagram")
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            fallback_url,
-            headers={
-                "User-Agent": "SuperSeriousBot",
-            },
-            follow_redirects=True,
-        )
-
-    source = response.text
-    soup = BeautifulSoup(source, "html.parser")
-
-    video = soup.find("meta", property="og:video")
-
-    if video:
-        try:
-            content_url = video["content"]
-            # Follow redirect to get the final URL
-            async with httpx.AsyncClient() as client:
-                response = await client.head(
-                    f"https://ddinstagram.com{content_url}",
-                    headers={
-                        "User-Agent": "SuperSeriousBot",
-                    },
-                    follow_redirects=True,
-                )
-
-            # Get complete URL including query parameters
-            content_url = response.url.raw_path
-            await message.reply_video(
-                video=content_url,
-            )
-            return
-        except BadRequest:
-            pass
-
     async with httpx.AsyncClient() as client:
         response = await client.get(
             "https://instagram-media-downloader.p.rapidapi.com/rapid/post.php",
@@ -202,7 +164,7 @@ async def downloader(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     match hostname:
         case "imgur.com":
             image_list = await download_imgur(url, MAX_IMAGE_COUNT)
-        case ("i.redd.it" | "preview.redd.it"):
+        case "i.redd.it" | "preview.redd.it":
             image_list = [{"image": url.geturl()}]
         case "v.redd.it":
             await download_reddit_video(url.geturl(), update.message)
@@ -210,7 +172,7 @@ async def downloader(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         case "instagracom":
             await instagram_download(url.geturl(), update.message)
             return
-        case ("redd.it" | "reddit.com"):
+        case "redd.it" | "reddit.com":
             try:
                 post = await reddit.submission(url=url.geturl().replace("old.", ""))
                 if hasattr(post, "crosspost_parent") and post.crosspost_parent:
@@ -259,9 +221,11 @@ async def downloader(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             await update.message.reply_media_group(
                 [
-                    InputMediaPhoto(content["image"])
-                    if "image" in content
-                    else InputMediaVideo(content["video"])
+                    (
+                        InputMediaPhoto(content["image"])
+                        if "image" in content
+                        else InputMediaVideo(content["video"])
+                    )
                     for content in image_list
                 ]
             )
