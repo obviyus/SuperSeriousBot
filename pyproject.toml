@@ -8,9 +8,9 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 Cerberus = "^1.3.5"
-redis = "^5.0.1"
-redvid = "^2.0.3"
-python-telegram-bot = { version = "^20.8", extras = [
+redis = "^5.0.3"
+redvid = "^2.0.4"
+python-telegram-bot = { version = "^21.0.1", extras = [
     "rate-limiter",
     "job-queue",
     "webhooks",
@@ -26,7 +26,7 @@ uwuify = "^1.3.0"
 geopy = "^2.4.1"
 pyvis = "^0.3.2"
 networkx = "^3.2.1"
-openai = "^1.12.0"
+openai = "^1.13.3"
 rotten-tomatoes-client = "^0.0.3"
 beautifulsoup4 = "^4.12.3"
 simpleaichat = "^0.2.2"
