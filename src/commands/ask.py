@@ -131,7 +131,7 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         response = response.split("AIM:")[1]
 
         await update.message.reply_text(response)
-    except openai.error.RateLimitError:
+    except openai._exceptions.RateLimitError:
         await update.message.reply_text(
             "This command is currently overloaded with other requests."
             "Please try again later."
