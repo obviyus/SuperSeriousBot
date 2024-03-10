@@ -1,3 +1,10 @@
+## [1.69.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.3...v1.69.4) (2024-03-10)
+
+
+### Bug Fixes
+
+* **ask:** replace incorrect Exception handler ([dde4962](https://github.com/obviyus/SuperSeriousBot/commit/dde49626ed39cf5bafcd4ac87f2d7b181d671fa5))
+
 ## [1.69.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.2...v1.69.3) (2024-02-27)
 
 
