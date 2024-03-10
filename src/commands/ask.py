@@ -69,7 +69,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         await update.message.reply_text(ai(query, params={"temperature": 1.3}))
-    except openai.error.RateLimitError:
+    except openai._exceptions.RateLimitError:
         await update.message.reply_text(
             "This command is currently overloaded with other requests."
             "Please try again later."
