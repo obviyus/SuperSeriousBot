@@ -1,3 +1,10 @@
+## [1.69.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.4...v1.69.5) (2024-03-10)
+
+
+### Bug Fixes
+
+* **ask:** handle RateLimitError ([34bdb5e](https://github.com/obviyus/SuperSeriousBot/commit/34bdb5ebe9f0c344f462bc5444c351e81537fbbc))
+
 ## [1.69.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.3...v1.69.4) (2024-03-10)
 
 
