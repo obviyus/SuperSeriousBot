@@ -140,7 +140,10 @@ for command in list_of_commands:
     def command_wrapper(fn: Callable, command=command):  # Add default parameter
         async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message = update.message
-            await message.set_reaction(ReactionEmoji.WRITING_HAND)
+
+            if ReactionEmoji.WRITING_HAND in message.chat.available_reactions:
+                await message.set_reaction(ReactionEmoji.WRITING_HAND)
+
             await message.reply_chat_action(ChatAction.TYPING)
 
             start = time.time()
