@@ -1,3 +1,10 @@
+## [1.69.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.5...v1.69.6) (2024-03-11)
+
+
+### Bug Fixes
+
+* **reaction:** check if reaction allowed in chat ([293d6e6](https://github.com/obviyus/SuperSeriousBot/commit/293d6e6339c13228876be1004f965471f2c31591))
+
 ## [1.69.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.4...v1.69.5) (2024-03-10)
 
 
