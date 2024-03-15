@@ -3,7 +3,6 @@ Commands for general use.
 """
 
 import re
-import time
 from typing import Callable
 
 from telegram import Message, MessageEntity, Update
@@ -141,18 +140,13 @@ for command in list_of_commands:
         async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message = update.message
 
-            if ReactionEmoji.WRITING_HAND in message.chat.available_reactions:
-                await message.set_reaction(ReactionEmoji.WRITING_HAND)
+            tasks = [
+                await message.set_reaction(ReactionEmoji.WRITING_HAND),
+                await message.reply_chat_action(ChatAction.TYPING),
+                await fn(update, context),
+            ]
 
-            await message.reply_chat_action(ChatAction.TYPING)
-
-            start = time.time()
-            # Use the command parameter from the wrapper function's default argument
-            await fn(update, context)
-
-            logger.info(
-                f"[{time.time() - start:.2f}s] - /{command} from {update.message.from_user}"
-            )
+            logger.info(f"/{command} from {update.message.from_user}")
 
             sent_command = next(
                 iter(
