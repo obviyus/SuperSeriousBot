@@ -212,7 +212,8 @@ async def downloader(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not image_list:
         try:
-            return (await yt_dl_downloader(url, update.message),)
+            await yt_dl_downloader(url, update.message)
+            return
         except Exception as e:
             logger.error(e)
             await update.message.reply_text("Could not download video.")
