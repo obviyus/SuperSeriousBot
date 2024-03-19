@@ -1,3 +1,10 @@
+# [1.70.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.6...v1.70.0) (2024-03-15)
+
+
+### Features
+
+* **asyncio:** run in parallel ([c297025](https://github.com/obviyus/SuperSeriousBot/commit/c297025760e1f4086643c55c88f14b3fa99550bb))
+
 ## [1.69.6](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.5...v1.69.6) (2024-03-11)
 
 
