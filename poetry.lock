@@ -859,13 +859,13 @@ tests = ["asttokens (>=2.1.0)", "coverage", "coverage-enable-subprocess", "ipyth
 
 [[package]]
 name = "fake-useragent"
-version = "1.5.0"
+version = "1.5.1"
 description = "Up-to-date simple useragent faker with real world database"
 optional = false
 python-versions = "*"
 files = [
-    {file = "fake-useragent-1.5.0.tar.gz", hash = "sha256:c2adf4c536f9b74053e1161374398cdd78d28762062db9b741639b2133da0016"},
-    {file = "fake_useragent-1.5.0-py3-none-any.whl", hash = "sha256:1ee651ebd17fa2442abe4393f00e311769051765cd20de23cc50dc771db89540"},
+    {file = "fake-useragent-1.5.1.tar.gz", hash = "sha256:6387269f5a2196b5ba7ed8935852f75486845a1c95c50e72460e6a8e762f5c49"},
+    {file = "fake_useragent-1.5.1-py3-none-any.whl", hash = "sha256:57415096557c8a4e23b62a375c21c55af5fd4ba30549227f562d2c4f5b60e3b3"},
 ]
 
 [[package]]
@@ -1628,13 +1628,13 @@ test = ["pytest (>=7.2)", "pytest-cov (>=4.0)"]
 
 [[package]]
 name = "openai"
-version = "1.14.0"
+version = "1.14.1"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.7.1"
 files = [
-    {file = "openai-1.14.0-py3-none-any.whl", hash = "sha256:5c9fd3a59f5cbdb4020733ddf79a22f6b7a36d561968cb3f3dd255cdd263d9fe"},
-    {file = "openai-1.14.0.tar.gz", hash = "sha256:e287057adf0ec3315abc32ddcc968d095879abd9b68bf51c0402dab13ab5ae9b"},
+    {file = "openai-1.14.1-py3-none-any.whl", hash = "sha256:f9322b0bf3b82bbd06930fad535369a023f35a3a96d3ef0b827644a15d7aae97"},
+    {file = "openai-1.14.1.tar.gz", hash = "sha256:1fab5dd623cdc0c7c6e7da5d8d11fa6900f94191c2dfb6510d7eac33195fa175"},
 ]
 
 [package.dependencies]
@@ -2061,13 +2061,13 @@ networkx = ">=1.11"
 
 [[package]]
 name = "readchar"
-version = "4.0.5"
+version = "4.0.6"
 description = "Library to easily read single chars and key strokes"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "readchar-4.0.5-py3-none-any.whl", hash = "sha256:76ec784a5dd2afac3b7da8003329834cdd9824294c260027f8c8d2e4d0a78f43"},
-    {file = "readchar-4.0.5.tar.gz", hash = "sha256:08a456c2d7c1888cde3f4688b542621b676eb38cd6cfed7eb6cb2e2905ddc826"},
+    {file = "readchar-4.0.6-py3-none-any.whl", hash = "sha256:b4b31dd35de4897be738f27e8f9f62426b5fedb54b648364987e30ae534b71bc"},
+    {file = "readchar-4.0.6.tar.gz", hash = "sha256:e0dae942d3a746f8d5423f83dbad67efe704004baafe31b626477929faaee472"},
 ]
 
 [package.dependencies]
@@ -2961,4 +2961,4 @@ secretstorage = ["cffi", "secretstorage"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "d82487aadc90bf8b0ec2c43d087a8c795b37d87e98b35720f8f0e24beced2b72"
+content-hash = "018dcf74b75862635cbccb20954500df42e967e834d56ff00508cc0a04c9426b"
