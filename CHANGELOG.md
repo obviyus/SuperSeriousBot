@@ -1,3 +1,10 @@
+## [1.70.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.70.0...v1.70.1) (2024-03-19)
+
+
+### Bug Fixes
+
+* **wrapper:** return if None in message ([2a8ae9f](https://github.com/obviyus/SuperSeriousBot/commit/2a8ae9f8c4593e4b79ea030b197c267c011e5e90))
+
 # [1.70.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.69.6...v1.70.0) (2024-03-15)
 
 
