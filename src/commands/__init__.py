@@ -140,6 +140,9 @@ for command in list_of_commands:
         async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message = update.message
 
+            if not message:
+                return
+
             tasks = [
                 await message.set_reaction(ReactionEmoji.WRITING_HAND),
                 await message.reply_chat_action(ChatAction.TYPING),
