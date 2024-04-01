@@ -1,3 +1,10 @@
+# [1.71.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.70.1...v1.71.0) (2024-04-01)
+
+
+### Features
+
+* **reaction:** react to bot feedback ([2f4eb73](https://github.com/obviyus/SuperSeriousBot/commit/2f4eb73d0dc9a89fee5ed5aca0ceaeda3ccbe7e6))
+
 ## [1.70.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.70.0...v1.70.1) (2024-03-19)
 
 
