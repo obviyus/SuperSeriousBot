@@ -126,6 +126,10 @@ def main():
                     filters.TEXT & filters.Regex(r"^ping$"),
                     commands.ping,
                 ),
+                MessageHandler(
+                    filters.TEXT,
+                    commands.every_message_action,
+                ),
             ],
             1: commands.command_handler_list,
             2: [

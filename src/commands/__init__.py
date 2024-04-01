@@ -2,6 +2,8 @@
 Commands for general use.
 """
 
+import asyncio
+import random
 import re
 from typing import Callable
 
@@ -125,6 +127,46 @@ list_of_commands = [
     weather,
 ]
 
+positive_emojis = [
+    ReactionEmoji.HEART_WITH_ARROW,
+    ReactionEmoji.SMILING_FACE_WITH_HEARTS,
+    ReactionEmoji.HEART_ON_FIRE,
+    ReactionEmoji.BANANA,
+    ReactionEmoji.KISS_MARK,
+    ReactionEmoji.MAN_TECHNOLOGIST,
+    ReactionEmoji.NAIL_POLISH,
+    ReactionEmoji.FACE_THROWING_A_KISS,
+    ReactionEmoji.ALIEN_MONSTER,
+]
+
+negative_emojis = [
+    ReactionEmoji.FEARFUL_FACE,
+    ReactionEmoji.LOUDLY_CRYING_FACE,
+    ReactionEmoji.BROKEN_HEART,
+    ReactionEmoji.CRYING_FACE,
+    ReactionEmoji.FACE_SCREAMING_IN_FEAR,
+]
+
+
+def get_random_item_from_list(items):
+    return items[random.randint(0, len(items) - 1)]
+
+
+async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    """
+    Every message action handler.
+    """
+    message = update.message
+    if not message:
+        return
+
+    if message.text:
+        if "good bot" in message.text.lower():
+            await message.set_reaction(get_random_item_from_list(positive_emojis))
+        elif "bad bot" in message.text.lower():
+            await message.set_reaction(get_random_item_from_list(negative_emojis))
+
+
 command_handler_list = []
 command_doc_list = {}
 for command in list_of_commands:
@@ -144,10 +186,12 @@ for command in list_of_commands:
                 return
 
             tasks = [
-                await message.set_reaction(ReactionEmoji.WRITING_HAND),
-                await message.reply_chat_action(ChatAction.TYPING),
-                await fn(update, context),
+                message.set_reaction(ReactionEmoji.WRITING_HAND),
+                message.reply_chat_action(ChatAction.TYPING),
+                fn(update, context),
             ]
+
+            await asyncio.get_event_loop().create_task(asyncio.gather(*tasks))
 
             logger.info(f"/{command} from {update.message.from_user}")
 
