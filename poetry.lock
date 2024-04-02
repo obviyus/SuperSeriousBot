@@ -1666,13 +1666,13 @@ test = ["pytest (>=7.2)", "pytest-cov (>=4.0)"]
 
 [[package]]
 name = "openai"
-version = "1.14.3"
+version = "1.16.0"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.7.1"
 files = [
-    {file = "openai-1.14.3-py3-none-any.whl", hash = "sha256:7a465994a7ccf677a110c6cc2ef9d86229bad42c060b585b67049aa749f3b774"},
-    {file = "openai-1.14.3.tar.gz", hash = "sha256:37b514e9c0ff45383ec9b242abd0f7859b1080d4b54b61393ed341ecad1b8eb9"},
+    {file = "openai-1.16.0-py3-none-any.whl", hash = "sha256:c715c9872515369621ab16d31af917540b69af7d5df2d01b4c81f809cc17e91d"},
+    {file = "openai-1.16.0.tar.gz", hash = "sha256:2d1f2b106f0efc35ac9590dd7e4d1fcc10c616bfdd7eae17829c07f9ea212517"},
 ]
 
 [package.dependencies]
@@ -2995,4 +2995,4 @@ secretstorage = ["cffi", "secretstorage"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "515a6261d34799595035d689deea298e42a4595c41826d9b9f9c2cc5a3503cec"
+content-hash = "68210393c8b5da848892b06ae5ca6f28c364144c6255e00c2388ba98c2b498e6"
