@@ -191,7 +191,7 @@ for command in list_of_commands:
                 fn(update, context),
             ]
 
-            await asyncio.get_event_loop().create_task(asyncio.gather(*tasks))
+            await asyncio.gather(*tasks)
 
             logger.info(f"/{command} from {update.message.from_user}")
 
