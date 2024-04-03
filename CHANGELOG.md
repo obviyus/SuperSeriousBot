@@ -1,3 +1,10 @@
+# [1.75.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.74.1...v1.75.0) (2024-04-03)
+
+
+### Features
+
+* **import:** allow users to import chats into bot ([47e0c55](https://github.com/obviyus/SuperSeriousBot/commit/47e0c55a47a172a833ee4a9e76b6c24b30104351))
+
 ## [1.74.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.74.0...v1.74.1) (2024-04-03)
 
 
