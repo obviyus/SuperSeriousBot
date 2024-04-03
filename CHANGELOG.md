@@ -1,3 +1,10 @@
+## [1.75.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.75.0...v1.75.1) (2024-04-03)
+
+
+### Bug Fixes
+
+* **increment:** handle duplicates in chat_stats ([31e05df](https://github.com/obviyus/SuperSeriousBot/commit/31e05dfa10a0feaef275a87f4da53e76d3a9a911))
+
 # [1.75.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.74.1...v1.75.0) (2024-04-03)
 
 
