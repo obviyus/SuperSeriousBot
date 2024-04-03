@@ -1,3 +1,10 @@
+## [1.71.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.71.0...v1.71.1) (2024-04-02)
+
+
+### Bug Fixes
+
+* **asyncio:** gather tasks in parallel ([d16268c](https://github.com/obviyus/SuperSeriousBot/commit/d16268c565faaf887289b65125fee4f779bcae20))
+
 # [1.71.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.70.1...v1.71.0) (2024-04-01)
 
 
