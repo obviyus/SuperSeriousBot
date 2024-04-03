@@ -52,7 +52,7 @@ from .quote import add_quote, get_quote
 from .randdit import nsfw, randdit
 from .reddit_comment import get_top_comment
 from .remind import remind
-from .search import enable_fts, search
+from .search import enable_fts, import_chat_stats, search
 from .spurdo import spurdo
 from .store import get_object, set_object
 from .summon import summon, summon_keyboard_button
@@ -104,6 +104,7 @@ list_of_commands = [
     habit,
     highlighter,
     hltb,
+    import_chat_stats,
     insult,
     ipc,
     joke,

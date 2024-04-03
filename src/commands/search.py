@@ -1,3 +1,7 @@
+import json
+import uuid
+
+import dateparser
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -51,6 +55,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             WHERE chat_id = ? 
             AND user_id = ?
             AND csf.message_text MATCH ? 
+            ORDER BY RANDOM()
             LIMIT 1;
             """,
             (
@@ -72,7 +77,8 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             FROM chat_stats cs
             INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
             WHERE chat_id = ? 
-            AND csf.message_text MATCH ? 
+            AND csf.message_text MATCH ?
+            ORDER BY RANDOM()
             LIMIT 1;
             """,
             (update.message.chat_id, query),
@@ -114,3 +120,68 @@ async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     )
 
     await update.message.reply_text("Full text search has been enabled in this chat.")
+
+
+@triggers(["import"])
+@usage("/import")
+@description("Import chat stats for a chat given the JSON export.")
+@example("/import")
+async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Import chat stats for a chat given the JSON export.
+    """
+    if (
+        not update.message.reply_to_message
+        or not update.message.reply_to_message.document
+    ):
+        await update.message.reply_text("Please reply to a JSON file.")
+        return
+
+    document = update.message.reply_to_message.document
+    if document.mime_type != "application/json":
+        await update.message.reply_text("Please provide a JSON file.")
+        return
+
+    file = await document.get_file()
+    filename = uuid.uuid4()
+    await file.download_to_drive(f"{filename}.json")
+
+    with open(f"{filename}.json", "r") as file:
+        data = json.load(file)
+
+    chat_id = data["id"]
+    cursor = sqlite_conn.cursor()
+    for message in data["messages"]:
+        if message["type"] != "message" or not message["text"]:
+            continue
+
+        text_parts = []
+        for part in message["text"]:
+            if isinstance(part, dict):
+                if part.get("type") == "bot_command":
+                    text_parts.append(part.get("text", ""))
+            else:
+                text_parts.append(part)
+
+        text = "".join(text_parts)
+
+        user_id = message["from_id"].replace("user", "")
+        create_time = dateparser.parse(message["date"])
+
+        cursor.execute(
+            """
+            INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(chat_id, user_id, message_id) DO NOTHING;
+            """,
+            (
+                chat_id,
+                user_id,
+                message["id"],
+                create_time,
+                text,
+            ),
+        )
+
+    sqlite_conn.commit()
+    await update.message.reply_text("Chat stats imported.")

@@ -86,6 +86,18 @@ cursor.execute(
 
 cursor.execute(
     """
+    CREATE UNIQUE INDEX IF NOT EXISTS chat_stats_chat_user_message_id_index ON chat_stats (chat_id, user_id, message_id);
+    """
+)
+
+cursor.execute(
+    """
+    DROP INDEX IF EXISTS chat_stats_chat_id_user_id_index;
+    """
+)
+
+cursor.execute(
+    """
     CREATE TRIGGER IF NOT EXISTS chat_stats_ai AFTER INSERT ON chat_stats BEGIN
         INSERT INTO chat_stats_fts (rowid, message_text)
         VALUES (new.id, new.message_text);
@@ -385,9 +397,6 @@ cursor.execute(
 )
 
 # Add some indexes
-cursor.execute(
-    "CREATE INDEX IF NOT EXISTS chat_stats_chat_id_user_id_index ON chat_stats (chat_id, user_id);"
-)
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS command_stats_user_id_command_index ON command_stats (command, user_id);"
 )
