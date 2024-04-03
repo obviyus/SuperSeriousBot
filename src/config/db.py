@@ -373,6 +373,17 @@ cursor.execute(
     """
 )
 
+# Settings per group
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS `group_settings` (
+        `chat_id` INTEGER PRIMARY KEY,
+        `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `fts` TINYINT NOT NULL DEFAULT 0
+    );
+    """
+)
+
 # Add some indexes
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS chat_stats_chat_id_user_id_index ON chat_stats (chat_id, user_id);"

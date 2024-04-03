@@ -42,20 +42,28 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     cursor = sqlite_conn.cursor()
 
+    cursor.execute(
+        "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
+        (chat_id, user_object.id, update.message.message_id),
+    )
+
     if update.message.text:
         cursor.execute(
-            "INSERT INTO chat_stats (chat_id, user_id, message_id, message_text) VALUES (?, ?, ?, ?)",
-            (
-                chat_id,
-                user_object.id,
-                update.message.message_id,
-                update.message.text.lower(),
-            ),
+            """
+            SELECT fts FROM group_settings
+            WHERE chat_id = ?;
+            """,
+            (update.message.chat_id,),
         )
-    else:
+
+        setting = cursor.fetchone()
+
+        if not setting or not setting["fts"]:
+            return
+
         cursor.execute(
-            "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
-            (chat_id, user_object.id, update.message.message_id),
+            "UPDATE chat_stats_fts SET message_text = ? WHERE rowid = ?",
+            (update.message.text, cursor.lastrowid),
         )
 
 

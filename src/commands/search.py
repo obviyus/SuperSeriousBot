@@ -13,6 +13,24 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Search command handler.
     """
+    cursor = sqlite_conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT fts FROM group_settings
+        WHERE chat_id = ?;
+        """,
+        (update.message.chat_id,),
+    )
+
+    setting = cursor.fetchone()
+
+    if not setting or not setting["fts"]:
+        await update.message.reply_text(
+            "Full text search is not enabled in this chat. To enable it, use /enable_fts."
+        )
+        return
+
     if not update.message.reply_to_message:
         await update.message.reply_text("Please reply to a user to search.")
         return
@@ -23,7 +41,6 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     query = " ".join(context.args)
 
-    cursor = sqlite_conn.cursor()
     cursor.execute(
         """
         SELECT
@@ -51,3 +68,29 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         from_chat_id=update.message.chat_id,
         message_id=results[0]["message_id"],
     )
+
+
+@triggers(["enable_fts"])
+@usage("/enable_fts")
+@description("Enable full text search in the current chat.")
+@example("/enable_fts")
+async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Enable full text search in the current chat.
+    """
+    # Check if user is a moderator
+    chat_admins = await context.bot.get_chat_administrators(update.message.chat_id)
+    if not update.message.from_user.id in [admin.user.id for admin in chat_admins]:
+        await update.message.reply_text("You are not a moderator.")
+        return
+
+    cursor = sqlite_conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO group_settings (chat_id, fts) VALUES (?, 1)
+        ON CONFLICT(chat_id) DO UPDATE SET fts = 1;
+        """,
+        (update.message.chat_id,),
+    )
+
+    await update.message.reply_text("Full text search has been enabled in this chat.")

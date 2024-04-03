@@ -30,7 +30,6 @@ from management.botstats import (
 )
 from management.stats import get_chat_stats, get_last_seen, get_total_chat_stats
 from misc.highlight import highlight_button_handler, highlighter
-from .search import search
 from .animals import animal
 from .ask import ask, based, caption
 from .book import book
@@ -53,6 +52,7 @@ from .quote import add_quote, get_quote
 from .randdit import nsfw, randdit
 from .reddit_comment import get_top_comment
 from .remind import remind
+from .search import enable_fts, search
 from .spurdo import spurdo
 from .store import get_object, set_object
 from .summon import summon, summon_keyboard_button
@@ -86,6 +86,7 @@ list_of_commands = [
     crpc,
     define,
     downloader,
+    enable_fts,
     get_chat_stats,
     get_command_stats,
     get_friends,
