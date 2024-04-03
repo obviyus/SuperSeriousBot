@@ -1,3 +1,10 @@
+# [1.73.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.72.0...v1.73.0) (2024-04-03)
+
+
+### Features
+
+* **setting:** make fts opt-in ([2d7cd5b](https://github.com/obviyus/SuperSeriousBot/commit/2d7cd5b14debc97d66952e75e902a6a568d1626c))
+
 # [1.72.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.71.1...v1.72.0) (2024-04-03)
 
 
