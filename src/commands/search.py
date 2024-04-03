@@ -86,7 +86,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.forward_message(
         chat_id=update.message.chat_id,
         from_chat_id=update.message.chat_id,
-        message_id=results[0]["message_id"],
+        message_id=results["message_id"],
     )
 
 
