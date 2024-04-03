@@ -1,3 +1,10 @@
+## [1.74.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.74.0...v1.74.1) (2024-04-03)
+
+
+### Bug Fixes
+
+* **result:** remove indexing for fetchone() ([bef7402](https://github.com/obviyus/SuperSeriousBot/commit/bef74021350226055b5328877cb12bc27a467b2a))
+
 # [1.74.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.73.1...v1.74.0) (2024-04-03)
 
 
