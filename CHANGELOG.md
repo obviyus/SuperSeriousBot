@@ -1,3 +1,10 @@
+# [1.74.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.73.1...v1.74.0) (2024-04-03)
+
+
+### Features
+
+* **search:** search globally when no user specified ([8ff8d9e](https://github.com/obviyus/SuperSeriousBot/commit/8ff8d9e6b03d9bbb4aa6094880ef4c5387345bc4))
+
 ## [1.73.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.73.0...v1.73.1) (2024-04-03)
 
 
