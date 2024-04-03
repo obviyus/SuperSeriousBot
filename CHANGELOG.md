@@ -1,3 +1,10 @@
+# [1.72.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.71.1...v1.72.0) (2024-04-03)
+
+
+### Features
+
+* **search:** create fts for messages ([3fe1c7a](https://github.com/obviyus/SuperSeriousBot/commit/3fe1c7a30bc8ec02cd00db0085139ab6025d7d2d))
+
 ## [1.71.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.71.0...v1.71.1) (2024-04-02)
 
 
