@@ -1,4 +1,5 @@
 from datetime import datetime
+import sqlite3
 
 from telegram import Message, Update
 from telegram.constants import ParseMode
@@ -43,29 +44,32 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     cursor = sqlite_conn.cursor()
 
-    cursor.execute(
-        "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
-        (chat_id, user_object.id, update.message.message_id),
-    )
-
-    if update.message.text:
+    try:
         cursor.execute(
-            """
-            SELECT fts FROM group_settings
-            WHERE chat_id = ?;
-            """,
-            (update.message.chat_id,),
+            "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
+            (chat_id, user_object.id, update.message.message_id),
         )
 
-        setting = cursor.fetchone()
+        if update.message.text:
+            cursor.execute(
+                """
+                SELECT fts FROM group_settings
+                WHERE chat_id = ?;
+                """,
+                (update.message.chat_id,),
+            )
 
-        if not setting or not setting["fts"]:
-            return
+            setting = cursor.fetchone()
 
-        cursor.execute(
-            "UPDATE chat_stats_fts SET message_text = ? WHERE rowid = ?",
-            (update.message.text, cursor.lastrowid),
-        )
+            if not setting or not setting["fts"]:
+                return
+
+            cursor.execute(
+                "UPDATE chat_stats_fts SET message_text = ? WHERE rowid = ?",
+                (update.message.text, cursor.lastrowid),
+            )
+    except sqlite3.IntegrityError:
+        pass
 
 
 async def stat_string_builder(
