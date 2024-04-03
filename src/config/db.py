@@ -44,6 +44,55 @@ cursor.execute(
     """
 )
 
+try:
+    cursor.execute(
+        """
+        ALTER TABLE chat_stats
+        ADD COLUMN message_id INTEGER;
+        """
+    )
+except sqlite3.OperationalError:
+    pass
+
+try:
+    cursor.execute(
+        """
+        ALTER TABLE chat_stats
+        ADD COLUMN message_text TEXT;
+        """
+    )
+except sqlite3.OperationalError:
+    pass
+
+try:
+    cursor.execute(
+        """
+        ALTER TABLE chat_stats
+        ADD COLUMN create_time DATETIME DEFAULT CURRENT_TIMESTAMP;
+        """
+    )
+except sqlite3.OperationalError:
+    pass
+
+cursor.execute(
+    """
+    CREATE VIRTUAL TABLE IF NOT EXISTS chat_stats_fts USING fts5(
+        message_text,
+        content='chat_stats',
+        content_rowid='id'
+    )
+    """
+)
+
+cursor.execute(
+    """
+    CREATE TRIGGER IF NOT EXISTS chat_stats_ai AFTER INSERT ON chat_stats BEGIN
+        INSERT INTO chat_stats_fts (rowid, message_text)
+        VALUES (new.id, new.message_text);
+    END
+    """
+)
+
 cursor.execute(
     """
     CREATE TABLE IF NOT EXISTS chat_mentions (

@@ -30,6 +30,7 @@ from management.botstats import (
 )
 from management.stats import get_chat_stats, get_last_seen, get_total_chat_stats
 from misc.highlight import highlight_button_handler, highlighter
+from .search import search
 from .animals import animal
 from .ask import ask, based, caption
 from .book import book
@@ -113,6 +114,7 @@ list_of_commands = [
     ping,
     randdit,
     remind,
+    search,
     set_object,
     spurdo,
     subscribe_reddit,
@@ -161,9 +163,10 @@ async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
         return
 
     if message.text:
-        if "good bot" in message.text.lower():
+        text = message.text.lower()
+        if "good bot" in text:
             await message.set_reaction(get_random_item_from_list(positive_emojis))
-        elif "bad bot" in message.text.lower():
+        elif "bad bot" in text:
             await message.set_reaction(get_random_item_from_list(negative_emojis))
 
 

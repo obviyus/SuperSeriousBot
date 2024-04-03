@@ -23,7 +23,7 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Set last seen time and message link in Redis
     redis.set(
-        f"seen:{user_object.username}",
+        f"seen:{user_object.username.lower()}",
         round(datetime.now().timestamp()),
     )
 
@@ -41,10 +41,22 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
     cursor = sqlite_conn.cursor()
-    cursor.execute(
-        "INSERT INTO chat_stats (chat_id, user_id) VALUES (?, ?)",
-        (chat_id, user_object.id),
-    )
+
+    if update.message.text:
+        cursor.execute(
+            "INSERT INTO chat_stats (chat_id, user_id, message_id, message_text) VALUES (?, ?, ?, ?)",
+            (
+                chat_id,
+                user_object.id,
+                update.message.message_id,
+                update.message.text.lower(),
+            ),
+        )
+    else:
+        cursor.execute(
+            "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
+            (chat_id, user_object.id, update.message.message_id),
+        )
 
 
 async def stat_string_builder(
