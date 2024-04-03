@@ -22,23 +22,24 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     user_object = update.message.from_user
 
     # Set last seen time and message link in Redis
-    redis.set(
-        f"seen:{user_object.username.lower()}",
-        round(datetime.now().timestamp()),
-    )
+    if user_object.username:
+        redis.set(
+            f"seen:{user_object.username.lower()}",
+            round(datetime.now().timestamp()),
+        )
 
-    if update.message.link:
-        redis.set(f"seen_message:{user_object.username}", update.message.link)
+        if update.message.link:
+            redis.set(f"seen_message:{user_object.username}", update.message.link)
 
-    # Update user_id vs. username in Redis
-    redis.set(
-        f"user_id:{user_object.id}", user_object.username or user_object.first_name
-    )
-    # Update username vs. user_id in Redis
-    redis.set(
-        f"username:{user_object.username.lower() if user_object.username else user_object.first_name}",
-        user_object.id,
-    )
+        # Update user_id vs. username in Redis
+        redis.set(
+            f"user_id:{user_object.id}", user_object.username or user_object.first_name
+        )
+        # Update username vs. user_id in Redis
+        redis.set(
+            f"username:{user_object.username.lower() if user_object.username else user_object.first_name}",
+            user_object.id,
+        )
 
     cursor = sqlite_conn.cursor()
 
