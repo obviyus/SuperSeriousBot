@@ -1,3 +1,10 @@
+## [1.73.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.73.0...v1.73.1) (2024-04-03)
+
+
+### Bug Fixes
+
+* **stats:** skip users without username ([da32a90](https://github.com/obviyus/SuperSeriousBot/commit/da32a90b8560e86f2d2a90ed8aedc3d84efc68e9))
+
 # [1.73.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.72.0...v1.73.0) (2024-04-03)
 
 
