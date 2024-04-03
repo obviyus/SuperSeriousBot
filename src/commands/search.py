@@ -31,34 +31,54 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    if not update.message.reply_to_message:
-        await update.message.reply_text("Please reply to a user to search.")
-        return
-
     if not context.args:
         await update.message.reply_text("Please provide a search query.")
         return
 
     query = " ".join(context.args)
+    if update.message.reply_to_message:
+        cursor.execute(
+            """
+            SELECT
+                cs.id,
+                cs.chat_id,
+                cs.message_id,
+                cs.create_time,
+                cs.user_id,
+                cs.message_text
+            FROM chat_stats cs
+            INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
+            WHERE chat_id = ? 
+            AND user_id = ?
+            AND csf.message_text MATCH ? 
+            LIMIT 1;
+            """,
+            (
+                update.message.chat_id,
+                update.message.reply_to_message.from_user.id,
+                query,
+            ),
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT
+                cs.id,
+                cs.chat_id,
+                cs.message_id,
+                cs.create_time,
+                cs.user_id,
+                cs.message_text
+            FROM chat_stats cs
+            INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
+            WHERE chat_id = ? 
+            AND csf.message_text MATCH ? 
+            LIMIT 1;
+            """,
+            (update.message.chat_id, query),
+        )
 
-    cursor.execute(
-        """
-        SELECT
-            cs.id,
-            cs.chat_id,
-            cs.message_id,
-            cs.create_time,
-            cs.user_id,
-            cs.message_text
-        FROM chat_stats cs
-        INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
-        WHERE chat_id = ? 
-        AND csf.message_text MATCH ?;
-        """,
-        (update.message.chat_id, query),
-    )
-
-    results = cursor.fetchall()
+    results = cursor.fetchone()
     if not results:
         await update.message.reply_text("No results found.")
         return
