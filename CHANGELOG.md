@@ -1,3 +1,10 @@
+# [1.76.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.75.1...v1.76.0) (2024-04-04)
+
+
+### Features
+
+* **import:** use ijson + aiosqlite to import large chats ([bf80790](https://github.com/obviyus/SuperSeriousBot/commit/bf807902a926004e2582142b9db8946e6a59908e))
+
 ## [1.75.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.75.0...v1.75.1) (2024-04-03)
 
 
