@@ -1,3 +1,10 @@
+## [1.76.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.1...v1.76.2) (2024-04-04)
+
+
+### Bug Fixes
+
+* **db:** use WAL mode for multiple writers ([db5f4ef](https://github.com/obviyus/SuperSeriousBot/commit/db5f4efa4d4ac610b90cfb8de3f379b67d25cfe3))
+
 ## [1.76.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.0...v1.76.1) (2024-04-04)
 
 
