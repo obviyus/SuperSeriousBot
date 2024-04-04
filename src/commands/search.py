@@ -1,11 +1,13 @@
-import json
+import logging
 import uuid
 
+import aiosqlite
 import dateparser
+import ijson
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from config.db import sqlite_conn
+from config.db import PRIMARY_DB_PATH, sqlite_conn
 from utils.decorators import description, example, triggers, usage
 
 
@@ -146,42 +148,54 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     filename = uuid.uuid4()
     await file.download_to_drive(f"{filename}.json")
 
-    with open(f"{filename}.json", "r") as file:
-        data = json.load(file)
+    db = await aiosqlite.connect(PRIMARY_DB_PATH)
 
-    chat_id = data["id"]
-    cursor = sqlite_conn.cursor()
-    for message in data["messages"]:
-        if message["type"] != "message" or not message["text"]:
-            continue
+    total_lines = 0
+    processed_lines = 0
 
-        text_parts = []
-        for part in message["text"]:
-            if isinstance(part, dict):
-                if part.get("type") == "bot_command":
-                    text_parts.append(part.get("text", ""))
-            else:
-                text_parts.append(part)
+    with open(f"{filename}.json", "rb") as file:
+        parser = ijson.parse(file)
+        prefix = "item.messages"
+        stream = ijson.items(parser, prefix)
 
-        text = "".join(text_parts)
+        for message in stream:
+            total_lines += 1
+            if message["type"] != "message" or not message["text"]:
+                continue
 
-        user_id = message["from_id"].replace("user", "")
-        create_time = dateparser.parse(message["date"])
+            text_parts = []
+            for part in message["text"]:
+                if isinstance(part, dict):
+                    if part.get("type") == "bot_command":
+                        text_parts.append(part.get("text", ""))
+                else:
+                    text_parts.append(part)
 
-        cursor.execute(
-            """
-            INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(chat_id, user_id, message_id) DO NOTHING;
-            """,
-            (
-                chat_id,
-                user_id,
-                message["id"],
-                create_time,
-                text,
-            ),
-        )
+            text = "".join(text_parts)
 
-    sqlite_conn.commit()
+            user_id = message["from_id"].replace("user", "")
+            create_time = dateparser.parse(message["date"])
+
+            cursor = await db.execute(
+                """
+                INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(chat_id, user_id, message_id) DO NOTHING;
+                """,
+                (
+                    update.message.chat_id,
+                    user_id,
+                    message["id"],
+                    create_time,
+                    text,
+                ),
+            )
+            await cursor.close()
+            processed_lines += 1
+            if processed_lines % 1000 == 0:
+                logging.info(f"Processed {processed_lines} out of {total_lines} lines.")
+
+    await db.close()
+    logging.info("Processing completed.")
+
     await update.message.reply_text("Chat stats imported.")
