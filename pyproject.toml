@@ -33,6 +33,7 @@ simpleaichat = "^0.2.2"
 cinemagoer = { git = "https://github.com/cinemagoer/cinemagoer" }
 async-lru = "^2.0.4"
 aiosqlite = "0.17.0"
+ijson = "^3.2.3"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
