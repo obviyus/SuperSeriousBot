@@ -149,6 +149,7 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await file.download_to_drive(f"{filename}.json")
 
     db = await aiosqlite.connect(PRIMARY_DB_PATH)
+    await db.execute("PRAGMA journal_mode=WAL;")
 
     processed_lines = 0
     with open(f"{filename}.json", "rb") as file:

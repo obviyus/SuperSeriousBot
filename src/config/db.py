@@ -22,6 +22,9 @@ sqlite_conn_law_database = sqlite3.connect(
 sqlite_conn.row_factory = sqlite3.Row
 sqlite_conn_law_database.row_factory = sqlite3.Row
 
+sqlite_conn.execute("PRAGMA journal_mode=WAL;")
+sqlite_conn.execute("PRAGMA mmap_size=268435456;")
+
 redis = redis.StrictRedis(
     host=f"{os.environ.get('REDIS_HOST', '127.0.0.1')}",
     port=int(os.environ.get("REDIS_PORT", 6379)),
