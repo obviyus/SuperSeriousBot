@@ -1,3 +1,10 @@
+## [1.76.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.0...v1.76.1) (2024-04-04)
+
+
+### Bug Fixes
+
+* **import:** fix ijson importing ([7a62b62](https://github.com/obviyus/SuperSeriousBot/commit/7a62b62ffc1ed424f327881ed259aafa7951348f))
+
 # [1.76.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.75.1...v1.76.0) (2024-04-04)
 
 
