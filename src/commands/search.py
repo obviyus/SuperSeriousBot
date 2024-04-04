@@ -150,16 +150,11 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     db = await aiosqlite.connect(PRIMARY_DB_PATH)
 
-    total_lines = 0
     processed_lines = 0
-
     with open(f"{filename}.json", "rb") as file:
-        parser = ijson.parse(file)
-        prefix = "item.messages"
-        stream = ijson.items(parser, prefix)
+        messages = ijson.items(file, "messages.item")
 
-        for message in stream:
-            total_lines += 1
+        for message in messages:
             if message["type"] != "message" or not message["text"]:
                 continue
 
@@ -193,7 +188,7 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             await cursor.close()
             processed_lines += 1
             if processed_lines % 1000 == 0:
-                logging.info(f"Processed {processed_lines} out of {total_lines} lines.")
+                logging.info(f"Processed {processed_lines} lines.")
 
     await db.close()
     logging.info("Processing completed.")
