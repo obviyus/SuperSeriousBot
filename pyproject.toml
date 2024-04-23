@@ -10,23 +10,23 @@ python = ">=3.10,<4.0"
 Cerberus = "^1.3.5"
 redis = "^5.0.3"
 redvid = "^2.0.4"
-python-telegram-bot = { version = "^21.0.1", extras = [
+python-telegram-bot = { version = "^21.1.1", extras = [
     "rate-limiter",
     "job-queue",
     "webhooks",
 ] }
-yt-dlp = "^2024.3.10"
+yt-dlp = "^2024.4.9"
 asyncpraw = "^7.7.1"
 dateparser = "^1.2.0"
 coloredlogs = "^15.0.1"
 howlongtobeatpy = "^1.0.5"
 spurdify = "^0.3.0"
 translatepy = "^2.3"
-uwuify = "^1.3.0"
+uwuify = "^1.3.1"
 geopy = "^2.4.1"
 pyvis = "^0.3.2"
-networkx = "^3.2.1"
-openai = "^1.16.1"
+networkx = "^3.3"
+openai = "^1.23.2"
 rotten-tomatoes-client = "^0.0.3"
 beautifulsoup4 = "^4.12.3"
 simpleaichat = "^0.2.2"
