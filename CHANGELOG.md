@@ -1,3 +1,11 @@
+## [1.76.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.2...v1.76.3) (2024-04-23)
+
+
+### Bug Fixes
+
+* **c:** handle different YT URLs ([83ed55a](https://github.com/obviyus/SuperSeriousBot/commit/83ed55ae9884bf6b73a5b34112095826bfe753fa))
+* **search:** exclude commands from search ([05b2624](https://github.com/obviyus/SuperSeriousBot/commit/05b2624b05d688973a52ea08ece9da81b1c348a0))
+
 ## [1.76.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.1...v1.76.2) (2024-04-04)
 
 
