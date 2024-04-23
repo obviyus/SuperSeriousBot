@@ -1,5 +1,6 @@
 import html
-from urllib.parse import parse_qs, urlparse
+import re
+from urllib.parse import urlparse
 
 import asyncpraw
 import requests
@@ -45,15 +46,18 @@ async def get_top_comment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     hostname = url.hostname.replace("www.", "")
 
     match hostname:
-        case ("reddit.com" | "redd.it" | "v.redd.it" | "old.reddit.com"):
+        case "reddit.com" | "redd.it" | "v.redd.it" | "old.reddit.com":
             url = url.geturl().replace("old.", "")
             submission = await reddit.submission(url=url, fetch=False)
-        case ("youtube.com" | "youtu.be"):
-            if "youtu.be" in url.hostname:
-                url = urlparse(
-                    url.geturl().replace("youtu.be/", "www.youtube.com/watch?v=")
-                )
-            video_id = parse_qs(url.query)["v"][0]
+        case "youtube.com" | "youtu.be":
+            pattern = r"(?:v=|\/shorts\/|\/watch\?v=|youtu\.be\/|\/v\/|\/e\/|watch\?v%3D|watch\?feature=player_embedded&v=|%2Fvideos%2F|embed%2F|\/v\/|youtu\.be\/|\/embed\/|\/watch\?v=)([^#\&\?]*)"
+            match = re.search(pattern, url.geturl())
+
+            if not match:
+                await update.message.reply_text("No comments found.")
+                return
+
+            video_id = match.group(1)
 
             try:
                 submission = await subreddit.search(
