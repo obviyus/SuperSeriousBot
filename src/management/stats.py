@@ -1,5 +1,5 @@
-from datetime import datetime
 import sqlite3
+from datetime import datetime
 
 from telegram import Message, Update
 from telegram.constants import ParseMode
@@ -58,16 +58,14 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 """,
                 (update.message.chat_id,),
             )
+            result = cursor.fetchone()
 
-            setting = cursor.fetchone()
-
-            if not setting or not setting["fts"]:
-                return
-
-            cursor.execute(
-                "UPDATE chat_stats_fts SET message_text = ? WHERE rowid = ?",
-                (update.message.text, cursor.lastrowid),
-            )
+            is_enabled = result["fts"] if result else False
+            if is_enabled:
+                cursor.execute(
+                    "UPDATE chat_stats SET message_text = ? WHERE rowid = ?",
+                    (update.message.text, cursor.lastrowid),
+                )
     except sqlite3.IntegrityError:
         pass
 

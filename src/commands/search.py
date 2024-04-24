@@ -56,7 +56,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
             WHERE chat_id = ? 
             AND user_id = ?
-            AND csf.message_text MATCH ? 
+            AND csf.message_text MATCH ? AND csf.message_text NOT MATCH '"/^"'
             ORDER BY RANDOM()
             LIMIT 1;
             """,
@@ -79,8 +79,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             FROM chat_stats cs
             INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
             WHERE chat_id = ? 
-            AND csf.message_text MATCH ?
-            AND cs.message_text NOT LIKE '/%'
+            AND csf.message_text MATCH ? AND csf.message_text NOT MATCH '"/^"'
             ORDER BY RANDOM()
             LIMIT 1;
             """,
