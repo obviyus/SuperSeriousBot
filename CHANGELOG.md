@@ -1,3 +1,10 @@
+## [1.76.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.3...v1.76.4) (2024-04-24)
+
+
+### Bug Fixes
+
+* **search:** improve filter logic for commands ([b1f01ad](https://github.com/obviyus/SuperSeriousBot/commit/b1f01adc1571cb49479d558890f38b4df3b1b06e))
+
 ## [1.76.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.2...v1.76.3) (2024-04-23)
 
 
