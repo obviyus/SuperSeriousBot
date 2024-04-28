@@ -126,7 +126,7 @@ async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
         SELECT id, title, target_time, user_id, chat_id
         FROM reminders 
         WHERE target_time > STRFTIME('%s', 'now') 
-        AND target_time <= STRFTIME('%s', 'now', '+5 minutes');
+        AND target_time <= STRFTIME('%s', 'now', '+1 minutes');
         """,
     )
 
