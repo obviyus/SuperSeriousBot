@@ -2,6 +2,7 @@ import os
 import sqlite3
 
 import redis
+from telegram.ext import ContextTypes
 
 DATABASE_PATH_PREFIX = os.environ.get("DATABASE_PATH_PREFIX", os.getcwd())
 PRIMARY_DB_PATH = f"{DATABASE_PATH_PREFIX}/SuperSeriousBot.db"
@@ -412,3 +413,11 @@ cursor.execute(
 cursor.execute(
     "CREATE INDEX IF NOT EXISTS highlight_words_word_index ON highlights (string);"
 )
+
+
+async def rebuild_fts5(_: ContextTypes.DEFAULT_TYPE):
+    """
+    Rebuild the FTS5 table.
+    """
+    c = sqlite_conn.cursor()
+    c.execute("INSERT INTO chat_stats_fts(chat_stats_fts) VALUES('rebuild');")

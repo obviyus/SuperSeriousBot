@@ -30,7 +30,7 @@ from commands.sed import sed
 from commands.subscribe import worker_reddit_subscriptions
 from commands.tv import handle_chosen_movie, inline_show_search
 from commands.youtube import worker_youtube_subscriptions
-from config.db import redis
+from config.db import rebuild_fts5, redis
 from config.logger import logger
 from config.options import config
 from misc.highlight import highlight_worker
@@ -169,6 +169,7 @@ def main():
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
     job_queue.run_repeating(worker_youtube_subscriptions, interval=300, first=10)
     job_queue.run_repeating(worker_reminder, interval=60, first=10)
+    job_queue.run_repeating(rebuild_fts5, interval=3600, first=10)
 
     # Deliver Reddit subscriptions
     job_queue.run_daily(
