@@ -1,3 +1,14 @@
+## [1.76.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.4...v1.76.5) (2024-04-28)
+
+
+### Bug Fixes
+
+* **remind:** check for reminders due within a minute ([5334b75](https://github.com/obviyus/SuperSeriousBot/commit/5334b75fb30ac72c31fbc3e359e1ea4838fec78f))
+* **search:** allow in private chats ([d6e45b4](https://github.com/obviyus/SuperSeriousBot/commit/d6e45b47f0af0283f1ff20e8a3839d053debdb48))
+* **search:** rebuild fts5 every hour ([6ee9ae8](https://github.com/obviyus/SuperSeriousBot/commit/6ee9ae8fac4878d988cebc05dd5a76d8d044a5ce))
+* **stats:** fix stat builder ([30292a5](https://github.com/obviyus/SuperSeriousBot/commit/30292a5d90242a77b625fbaea2bffedf5d9106ba))
+* **stats:** handle lowercased usernames ([3b30a2a](https://github.com/obviyus/SuperSeriousBot/commit/3b30a2a90739651d54170db479f3bb162000437f))
+
 ## [1.76.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.3...v1.76.4) (2024-04-24)
 
 
