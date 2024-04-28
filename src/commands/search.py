@@ -5,6 +5,7 @@ import aiosqlite
 import dateparser
 import ijson
 from telegram import Update
+from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 from config.db import PRIMARY_DB_PATH, sqlite_conn
@@ -41,51 +42,38 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Please provide a search query.")
         return
 
-    query = " ".join(context.args)
+    query = " ".join(context.args)  # Your input text to match
     if update.message.reply_to_message:
-        cursor.execute(
-            """
-            SELECT
-                cs.id,
-                cs.chat_id,
-                cs.message_id,
-                cs.create_time,
-                cs.user_id,
-                cs.message_text
+        sql = """
+        SELECT cs.id, cs.chat_id, cs.message_id, cs.create_time, cs.user_id, cs.message_text
             FROM chat_stats cs
             INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
-            WHERE chat_id = ? 
-            AND user_id = ?
-            AND csf.message_text MATCH ? AND csf.message_text NOT MATCH '"/^"'
-            ORDER BY RANDOM()
-            LIMIT 1;
-            """,
-            (
-                update.message.chat_id,
-                update.message.reply_to_message.from_user.id,
-                query,
-            ),
+        WHERE cs.chat_id = ?
+            AND cs.user_id = ?
+            AND csf.message_text MATCH ?
+            AND cs.message_text NOT LIKE '/%'
+        ORDER BY RANDOM()
+        LIMIT 1;
+        """
+        params = (
+            update.message.chat_id,
+            update.message.reply_to_message.from_user.id,
+            query,
         )
     else:
-        cursor.execute(
-            """
-            SELECT
-                cs.id,
-                cs.chat_id,
-                cs.message_id,
-                cs.create_time,
-                cs.user_id,
-                cs.message_text
+        sql = """
+        SELECT cs.id, cs.chat_id, cs.message_id, cs.create_time, cs.user_id, cs.message_text
             FROM chat_stats cs
             INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
-            WHERE chat_id = ? 
-            AND csf.message_text MATCH ? AND csf.message_text NOT MATCH '"/^"'
-            ORDER BY RANDOM()
-            LIMIT 1;
-            """,
-            (update.message.chat_id, query),
-        )
+        WHERE cs.chat_id = ?
+            AND csf.message_text MATCH ?
+            AND cs.message_text NOT LIKE '/%'
+        ORDER BY RANDOM()
+        LIMIT 1;
+        """
+        params = (update.message.chat_id, query)
 
+    cursor.execute(sql, params)
     results = cursor.fetchone()
     if not results:
         await update.message.reply_text("No results found.")
@@ -107,10 +95,11 @@ async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     Enable full text search in the current chat.
     """
     # Check if user is a moderator
-    chat_admins = await context.bot.get_chat_administrators(update.message.chat_id)
-    if not update.message.from_user.id in [admin.user.id for admin in chat_admins]:
-        await update.message.reply_text("You are not a moderator.")
-        return
+    if update.message.chat.type != ChatType.PRIVATE:
+        chat_admins = await context.bot.get_chat_administrators(update.message.chat_id)
+        if not update.message.from_user.id in [admin.user.id for admin in chat_admins]:
+            await update.message.reply_text("You are not a moderator.")
+            return
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
