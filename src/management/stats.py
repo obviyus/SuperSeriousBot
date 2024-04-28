@@ -78,7 +78,7 @@ async def stat_string_builder(
         return
 
     text = f"Stats for <b>{message.chat.title}:</b>\n\n"
-    for _, _, timestamp, user_id, count in rows:
+    for timestamp, user_id, count in rows:
         percent = round(count / total_count * 100, 2)
         text += f"""<code>{percent:4.1f}% - {await utils.string.get_first_name(user_id, context)}</code>\n"""
 
@@ -143,7 +143,7 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     cursor = sqlite_conn.cursor()
     cursor.execute(
-        """SELECT *, COUNT(user_id) AS user_count
+        """SELECT create_time,user_id, COUNT(user_id) AS user_count
         FROM chat_stats 
         WHERE chat_id = ? AND 
         create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')
@@ -181,7 +181,7 @@ async def get_total_chat_stats(
     cursor = sqlite_conn.cursor()
     cursor.execute(
         """
-        SELECT *, COUNT(user_id) AS user_count
+        SELECT create_time, user_id, COUNT(user_id) AS user_count
         FROM chat_stats
         WHERE chat_id = ?
         GROUP BY user_id
