@@ -4,6 +4,7 @@ from datetime import datetime
 from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
+from telegram.helpers import mention_html
 
 import commands
 import utils.string
@@ -19,31 +20,27 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message:
         return
 
-    chat_id = update.message.chat.id
     user_object = update.message.from_user
-
-    # Set last seen time and message link in Redis
     if user_object.username:
-        redis.set(
-            f"seen:{user_object.username.lower()}",
-            round(datetime.now().timestamp()),
-        )
+        username_lower = user_object.username.lower()
+
+        # Store last seen time and message link in Redis
+        redis.set(f"seen:{username_lower}", round(datetime.now().timestamp()))
 
         if update.message.link:
-            redis.set(f"seen_message:{user_object.username}", update.message.link)
+            redis.set(f"seen_message:{username_lower}", update.message.link)
 
-        # Update user_id vs. username in Redis
-        redis.set(
-            f"user_id:{user_object.id}", user_object.username or user_object.first_name
-        )
-        # Update username vs. user_id in Redis
-        redis.set(
-            f"username:{user_object.username.lower() if user_object.username else user_object.first_name}",
-            user_object.id,
-        )
+        # Store the original casing of the username
+        redis.set(f"username_case:{username_lower}", user_object.username)
+
+        # Map user ID to the correctly cased username
+        redis.set(f"user_id:{user_object.id}", user_object.username)
+
+        # Map the lowercase username to the user ID
+        redis.set(f"username:{username_lower}", user_object.id)
 
     cursor = sqlite_conn.cursor()
-
+    chat_id = update.message.chat_id
     try:
         cursor.execute(
             "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
@@ -101,30 +98,36 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await commands.usage_string(update.message, get_last_seen)
         return
 
-    username = context.args[0].split("@")
-    if len(username) <= 1:
+    username_input = context.args[0].split("@")
+    if len(username_input) <= 1:
         await commands.usage_string(update.message, get_last_seen)
         return
 
-    username = username[1]
+    username_lower = username_input[1].lower()
 
-    # Get last seen time in Redis
-    last_seen = redis.get(f"seen:{username}")
+    last_seen = redis.get(f"seen:{username_lower}")
+    message_link = redis.get(f"seen_message:{username_lower}")
+
+    username_display = redis.get(f"username_case:{username_lower}")
+    if not username_display:
+        username_display = f"@{username_input[1]}"
+
     if not last_seen:
-        await update.message.reply_text(f"@{username} has never been seen.")
+        not_seen_text = f"{username_display} has never been seen."
+        await update.message.reply_text(not_seen_text)
         return
-
-    message_link = redis.get(f"seen_message:{username}")
-    html_message = f"\n\n🔗 <a href='{message_link}'>Link</a>" if message_link else ""
 
     try:
         last_seen = int(last_seen)
     except ValueError:
         last_seen = datetime.fromisoformat(last_seen).timestamp()
 
+    # Create a link to the message if available
+    html_message = f"\n\n🔗 <a href='{message_link}'>Link</a>" if message_link else ""
+
+    user_mention_string = mention_html(username_display, username_display)
     await update.message.reply_text(
-        f"<a href='https://t.me/{username}'>@{username}</a>'s last message was {await readable_time(last_seen)} ago."
-        f"{html_message}",
+        f"Last message from {user_mention_string} was {await readable_time(last_seen)} ago.{html_message}",
         disable_web_page_preview=True,
         disable_notification=True,
         parse_mode=ParseMode.HTML,
