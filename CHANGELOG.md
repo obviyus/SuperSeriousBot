@@ -1,3 +1,10 @@
+# [1.77.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.5...v1.77.0) (2024-05-03)
+
+
+### Features
+
+* **ask:** remove /based and use litellm ([630961d](https://github.com/obviyus/SuperSeriousBot/commit/630961dd38723de34330b7bed926fb5cf5961df5))
+
 ## [1.76.5](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.4...v1.76.5) (2024-04-28)
 
 
