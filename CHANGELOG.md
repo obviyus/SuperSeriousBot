@@ -1,3 +1,10 @@
+## [1.77.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.77.0...v1.77.1) (2024-05-08)
+
+
+### Bug Fixes
+
+* **ask:** remove mini prompt ([9783d52](https://github.com/obviyus/SuperSeriousBot/commit/9783d5205c9e07fd3f2e8887580bbb06d93fc12f))
+
 # [1.77.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.76.5...v1.77.0) (2024-05-03)
 
 
