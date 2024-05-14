@@ -5,6 +5,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from translatepy import Translator
 from translatepy.exceptions import NoResult, UnknownLanguage
+from deep_translator import GoogleTranslator
 
 import commands
 from utils.decorators import description, example, triggers, usage
@@ -143,20 +144,10 @@ async def text_grabber(
 async def translate_and_reply(
     message: Message, text: str, target_language: str
 ) -> None:
-    try:
-        translated = translator.translate(text, target_language).result
-        await message.reply_text(
-            translated,
-        )
-    except NoResult:
-        await message.reply_text("No service returned a valid result.")
-    except UnknownLanguage as e:
-        await message.reply_text(
-            f"Couldn't recognize the given language: <b>{target_language}</b>."
-            f"\n\nDid you mean: {e.guessed_language[:2]} ({e.guessed_language})? "
-            f"\n<b>Similarity: {e.similarity:.2f}%</b>",
-            parse_mode=ParseMode.HTML,
-        )
+    translated = GoogleTranslator(source="auto", target=target_language).translate(text)
+    await message.reply_text(
+        translated,
+    )
 
 
 @triggers(["tl"])
