@@ -1,3 +1,10 @@
+# [1.78.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.77.1...v1.78.0) (2024-05-14)
+
+
+### Features
+
+* **tl:** update translation package ([5b05719](https://github.com/obviyus/SuperSeriousBot/commit/5b05719e5d88c69e93a025dcba738b9c47c4ddce))
+
 ## [1.77.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.77.0...v1.77.1) (2024-05-08)
 
 
