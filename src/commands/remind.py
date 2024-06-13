@@ -95,9 +95,20 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     title = title.strip()
     target_time = target_time.strip()
 
-    target_time = dateparser.parse(target_time)
-    if target_time < datetime.datetime.now():
-        await update.message.reply_text(text="Reminder time cannot be in the past.")
+    target_time = dateparser.parse(
+        target_time, settings={"RETURN_AS_TIMEZONE_AWARE": True}
+    )
+
+    if target_time is None:
+        await update.message.reply_text(
+            "Invalid date/time format. Please provide a valid date and time."
+        )
+        return
+
+    if target_time < datetime.datetime.now(target_time.tzinfo):
+        await update.message.reply_text(
+            "The specified time is in the past. Please provide a future date and time."
+        )
         return
 
     cursor.execute(
@@ -114,7 +125,7 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
     await update.message.reply_text(
-        text=f'I will remind you about <code>{title}</code> on {target_time.strftime("%B %d, %Y at %I:%M%p")}',
+        text=f'I will remind you about <code>{title}</code> on {target_time.strftime("%B %d, %Y at %I:%M%p %Z")}',
         parse_mode=ParseMode.HTML,
     )
 
