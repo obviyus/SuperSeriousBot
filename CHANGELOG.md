@@ -1,3 +1,11 @@
+## [1.78.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.78.0...v1.78.1) (2024-06-13)
+
+
+### Bug Fixes
+
+* **remind:** handle timezones in reminders ([f0ec045](https://github.com/obviyus/SuperSeriousBot/commit/f0ec045faa8c3367e5793edc2bf483373bf67f26))
+* **translate:** improve text grabber logic ([ac6d12a](https://github.com/obviyus/SuperSeriousBot/commit/ac6d12acf9c8a5308d4c45e732f428f2969df13c))
+
 # [1.78.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.77.1...v1.78.0) (2024-05-14)
 
 
