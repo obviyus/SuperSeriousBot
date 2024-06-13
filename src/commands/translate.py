@@ -1,11 +1,11 @@
 from typing import Tuple
 
+from deep_translator import GoogleTranslator
 from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from translatepy import Translator
 from translatepy.exceptions import NoResult, UnknownLanguage
-from deep_translator import GoogleTranslator
 
 import commands
 from utils.decorators import description, example, triggers, usage
@@ -124,19 +124,27 @@ async def text_grabber(
     message: Message, context: ContextTypes.DEFAULT_TYPE
 ) -> Tuple[str, str] | None:
     text = None
-    if not context.args and not message.reply_to_message:
-        return
+    target_language = "en"
 
     if message.reply_to_message:
         text = message.reply_to_message.text or message.reply_to_message.caption
+        if context.args:
+            target_language = (
+                context.args[0] if context.args[0] in supported_languages else "en"
+            )
+    else:
+        if context.args:
+            if "-" in context.args:
+                separator_index = context.args.index("-")
+                target_language = (
+                    context.args[0] if context.args[0] in supported_languages else "en"
+                )
+                text = " ".join(context.args[separator_index + 1 :])
+            else:
+                text = " ".join(context.args)
 
-    target_language = "en"
-    if len(context.args) > 0 and context.args[0] in supported_languages:
-        target_language = context.args[0]
-
-    if len(context.args) > 1 and context.args[1:2] == ["-"]:
-        target_language = context.args[0]
-        text = " ".join(context.args[2:])
+    if not text:
+        return None
 
     return text, target_language
 
