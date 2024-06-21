@@ -1,3 +1,14 @@
+# [1.80.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.79.0...v1.80.0) (2024-06-21)
+
+
+### Features
+
+* **aiohttp:** move from httpx to aiohttp ([35beb03](https://github.com/obviyus/SuperSeriousBot/commit/35beb0304283028cce2c2a23ecc2af38823fa1d5))
+* **aiohttp:** use aiohttp over httpx ([41033a5](https://github.com/obviyus/SuperSeriousBot/commit/41033a5e8d3b8f49e736313352c856455a954a54))
+* **calc:** use aiohttp over httpx ([ce7806f](https://github.com/obviyus/SuperSeriousBot/commit/ce7806f53b24e159894866cfdc29ae510061dc2b))
+* **gif:** use aiohttp ([de976fd](https://github.com/obviyus/SuperSeriousBot/commit/de976fd704292f78289b4e2b28d7a84d2b480f06))
+* **ud:** support wotd + aiohttp ([ff9e736](https://github.com/obviyus/SuperSeriousBot/commit/ff9e73646def3a4336f228857ae5b4ba3e105f73))
+
 # [1.79.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.78.1...v1.79.0) (2024-06-21)
 
 
