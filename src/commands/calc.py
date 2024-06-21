@@ -1,4 +1,4 @@
-import httpx
+import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -21,15 +21,20 @@ async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     query: str = " ".join(context.args)
+    result = await fetch_wolfram_result(query)
+    await update.message.reply_text(result)
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            WOLFRAM_SHORT_QUERY,
-            params={"i": query, "appid": config["API"]["WOLFRAM_APP_ID"]},
-        )
 
-    if response.status_code != 200:
-        await update.message.reply_text("Error: " + response.text)
-        return
-    else:
-        await update.message.reply_text(response.text)
+async def fetch_wolfram_result(query: str) -> str:
+    """Fetch result from WolframAlpha API"""
+    params = {"i": query, "appid": config["API"]["WOLFRAM_APP_ID"]}
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(WOLFRAM_SHORT_QUERY, params=params) as response:
+                if response.status == 200:
+                    return await response.text()
+                else:
+                    return f"Error: HTTP {response.status}. {await response.text()}"
+        except aiohttp.ClientError as e:
+            return f"Error: Unable to connect to WolframAlpha API. {str(e)}"
