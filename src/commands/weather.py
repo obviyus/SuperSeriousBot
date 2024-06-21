@@ -1,8 +1,9 @@
 import asyncio
 import time
+from typing import Dict, Tuple
 
+import aiohttp
 import dateparser
-import httpx
 from geopy import Nominatim
 from telegram import Update
 from telegram.constants import ParseMode
@@ -19,96 +20,89 @@ AQI_ENDPOINT = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
 
 class Point:
-    def __init__(self, name, latitude=None, longitude=None, address=None):
+    def __init__(
+        self,
+        name: str,
+        latitude: float = None,
+        longitude: float = None,
+        address: str = None,
+    ):
+        self.found = False
         if latitude and longitude and address:
             self.latitude = latitude
             self.longitude = longitude
             self.address = address
-            self.found = False
-        else:
-            location = geolocator.geocode(name, exactly_one=True)
-            if not location:
-                self.found = False
-                return
-
             self.found = True
-            self.latitude = location.latitude
-            self.longitude = location.longitude
+        elif name:
+            location = geolocator.geocode(name, exactly_one=True)
+            if location:
+                self.found = True
+                self.latitude = location.latitude
+                self.longitude = location.longitude
+                self.address = self._format_address(location.address)
 
-            try:
-                parts = location.address.split(",")
-                self.address = f"{parts[0].strip()}, {parts[-3].strip()}\n{parts[-1].strip()}, {parts[-2].strip()}"
-            except IndexError:
-                self.address = f"{location.address}"
+    @staticmethod
+    def _format_address(address: str) -> str:
+        parts = address.split(",")
+        try:
+            return f"{parts[0].strip()}, {parts[-3].strip()}\n{parts[-1].strip()}, {parts[-2].strip()}"
+        except IndexError:
+            return address
 
-    async def get_weather(self):
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                WEATHER_ENDPOINT,
-                params={
-                    "latitude": self.latitude,
-                    "longitude": self.longitude,
-                    "hourly": "temperature_2m,apparent_temperature,windspeed_10m,relativehumidity_1000hPa",
-                },
-                headers={
-                    "Accept": "application/json",
-                    "Accept-Language": "en-US",
-                    "User-Agent": "SuperSeriousBot",
-                },
-            )
+    async def get_data(self, session: aiohttp.ClientSession) -> Tuple[Dict, str]:
+        weather_data, aqi = await asyncio.gather(
+            self._fetch_weather(session), self._fetch_aqi(session)
+        )
+        return weather_data, aqi
 
-        # Find index in the time series that is closest to BEFORE the current time
-        current_time, current_time_index = time.time(), 0
-        parsed_response = response.json()
+    async def _fetch_weather(self, session: aiohttp.ClientSession) -> Dict:
+        async with session.get(
+            WEATHER_ENDPOINT,
+            params={
+                "latitude": self.latitude,
+                "longitude": self.longitude,
+                "hourly": "temperature_2m,apparent_temperature,windspeed_10m,relativehumidity_1000hPa",
+            },
+        ) as response:
+            data = await response.json()
+            return self._process_weather_data(data)
 
-        for index, data in enumerate(parsed_response["hourly"]["time"]):
-            parsed_time = dateparser.parse(data)
-            if parsed_time.timestamp() > current_time:
-                current_time_index = index - 1 if index > 0 else 0
-                break
+    async def _fetch_aqi(self, session: aiohttp.ClientSession) -> str:
+        async with session.get(
+            AQI_ENDPOINT,
+            params={
+                "latitude": self.latitude,
+                "longitude": self.longitude,
+                "hourly": "pm2_5",
+            },
+        ) as response:
+            data = await response.json()
+            return self._process_aqi_data(data)
 
+    @staticmethod
+    def _process_weather_data(data: Dict) -> Dict:
+        current_index = Point._get_current_time_index(data["hourly"]["time"])
         return {
-            "temperature": f"""{parsed_response["hourly"]["temperature_2m"][
-                current_time_index
-            ]} {parsed_response["hourly_units"]["temperature_2m"]}""",
-            "apparent_temperature": f"""{parsed_response["hourly"]["apparent_temperature"][
-                current_time_index
-            ]} {parsed_response["hourly_units"]["apparent_temperature"]}""",
-            "windspeed": f"""{parsed_response["hourly"]["windspeed_10m"][
-                current_time_index
-            ]} {parsed_response["hourly_units"]["windspeed_10m"]}""",
-            "relative_humidity": f"""{parsed_response["hourly"]["relativehumidity_1000hPa"][
-                current_time_index
-            ]} {parsed_response["hourly_units"]["relativehumidity_1000hPa"]}""",
+            "temperature": f"{data['hourly']['temperature_2m'][current_index]} {data['hourly_units']['temperature_2m']}",
+            "apparent_temperature": f"{data['hourly']['apparent_temperature'][current_index]} {data['hourly_units']['apparent_temperature']}",
+            "windspeed": f"{data['hourly']['windspeed_10m'][current_index]} {data['hourly_units']['windspeed_10m']}",
+            "relative_humidity": f"{data['hourly']['relativehumidity_1000hPa'][current_index]} {data['hourly_units']['relativehumidity_1000hPa']}",
         }
 
-    async def get_pm25(self):
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                AQI_ENDPOINT,
-                params={
-                    "latitude": self.latitude,
-                    "longitude": self.longitude,
-                    "hourly": "pm2_5",
-                },
-                headers={
-                    "Accept": "application/json",
-                    "Accept-Language": "en-US",
-                    "User-Agent": "SuperSeriousBot",
-                },
-            )
+    @staticmethod
+    def _process_aqi_data(data: Dict) -> str:
+        current_index = Point._get_current_time_index(data["hourly"]["time"])
+        return (
+            f"{data['hourly']['pm2_5'][current_index]} {data['hourly_units']['pm2_5']}"
+        )
 
-            # Find index in the time series that is closest to BEFORE the current time
-            current_time, current_time_index = time.time(), 0
-            parsed_response = response.json()
-
-            for index, data in enumerate(parsed_response["hourly"]["time"]):
-                parsed_time = dateparser.parse(data)
-                if parsed_time.timestamp() > current_time:
-                    current_time_index = index - 1 if index > 0 else 0
-                    break
-
-            return f"""{parsed_response["hourly"]["pm2_5"][current_time_index]} {parsed_response["hourly_units"]["pm2_5"]}"""
+    @staticmethod
+    def _get_current_time_index(time_series: list) -> int:
+        current_time = time.time()
+        for index, data in enumerate(time_series):
+            if dateparser.parse(data).timestamp() > current_time:
+                return index - 1 if index > 0 else 0
+        return len(time_series) - 1
 
 
 @usage("/w")
@@ -116,45 +110,50 @@ class Point:
 @triggers(["weather", "w"])
 @description("Get the weather for a location. Saves your last location.")
 async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Get the weather for a given location.
-    """
     if not context.args and not redis.exists(f"weather:{update.message.from_user.id}"):
         await commands.usage_string(update.message, weather)
         return
 
-    if context.args:
-        point = Point(" ".join(context.args))
-        if not point.found:
-            await update.message.reply_text("Could not find location.")
-            return
+    point = get_point(update.message.from_user.id, context.args)
+    if not point.found:
+        await update.message.reply_text("Could not find location.")
+        return
 
-        point_data = {
-            "latitude": point.latitude,
-            "longitude": point.longitude,
-            "address": point.address,
-        }
-        redis.hmset(
-            f"weather:{update.message.from_user.id}",
-            point_data,
-        )
+    async with aiohttp.ClientSession() as session:
+        weather_data, aqi = await point.get_data(session)
+
+    text = format_weather_message(point.address, weather_data, aqi)
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+
+def get_point(user_id: int, args: list) -> Point:
+    if args:
+        point = Point(" ".join(args))
+        if point.found:
+            redis.hmset(
+                f"weather:{user_id}",
+                {
+                    "latitude": point.latitude,
+                    "longitude": point.longitude,
+                    "address": point.address,
+                },
+            )
     else:
-        cached_point = redis.hgetall(f"weather:{update.message.from_user.id}")
+        cached_point = redis.hgetall(f"weather:{user_id}")
         point = Point(
             "",
             float(cached_point["latitude"]),
             float(cached_point["longitude"]),
             cached_point["address"],
         )
+    return point
 
-    # Await both together
-    weather_data, aqi = await asyncio.gather(point.get_weather(), point.get_pm25())
 
-    text = f"<b>{point.address}</b>\n\n"
-    text += f"""🌡️ <b>Temperature:</b> {weather_data["temperature"]}\n"""
-    text += f"""☁️️ <b>Feels like:</b> {weather_data["apparent_temperature"]}\n"""
-    text += f"""💦 <b>Humidity:</b> {weather_data["relative_humidity"]}\n"""
-    text += f"""💨 <b>Wind:</b> {weather_data["windspeed"]}\n"""
-    text += f"""🛰 <b>AQI:</b> {aqi}\n\n"""
+def format_weather_message(address: str, weather_data: Dict, aqi: str) -> str:
+    return f"""<b>{address}</b>
 
-    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+🌡️ <b>Temperature:</b> {weather_data["temperature"]}
+☁️️ <b>Feels like:</b> {weather_data["apparent_temperature"]}
+💦 <b>Humidity:</b> {weather_data["relative_humidity"]}
+💨 <b>Wind:</b> {weather_data["windspeed"]}
+🛰 <b>AQI:</b> {aqi}"""
