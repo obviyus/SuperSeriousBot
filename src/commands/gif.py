@@ -1,30 +1,49 @@
-from typing import Dict
-
-import httpx
+import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 
+GIPHY_API_URL = "https://api.giphy.com/v1/gifs/random"
+
 
 @usage("/gif")
 @example("/gif")
 @triggers(["gif"])
 @api_key("GIPHY_API_KEY")
-@description("Get a random GIF from giphy.")
+@description("Get a random GIF from Giphy.")
 async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Get a random GIF from giphy"""
-    params: Dict[str, str] = {"api_key": config["API"]["GIPHY_API_KEY"]}
+    """Get a random GIF from Giphy"""
+    try:
+        gif_url = await fetch_random_gif()
+        await update.message.reply_animation(animation=gif_url)
+    except GiphyAPIError as e:
+        await update.message.reply_text(f"Error fetching GIF: {str(e)}")
 
-    # TODO: Choose a better API, Giphy's results repeat a lot
-    url: str = "https://api.giphy.com/v1/gifs/random"
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, params=params)
+async def fetch_random_gif() -> str:
+    """Fetch a random GIF URL from the Giphy API"""
+    params = {"api_key": config["API"]["GIPHY_API_KEY"]}
 
-    url = response.json()["data"]["images"]["original"]["url"]
+    async with aiohttp.ClientSession() as session:
+        async with session.get(GIPHY_API_URL, params=params) as response:
+            if response.status != 200:
+                raise GiphyAPIError(f"Giphy API returned status code {response.status}")
 
-    await update.message.reply_animation(
-        animation=url,
-    )
+            data = await response.json()
+
+            if (
+                "data" not in data
+                or "images" not in data["data"]
+                or "original" not in data["data"]["images"]
+            ):
+                raise GiphyAPIError("Unexpected response structure from Giphy API")
+
+            return data["data"]["images"]["original"]["url"]
+
+
+class GiphyAPIError(Exception):
+    """Exception raised for errors in the Giphy API."""
+
+    pass
