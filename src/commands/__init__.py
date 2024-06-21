@@ -4,8 +4,7 @@ Commands for general use.
 
 import asyncio
 import random
-import re
-from typing import Callable
+from typing import Callable, Dict, List
 
 from telegram import Message, MessageEntity, Update
 from telegram.constants import ChatAction, ParseMode, ReactionEmoji
@@ -13,124 +12,113 @@ from telegram.ext import CommandHandler, ContextTypes
 
 import management
 import utils
-from commands.subscribe import (
-    list_reddit_subscriptions,
-    reddit_subscription_button_handler,
-    subscribe_reddit,
-)
 from config import logger
 from config.db import sqlite_conn
 from config.options import config
-from management.botstats import (
-    get_command_stats,
-    get_object_stats,
-    get_total_chats,
-    get_total_users,
-    get_uptime,
-)
-from management.stats import get_chat_stats, get_last_seen, get_total_chat_stats
-from misc.highlight import highlight_button_handler, highlighter
-from .animals import animal
-from .ask import ask, caption
-from .book import book
-from .calc import calc
-from .camera import camera
-from .define import define
-from .dl import downloader
-from .gif import gif
-from .graph import get_friends, get_graph
-from .habit import habit, habit_button_handler
-from .hltb import hltb
-from .insult import insult
-from .joke import joke
-from .law import cpc, crpc, ipc
-from .meme import meme
-from .midjourney import midjourney
-from .ping import ping
-from .quote import add_quote, get_quote
-from .randdit import nsfw, randdit
-from .reddit_comment import get_top_comment
-from .remind import remind
-from .search import enable_fts, import_chat_stats, search
-from .spurdo import spurdo
-from .steam import enable_steam_offers
-from .store import get_object, set_object
-from .summon import summon, summon_keyboard_button
-from .tldr import tldr
-from .transcribe import transcribe
-from .translate import translate, tts
-from .ud import ud
-from .uwu import uwu
-from .weather import weather
-from .youtube import subscribe_youtube, youtube_button
-
-
-async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
-    """
-    Disabled command handler.
-    """
-    await update.message.reply_text("❌ This command is disabled.")
-
-
-list_of_commands = [
-    add_quote,
-    add_quote,
-    animal,
+from management import botstats, stats
+from misc.highlight import highlight_button_handler
+from . import (
+    animals,
     ask,
     book,
     calc,
     camera,
-    caption,
-    cpc,
-    crpc,
     define,
-    downloader,
-    enable_fts,
-    enable_steam_offers,
-    get_chat_stats,
-    get_command_stats,
-    get_friends,
-    get_graph,
-    get_last_seen,
-    get_object_stats,
-    get_object,
-    get_quote,
-    get_top_comment,
-    get_total_chat_stats,
-    get_total_chats,
-    get_total_users,
-    get_uptime,
+    dl,
     gif,
+    graph,
     habit,
-    highlighter,
     hltb,
-    import_chat_stats,
     insult,
-    ipc,
     joke,
-    list_reddit_subscriptions,
+    law,
     meme,
     midjourney,
-    nsfw,
     ping,
+    quote,
     randdit,
+    reddit_comment,
     remind,
     search,
-    set_object,
     spurdo,
-    subscribe_reddit,
-    subscribe_youtube,
+    steam,
+    store,
     summon,
     tldr,
     transcribe,
     translate,
-    tts,
     ud,
     uwu,
     weather,
+    youtube,
+)
+from .subscribe import (
+    reddit_subscription_button_handler,
+)
+
+# Import all command functions
+COMMAND_MODULES = [
+    animals,
+    ask,
+    book,
+    calc,
+    camera,
+    define,
+    dl,
+    gif,
+    graph,
+    habit,
+    hltb,
+    insult,
+    joke,
+    law,
+    meme,
+    midjourney,
+    ping,
+    quote,
+    randdit,
+    reddit_comment,
+    remind,
+    search,
+    spurdo,
+    steam,
+    store,
+    summon,
+    tldr,
+    transcribe,
+    translate,
+    ud,
+    uwu,
+    weather,
+    youtube,
 ]
 
-positive_emojis = [
+# Collect all command functions
+list_of_commands = []
+for module in COMMAND_MODULES:
+    list_of_commands.extend(
+        [
+            getattr(module, name)
+            for name in dir(module)
+            if callable(getattr(module, name)) and not name.startswith("_")
+        ]
+    )
+
+# Add management and stats functions
+list_of_commands.extend(
+    [
+        botstats.get_command_stats,
+        botstats.get_object_stats,
+        botstats.get_total_chats,
+        botstats.get_total_users,
+        botstats.get_uptime,
+        stats.get_chat_stats,
+        stats.get_last_seen,
+        stats.get_total_chat_stats,
+    ]
+)
+
+POSITIVE_EMOJIS = [
     ReactionEmoji.HEART_WITH_ARROW,
     ReactionEmoji.SMILING_FACE_WITH_HEARTS,
     ReactionEmoji.HEART_ON_FIRE,
@@ -142,7 +130,7 @@ positive_emojis = [
     ReactionEmoji.ALIEN_MONSTER,
 ]
 
-negative_emojis = [
+NEGATIVE_EMOJIS = [
     ReactionEmoji.FEARFUL_FACE,
     ReactionEmoji.LOUDLY_CRYING_FACE,
     ReactionEmoji.BROKEN_HEART,
@@ -151,129 +139,112 @@ negative_emojis = [
 ]
 
 
-def get_random_item_from_list(items):
-    return items[random.randint(0, len(items) - 1)]
+async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    """Disabled command handler."""
+    await update.message.reply_text("❌ This command is disabled.")
+
+
+def get_random_item_from_list(items: List):
+    return random.choice(items)
 
 
 async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
-    """
-    Every message action handler.
-    """
-    message = update.message
-    if not message:
-        return
-
-    if message.text:
-        text = message.text.lower()
+    """Every message action handler."""
+    if update.message and update.message.text:
+        text = update.message.text.lower()
         if "good bot" in text:
-            await message.set_reaction(get_random_item_from_list(positive_emojis))
+            await update.message.set_reaction(
+                get_random_item_from_list(POSITIVE_EMOJIS)
+            )
         elif "bad bot" in text:
-            await message.set_reaction(get_random_item_from_list(negative_emojis))
+            await update.message.set_reaction(
+                get_random_item_from_list(NEGATIVE_EMOJIS)
+            )
+
+
+def command_wrapper(fn: Callable):
+    async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        message = update.message
+        if not message:
+            return
+
+        tasks = [
+            message.set_reaction(ReactionEmoji.WRITING_HAND),
+            message.reply_chat_action(ChatAction.TYPING),
+            fn(update, context),
+        ]
+
+        await asyncio.gather(*tasks)
+
+        logger.info(f"/{fn.__name__} from {update.message.from_user}")
+
+        sent_command = next(
+            iter(update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()),
+            None,
+        )
+        if not sent_command:
+            return
+
+        sent_command = sent_command.split("@")[0][1:]
+        if sent_command not in command_doc_list:
+            return
+
+        await management.increment(update, context)
+
+        cursor = sqlite_conn.cursor()
+        cursor.execute(
+            "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
+            (sent_command, update.message.from_user.id),
+        )
+
+    wrapped_command.__dict__.update(fn.__dict__)
+    return wrapped_command
 
 
 command_handler_list = []
-command_doc_list = {}
+command_doc_list: Dict[str, Dict[str, str]] = {}
+
 for command in list_of_commands:
-    if hasattr(command, "api_key"):
-        if command.api_key in config["API"]:
-            handler = command
-        else:
-            handler = disabled
-    else:
-        handler = command
-
-    def command_wrapper(fn: Callable, command=command):  # Add default parameter
-        async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            message = update.message
-
-            if not message:
-                return
-
-            tasks = [
-                message.set_reaction(ReactionEmoji.WRITING_HAND),
-                message.reply_chat_action(ChatAction.TYPING),
-                fn(update, context),
-            ]
-
-            await asyncio.gather(*tasks)
-
-            logger.info(f"/{command} from {update.message.from_user}")
-
-            sent_command = next(
-                iter(
-                    update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()
-                ),
-                None,
-            )
-
-            if not sent_command:
-                return
-
-            if "@" in sent_command:
-                sent_command = sent_command[: sent_command.index("@")]
-
-            sent_command = sent_command[1:]
-            if sent_command not in command_doc_list:
-                return
-
-            await management.increment(update, context)
-
-            cursor = sqlite_conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO command_stats (command, user_id) VALUES (?, ?);
-                """,
-                (sent_command, update.message.from_user.id),
-            )
-
-        # Copy other function attributes
-        wrapped_command.description = fn.description
-        wrapped_command.triggers = fn.triggers
-        wrapped_command.usage = fn.usage
-        wrapped_command.example = fn.example
-
-        if hasattr(fn, "api_key"):
-            wrapped_command.api_key = fn.api_key
-
-        return wrapped_command
-
-    handler = command_wrapper(handler)
-
-    command_handler_list.append(
-        CommandHandler(
-            command.triggers,
-            handler,
+    if hasattr(command, "triggers"):
+        handler = (
+            command
+            if not hasattr(command, "api_key") or command.api_key in config["API"]
+            else disabled
         )
-    )
+        handler = command_wrapper(handler)
 
-    for trigger in command.triggers:
-        command_doc_list[trigger] = {
-            "description": command.description,
-            "usage": command.usage,
-            "example": command.example,
-        }
+        command_handler_list.append(CommandHandler(command.triggers, handler))
+
+        for trigger in command.triggers:
+            command_doc_list[trigger] = {
+                "description": getattr(
+                    command, "description", "No description available"
+                ),
+                "usage": getattr(command, "usage", "No usage information available"),
+                "example": getattr(command, "example", "No example available"),
+            }
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    if query.data.startswith("hb"):
-        await habit_button_handler(update, context)
-    elif query.data.startswith("hl"):
-        await highlight_button_handler(update, context)
-    elif query.data.startswith("sg"):
-        await summon_keyboard_button(update, context)
-    elif query.data.startswith("yt"):
-        await youtube_button(update, context)
-    elif query.data.startswith("unsubscribe_reddit"):
-        await reddit_subscription_button_handler(update, context)
-    else:
-        await query.answer("No function found for this button.")
+    handlers = {
+        "hb": habit.habit_button_handler,
+        "hl": highlight_button_handler,
+        "sg": summon.summon_keyboard_button,
+        "yt": youtube.youtube_button,
+        "unsubscribe_reddit": reddit_subscription_button_handler,
+    }
+
+    for prefix, handler in handlers.items():
+        if query.data.startswith(prefix):
+            await handler(update, context)
+            return
+
+    await query.answer("No function found for this button.")
 
 
 async def usage_string(message: Message, func) -> None:
-    """
-    Return the usage string for a command.
-    """
+    """Return the usage string for a command."""
     await message.reply_text(
         f"{func.description}\n\n<b>Usage:</b>\n<pre>{func.usage}</pre>\n\n<b>Example:</b>\n<pre>{func.example}</pre>",
         parse_mode=ParseMode.HTML,
@@ -282,19 +253,15 @@ async def usage_string(message: Message, func) -> None:
 
 
 async def save_mentions(
-    mentioning_user_id: int,
-    mentioned_users: list[str | int],
-    message: Message,
+    mentioning_user_id: int, mentioned_users: List[str | int], message: Message
 ) -> None:
-    """
-    Save a mention in the database.
-    """
+    """Save a mention in the database."""
     for user in mentioned_users:
-        if isinstance(user, str):
-            user_id = await utils.get_user_id_from_username(user)
-        else:
-            user_id = user
-
+        user_id = (
+            await utils.get_user_id_from_username(user)
+            if isinstance(user, str)
+            else user
+        )
         if user_id is not None:
             cursor = sqlite_conn.cursor()
             cursor.execute(
@@ -307,23 +274,16 @@ async def save_mentions(
 
 
 async def mention_parser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Parse mentions in messages.
-    """
+    """Parse mentions in messages."""
     if not update.message:
         return
 
     mentions = update.message.parse_entities(
         [MessageEntity.TEXT_MENTION, MessageEntity.MENTION]
     )
-
     if mentions:
-        # Regex search text for @<username> mentions
-        text = update.message.text
-        usernames = set(re.findall("(@[\w|\d|_]{5,})", text))
-        await save_mentions(
-            update.message.from_user.id, [x for x in usernames], update.message
-        )
+        usernames = set(re.findall("(@[\w|\d|_]{5,})", update.message.text))
+        await save_mentions(update.message.from_user.id, usernames, update.message)
     elif update.message.reply_to_message:
         await save_mentions(
             update.message.from_user.id,

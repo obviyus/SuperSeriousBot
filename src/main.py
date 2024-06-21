@@ -3,8 +3,9 @@ import html
 import json
 import os
 import traceback
+from typing import List
 
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
     AIORateLimiter,
@@ -21,17 +22,9 @@ from telegram.ext import (
 
 import commands
 from commands import steam
-import misc
-import utils.command_limits
-from commands.habit import worker_habit_tracker
-from commands.quote import migrate_quote_db
-from commands.randdit import worker_seed_posts
-from commands.remind import worker_reminder
 from commands.sed import sed
-from commands.subscribe import worker_reddit_subscriptions
 from commands.tv import handle_chosen_movie, inline_show_search
-from commands.youtube import worker_youtube_subscriptions
-from config.db import rebuild_fts5, redis
+from config.db import redis
 from config.logger import logger
 from config.options import config
 from misc.highlight import highlight_worker
@@ -47,7 +40,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def post_init(application: Application) -> None:
     """
-    Initialise the bot.
+    Initialize the bot.
     """
     logger.info(f"Started @{application.bot.username} (ID: {application.bot.id})")
     redis.set("bot_startup_time", datetime.datetime.now().timestamp())
@@ -66,12 +59,19 @@ async def post_init(application: Application) -> None:
         )
 
     # Set commands for bot instance
-    await application.bot.set_my_commands(
-        [
-            (command.triggers[0], command.description)
-            for command in commands.list_of_commands
-        ]
-    )
+    bot_commands = get_valid_bot_commands(commands.list_of_commands)
+    await application.bot.set_my_commands(bot_commands)
+
+
+def get_valid_bot_commands(command_list: List) -> List[BotCommand]:
+    """
+    Filter and format valid commands for the bot.
+    """
+    valid_commands = []
+    for command in command_list:
+        if hasattr(command, "triggers") and hasattr(command, "description"):
+            valid_commands.append(BotCommand(command.triggers[0], command.description))
+    return valid_commands
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -166,35 +166,34 @@ def main():
 
     job_queue = application.job_queue
 
-    # # Notification workers
-    job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
-    job_queue.run_repeating(worker_youtube_subscriptions, interval=300, first=10)
-    job_queue.run_repeating(worker_reminder, interval=60, first=10)
-    job_queue.run_repeating(rebuild_fts5, interval=3600, first=10)
-
-    # Deliver Reddit subscriptions
-    job_queue.run_daily(
-        worker_reddit_subscriptions,
-        time=datetime.time(17, 30),
-        job_kwargs={"misfire_grace_time": 60},
-    )
-
-    # Reset command usage count every day at 12:00 UTC
-    job_queue.run_daily(
-        utils.command_limits.reset_command_limits, time=datetime.time(18, 30)
-    )
-    # Build social graph
-    job_queue.run_daily(misc.worker_build_network, time=datetime.time(19, 30))
-
-    # Seed random Reddit posts
-    job_queue.run_once(worker_seed_posts, 10)
+    # Notification workers
+    # job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
+    # job_queue.run_repeating(worker_youtube_subscriptions, interval=300, first=10)
+    # job_queue.run_repeating(worker_reminder, interval=60, first=10)
+    # job_queue.run_repeating(rebuild_fts5, interval=3600, first=10)
+    #
+    # # Deliver Reddit subscriptions
+    # job_queue.run_daily(
+    #     worker_reddit_subscriptions,
+    #     time=datetime.time(17, 30),
+    #     job_kwargs={"misfire_grace_time": 60},
+    # )
+    #
+    # # Reset command usage count every day at 12:00 UTC
+    # job_queue.run_daily(
+    #     utils.command_limits.reset_command_limits, time=datetime.time(18, 30)
+    # )
+    # # Build social graph
+    # job_queue.run_daily(misc.worker_build_network, time=datetime.time(19, 30))
+    #
+    # # Seed random Reddit posts
+    # job_queue.run_once(worker_seed_posts, 10)
+    #
+    # # Check for DB migrations
+    # job_queue.run_once(migrate_quote_db, 10)
 
     # Steam offer worker
     job_queue.run_repeating(steam.offer_worker, interval=3600, first=10)
-
-
-    # Check for DB migrations
-    job_queue.run_once(migrate_quote_db, 10)
 
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(
@@ -207,7 +206,7 @@ def main():
         )
     else:
         logger.info("Using polling...")
-        application.run_polling(drop_pending_updates=True)
+        application.run_polling(drop_pending_updates=False)
 
 
 if __name__ == "__main__":
