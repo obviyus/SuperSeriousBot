@@ -1,3 +1,10 @@
+# [1.79.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.78.1...v1.79.0) (2024-06-21)
+
+
+### Features
+
+* **steam:** steam free game notifier ([df232c4](https://github.com/obviyus/SuperSeriousBot/commit/df232c4ef0c1359fec7620af2d66487134692fcd))
+
 ## [1.78.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.78.0...v1.78.1) (2024-06-13)
 
 
