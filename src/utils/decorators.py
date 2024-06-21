@@ -1,13 +1,15 @@
-from typing import List
+from functools import wraps
+from typing import Any, Callable, List, TypeVar, Union, cast
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
-def triggers(trigger_command: str | List[str]):
+def triggers(trigger_command: Union[str, List[str]]):
     """Trigger decorator for commands.
 
     :param trigger_command: The command trigger(s) for the command.
     :return: The decorated function.
     """
-
     if isinstance(trigger_command, str):
         trigger_command = [trigger_command]
 
@@ -16,78 +18,40 @@ def triggers(trigger_command: str | List[str]):
             f"Triggers must be a string or a list of strings, not {type(trigger_command)}"
         )
 
-    def wrapper(func):
-        func.triggers = trigger_command
-        return func
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
 
-    return wrapper
+        wrapper.triggers = trigger_command  # type: ignore
+        return cast(F, wrapper)
 
-
-def description(description_doc: str):
-    """Description decorator for commands. Only HTML formatting is supported.
-
-    :param description_doc: The description string for the command.
-    :return: The decorated function.
-    """
-
-    def wrapper(func):
-        func.description = description_doc
-        return func
-
-    return wrapper
+    return decorator
 
 
-def usage(usage_doc: str):
-    """Usage decorator for commands. Only HTML formatting is supported.
+def _add_attribute(attr_name: str, attr_value: str):
+    """Generic decorator for adding attributes to functions."""
 
-    :param usage_doc: The usage string for the command.
-    :return: The decorated function.
-    """
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
 
-    def wrapper(func):
-        func.usage = usage_doc
-        return func
+        setattr(wrapper, attr_name, attr_value)
+        return cast(F, wrapper)
 
-    return wrapper
-
-
-def example(example_doc: str):
-    """Example decorator for commands. Only HTML formatting is supported.
-
-    :param example_doc: The example string for the command.
-    :return: The decorated function.
-    """
-
-    def wrapper(func):
-        func.example = example_doc
-        return func
-
-    return wrapper
+    return decorator
 
 
-def api_key(name: str):
-    """API key decorator for commands.
+description = lambda desc: _add_attribute("description", desc)
+usage = lambda usage_doc: _add_attribute("usage", usage_doc)
+example = lambda example_doc: _add_attribute("example", example_doc)
+api_key = lambda name: _add_attribute("api_key_name", name)
+deprecated = lambda message: _add_attribute("deprecated", message)
 
-    :param name: The name of the API key required to use this function.
-    :return: The decorated function.
-    """
-
-    def wrapper(func):
-        func.api_key_name = name
-        return func
-
-    return wrapper
-
-
-def deprecated(message: str):
-    """Deprecated decorator for commands.
-
-    :param message: The message to display when the command is used.
-    :return: The decorated function.
-    """
-
-    def wrapper(func):
-        func.deprecated = message
-        return func
-
-    return wrapper
+# Type hints for the decorators
+description.__annotations__["return"] = Callable[[F], F]
+usage.__annotations__["return"] = Callable[[F], F]
+example.__annotations__["return"] = Callable[[F], F]
+api_key.__annotations__["return"] = Callable[[F], F]
+deprecated.__annotations__["return"] = Callable[[F], F]
