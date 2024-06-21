@@ -46,7 +46,6 @@ from .joke import joke
 from .law import cpc, crpc, ipc
 from .meme import meme
 from .midjourney import midjourney
-from .person import person
 from .ping import ping
 from .quote import add_quote, get_quote
 from .randdit import nsfw, randdit
@@ -113,7 +112,6 @@ list_of_commands = [
     meme,
     midjourney,
     nsfw,
-    person,
     ping,
     randdit,
     remind,
