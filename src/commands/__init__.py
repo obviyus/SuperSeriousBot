@@ -54,6 +54,7 @@ from .reddit_comment import get_top_comment
 from .remind import remind
 from .search import enable_fts, import_chat_stats, search
 from .spurdo import spurdo
+from .steam import enable_steam_offers
 from .store import get_object, set_object
 from .summon import summon, summon_keyboard_button
 from .tldr import tldr
@@ -86,6 +87,7 @@ list_of_commands = [
     define,
     downloader,
     enable_fts,
+    enable_steam_offers,
     get_chat_stats,
     get_command_stats,
     get_friends,

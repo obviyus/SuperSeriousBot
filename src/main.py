@@ -20,6 +20,7 @@ from telegram.ext import (
 )
 
 import commands
+from commands import steam
 import misc
 import utils.command_limits
 from commands.habit import worker_habit_tracker
@@ -187,6 +188,10 @@ def main():
 
     # Seed random Reddit posts
     job_queue.run_once(worker_seed_posts, 10)
+
+    # Steam offer worker
+    job_queue.run_repeating(steam.offer_worker, interval=3600, first=10)
+
 
     # Check for DB migrations
     job_queue.run_once(migrate_quote_db, 10)

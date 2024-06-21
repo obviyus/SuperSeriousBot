@@ -1,3 +1,4 @@
+import logging
 import os
 import sqlite3
 
@@ -389,6 +390,24 @@ cursor.execute(
     """
 )
 
+# Table for storing Steam offers
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS steam_offers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        url TEXT NOT NULL,
+        release_date TEXT,
+        review_score TEXT,
+        original_price TEXT,
+        final_price TEXT,
+        discount TEXT,
+        create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """
+)
+
 # Settings per group
 cursor.execute(
     """
@@ -399,6 +418,18 @@ cursor.execute(
     );
     """
 )
+
+# Group settings for Steam offers
+try:
+    cursor.execute(
+        """
+        ALTER TABLE `group_settings`
+        ADD COLUMN `steam_offers` TINYINT NOT NULL DEFAULT 0;
+        """
+    )
+except sqlite3.OperationalError:
+    logging.warning("Column steam_offers already exists in group_settings table.")
+    pass
 
 # Add some indexes
 cursor.execute(
