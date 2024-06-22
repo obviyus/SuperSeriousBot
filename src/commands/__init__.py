@@ -4,7 +4,8 @@ Commands for general use.
 
 import asyncio
 import random
-from typing import Callable, Dict, List
+import re
+from typing import Callable, Dict, List, Set
 
 from telegram import Message, MessageEntity, Update
 from telegram.constants import ChatAction, ParseMode, ReactionEmoji
@@ -253,7 +254,7 @@ async def usage_string(message: Message, func) -> None:
 
 
 async def save_mentions(
-    mentioning_user_id: int, mentioned_users: List[str | int], message: Message
+    mentioning_user_id: int, mentioned_users: Set[str], message: Message
 ) -> None:
     """Save a mention in the database."""
     for user in mentioned_users:
