@@ -1,3 +1,10 @@
+## [1.80.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.80.1...v1.80.2) (2024-06-22)
+
+
+### Bug Fixes
+
+* **main:** uncomment workers ([41b55c5](https://github.com/obviyus/SuperSeriousBot/commit/41b55c5ecd7e5c0d1a4e2283774866fbc197c0f4))
+
 ## [1.80.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.80.0...v1.80.1) (2024-06-22)
 
 
