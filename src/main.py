@@ -35,7 +35,7 @@ from config.logger import logger
 from config.options import config
 import misc
 from misc.highlight import highlight_worker
-import utils
+from utils import command_limits
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -188,9 +188,8 @@ def main():
     )
 
     # Reset command usage count every day at 12:00 UTC
-    job_queue.run_daily(
-        utils.command_limits.reset_command_limits, time=datetime.time(18, 30)
-    )
+    job_queue.run_daily(command_limits.reset_command_limits, time=datetime.time(18, 30))
+
     # Build social graph
     job_queue.run_daily(misc.worker_build_network, time=datetime.time(19, 30))
 
