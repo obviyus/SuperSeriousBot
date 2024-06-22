@@ -1,3 +1,10 @@
+## [1.80.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.80.2...v1.80.3) (2024-06-22)
+
+
+### Bug Fixes
+
+* **main:** fix incorrect utils import ([070c0d9](https://github.com/obviyus/SuperSeriousBot/commit/070c0d9e08a5f5fc26e9c9ff67a982bc595f6d1d))
+
 ## [1.80.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.80.1...v1.80.2) (2024-06-22)
 
 
