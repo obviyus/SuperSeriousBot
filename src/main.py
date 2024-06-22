@@ -1,5 +1,4 @@
 import datetime
-from email import utils
 import html
 import json
 import os
@@ -36,6 +35,7 @@ from config.logger import logger
 from config.options import config
 import misc
 from misc.highlight import highlight_worker
+import utils
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
