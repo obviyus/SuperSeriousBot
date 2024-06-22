@@ -1509,13 +1509,13 @@ testing = ["bson", "ecdsa", "feedparser", "gmpy2", "numpy", "pandas", "pymongo",
 
 [[package]]
 name = "litellm"
-version = "1.40.20"
+version = "1.40.22"
 description = "Library to easily interface with LLM API providers"
 optional = false
 python-versions = "!=2.7.*,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,!=3.7.*,>=3.8"
 files = [
-    {file = "litellm-1.40.20-py3-none-any.whl", hash = "sha256:6f142d69ac46450163a24d9d42cb949f72b1ffde4e074bb1d91b70d1e08b1045"},
-    {file = "litellm-1.40.20.tar.gz", hash = "sha256:7510116f2f9f833ffc6395f4840ff94e3ad84640a574cb62c7e64d69d0f0e20b"},
+    {file = "litellm-1.40.22-py3-none-any.whl", hash = "sha256:f4e539eee5332fa4a64d71e564a7115d80d8f7f519fd01c4bf569a16c3886a45"},
+    {file = "litellm-1.40.22.tar.gz", hash = "sha256:654b8b26b7f4ccc75a577ca4baa79d8be6797af10047c266df6e5293618ad35d"},
 ]
 
 [package.dependencies]
@@ -3349,4 +3349,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "1cecbe0b248e8b9c1bc32600d33b2ea83c3e1b579823e68f9b3d8bf26d54f9d2"
+content-hash = "c75b7f0f95369f83b9f301ea2130ee76a9a01f41404dda24eff794d4395e0ca4"
