@@ -1,3 +1,10 @@
+## [1.80.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.80.0...v1.80.1) (2024-06-22)
+
+
+### Bug Fixes
+
+* **init:** fix mention parser ([70d12b1](https://github.com/obviyus/SuperSeriousBot/commit/70d12b186a156bcead08c172061b86ff3ec86bff))
+
 # [1.80.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.79.0...v1.80.0) (2024-06-21)
 
 
