@@ -1,3 +1,10 @@
+## [1.81.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.3...v1.81.4) (2024-06-24)
+
+
+### Bug Fixes
+
+* **youtube:** remove await from cursor calls ([e4d49c1](https://github.com/obviyus/SuperSeriousBot/commit/e4d49c10f2963bd10aaae2c5a0501756480bd123))
+
 ## [1.81.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.2...v1.81.3) (2024-06-24)
 
 
