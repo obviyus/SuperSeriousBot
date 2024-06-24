@@ -1,3 +1,10 @@
+## [1.81.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.1...v1.81.2) (2024-06-24)
+
+
+### Bug Fixes
+
+* **migrations:** fix DB path for docker ([d85e6e0](https://github.com/obviyus/SuperSeriousBot/commit/d85e6e0abcf875418477516b3848b03084448375))
+
 ## [1.81.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.0...v1.81.1) (2024-06-24)
 
 
