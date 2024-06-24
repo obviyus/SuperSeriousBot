@@ -5,6 +5,7 @@ import os
 import traceback
 from typing import List
 
+import caribou
 from telegram import BotCommand, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -30,7 +31,7 @@ from commands.sed import sed
 from commands.subscribe import worker_reddit_subscriptions
 from commands.tv import handle_chosen_movie, inline_show_search
 from commands.youtube import worker_youtube_subscriptions
-from config.db import rebuild_fts5, redis
+from config.db import PRIMARY_DB_PATH, rebuild_fts5, redis
 from config.logger import logger
 from config.options import config
 import misc
@@ -116,6 +117,13 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 def main():
+    try:
+        migrations_dir = "../migrations"
+        caribou.upgrade(PRIMARY_DB_PATH, migrations_dir)
+        logger.info("Database migrations completed successfully.")
+    except Exception as e:
+        logger.error(f"Error running database migrations: {e}")
+
     application = (
         ApplicationBuilder()
         .token(config["TELEGRAM"]["TOKEN"])

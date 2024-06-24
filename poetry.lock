@@ -233,6 +233,17 @@ twisted = ["twisted"]
 zookeeper = ["kazoo"]
 
 [[package]]
+name = "argparse"
+version = "1.4.0"
+description = "Python command-line parsing library"
+optional = false
+python-versions = "*"
+files = [
+    {file = "argparse-1.4.0-py2.py3-none-any.whl", hash = "sha256:c31647edb69fd3d465a847ea3157d37bed1f95f19760b11a47aa91c04b666314"},
+    {file = "argparse-1.4.0.tar.gz", hash = "sha256:62b089a55be1d8949cd2bc7e0df0bddb9e028faefc8c32038cc84862aefdd6e4"},
+]
+
+[[package]]
 name = "asttokens"
 version = "2.4.1"
 description = "Annotate AST trees with source code positions"
@@ -507,6 +518,19 @@ files = [
 
 [package.dependencies]
 cffi = ">=1.0.0"
+
+[[package]]
+name = "caribou"
+version = "0.3"
+description = "python migrations for sqlite databases"
+optional = false
+python-versions = "*"
+files = [
+    {file = "caribou-0.3.0.tar.gz", hash = "sha256:5ca6e6e6ad7d3175137c68d809e203fbd931f79163a5613808a789449fef7863"},
+]
+
+[package.dependencies]
+argparse = ">=1.0.0"
 
 [[package]]
 name = "cerberus"
@@ -3349,4 +3373,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "c75b7f0f95369f83b9f301ea2130ee76a9a01f41404dda24eff794d4395e0ca4"
+content-hash = "3736e7feb9a04357050592fcfce143c316625c73e3accf86a0a567565489678d"
