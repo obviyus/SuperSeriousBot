@@ -1,3 +1,10 @@
+## [1.81.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.0...v1.81.1) (2024-06-24)
+
+
+### Bug Fixes
+
+* **db:** reversion DB migration ([ce2bc4d](https://github.com/obviyus/SuperSeriousBot/commit/ce2bc4d0f8ee748fb7b816302e7978e5fb444f77))
+
 # [1.81.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.80.4...v1.81.0) (2024-06-24)
 
 
