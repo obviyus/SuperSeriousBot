@@ -2,7 +2,7 @@
 This module contains a Caribou migration.
 
 Migration Name: initial_schema
-Migration Version: 20240624133000
+Migration Version: 20240624131537
 """
 
 
