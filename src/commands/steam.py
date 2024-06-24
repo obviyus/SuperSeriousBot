@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.constants import ChatType, ParseMode
 from telegram.ext import ContextTypes
 
-from config.db import sqlite_conn
+from config.db import get_db
 from utils.decorators import description, example, triggers, usage
 
 STEAM_PAGE_URL = "https://store.steampowered.com/search/?maxprice=free&specials=1"
@@ -92,23 +92,24 @@ async def store_offer(offer: dict[str, str]):
     """
     Store offers in the database.
     """
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO steam_offers (game_id, name, url, release_date, review_score, original_price, final_price, discount)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-        """,
-        (
-            offer["id"],
-            offer["name"],
-            offer["url"],
-            offer["release_date"],
-            offer["review_score"],
-            offer["original_price"],
-            offer["final_price"],
-            offer["discount"],
-        ),
-    )
+    async with await get_db() as conn:
+        await conn.execute(
+            """
+            INSERT INTO steam_offers (game_id, name, url, release_date, review_score, original_price, final_price, discount)          
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            (
+                offer["id"],
+                offer["name"],
+                offer["url"],
+                offer["release_date"],
+                offer["review_score"],
+                offer["original_price"],
+                offer["final_price"],
+                offer["discount"],
+            ),
+        )
+        await conn.commit()
 
 
 @triggers(["enable_steam_offers"])
@@ -119,23 +120,26 @@ async def enable_steam_offers(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """
-    Enable full text search in the current chat.
+    Enable notifications for free Steam games.
     """
     # Check if user is a moderator
     if update.message.chat.type != ChatType.PRIVATE:
         chat_admins = await context.bot.get_chat_administrators(update.message.chat_id)
-        if not update.message.from_user.id in [admin.user.id for admin in chat_admins]:
-            await update.message.reply_text("You are not a moderator.")
+        if update.message.from_user.id not in [admin.user.id for admin in chat_admins]:
+            await update.message.reply_text(
+                "You are not authorized to use this command."
+            )
             return
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO group_settings (chat_id, steam_offers) VALUES (?, 1)
-        ON CONFLICT(chat_id) DO UPDATE SET steam_offers = 1;
-        """,
-        (update.message.chat_id,),
-    )
+    async with await get_db() as conn:
+        await conn.execute(
+            """
+            INSERT INTO group_settings (chat_id, steam_offers) VALUES (?, 1)
+            ON CONFLICT(chat_id) DO UPDATE SET steam_offers = 1;
+            """,
+            (update.message.chat_id,),
+        )
+        await conn.commit()
 
     await update.message.reply_text("Steam free game notifications enabled.")
 
@@ -145,34 +149,31 @@ async def offer_worker(context: ContextTypes.DEFAULT_TYPE):
     if not offers:
         return
 
-    cursor = sqlite_conn.cursor()
-    notify = []
+    async with await get_db() as conn:
+        notify = []
 
-    for offer in offers:
-        # Check if this game_id has already been posted this month
-        cursor.execute(
+        for offer in offers:
+            async with conn.execute(
+                """
+                SELECT * FROM steam_offers WHERE game_id = ? AND create_time >= DATETIME('now', '-1 month');
+                """,
+                (offer["id"],),
+            ) as cursor:
+                if await cursor.fetchone():
+                    continue
+
+            await store_offer(offer)
+
+        if not notify:
+            return
+
+        async with conn.execute(
             """
-            SELECT * FROM steam_offers WHERE game_id = ? AND create_time >= DATETIME('now', '-1 month');
-            """,
-            (offer["id"],),
-        )
+            SELECT chat_id FROM group_settings WHERE steam_offers = 1;
+            """
+        ) as cursor:
+            groups = await cursor.fetchall()
 
-        if cursor.fetchone():
-            continue
-
-        await store_offer(offer)
-        notify.append(offer)
-
-    if not notify:
-        return
-
-    cursor.execute(
-        """
-        SELECT chat_id FROM group_settings WHERE steam_offers = 1;
-        """
-    )
-
-    groups = cursor.fetchall()
     for group in groups:
         message = "🎮 New free Steam games available:\n\n"
 
