@@ -1,4 +1,4 @@
-import httpx
+import aiohttp
 from bs4 import BeautifulSoup
 from telegram import Update
 from telegram.constants import ChatType, ParseMode
@@ -14,16 +14,16 @@ async def fetch_offers() -> list[dict[str, str]] | None:
     """
     Check for Steam offers with additional details.
     """
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
             STEAM_PAGE_URL, headers={"User-Agent": "SuperSeriousBot"}
-        )
+        ) as response:
+            if response.status != 200:
+                return
 
-        if response.status_code != 200:
-            return
-
-        soup = BeautifulSoup(response.text, "html.parser")
-        offers = []
+            text = await response.text()
+            soup = BeautifulSoup(text, "html.parser")
+            offers = []
 
         search_results = soup.find("div", {"id": "search_resultsRows"})
         if not search_results:

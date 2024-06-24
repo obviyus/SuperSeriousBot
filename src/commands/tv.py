@@ -1,6 +1,6 @@
 import asyncio
 
-import httpx
+import aiohttp
 from imdb import Cinemagoer
 from telegram import (
     InlineKeyboardButton,
@@ -30,10 +30,10 @@ async def link_builder(movie):
     if not content_url:
         return
 
-    async with httpx.AsyncClient() as client:
-        response = await client.head(content_url)
-        if response.status_code != 200:
-            return
+    async with aiohttp.ClientSession() as session:
+        async with session.head(content_url) as response:
+            if response.status != 200:
+                return
 
     content_url_cache[movie.movieID] = content_url
     return content_url
