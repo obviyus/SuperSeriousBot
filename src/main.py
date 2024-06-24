@@ -22,6 +22,7 @@ from telegram.ext import (
 )
 
 import commands
+import misc
 from commands import steam
 from commands.habit import worker_habit_tracker
 from commands.quote import migrate_quote_db
@@ -34,7 +35,6 @@ from commands.youtube import worker_youtube_subscriptions
 from config.db import PRIMARY_DB_PATH, rebuild_fts5, redis
 from config.logger import logger
 from config.options import config
-import misc
 from misc.highlight import highlight_worker
 from utils import command_limits
 
@@ -118,7 +118,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 def main():
     try:
-        migrations_dir = "../migrations"
+        migrations_dir = os.path.join(os.getcwd(), "migrations")
         caribou.upgrade(PRIMARY_DB_PATH, migrations_dir)
         logger.info("Database migrations completed successfully.")
     except Exception as e:
