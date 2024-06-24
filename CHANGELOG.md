@@ -1,3 +1,10 @@
+## [1.81.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.2...v1.81.3) (2024-06-24)
+
+
+### Bug Fixes
+
+* **db:** remove async cursors ([70e6b79](https://github.com/obviyus/SuperSeriousBot/commit/70e6b798b53c7a56e7b2d5dcb2b091d756799ca2))
+
 ## [1.81.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.1...v1.81.2) (2024-06-24)
 
 
