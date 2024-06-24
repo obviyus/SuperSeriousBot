@@ -1,3 +1,12 @@
+# [1.81.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.80.4...v1.81.0) (2024-06-24)
+
+
+### Features
+
+* **db:** use caribou for DB migrations ([7b0e97e](https://github.com/obviyus/SuperSeriousBot/commit/7b0e97e82211f14ba51ed10b7c9fd10bd70986e0))
+* **httpx:** replace httpx with aiohttp ([ea0caf7](https://github.com/obviyus/SuperSeriousBot/commit/ea0caf76675d83839df508b67a7191b79e928f25))
+* **yt:** re-work /dl logic ([55206fa](https://github.com/obviyus/SuperSeriousBot/commit/55206fa3c1086fd1ea50a7588ea47ba73a400106))
+
 ## [1.80.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.80.3...v1.80.4) (2024-06-22)
 
 
