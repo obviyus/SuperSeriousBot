@@ -1,10 +1,13 @@
+import asyncio
+from datetime import datetime, timedelta
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import CallbackContext, ContextTypes
 
 import commands
 import utils
-from commands.dl import ydl
+from commands.dl import ydl_opts as ydl
 from config.db import sqlite_conn
 from utils.decorators import description, example, triggers, usage
 
@@ -13,75 +16,57 @@ async def youtube_keyboard(channel_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
+                InlineKeyboardButton("✅ Join", callback_data=f"yt:join,{channel_id}"),
                 InlineKeyboardButton(
-                    "✅ Join",
-                    callback_data=f"yt:join,{channel_id}",
-                ),
-                InlineKeyboardButton(
-                    "❌ Leave",
-                    callback_data=f"yt:leave,{channel_id}",
+                    "❌ Leave", callback_data=f"yt:leave,{channel_id}"
                 ),
             ]
-        ],
+        ]
     )
 
 
 async def youtube_button(update: Update, _: CallbackContext) -> None:
-    """Remove a user from YouTube subscriptions."""
     query = update.callback_query
     action, channel_id = query.data.replace("yt:", "").split(",")
+    user_id = query.from_user.id
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT * FROM youtube_subscribers
-        JOIN youtube_subscriptions ON youtube_subscribers.subscription_id = youtube_subscriptions.id
-        WHERE youtube_subscriptions.channel_id = ? AND user_id = ?
+    async with sqlite_conn.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT s.id FROM youtube_subscriptions s
+            LEFT JOIN youtube_subscribers sub ON s.id = sub.subscription_id
+            WHERE s.channel_id = ? AND (sub.user_id = ? OR sub.user_id IS NULL)
         """,
-        (channel_id, query.from_user.id),
-    )
+            (channel_id, user_id),
+        )
+        result = await cursor.fetchone()
 
-    result = cursor.fetchone()
-
-    cursor.execute(
-        """
-        SELECT * FROM youtube_subscriptions WHERE channel_id = ?
-        """,
-        (channel_id,),
-    )
-    subscription = cursor.fetchone()
-
-    if action == "join":
-        if result:
-            await query.answer("You are already a part of this subscription.")
-        else:
-            cursor.execute(
-                """
-                INSERT INTO youtube_subscribers (subscription_id, user_id) VALUES (?, ?)
-                """,
-                (subscription["id"], query.from_user.id),
-            )
-            await query.answer(f"Joined subscription.")
-    elif action == "leave":
-        if result:
-            cursor.execute(
-                """
-                DELETE FROM youtube_subscribers WHERE subscription_id = ? AND user_id = ?
-                """,
-                (subscription["id"], query.from_user.id),
-            )
-            await query.answer(f"Unsubscribed.")
-        else:
-            await query.answer("You are not a part of this group.")
+        if action == "join":
+            if result and result[1]:
+                await query.answer("You are already a part of this subscription.")
+            else:
+                await cursor.execute(
+                    "INSERT OR IGNORE INTO youtube_subscribers (subscription_id, user_id) VALUES (?, ?)",
+                    (result[0], user_id),
+                )
+                await query.answer("Joined subscription.")
+        elif action == "leave":
+            if result and result[1]:
+                await cursor.execute(
+                    "DELETE FROM youtube_subscribers WHERE subscription_id = ? AND user_id = ?",
+                    (result[0], user_id),
+                )
+                await query.answer("Unsubscribed.")
+            else:
+                await query.answer("You are not a part of this group.")
 
 
-def get_latest_video_id(channel_id: str) -> str:
-    """Get the latest video ID from a channel."""
-    metadata = ydl.extract_info(
+async def get_latest_video_id(channel_id: str) -> str:
+    metadata = await asyncio.to_thread(
+        ydl.extract_info,
         f"https://www.youtube.com/channel/{channel_id}",
         download=False,
     )
-
     return metadata["entries"][0]["entries"][0]["id"]
 
 
@@ -89,65 +74,57 @@ def get_latest_video_id(channel_id: str) -> str:
 @example("/yt https://www.youtube.com/watch?v=QH2-TGUlwu4")
 @triggers(["yt"])
 @description(
-    "Subscribe to a YouTube channel and get notifications for new video uploads."
+    "Subscribe to a YouTube channel and get notifications for new video uploads. "
     "To subscribe, use /yt [YOUTUBE_VIDEO_URL] with any video from the channel."
 )
 async def subscribe_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Subscribe to a YouTube channel and get notifications for new video uploads.
-    """
     if not context.args:
         await commands.usage_string(update.message, subscribe_youtube)
         return
 
-    metadata = ydl.extract_info(context.args[0], download=False)
+    metadata = await asyncio.to_thread(
+        ydl.extract_info, context.args[0], download=False
+    )
     if not metadata["channel_id"]:
         await update.message.reply_text("Invalid URL. Could not extract channel ID.")
         return
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT * FROM youtube_subscriptions WHERE channel_id = ? AND chat_id = ?
-        """,
-        (metadata["channel_id"], update.message.chat.id),
-    )
+    async with sqlite_conn.cursor() as cursor:
+        await cursor.execute(
+            "SELECT id FROM youtube_subscriptions WHERE channel_id = ? AND chat_id = ?",
+            (metadata["channel_id"], update.message.chat.id),
+        )
+        result = await cursor.fetchone()
 
-    result = cursor.fetchone()
-    if result:
-        cursor.execute(
+        if result:
+            await cursor.execute(
+                "INSERT OR IGNORE INTO youtube_subscribers (subscription_id, user_id) VALUES (?, ?)",
+                (result[0], update.message.from_user.id),
+            )
+            await update.message.reply_text(
+                "This group is already subscribed to this channel. You have been added to the subscriber list."
+            )
+            return
+
+        latest_video_id = await get_latest_video_id(metadata["channel_id"])
+        await cursor.execute(
             """
-            INSERT INTO youtube_subscribers (subscription_id, user_id)
-            VALUES (?, ?)
+            INSERT INTO youtube_subscriptions (channel_id, chat_id, creator_id, latest_video_id)
+            VALUES (?, ?, ?, ?)
             """,
-            (result["id"], update.message.from_user.id),
+            (
+                metadata["channel_id"],
+                update.message.chat.id,
+                update.message.from_user.id,
+                latest_video_id,
+            ),
         )
-        await update.message.reply_text(
-            "This group is already subscribed to this channel. You have been added to the subscriber list."
+        subscription_id = cursor.lastrowid
+
+        await cursor.execute(
+            "INSERT INTO youtube_subscribers (subscription_id, user_id) VALUES (?, ?)",
+            (subscription_id, update.message.from_user.id),
         )
-        return
-
-    latest_video_id = get_latest_video_id(metadata["channel_id"])
-    cursor.execute(
-        """
-        INSERT INTO youtube_subscriptions (channel_id, chat_id, creator_id, latest_video_id)
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            metadata["channel_id"],
-            update.message.chat.id,
-            update.message.from_user.id,
-            latest_video_id,
-        ),
-    )
-
-    cursor.execute(
-        """
-        INSERT INTO youtube_subscribers (subscription_id, user_id)
-        VALUES (?, ?)
-        """,
-        (cursor.lastrowid, update.message.from_user.id),
-    )
 
     await update.message.reply_text(
         f"Successfully subscribed to <b>{metadata['channel']}</b>! You will be notified when a new video is uploaded.",
@@ -156,45 +133,110 @@ async def subscribe_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     )
 
 
-async def worker_youtube_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Worker that checks for new YouTube videos."""
-    cursor = sqlite_conn.cursor()
-    # TODO: Possible to avoid this subquery?
-    cursor.execute(
+async def get_latest_videos(channel_id: str, max_videos: int = 5) -> list:
+    metadata = await asyncio.to_thread(
+        ydl.extract_info,
+        f"https://www.youtube.com/channel/{channel_id}",
+        download=False,
+    )
+    return [video["id"] for video in metadata["entries"][0]["entries"][:max_videos]]
+
+
+async def update_video_history(
+    cursor, subscription_id: int, video_id: str, status: str
+):
+    await cursor.execute(
         """
-        SELECT * FROM youtube_subscriptions 
-        WHERE (SELECT COUNT(*) FROM youtube_subscribers WHERE subscription_id = youtube_subscriptions.id) > 0
+        INSERT INTO video_history (subscription_id, video_id, status, create_time)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT DO NOTHING;
         """,
+        (subscription_id, video_id, status, datetime.now().isoformat()),
     )
 
-    for subscription in cursor.fetchall():
-        metadata = ydl.extract_info(
-            f"https://www.youtube.com/channel/{subscription['channel_id']}",
-            download=False,
+
+async def get_video_history(cursor, subscription_id: int) -> dict:
+    await cursor.execute(
+        """
+        SELECT video_id, status, create_time FROM video_history
+        WHERE subscription_id = ?
+    """,
+        (subscription_id,),
+    )
+    results = await cursor.fetchall()
+    return {
+        row["video_id"]: {"status": row["status"], "create_time": row["create_time"]}
+        for row in results
+    }
+
+
+async def worker_youtube_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> None:
+    async with sqlite_conn.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT s.*, COUNT(sub.user_id) as subscriber_count 
+            FROM youtube_subscriptions s
+            JOIN youtube_subscribers sub ON s.id = sub.subscription_id
+            GROUP BY s.id
+            HAVING subscriber_count > 0
+        """
         )
-        latest_video_id = metadata["entries"][0]["entries"][0]["id"]
+        subscriptions = await cursor.fetchall()
 
-        if latest_video_id != subscription["latest_video_id"]:
-            cursor.execute(
-                """
-                UPDATE youtube_subscriptions SET latest_video_id = ? WHERE id = ?
-                """,
-                (latest_video_id, subscription["id"]),
-            )
+        for subscription in subscriptions:
+            try:
+                latest_videos = await get_latest_videos(subscription["channel_id"])
+                video_history = await get_video_history(cursor, subscription["id"])
 
-            cursor.execute(
-                """
-                SELECT * FROM youtube_subscribers WHERE subscription_id = ?
-                """,
-                (subscription["id"],),
-            )
+                for video_id in latest_videos:
+                    if video_id not in video_history or (
+                        video_history[video_id]["status"] == "error"
+                        and datetime.fromisoformat(
+                            video_history[video_id]["create_time"]
+                        )
+                        < datetime.now() - timedelta(hours=24)
+                    ):
+                        try:
+                            video_details = await asyncio.to_thread(
+                                ydl.extract_info,
+                                f"https://www.youtube.com/watch?v={video_id}",
+                                download=False,
+                            )
 
-            await context.bot.send_message(
-                subscription["chat_id"],
-                f"New video from <b>{metadata['channel']}</b>: https://www.youtube.com/watch?v={latest_video_id}"
-                f"""\n\n{' '.join(
-                    [f'@{await utils.get_username(subscriber["user_id"], context)}'
-                     for subscriber in cursor.fetchall()])}""",
-                parse_mode=ParseMode.HTML,
-                reply_markup=await youtube_keyboard(subscription["channel_id"]),
-            )
+                            if video_id != subscription["latest_video_id"]:
+                                await cursor.execute(
+                                    "UPDATE youtube_subscriptions SET latest_video_id = ? WHERE id = ?",
+                                    (video_id, subscription["id"]),
+                                )
+
+                                await cursor.execute(
+                                    "SELECT user_id FROM youtube_subscribers WHERE subscription_id = ?",
+                                    (subscription["id"],),
+                                )
+                                subscribers = await cursor.fetchall()
+
+                                mention_list = " ".join(
+                                    [
+                                        f'@{await utils.get_username(sub["user_id"], context)}'
+                                        for sub in subscribers
+                                    ]
+                                )
+
+                                await context.bot.send_message(
+                                    subscription["chat_id"],
+                                    f"New video from <b>{video_details['channel']}</b>: https://www.youtube.com/watch?v={video_id}"
+                                    f"\n\n{mention_list}",
+                                    parse_mode=ParseMode.HTML,
+                                    reply_markup=await youtube_keyboard(
+                                        subscription["channel_id"]
+                                    ),
+                                )
+
+                        except Exception as e:
+                            print(f"Error processing video {video_id}: {str(e)}")
+                            await update_video_history(
+                                cursor, subscription["id"], video_id, "error"
+                            )
+
+            except Exception as e:
+                print(f"Error processing subscription {subscription['id']}: {str(e)}")

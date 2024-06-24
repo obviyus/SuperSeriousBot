@@ -1,10 +1,10 @@
 import asyncio
 import os
-from typing import Dict
+import re
+from typing import Callable, Dict, List, Optional
 from urllib.parse import ParseResult, urlparse
 
-import httpx
-import requests
+import aiohttp
 import yt_dlp
 from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
@@ -13,82 +13,47 @@ from telegram import InputMediaPhoto, InputMediaVideo, Message, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
-import commands
 import utils
 from config.logger import logger
 from config.options import config
 from utils.decorators import description, example, triggers, usage
 from .reddit_comment import reddit
 
-reddit_downloader = Downloader()
-reddit_downloader.auto_max = True
-reddit_downloader.max_s = 45 * (1 << 20)
-
 MAX_IMAGE_COUNT = 10
+MAX_VIDEO_SIZE = 45 * (1 << 20)  # 45 MB
 
-ydl = yt_dlp.YoutubeDL(
-    {
-        "format": "b[filesize<=?50M]",
-        "outtmpl": "-",
-        "logger": logger,
-        "skip_download": True,
-        "age_limit": 33,
-        "geo_bypass": True,
-        "playlistend": 1,
-    }
-)
+reddit_downloader = Downloader(max_s=MAX_VIDEO_SIZE, auto_max=True)
 
-
-async def yt_dl_downloader(url: ParseResult, message: Message) -> None:
-    # YouTube has started embedding the client IP address in the direct URL. The URL cannot be forwarded to
-    # Telegram's servers for download. Downloading the video is necessary.
-    ydl_opts = {
-        "format": "b[filesize<=?50M]",
-        "logger": logger,
-        "age_limit": 33,
-        "geo_bypass": True,
-        "playlistend": 1,
-        "outtmpl": "%(id)s",
-    }
-
-    def download_video():
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url.geturl()])
-            extracted_info = ydl.extract_info(url.geturl(), download=False)
-            return extracted_info
-
-    # Run the synchronous code in an executor
-    loop = asyncio.get_running_loop()
-    info = await loop.run_in_executor(None, download_video)
-
-    await message.reply_video(video=open(info["id"], "rb"))
-    os.remove(info["id"])
+ydl_opts = {
+    "format": f"b[filesize<=?{MAX_VIDEO_SIZE}]",
+    "outtmpl": "%(id)s",
+    "logger": logger,
+    "age_limit": 33,
+    "geo_bypass": True,
+    "playlistend": 1,
+}
 
 
-async def download_imgur(parsed_url, count) -> list[Dict]:
-    imgur_hash: str = parsed_url.path.split("/")[-1]
+async def download_imgur(url: str, count: int) -> List[Dict]:
+    """Download images from Imgur"""
+    parsed_url = urlparse(url)
+    imgur_hash = parsed_url.path.split("/")[-1]
+    imgur_request_url = f"https://api.imgur.com/3/album/{imgur_hash}/images"
 
-    imgur_request_url: str = f"https://api.imgur.com/3/album/{imgur_hash}/images"
-
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                imgur_request_url,
-                headers={
-                    "Authorization": f"Client-ID {config['API']['IMGUR_API_KEY']}"
-                },
-            )
-    except requests.RequestException:
-        return []
-
-    if response.status_code == 200:
-        return [{"image": img["link"]} for img in response.json()["data"]][:count]
-    else:
-        return [{"image": parsed_url.geturl()}]
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            imgur_request_url,
+            headers={"Authorization": f"Client-ID {config['API']['IMGUR_API_KEY']}"},
+        ) as response:
+            if response.status != 200:
+                return [{"image": parsed_url.geturl()}]
+            data = await response.json()
+            return [{"image": img["link"]} for img in data["data"]][:count]
 
 
-async def download_reddit_video(parsed_url: str, message: Message):
-    reddit_downloader.url = parsed_url
+async def download_reddit_video(url: str, message: Message) -> None:
+    """Download and send Reddit video"""
+    reddit_downloader.url = url
     try:
         file_path = reddit_downloader.download()
         if file_path == 0:
@@ -97,141 +62,158 @@ async def download_reddit_video(parsed_url: str, message: Message):
         if file_path == 2:
             file_path = reddit_downloader.file_name
 
-        # The Reddit video player plays audio and video in 2 channels, which is why downloading the file is
-        # necessary: https://github.com/elmoiv/redvid/discussions/29#discussioncomment-3039189
-        await message.reply_video(
-            video=open(file_path, "rb"),
-        )
+        await message.reply_video(video=open(file_path, "rb"))
         os.remove(file_path)
-
-        return
     except Exception as e:
-        logger.error(e)
+        logger.error(f"Error downloading Reddit video: {e}")
+        await message.reply_text("Failed to download Reddit video.")
 
 
-async def instagram_download(parsed_url: str, message: Message):
+async def download_instagram(url: str, message: Message) -> None:
+    """Download and send Instagram media"""
     if "RAPID_API_KEY" not in config["API"]:
         await message.reply_text(
-            "Instagram API key missing, command disabled. Contact the bot owner to enable it."
+            "Instagram API key missing. Contact the bot owner to enable it."
         )
         return
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
             "https://instagram-media-downloader.p.rapidapi.com/rapid/post.php",
             headers={
                 "X-RapidAPI-Key": config["API"]["RAPID_API_KEY"],
                 "X-RapidAPI-Host": "instagram-media-downloader.p.rapidapi.com",
             },
-            params={
-                "url": parsed_url,
-            },
-        )
-
-    data = response.json()
+            params={"url": url},
+        ) as response:
+            data = await response.json()
 
     if "video" in data:
-        await message.reply_video(
-            video=data["video"],
-        )
-        return
-
-    await message.reply_text("Fallbacks exhausted, could not download video.")
-
-
-@usage("/dl")
-@example("/dl")
-@triggers(["dl"])
-@description("Reply to a message to download the media attached to a URL.")
-async def downloader(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Download the image or video from a link.
-    """
-    # Parse URL entity in a given link
-    url = utils.extract_link(update.message)
-    if not url:
-        await commands.usage_string(update.message, downloader)
-        return
-
-    image_list = []
-
-    # Prefix the URL with the scheme if it is missing
-    if not url.scheme:
-        original_url = "https://" + url.geturl()
-        url = urlparse(original_url)
-
-    hostname = url.hostname.replace("www.", "").replace("m.", "").replace("old.", "")
-    match hostname:
-        case "imgur.com":
-            image_list = await download_imgur(url, MAX_IMAGE_COUNT)
-        case "i.redd.it" | "preview.redd.it":
-            image_list = [{"image": url.geturl()}]
-        case "v.redd.it":
-            await download_reddit_video(url.geturl(), update.message)
-            return
-        case "instagracom":
-            await instagram_download(url.geturl(), update.message)
-            return
-        case "redd.it" | "reddit.com":
-            try:
-                post = await reddit.submission(url=url.geturl().replace("old.", ""))
-                if hasattr(post, "crosspost_parent") and post.crosspost_parent:
-                    post = await reddit.submission(
-                        id=post.crosspost_parent.split("_")[1]
-                    )
-            except (InvalidURL, NotFound):
-                await update.message.reply_text(
-                    "URL is invalid or the subreddit is banned."
-                )
-                return
-            except Forbidden:
-                await update.message.reply_text("Subreddit is quarantined or private.")
-                return
-            except Exception as e:
-                logger.error(e)
-                await update.message.reply_text("Something went wrong.")
-                return
-
-            if hasattr(post, "is_gallery"):
-                # If url is a reddit gallery
-                media_ids = [i["media_id"] for i in post.gallery_data["items"]]
-                image_list = [
-                    {"image": post.media_metadata[media_id]["p"][-1]["u"]}
-                    for media_id in media_ids[:MAX_IMAGE_COUNT]
-                ]
-            elif hasattr(post, "is_video") or post.domain == "v.redd.it":
-                await download_reddit_video(post.url, update.message)
-                return
-            elif post.domain == "i.redd.it":
-                # If derived url is a single image or video
-                image_list = [{"image": post.url}]
-            elif post.domain == "imgur.com":
-                # If post is an imgur album/image
-                parsed_imgur_url = urlparse(post.url)
-                image_list = await download_imgur(parsed_imgur_url, MAX_IMAGE_COUNT)
-
-    if not image_list:
-        try:
-            await yt_dl_downloader(url, update.message)
-            return
-        except Exception as e:
-            logger.error(e)
-            await update.message.reply_text("Could not download video.")
-            return
+        await message.reply_video(video=data["video"])
     else:
-        try:
-            await update.message.reply_media_group(
-                [
-                    (
-                        InputMediaPhoto(content["image"])
-                        if "image" in content
-                        else InputMediaVideo(content["video"])
+        await message.reply_text("Could not download Instagram media.")
+
+
+async def download_youtube(url: str, message: Message) -> None:
+    """Download and send YouTube video"""
+
+    def download_video():
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            return info["id"]
+
+    try:
+        video_id = await asyncio.get_running_loop().run_in_executor(
+            None, download_video
+        )
+        await message.reply_video(video=open(video_id, "rb"))
+        os.remove(video_id)
+    except Exception as e:
+        logger.error(f"Error downloading YouTube video: {e}")
+        await message.reply_text("Failed to download YouTube video.")
+
+
+async def process_reddit_post(url: str, message: Message) -> Optional[List[Dict]]:
+    """Process Reddit post and return media list"""
+    try:
+        post = await reddit.submission(url=url.replace("old.", ""))
+        if hasattr(post, "crosspost_parent") and post.crosspost_parent:
+            post = await reddit.submission(id=post.crosspost_parent.split("_")[1])
+
+        if hasattr(post, "is_gallery"):
+            media_ids = [i["media_id"] for i in post.gallery_data["items"]]
+            return [
+                {"image": post.media_metadata[media_id]["p"][-1]["u"]}
+                for media_id in media_ids[:MAX_IMAGE_COUNT]
+            ]
+        elif hasattr(post, "is_video") or post.domain == "v.redd.it":
+            await download_reddit_video(post.url, message)
+            return None
+        elif post.domain == "i.redd.it":
+            return [{"image": post.url}]
+        elif post.domain == "imgur.com":
+            parsed_imgur_url = urlparse(post.url)
+            return await download_imgur(parsed_imgur_url, MAX_IMAGE_COUNT)
+    except (InvalidURL, NotFound):
+        await message.reply_text("URL is invalid or the subreddit is banned.")
+    except Forbidden:
+        await message.reply_text("Subreddit is quarantined or private.")
+    except Exception as e:
+        logger.error(f"Error processing Reddit post: {e}")
+        await message.reply_text("Something went wrong.")
+    return None
+
+
+DOMAIN_HANDLERS: Dict[str, Callable] = {
+    r"(?:www\.)?imgur\.com": download_imgur,
+    r"i\.redd\.it|preview\.redd\.it": lambda url, _: [{"image": url.geturl()}],
+    r"v\.redd\.it": download_reddit_video,
+    r"(?:www\.)?instagram\.com": download_instagram,
+    r"(?:www\.)?reddit\.com|redd\.it": process_reddit_post,
+}
+
+
+def get_domain_handler(hostname: str) -> Callable:
+    for pattern, handler in DOMAIN_HANDLERS.items():
+        if re.match(pattern, hostname, re.IGNORECASE):
+            return handler
+    return download_youtube  # Default to YouTube downloader if no match
+
+
+@usage("/dl [URL]")
+@example("/dl https://www.instagram.com/p/abcdefg/")
+@triggers(["dl"])
+@description("Download media from various supported platforms.")
+async def downloader(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Download the image or video from a link."""
+    message = update.message
+    if not message:
+        return
+
+    url = utils.extract_link(message)
+    if not url:
+        await message.reply_text("Please provide a valid URL.")
+        return
+
+    if not isinstance(url, ParseResult):
+        url = urlparse(url)
+
+    if not url.scheme:
+        url = urlparse(f"https://{url.geturl()}")
+
+    hostname = url.hostname.lower() if url.hostname else ""
+    if not hostname:
+        await message.reply_text("Invalid URL format.")
+        return
+
+    # Remove common prefixes
+    hostname = re.sub(r"^(www\.|m\.|old\.)", "", hostname)
+
+    try:
+        handler = get_domain_handler(hostname)
+        result = await handler(url.geturl(), message)
+
+        if isinstance(result, list):
+            if not result:
+                await message.reply_text("No media found or could not be downloaded.")
+            else:
+                try:
+                    await message.reply_media_group(
+                        [
+                            (
+                                InputMediaPhoto(content["image"])
+                                if "image" in content
+                                else InputMediaVideo(content["video"])
+                            )
+                            for content in result[
+                                :10
+                            ]  # Limit to 10 for Telegram's limit
+                        ]
                     )
-                    for content in image_list
-                ]
-            )
-        except BadRequest:
-            await update.message.reply_text(
-                "Could not download media. The file was probably deleted."
-            )
-            return
+                except BadRequest:
+                    await message.reply_text(
+                        "Could not send media. The file might have been deleted or is too large."
+                    )
+    except Exception as e:
+        logger.error(f"Error in downloader: {e}")
+        await message.reply_text("An error occurred while processing your request.")
