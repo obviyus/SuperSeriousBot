@@ -1,4 +1,3 @@
-import sqlite3
 from datetime import datetime
 
 from telegram import Message, Update
@@ -8,7 +7,7 @@ from telegram.helpers import mention_html
 
 import commands
 import utils.string
-from config.db import redis, sqlite_conn
+from config.db import get_db, redis
 from utils import readable_time
 from utils.decorators import description, example, triggers, usage
 
@@ -39,32 +38,34 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         # Map the lowercase username to the user ID
         redis.set(f"username:{username_lower}", user_object.id)
 
-    cursor = sqlite_conn.cursor()
     chat_id = update.message.chat_id
-    try:
-        cursor.execute(
-            "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
-            (chat_id, user_object.id, update.message.message_id),
-        )
-
-        if update.message.text:
-            cursor.execute(
-                """
-                SELECT fts FROM group_settings
-                WHERE chat_id = ?;
-                """,
-                (update.message.chat_id,),
+    async with await get_db() as conn:
+        try:
+            await conn.execute(
+                "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
+                (chat_id, user_object.id, update.message.message_id),
             )
-            result = cursor.fetchone()
 
-            is_enabled = result["fts"] if result else False
-            if is_enabled:
-                cursor.execute(
-                    "UPDATE chat_stats SET message_text = ? WHERE rowid = ?",
-                    (update.message.text, cursor.lastrowid),
-                )
-    except sqlite3.IntegrityError:
-        pass
+            if update.message.text:
+                async with conn.execute(
+                    """
+                    SELECT fts FROM group_settings
+                    WHERE chat_id = ?;
+                    """,
+                    (update.message.chat_id,),
+                ) as cursor:
+                    result = await cursor.fetchone()
+
+                is_enabled = result["fts"] if result else False
+                if is_enabled:
+                    await conn.execute(
+                        "UPDATE chat_stats SET message_text = ? WHERE rowid = last_insert_rowid()",
+                        (update.message.text,),
+                    )
+            await conn.commit()
+        except Exception as e:
+            await conn.rollback()
+            print(f"Error in increment: {e}")
 
 
 async def stat_string_builder(
@@ -141,32 +142,31 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """SELECT create_time,user_id, COUNT(user_id) AS user_count
-        FROM chat_stats 
-        WHERE chat_id = ? AND 
-        create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')
-        GROUP BY user_id
-        ORDER BY COUNT(user_id) DESC
-        LIMIT 10;
-        """,
-        (chat_id,),
-    )
+    async with await get_db() as conn:
+        async with conn.execute(
+            """SELECT create_time,user_id, COUNT(user_id) AS user_count
+            FROM chat_stats 
+            WHERE chat_id = ? AND 
+            create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')
+            GROUP BY user_id
+            ORDER BY COUNT(user_id) DESC
+            LIMIT 10;
+            """,
+            (chat_id,),
+        ) as cursor:
+            users = await cursor.fetchall()
 
-    users = cursor.fetchall()
-    cursor.execute(
-        """SELECT COUNT(id) AS total_count
-        FROM chat_stats 
-        WHERE chat_id = ? AND 
-        create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime');
-        """,
-        (chat_id,),
-    )
+        async with conn.execute(
+            """SELECT COUNT(id) AS total_count
+            FROM chat_stats 
+            WHERE chat_id = ? AND 
+            create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime');
+            """,
+            (chat_id,),
+        ) as cursor:
+            total_count = (await cursor.fetchone())["total_count"]
 
-    await stat_string_builder(
-        users, update.message, context, cursor.fetchone()["total_count"]
-    )
+    await stat_string_builder(users, update.message, context, total_count)
 
 
 @usage("/gstats")
@@ -178,29 +178,28 @@ async def get_total_chat_stats(
 ) -> None:
     chat_id = update.message.chat_id
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT create_time, user_id, COUNT(user_id) AS user_count
-        FROM chat_stats
-        WHERE chat_id = ?
-        GROUP BY user_id
-        ORDER BY COUNT(user_id) DESC
-        LIMIT 10;
-        """,
-        (chat_id,),
-    )
+    async with await get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT create_time, user_id, COUNT(user_id) AS user_count
+            FROM chat_stats
+            WHERE chat_id = ?
+            GROUP BY user_id
+            ORDER BY COUNT(user_id) DESC
+            LIMIT 10;
+            """,
+            (chat_id,),
+        ) as cursor:
+            users = await cursor.fetchall()
 
-    users = cursor.fetchall()
-    cursor.execute(
-        """
-        SELECT COUNT(id) AS total_count
-        FROM chat_stats
-        WHERE chat_id = ?;
-        """,
-        (chat_id,),
-    )
+        async with conn.execute(
+            """
+            SELECT COUNT(id) AS total_count
+            FROM chat_stats
+            WHERE chat_id = ?;
+            """,
+            (chat_id,),
+        ) as cursor:
+            total_count = (await cursor.fetchone())["total_count"]
 
-    await stat_string_builder(
-        users, update.message, context, cursor.fetchone()["total_count"]
-    )
+    await stat_string_builder(users, update.message, context, total_count)

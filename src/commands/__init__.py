@@ -14,7 +14,7 @@ from telegram.ext import CommandHandler, ContextTypes
 import management
 import utils
 from config import logger
-from config.db import sqlite_conn
+from config.db import get_db, sqlite_conn
 from config.options import config
 from management import botstats, stats
 from misc.highlight import highlight_button_handler
@@ -191,12 +191,12 @@ def command_wrapper(fn: Callable):
             return
 
         await management.increment(update, context)
-
-        cursor = sqlite_conn.cursor()
-        cursor.execute(
-            "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
-            (sent_command, update.message.from_user.id),
-        )
+        async with await get_db() as conn:
+            await conn.execute(
+                "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
+                (sent_command, update.message.from_user.id),
+            )
+            await conn.commit()
 
     wrapped_command.__dict__.update(fn.__dict__)
     return wrapped_command
