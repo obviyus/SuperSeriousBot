@@ -1,3 +1,10 @@
+## [1.83.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.83.1...v1.83.2) (2024-06-26)
+
+
+### Bug Fixes
+
+* **yt:** use write conn ([f04b8e9](https://github.com/obviyus/SuperSeriousBot/commit/f04b8e99ce6f0d3dc4effd2996d8c10a01032b45))
+
 ## [1.83.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.83.0...v1.83.1) (2024-06-26)
 
 
