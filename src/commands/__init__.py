@@ -5,6 +5,8 @@ Commands for general use.
 import asyncio
 import random
 import re
+import traceback
+from functools import wraps
 from typing import Callable, Dict, List, Set
 
 from telegram import Message, MessageEntity, Update
@@ -14,7 +16,7 @@ from telegram.ext import CommandHandler, ContextTypes
 import management
 import utils
 from config import logger
-from config.db import sqlite_conn
+from config.db import get_db
 from config.options import config
 from management import botstats, stats
 from misc.highlight import highlight_button_handler
@@ -32,7 +34,6 @@ from . import (
     hltb,
     insult,
     joke,
-    law,
     meme,
     midjourney,
     ping,
@@ -72,7 +73,6 @@ COMMAND_MODULES = [
     hltb,
     insult,
     joke,
-    law,
     meme,
     midjourney,
     ping,
@@ -164,41 +164,42 @@ async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
 
 def command_wrapper(fn: Callable):
+    @wraps(fn)
     async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = update.message
         if not message:
             return
 
-        tasks = [
-            message.set_reaction(ReactionEmoji.WRITING_HAND),
-            message.reply_chat_action(ChatAction.TYPING),
-            fn(update, context),
-        ]
+        try:
+            tasks = [
+                message.set_reaction(ReactionEmoji.WRITING_HAND),
+                message.reply_chat_action(ChatAction.TYPING),
+                fn(update, context),
+            ]
 
-        await asyncio.gather(*tasks)
+            await asyncio.gather(*tasks)
 
-        logger.info(f"/{fn.__name__} from {update.message.from_user}")
+            sent_command = next(
+                iter(
+                    update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()
+                ),
+                None,
+            )
+            if sent_command:
+                sent_command = sent_command.split("@")[0][1:]
+                if sent_command in command_doc_list:
+                    await management.increment(update, context)
+                    async with get_db(write=True) as conn:
+                        await conn.execute(
+                            "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
+                            (sent_command, update.message.from_user.id),
+                        )
+                        await conn.commit()
 
-        sent_command = next(
-            iter(update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()),
-            None,
-        )
-        if not sent_command:
-            return
+        except Exception as e:
+            logger.error(f"Error in /{fn.__name__}: {str(e)}")
+            logger.error(traceback.format_exc())
 
-        sent_command = sent_command.split("@")[0][1:]
-        if sent_command not in command_doc_list:
-            return
-
-        await management.increment(update, context)
-
-        cursor = sqlite_conn.cursor()
-        cursor.execute(
-            "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
-            (sent_command, update.message.from_user.id),
-        )
-
-    wrapped_command.__dict__.update(fn.__dict__)
     return wrapped_command
 
 
@@ -264,14 +265,15 @@ async def save_mentions(
             else user
         )
         if user_id is not None:
-            cursor = sqlite_conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO chat_mentions (mentioning_user_id, mentioned_user_id, chat_id, message_id)
-                VALUES (?, ?, ?, ?)
-                """,
-                (mentioning_user_id, user_id, message.chat.id, message.message_id),
-            )
+            async with get_db(write=True) as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO chat_mentions (mentioning_user_id, mentioned_user_id, chat_id, message_id)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (mentioning_user_id, user_id, message.chat.id, message.message_id),
+                )
+                await conn.commit()
 
 
 async def mention_parser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

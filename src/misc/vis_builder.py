@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 
 import utils
 from config import logger
-from config.db import sqlite_conn
+from config.db import get_db
 
 
 async def title_for_node(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
@@ -29,14 +29,15 @@ async def generate_network_for_chat(
     graph = nx.DiGraph()
 
     logger.info(f"Generating network for chat_id: {chat_id}")
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT mentioning_user_id AS source, mentioned_user_id AS target
-        FROM chat_mentions WHERE chat_id = ?;
-        """,
-        (chat_id,),
-    )
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT mentioning_user_id AS source, mentioned_user_id AS target
+            FROM chat_mentions WHERE chat_id = ?;
+            """,
+            (chat_id,),
+        ) as cursor:
+            mentions = await cursor.fetchall()
 
     try:
         chat_title = f"Chat {(await context.bot.get_chat(chat_id)).title}"
@@ -52,7 +53,7 @@ async def generate_network_for_chat(
     mappings = defaultdict(lambda: defaultdict(int))
     user_id_to_name = {}
 
-    for row in cursor.fetchall():
+    for row in mentions:
         mappings[row["source"]][row["target"]] += 1
         if row["source"] not in user_id_to_name:
             user_id_to_name[row["source"]] = await title_for_node(
@@ -104,16 +105,15 @@ async def worker_build_network(context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Worker function to build a network for a chat.
     """
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT DISTINCT chat_id FROM chat_mentions;
-        """
-    )
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT DISTINCT chat_id FROM chat_mentions;"
+        ) as cursor:
+            chats = await cursor.fetchall()
 
     tasks = []
 
-    for row in cursor.fetchall():
+    for row in chats:
         tasks.append(
             asyncio.ensure_future(generate_network_for_chat(row["chat_id"], context))
         )

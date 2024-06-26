@@ -1,15 +1,13 @@
 import datetime
 
 import dateparser
-from telegram import (
-    Update,
-)
+from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
 import utils
-from config.db import sqlite_conn
+from config.db import get_db
 from utils.decorators import description, example, triggers, usage
 
 
@@ -21,7 +19,6 @@ def readable_time(time: datetime.datetime) -> str:
     hours, remainder = divmod(time_difference.seconds, 3600)
     minutes, _ = divmod(remainder, 60)
 
-    # Construct the string
     time_left = ""
     if days > 0:
         time_left += f"{days} days, "
@@ -30,24 +27,20 @@ def readable_time(time: datetime.datetime) -> str:
     if minutes > 0:
         time_left += f"{minutes} minutes"
 
-    # Remove the trailing comma and space if present
-    if time_left.endswith(", "):
-        time_left = time_left[:-2]
-
-    return time_left
+    return time_left.rstrip(", ")
 
 
-def reminder_list(user_id: int, chat_id: int) -> str:
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT id, title, target_time
-        FROM reminders WHERE user_id = ? AND chat_id = ? AND target_time > STRFTIME('%s', 'now');
-        """,
-        (user_id, chat_id),
-    )
+async def reminder_list(user_id: int, chat_id: int) -> str:
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT id, title, target_time
+            FROM reminders WHERE user_id = ? AND chat_id = ? AND target_time > STRFTIME('%s', 'now');
+            """,
+            (user_id, chat_id),
+        ) as cursor:
+            results = await cursor.fetchall()
 
-    results = cursor.fetchall()
     text = "⏰ Your reminders in this chat:\n"
 
     for index, reminder in enumerate(results):
@@ -63,21 +56,22 @@ def reminder_list(user_id: int, chat_id: int) -> str:
 @example("/remind Japan Trip - 5 months later")
 async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Create a reminder with a trigger time for this group."""
-    cursor = sqlite_conn.cursor()
-
     if not context.args:
-        existing_reminders = cursor.execute(
-            """
-            SELECT COUNT(*) AS count
-            FROM reminders WHERE user_id = ? AND chat_id = ? AND target_time > STRFTIME('%s', 'now');
-            """,
-            (update.message.from_user.id, update.message.chat_id),
-        )
+        async with get_db() as conn:
+            async with conn.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM reminders WHERE user_id = ? AND chat_id = ? AND target_time > STRFTIME('%s', 'now');
+                """,
+                (update.message.from_user.id, update.message.chat_id),
+            ) as cursor:
+                existing_reminders = await cursor.fetchone()
 
-        existing_reminders = existing_reminders.fetchone()
         if existing_reminders["count"] > 0:
             await update.message.reply_text(
-                text=reminder_list(update.message.from_user.id, update.message.chat_id),
+                text=await reminder_list(
+                    update.message.from_user.id, update.message.chat_id
+                ),
                 parse_mode=ParseMode.HTML,
             )
             return
@@ -91,9 +85,7 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, remind)
         return
 
-    title, target_time = command_args[0], command_args[1]
-    title = title.strip()
-    target_time = target_time.strip()
+    title, target_time = command_args[0].strip(), command_args[1].strip()
 
     target_time = dateparser.parse(
         target_time, settings={"RETURN_AS_TIMEZONE_AWARE": True}
@@ -111,18 +103,20 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    cursor.execute(
-        """
-        INSERT INTO reminders (chat_id, user_id, title, target_time)
-        VALUES (?, ?, ?, ?);
-        """,
-        (
-            update.message.chat_id,
-            update.message.from_user.id,
-            title,
-            target_time.timestamp(),
-        ),
-    )
+    async with get_db(write=True) as conn:
+        await conn.execute(
+            """
+            INSERT INTO reminders (chat_id, user_id, title, target_time)
+            VALUES (?, ?, ?, ?);
+            """,
+            (
+                update.message.chat_id,
+                update.message.from_user.id,
+                title,
+                target_time.timestamp(),
+            ),
+        )
+        await conn.commit()
 
     await update.message.reply_text(
         text=f'I will remind you about <code>{title}</code> on {target_time.strftime("%B %d, %Y at %I:%M%p %Z")}',
@@ -131,17 +125,17 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
-    cursor = sqlite_conn.cursor()
-    existing_reminders = cursor.execute(
-        """
-        SELECT id, title, target_time, user_id, chat_id
-        FROM reminders 
-        WHERE target_time > STRFTIME('%s', 'now') 
-        AND target_time <= STRFTIME('%s', 'now', '+1 minutes');
-        """,
-    )
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT id, title, target_time, user_id, chat_id
+            FROM reminders 
+            WHERE target_time > STRFTIME('%s', 'now') 
+            AND target_time <= STRFTIME('%s', 'now', '+1 minutes');
+            """
+        ) as cursor:
+            existing_reminders = await cursor.fetchall()
 
-    existing_reminders = existing_reminders.fetchall()
     for reminder in existing_reminders:
         text = f'⏰ <code>{reminder["title"]}</code>\n\n@{await utils.get_username(reminder["user_id"], context)}'
         await context.bot.send_message(

@@ -5,7 +5,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
-from config.db import sqlite_conn
+from config.db import get_db
 from utils.decorators import description, example, triggers, usage
 
 
@@ -33,52 +33,55 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await commands.usage_string(update.message, set_object)
         return
 
-    if update.message.reply_to_message.document:
+    file_id, file_unique_id, file_type = None, None, None
+    reply = update.message.reply_to_message
+
+    if reply.document:
         file_id, file_unique_id, file_type = (
-            update.message.reply_to_message.document.file_id,
-            update.message.reply_to_message.document.file_unique_id,
+            reply.document.file_id,
+            reply.document.file_unique_id,
             FileType.DOCUMENT,
         )
-    elif update.message.reply_to_message.photo:
+    elif reply.photo:
         file_id, file_unique_id, file_type = (
-            update.message.reply_to_message.photo[-1].file_id,
-            update.message.reply_to_message.photo[-1].file_unique_id,
+            reply.photo[-1].file_id,
+            reply.photo[-1].file_unique_id,
             FileType.PHOTO,
         )
-    elif update.message.reply_to_message.audio:
+    elif reply.audio:
         file_id, file_unique_id, file_type = (
-            update.message.reply_to_message.audio.file_id,
-            update.message.reply_to_message.audio.file_unique_id,
+            reply.audio.file_id,
+            reply.audio.file_unique_id,
             FileType.AUDIO,
         )
-    elif update.message.reply_to_message.video:
+    elif reply.video:
         file_id, file_unique_id, file_type = (
-            update.message.reply_to_message.video.file_id,
-            update.message.reply_to_message.video.file_unique_id,
+            reply.video.file_id,
+            reply.video.file_unique_id,
             FileType.VIDEO,
         )
-    elif update.message.reply_to_message.animation:
+    elif reply.animation:
         file_id, file_unique_id, file_type = (
-            update.message.reply_to_message.animation.file_id,
-            update.message.reply_to_message.animation.file_unique_id,
+            reply.animation.file_id,
+            reply.animation.file_unique_id,
             FileType.ANIMATION,
         )
-    elif update.message.reply_to_message.voice:
+    elif reply.voice:
         file_id, file_unique_id, file_type = (
-            update.message.reply_to_message.voice.file_id,
-            update.message.reply_to_message.voice.file_unique_id,
+            reply.voice.file_id,
+            reply.voice.file_unique_id,
             FileType.VOICE,
         )
-    elif update.message.reply_to_message.sticker:
+    elif reply.sticker:
         file_id, file_unique_id, file_type = (
-            update.message.reply_to_message.sticker.file_id,
-            update.message.reply_to_message.sticker.file_unique_id,
+            reply.sticker.file_id,
+            reply.sticker.file_unique_id,
             FileType.STICKER,
         )
-    elif update.message.reply_to_message.video_note:
+    elif reply.video_note:
         file_id, file_unique_id, file_type = (
-            update.message.reply_to_message.video_note.file_id,
-            update.message.reply_to_message.video_note.file_unique_id,
+            reply.video_note.file_id,
+            reply.video_note.file_unique_id,
             FileType.VIDEO_NOTE,
         )
     else:
@@ -93,42 +96,48 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     key = context.args[0]
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT * FROM object_store WHERE key = ?;
-        """,
-        (key,),
-    )
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT * FROM object_store WHERE key = ?;
+            """,
+            (key,),
+        ) as cursor:
+            if await cursor.fetchone():
+                await update.message.reply_text(
+                    f"Object with key <code>{key}</code> already exists.",
+                    parse_mode=ParseMode.HTML,
+                )
+                return
 
-    if cursor.fetchone():
-        await update.message.reply_text(
-            f"Object with key <code>{key}</code> already exists.",
-            parse_mode=ParseMode.HTML,
+        async with conn.execute(
+            """
+            SELECT * FROM object_store WHERE file_unique_id = ?;
+            """,
+            (file_unique_id,),
+        ) as cursor:
+            result = await cursor.fetchone()
+            if result:
+                await update.message.reply_text(
+                    f"""This file has already been stored with key <code>{result["key"]}</code>.""",
+                    parse_mode=ParseMode.HTML,
+                )
+                return
+
+    async with get_db(write=True) as conn:
+        await conn.execute(
+            """
+            INSERT INTO object_store (key, file_id, file_unique_id, user_id, type) VALUES (?, ?, ?, ?, ?);
+            """,
+            (
+                key,
+                file_id,
+                file_unique_id,
+                update.message.from_user.id,
+                file_type.value,
+            ),
         )
-        return
-
-    cursor.execute(
-        """
-        SELECT * FROM object_store WHERE file_unique_id = ?;
-        """,
-        (file_unique_id,),
-    )
-
-    result = cursor.fetchone()
-    if result:
-        await update.message.reply_text(
-            f"""This file has already been stored with key <code>{result["key"]}</code>.""",
-            parse_mode=ParseMode.HTML,
-        )
-        return
-
-    cursor.execute(
-        """
-        INSERT INTO object_store (key, file_id, file_unique_id, user_id, type) VALUES (?, ?, ?, ?, ?);
-        """,
-        (key, file_id, file_unique_id, update.message.from_user.id, file_type.value),
-    )
+        await conn.commit()
 
     await update.message.reply_text(
         f"Object with key <code>{key}</code> saved. You can get it by using <code>/get {key}</code>.",
@@ -148,110 +157,54 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     key = context.args[0]
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT * FROM object_store WHERE key = ? COLLATE NOCASE;
-        """,
-        (key,),
-    )
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT * FROM object_store WHERE key = ? COLLATE NOCASE;
+            """,
+            (key,),
+        ) as cursor:
+            row = await cursor.fetchone()
 
-    row = cursor.fetchone()
+        if not row:
+            await update.message.reply_text(
+                f"Object with key <code>{key}</code> does not exist.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
 
-    if not row:
-        await update.message.reply_text(
-            f"Object with key <code>{key}</code> does not exist.",
-            parse_mode=ParseMode.HTML,
+        file_id, file_type = row["file_id"], row["type"]
+
+        # Helper function to send media
+        async def send_media(message, file_type, file_id):
+            send_functions = {
+                FileType.DOCUMENT: "reply_document",
+                FileType.PHOTO: "reply_photo",
+                FileType.AUDIO: "reply_audio",
+                FileType.VIDEO: "reply_video",
+                FileType.ANIMATION: "reply_animation",
+                FileType.VOICE: "reply_voice",
+                FileType.STICKER: "reply_sticker",
+                FileType.VIDEO_NOTE: "reply_video_note",
+            }
+            method_name = send_functions.get(FileType(file_type))
+            if method_name:
+                method = getattr(message, method_name)
+                await method(**{FileType(file_type).name.lower(): file_id})
+            else:
+                await message.reply_text(
+                    f"Object with key <code>{key}</code> is of unknown type.",
+                    parse_mode=ParseMode.HTML,
+                )
+
+        target_message = update.message.reply_to_message or update.message
+        await send_media(target_message, file_type, file_id)
+
+    async with get_db(write=True) as conn:
+        await conn.execute(
+            """
+            UPDATE object_store SET fetch_count = fetch_count + 1 WHERE key = ?;
+            """,
+            (key,),
         )
-        return
-
-    file_id, file_type = row["file_id"], row["type"]
-
-    # TODO: Refactor into a generic function.
-    if update.message.reply_to_message:
-        match FileType(file_type):
-            case FileType.DOCUMENT:
-                await update.message.reply_to_message.reply_document(
-                    document=file_id,
-                )
-            case FileType.PHOTO:
-                await update.message.reply_to_message.reply_photo(
-                    photo=file_id,
-                )
-            case FileType.AUDIO:
-                await update.message.reply_to_message.reply_audio(
-                    audio=file_id,
-                )
-            case FileType.VIDEO:
-                await update.message.reply_to_message.reply_video(
-                    video=file_id,
-                )
-            case FileType.ANIMATION:
-                await update.message.reply_to_message.reply_animation(
-                    animation=file_id,
-                )
-            case FileType.VOICE:
-                await update.message.reply_to_message.reply_voice(
-                    voice=file_id,
-                )
-            case FileType.STICKER:
-                await update.message.reply_to_message.reply_sticker(
-                    sticker=file_id,
-                )
-            case FileType.VIDEO_NOTE:
-                await update.message.reply_to_message.reply_video_note(
-                    video_note=file_id,
-                )
-            case FileType.UNKNOWN:
-                await update.message.reply_to_message.reply_text(
-                    f"Object with key <code>{key}</code> is of unknown type.",
-                    parse_mode=ParseMode.HTML,
-                )
-                return
-    else:
-        match FileType(file_type):
-            case FileType.DOCUMENT:
-                await update.message.reply_document(
-                    document=file_id,
-                )
-            case FileType.PHOTO:
-                await update.message.reply_photo(
-                    photo=file_id,
-                )
-            case FileType.AUDIO:
-                await update.message.reply_audio(
-                    audio=file_id,
-                )
-            case FileType.VIDEO:
-                await update.message.reply_video(
-                    video=file_id,
-                )
-            case FileType.ANIMATION:
-                await update.message.reply_animation(
-                    animation=file_id,
-                )
-            case FileType.VOICE:
-                await update.message.reply_voice(
-                    voice=file_id,
-                )
-            case FileType.STICKER:
-                await update.message.reply_sticker(
-                    sticker=file_id,
-                )
-            case FileType.VIDEO_NOTE:
-                await update.message.reply_video_note(
-                    video_note=file_id,
-                )
-            case FileType.UNKNOWN:
-                await update.message.reply_text(
-                    f"Object with key <code>{key}</code> is of unknown type.",
-                    parse_mode=ParseMode.HTML,
-                )
-                return
-
-    cursor.execute(
-        """
-        UPDATE object_store SET fetch_count = fetch_count + 1 WHERE key = ?;
-        """,
-        (key,),
-    )
+        await conn.commit()

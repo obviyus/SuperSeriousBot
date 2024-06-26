@@ -1,14 +1,13 @@
 import logging
 import uuid
 
-import aiosqlite
 import dateparser
 import ijson
 from telegram import Update
 from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
-from config.db import PRIMARY_DB_PATH, sqlite_conn
+from config.db import get_db
 from utils.decorators import description, example, triggers, usage
 
 
@@ -20,17 +19,15 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Search command handler.
     """
-    cursor = sqlite_conn.cursor()
-
-    cursor.execute(
-        """
-        SELECT fts FROM group_settings
-        WHERE chat_id = ?;
-        """,
-        (update.message.chat_id,),
-    )
-
-    setting = cursor.fetchone()
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT fts FROM group_settings
+            WHERE chat_id = ?;
+            """,
+            (update.message.chat_id,),
+        ) as cursor:
+            setting = await cursor.fetchone()
 
     if not setting or not setting["fts"]:
         await update.message.reply_text(
@@ -42,7 +39,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Please provide a search query.")
         return
 
-    query = " ".join(context.args)  # Your input text to match
+    query = " ".join(context.args)
     if update.message.reply_to_message:
         sql = """
         SELECT cs.id, cs.chat_id, cs.message_id, cs.create_time, cs.user_id, cs.message_text
@@ -73,8 +70,10 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
         params = (update.message.chat_id, query)
 
-    cursor.execute(sql, params)
-    results = cursor.fetchone()
+    async with get_db() as conn:
+        async with conn.execute(sql, params) as cursor:
+            results = await cursor.fetchone()
+
     if not results:
         await update.message.reply_text("No results found.")
         return
@@ -97,18 +96,19 @@ async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     # Check if user is a moderator
     if update.message.chat.type != ChatType.PRIVATE:
         chat_admins = await context.bot.get_chat_administrators(update.message.chat_id)
-        if not update.message.from_user.id in [admin.user.id for admin in chat_admins]:
+        if update.message.from_user.id not in [admin.user.id for admin in chat_admins]:
             await update.message.reply_text("You are not a moderator.")
             return
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO group_settings (chat_id, fts) VALUES (?, 1)
-        ON CONFLICT(chat_id) DO UPDATE SET fts = 1;
-        """,
-        (update.message.chat_id,),
-    )
+    async with get_db(write=True) as conn:
+        await conn.execute(
+            """
+            INSERT INTO group_settings (chat_id, fts) VALUES (?, 1)
+            ON CONFLICT(chat_id) DO UPDATE SET fts = 1;
+            """,
+            (update.message.chat_id,),
+        )
+        await conn.commit()
 
     await update.message.reply_text("Full text search has been enabled in this chat.")
 
@@ -137,50 +137,50 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     filename = uuid.uuid4()
     await file.download_to_drive(f"{filename}.json")
 
-    db = await aiosqlite.connect(PRIMARY_DB_PATH)
-    await db.execute("PRAGMA journal_mode=WAL;")
+    async with get_db(write=True) as conn:
+        await conn.execute("PRAGMA journal_mode=WAL;")
 
-    processed_lines = 0
-    with open(f"{filename}.json", "rb") as file:
-        messages = ijson.items(file, "messages.item")
+        processed_lines = 0
+        with open(f"{filename}.json", "rb") as file:
+            messages = ijson.items(file, "messages.item")
 
-        for message in messages:
-            if message["type"] != "message" or not message["text"]:
-                continue
+            for message in messages:
+                if message["type"] != "message" or not message["text"]:
+                    continue
 
-            text_parts = []
-            for part in message["text"]:
-                if isinstance(part, dict):
-                    if part.get("type") == "bot_command":
-                        text_parts.append(part.get("text", ""))
-                else:
-                    text_parts.append(part)
+                text_parts = []
+                for part in message["text"]:
+                    if isinstance(part, dict):
+                        if part.get("type") == "bot_command":
+                            text_parts.append(part.get("text", ""))
+                    else:
+                        text_parts.append(part)
 
-            text = "".join(text_parts)
+                text = "".join(text_parts)
 
-            user_id = message["from_id"].replace("user", "")
-            create_time = dateparser.parse(message["date"])
+                user_id = message["from_id"].replace("user", "")
+                create_time = dateparser.parse(message["date"])
 
-            cursor = await db.execute(
-                """
-                INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(chat_id, user_id, message_id) DO NOTHING;
-                """,
-                (
-                    update.message.chat_id,
-                    user_id,
-                    message["id"],
-                    create_time,
-                    text,
-                ),
-            )
-            await cursor.close()
-            processed_lines += 1
-            if processed_lines % 1000 == 0:
-                logging.info(f"Processed {processed_lines} lines.")
+                await conn.execute(
+                    """
+                    INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(chat_id, user_id, message_id) DO NOTHING;
+                    """,
+                    (
+                        update.message.chat_id,
+                        user_id,
+                        message["id"],
+                        create_time,
+                        text,
+                    ),
+                )
+                processed_lines += 1
+                if processed_lines % 1000 == 0:
+                    logging.info(f"Processed {processed_lines} lines.")
+                    await conn.commit()
 
-    await db.close()
-    logging.info("Processing completed.")
+        await conn.commit()
+        logging.info("Processing completed.")
 
     await update.message.reply_text("Chat stats imported.")

@@ -4,7 +4,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import utils
-from config.db import sqlite_conn
+from config.db import get_db
 from utils.decorators import description, example, triggers, usage
 
 
@@ -12,17 +12,26 @@ from utils.decorators import description, example, triggers, usage
 @example("/graph")
 @triggers(["graph"])
 @description("Get the social graph of this group.")
-async def get_graph(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    """Get the social graph of this group."""
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT create_time FROM main.chat_mentions WHERE chat_id = ? ORDER BY create_time LIMIT 1;
-        """,
-        (update.message.chat_id,),
-    )
+async def get_oldest_mention(chat_id: int) -> str | None:
+    """Get the creation time of the oldest mention in the chat."""
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT create_time FROM main.chat_mentions WHERE chat_id = ? ORDER BY create_time LIMIT 1;
+            """,
+            (chat_id,),
+        ) as cursor:
+            result = await cursor.fetchone()
 
-    oldest_mention = cursor.fetchone()
+    return result["create_time"] if result else None
+
+
+async def get_social_graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Get the social graph of this group."""
+    if not update.message:
+        return
+
+    oldest_mention = await get_oldest_mention(update.message.chat_id)
     if not oldest_mention:
         await update.message.reply_text(
             text="This group has no recorded activity.", parse_mode=ParseMode.MARKDOWN

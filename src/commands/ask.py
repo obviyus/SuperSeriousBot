@@ -2,13 +2,13 @@ import os
 
 import openai
 from litellm import acompletion
-from openai import OpenAI
+from openai import AsyncOpenAI, RateLimitError
 from telegram import Update
 from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 import commands
-from config.db import sqlite_conn
+from config.db import get_db
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 
@@ -25,7 +25,24 @@ Try to keep the responses short and concise, but also provide enough information
 any baby-ing the user by adding phrases like "However, be mindful of the following" or "Please be careful when doing this". etc.
 """
 
-client = OpenAI(api_key=openai.api_key)
+client = AsyncOpenAI(api_key=openai.api_key)
+
+
+async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> bool:
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+                SELECT 1
+                FROM command_whitelist 
+                WHERE command = ? 
+                AND (whitelist_type = 'chat' AND whitelist_id = ?)
+                OR (whitelist_type = 'user' AND whitelist_id = ?);
+                """,
+            (command, chat_id, user_id),
+        ) as cursor:
+            result = await cursor.fetchone()
+
+    return bool(result)
 
 
 @triggers(["ask"])
@@ -48,22 +65,14 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, ask)
         return
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT 1
-        FROM command_whitelist 
-        WHERE command = 'ask' 
-        AND (whitelist_type = 'chat' AND whitelist_id = ?)
-        OR (whitelist_type = 'user' AND whitelist_id = ?);
-        """,
-        (update.message.chat.id, update.message.from_user.id),
-    )
-
-    result = cursor.fetchone()
-    if not result and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]:
+    if (
+        not await check_command_whitelist(
+            update.message.chat.id, update.message.from_user.id, "ask"
+        )
+        and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
+    ):
         await update.message.reply_text(
-            "This command is not available in this chat."
+            "This command is not available in this chat. "
             "Please contact an admin to whitelist this command."
         )
         return
@@ -87,21 +96,19 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         text = response.choices[0].message.content
 
         await update.message.reply_text(text)
-    except openai._exceptions.RateLimitError:
+    except RateLimitError:
         await update.message.reply_text(
-            "This command is currently overloaded with other requests."
+            "This command is currently overloaded with other requests. "
             "Please try again later."
         )
-        return
     except Exception:
         await update.message.reply_text(
             "An error occurred while processing your request. Please try again later."
         )
-        return
 
 
 @triggers(["caption"])
-@usage("/caption]")
+@usage("/caption")
 @api_key("OPEN_AI_API_KEY")
 @example("/caption")
 @description("Reply to an image to caption it using the GPT-V API.")
@@ -113,26 +120,15 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    if not update.message.reply_to_message.photo:
+    if not update.message.reply_to_message or not update.message.reply_to_message.photo:
         await commands.usage_string(update.message, caption)
         return
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT 1
-        FROM command_whitelist
-        WHERE command = 'caption'
-        AND (whitelist_type = 'chat' AND whitelist_id = ?)
-        OR (whitelist_type = 'user' AND whitelist_id = ?);
-        """,
-        (update.message.chat.id, update.message.from_user.id),
-    )
-
-    result = cursor.fetchone()
-    if not result:
+    if not await check_command_whitelist(
+        update.message.chat.id, update.message.from_user.id, "caption"
+    ):
         await update.message.reply_text(
-            "This command is not available in this chat."
+            "This command is not available in this chat. "
             "Please contact an admin to whitelist this command."
         )
         return
@@ -142,24 +138,29 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     custom_prompt = " ".join(context.args) or ""
 
-    response = client.chat.completions.create(
-        model="gpt-4-vision-preview",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Describe this image, but be short and concise. Here are custom instructions from the user, follow them to the best of your ability: {custom_prompt}",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": file.file_path,
-                    },
-                ],
-            }
-        ],
-        max_tokens=300,
-    )
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4-vision-preview",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Describe this image, but be short and concise. Here are custom instructions from the user, follow them to the best of your ability: {custom_prompt}",
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": file.file_path,
+                        },
+                    ],
+                }
+            ],
+            max_tokens=300,
+        )
 
-    await update.message.reply_text(response.choices[0].message.content)
+        await update.message.reply_text(response.choices[0].message.content)
+    except Exception as e:
+        await update.message.reply_text(
+            f"An error occurred while processing your request: {str(e)}"
+        )

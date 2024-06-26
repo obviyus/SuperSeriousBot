@@ -10,7 +10,7 @@ from telegram.ext import CallbackContext, ContextTypes
 import commands
 import utils
 from config import logger
-from config.db import sqlite_conn
+from config.db import get_db
 from utils.decorators import api_key, description, example, triggers, usage
 from .randdit import make_response
 from .reddit_comment import reddit
@@ -34,62 +34,63 @@ async def subscribe_reddit(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await commands.usage_string(update.message, subscribe_reddit)
         return
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT * FROM reddit_subscriptions WHERE subreddit_name = ? COLLATE NOCASE AND group_id = ?;
-        """,
-        (subreddit, update.message.chat_id),
-    )
-
-    result = cursor.fetchone()
-    if result:
-        await update.message.reply_text(
-            f"Already subscribed to /r/{html.escape(subreddit)} in this group by "
-            f"@{html.escape(context.bot.get_chat_member(result['group_id'], result['receiver_id']))}.",
-            parse_mode=ParseMode.HTML,
-        )
-        return
-
-    try:
-        posts = (await reddit.subreddit(subreddit)).hot(limit=1)
-        async for post in posts:
-            subreddit = post.subreddit.display_name
-
-        cursor.execute(
+    async with get_db(write=True) as conn:
+        async with conn.execute(
             """
-            INSERT INTO `reddit_subscriptions` (`group_id`, `subreddit_name`, `receiver_username`, `receiver_id`) VALUES (?, ?, ?, ?);
+            SELECT * FROM reddit_subscriptions WHERE subreddit_name = ? COLLATE NOCASE AND group_id = ?;
             """,
-            (
-                update.message.chat.id,
-                subreddit,
-                update.message.from_user.username,
-                update.message.from_user.id,
-            ),
-        )
+            (subreddit, update.message.chat_id),
+        ) as cursor:
+            result = await cursor.fetchone()
 
-        await update.message.reply_text(
-            f"Subscribed to <b>/r/{html.escape(subreddit)}</b>.",
-            parse_mode=ParseMode.HTML,
-        )
-    except (NotFound, BadRequest, Redirect):
-        await update.message.reply_text(text="Subreddit not found or banned")
-    except Forbidden:
-        await update.message.reply_text(text="Subreddit is quarantined or private")
+        if result:
+            await update.message.reply_text(
+                f"Already subscribed to /r/{html.escape(subreddit)} in this group by "
+                f"@{html.escape(await context.bot.get_chat_member(result['group_id'], result['receiver_id']))}.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+
+        try:
+            posts = (await reddit.subreddit(subreddit)).hot(limit=1)
+            async for post in posts:
+                subreddit = post.subreddit.display_name
+
+            await conn.execute(
+                """
+                INSERT INTO `reddit_subscriptions` (`group_id`, `subreddit_name`, `receiver_username`, `receiver_id`) VALUES (?, ?, ?, ?);
+                """,
+                (
+                    update.message.chat.id,
+                    subreddit,
+                    update.message.from_user.username,
+                    update.message.from_user.id,
+                ),
+            )
+            await conn.commit()
+
+            await update.message.reply_text(
+                f"Subscribed to <b>/r/{html.escape(subreddit)}</b>.",
+                parse_mode=ParseMode.HTML,
+            )
+        except (NotFound, BadRequest, Redirect):
+            await update.message.reply_text(text="Subreddit not found or banned")
+        except Forbidden:
+            await update.message.reply_text(text="Subreddit is quarantined or private")
 
 
 async def keyboard_builder(user_id: int, group_id: int) -> InlineKeyboardMarkup:
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT * FROM reddit_subscriptions WHERE group_id = ? AND receiver_id = ?;
-        """,
-        (group_id, user_id),
-    )
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT * FROM reddit_subscriptions WHERE group_id = ? AND receiver_id = ?;
+            """,
+            (group_id, user_id),
+        ) as cursor:
+            subreddits = await cursor.fetchall()
 
     keyboard = []
-
-    for subreddit in cursor.fetchall():
+    for subreddit in subreddits:
         keyboard.append(
             [
                 InlineKeyboardButton(
@@ -113,16 +114,16 @@ async def list_reddit_subscriptions(
     """
     List all Reddit subscriptions for a user.
     """
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT * FROM reddit_subscriptions WHERE group_id = ? AND receiver_id = ?;
+            """,
+            (update.message.chat_id, update.message.from_user.id),
+        ) as cursor:
+            result = await cursor.fetchone()
 
-    cursor = sqlite_conn.cursor()
-    cursor.execute(
-        """
-        SELECT * FROM reddit_subscriptions WHERE group_id = ? AND receiver_id = ?;
-        """,
-        (update.message.chat_id, update.message.from_user.id),
-    )
-
-    if not cursor.fetchone():
+    if not result:
         await update.message.reply_text(
             text="You are not subscribed to any subreddits."
         )
@@ -143,27 +144,25 @@ async def reddit_subscription_button_handler(
     query = update.callback_query
     subreddit_name, user_id = query.data.replace("unsubscribe_reddit:", "").split(",")
 
-    # Check user that pressed the button is the same as the user that added the show
     if query.from_user.id != int(user_id):
         await query.answer(
             "You can't remove subreddits from other users' subscriptions."
         )
         return
 
-    cursor = sqlite_conn.cursor()
-
-    # Remove show from watchlist
-    cursor.execute(
-        "DELETE FROM reddit_subscriptions WHERE subreddit_name = ? AND receiver_id = ?",
-        (subreddit_name, user_id),
-    )
+    async with get_db(write=True) as conn:
+        await conn.execute(
+            "DELETE FROM reddit_subscriptions WHERE subreddit_name = ? AND receiver_id = ?",
+            (subreddit_name, user_id),
+        )
+        await conn.commit()
 
     await query.answer(f"Removed /r/{subreddit_name} from your watchlist.")
     await context.bot.edit_message_text(
         text="You are subscribed to the following subreddits in this group. Tap to remove:",
         chat_id=query.message.chat.id,
         message_id=query.message.message_id,
-        reply_markup=await keyboard_builder(user_id, query.message.chat.id),
+        reply_markup=await keyboard_builder(int(user_id), query.message.chat.id),
     )
 
 
@@ -171,7 +170,6 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
     """
     Worker function to scan dB and send posts.
     """
-    cursor = sqlite_conn.cursor()
     collected_posts = []
 
     async def poster(group_id: int, user_id: int, subreddit_name: str) -> None:
@@ -202,22 +200,28 @@ async def worker_reddit_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> Non
                         parse_mode=ParseMode.HTML,
                     )
 
-                    cursor.execute(
-                        """
-                        DELETE FROM reddit_subscriptions WHERE subreddit_name = ? AND receiver_id = ?;
-                        """
-                    )
+                    async with get_db(write=True) as conn:
+                        await conn.execute(
+                            """
+                            DELETE FROM reddit_subscriptions WHERE subreddit_name = ? AND receiver_id = ?;
+                            """,
+                            (subreddit_name, user_id),
+                        )
+                        await conn.commit()
         except Exception as e:
             logger.error(e)
             logger.error(f"Error in worker_reddit_subscriptions for {subreddit_name}")
             return
 
-    cursor.execute(
-        """
-        SELECT * FROM reddit_subscriptions ORDER BY group_id;
-        """
-    )
-    for row in cursor.fetchall():
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT * FROM reddit_subscriptions ORDER BY group_id;
+            """
+        ) as cursor:
+            subscriptions = await cursor.fetchall()
+
+    for row in subscriptions:
         await poster(row["group_id"], row["receiver_id"], row["subreddit_name"])
 
     tasks = []
