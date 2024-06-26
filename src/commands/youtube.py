@@ -7,7 +7,7 @@ from telegram.ext import CallbackContext, ContextTypes
 
 import commands
 import utils
-from commands.dl import ydl_opts as ydl
+from commands.dl import ydl
 from config.db import get_db
 from utils.decorators import description, example, triggers, usage
 
@@ -62,13 +62,18 @@ async def youtube_button(update: Update, _: CallbackContext) -> None:
         conn.commit()
 
 
+async def extract_info(url: str, download: bool = False):
+    return await asyncio.to_thread(ydl.extract_info, url, download=download)
+
+
 async def get_latest_video_id(channel_id: str) -> str:
-    metadata = await asyncio.to_thread(
-        ydl.extract_info,
-        f"https://www.youtube.com/channel/{channel_id}",
-        download=False,
-    )
+    metadata = await extract_info(f"https://www.youtube.com/channel/{channel_id}")
     return metadata["entries"][0]["entries"][0]["id"]
+
+
+async def get_latest_videos(channel_id: str, max_videos: int = 5) -> list:
+    metadata = await extract_info(f"https://www.youtube.com/channel/{channel_id}")
+    return [video["id"] for video in metadata["entries"][0]["entries"][:max_videos]]
 
 
 @usage("/yt [YOUTUBE_VIDEO_URL]")
@@ -83,10 +88,8 @@ async def subscribe_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await commands.usage_string(update.message, subscribe_youtube)
         return
 
-    metadata = await asyncio.to_thread(
-        ydl.extract_info, context.args[0], download=False
-    )
-    if not metadata["channel_id"]:
+    metadata = await extract_info(context.args[0])
+    if not metadata.get("channel_id"):
         await update.message.reply_text("Invalid URL. Could not extract channel ID.")
         return
 
@@ -134,15 +137,6 @@ async def subscribe_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         parse_mode=ParseMode.HTML,
         reply_markup=await youtube_keyboard(metadata["channel_id"]),
     )
-
-
-async def get_latest_videos(channel_id: str, max_videos: int = 5) -> list:
-    metadata = await asyncio.to_thread(
-        ydl.extract_info,
-        f"https://www.youtube.com/channel/{channel_id}",
-        download=False,
-    )
-    return [video["id"] for video in metadata["entries"][0]["entries"][:max_videos]]
 
 
 async def update_video_history(conn, subscription_id: int, video_id: str, status: str):
@@ -199,10 +193,8 @@ async def worker_youtube_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> No
                         < datetime.now() - timedelta(hours=24)
                     ):
                         try:
-                            video_details = await asyncio.to_thread(
-                                ydl.extract_info,
-                                f"https://www.youtube.com/watch?v={video_id}",
-                                download=False,
+                            video_details = await extract_info(
+                                f"https://www.youtube.com/watch?v={video_id}"
                             )
 
                             if video_id != subscription["latest_video_id"]:

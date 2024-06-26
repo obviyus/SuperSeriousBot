@@ -5,13 +5,13 @@ from typing import Callable, Dict, List, Optional
 from urllib.parse import ParseResult, urlparse
 
 import aiohttp
-import yt_dlp
 from asyncpraw.exceptions import InvalidURL
 from asyncprawcore import Forbidden, NotFound
 from redvid import Downloader
 from telegram import InputMediaPhoto, InputMediaVideo, Message, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
+from yt_dlp import YoutubeDL
 
 import utils
 from config.logger import logger
@@ -32,6 +32,8 @@ ydl_opts = {
     "geo_bypass": True,
     "playlistend": 1,
 }
+
+ydl = YoutubeDL(ydl_opts)
 
 
 async def download_imgur(url: str, count: int) -> List[Dict]:
@@ -98,9 +100,8 @@ async def download_youtube(url: str, message: Message) -> None:
     """Download and send YouTube video"""
 
     def download_video():
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            return info["id"]
+        info = ydl.extract_info(url, download=True)
+        return info["id"]
 
     try:
         video_id = await asyncio.get_running_loop().run_in_executor(
@@ -132,8 +133,7 @@ async def process_reddit_post(url: str, message: Message) -> Optional[List[Dict]
         elif post.domain == "i.redd.it":
             return [{"image": post.url}]
         elif post.domain == "imgur.com":
-            parsed_imgur_url = urlparse(post.url)
-            return await download_imgur(parsed_imgur_url, MAX_IMAGE_COUNT)
+            return await download_imgur(post.url, MAX_IMAGE_COUNT)
     except (InvalidURL, NotFound):
         await message.reply_text("URL is invalid or the subreddit is banned.")
     except Forbidden:
