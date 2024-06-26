@@ -1,3 +1,10 @@
+## [1.82.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.1...v1.82.2) (2024-06-26)
+
+
+### Bug Fixes
+
+* **main:** crash if polling fails ([b392f66](https://github.com/obviyus/SuperSeriousBot/commit/b392f66794752bfaa111e4223ad7ceb91d4065ee))
+
 ## [1.82.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.0...v1.82.1) (2024-06-26)
 
 
