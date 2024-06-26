@@ -19,7 +19,6 @@ from config import logger
 from config.db import get_db
 from config.options import config
 from management import botstats, stats
-from misc.highlight import highlight_button_handler
 from . import (
     animals,
     ask,
@@ -31,6 +30,7 @@ from . import (
     gif,
     graph,
     habit,
+    highlight,
     hltb,
     insult,
     joke,
@@ -54,6 +54,7 @@ from . import (
     weather,
     youtube,
 )
+from .highlight import highlight_button_handler
 from .subscribe import (
     reddit_subscription_button_handler,
 )
@@ -70,6 +71,7 @@ COMMAND_MODULES = [
     gif,
     graph,
     habit,
+    highlight,
     hltb,
     insult,
     joke,
@@ -290,7 +292,7 @@ async def mention_parser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif update.message.reply_to_message:
         await save_mentions(
             update.message.from_user.id,
-            [update.message.reply_to_message.from_user.id],
+            {str(update.message.reply_to_message.from_user.id)},
             update.message,
         )
 

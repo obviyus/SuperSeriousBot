@@ -23,6 +23,7 @@ from telegram.ext import (
 )
 
 import commands
+from commands.highlight import highlight_worker
 import misc
 from commands import steam
 from commands.habit import worker_habit_tracker
@@ -35,7 +36,6 @@ from commands.youtube import worker_youtube_subscriptions
 from config.db import PRIMARY_DB_PATH, initialize_db_pool, rebuild_fts5, redis
 from config.logger import logger
 from config.options import config
-from misc.highlight import highlight_worker
 from utils import command_limits
 
 

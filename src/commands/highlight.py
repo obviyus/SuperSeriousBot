@@ -71,7 +71,7 @@ async def highlighter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not context.args:
         await update.message.reply_text(
             "Your highlights in this chat."
-            "\n\nAdd new highlights by: \n\n<code>/highlight [STRING]</code>",
+            "\n\nAdd new highlights by: \n\n<pre>/highlight [STRING]</pre>",
             parse_mode=ParseMode.HTML,
             reply_markup=await highlight_keyboard_builder(
                 update.message.chat_id, update.message.from_user.id
