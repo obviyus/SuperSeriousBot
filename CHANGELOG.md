@@ -1,3 +1,10 @@
+## [1.82.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.0...v1.82.1) (2024-06-26)
+
+
+### Bug Fixes
+
+* **asyncio:** run application in main event loop ([230a580](https://github.com/obviyus/SuperSeriousBot/commit/230a580def8e85c081c88a40434a6884d0d5bcc1))
+
 # [1.82.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.4...v1.82.0) (2024-06-26)
 
 
