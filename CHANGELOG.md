@@ -1,3 +1,18 @@
+# [1.82.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.4...v1.82.0) (2024-06-26)
+
+
+### Bug Fixes
+
+* **redis:** remove async redis ([6c7e535](https://github.com/obviyus/SuperSeriousBot/commit/6c7e535c4a7c120887d571f0b7f988716d1ff2a6))
+
+
+### Features
+
+* **async:** run tasks in parallel ([c596089](https://github.com/obviyus/SuperSeriousBot/commit/c5960894e50782ecc2fae5f4c45a131608f9b953))
+* **db:** use aiosqlite instead of sqlite3 ([466bf95](https://github.com/obviyus/SuperSeriousBot/commit/466bf95771e144e432a43a796cd240cb5b7f151e))
+* **sql:** migrate to aiosqlite with connection manager ([b8cd7b0](https://github.com/obviyus/SuperSeriousBot/commit/b8cd7b035081e36b0a2a18112acd768e93ebe285))
+* **sql:** switch to aiosqlite ([c8baf4d](https://github.com/obviyus/SuperSeriousBot/commit/c8baf4d8294892d81cd49eb6fd1ef3d7055870fe))
+
 ## [1.81.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.81.3...v1.81.4) (2024-06-24)
 
 
