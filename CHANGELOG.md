@@ -1,3 +1,10 @@
+## [1.82.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.2...v1.82.3) (2024-06-26)
+
+
+### Bug Fixes
+
+* **highlight:** fix missing import for /hl ([e24ea68](https://github.com/obviyus/SuperSeriousBot/commit/e24ea689d76dec686840246faa1a69fa868679cb))
+
 ## [1.82.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.1...v1.82.2) (2024-06-26)
 
 
