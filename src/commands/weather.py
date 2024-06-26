@@ -10,7 +10,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
-from config.db import redis
+from config.db import get_redis
 from utils.decorators import description, example, triggers, usage
 
 geolocator = Nominatim(user_agent="SuperSeriousBot")
@@ -110,11 +110,14 @@ class Point:
 @triggers(["weather", "w"])
 @description("Get the weather for a location. Saves your last location.")
 async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not context.args and not redis.exists(f"weather:{update.message.from_user.id}"):
+    redis = await get_redis()
+    if not context.args and not await redis.exists(
+        f"weather:{update.message.from_user.id}"
+    ):
         await commands.usage_string(update.message, weather)
         return
 
-    point = get_point(update.message.from_user.id, context.args)
+    point = await get_point(update.message.from_user.id, context.args)
     if not point.found:
         await update.message.reply_text("Could not find location.")
         return
@@ -126,11 +129,12 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
-def get_point(user_id: int, args: list) -> Point:
+async def get_point(user_id: int, args: list) -> Point:
+    redis = await get_redis()
     if args:
         point = Point(" ".join(args))
         if point.found:
-            redis.hmset(
+            await redis.hmset(
                 f"weather:{user_id}",
                 {
                     "latitude": point.latitude,
@@ -139,7 +143,7 @@ def get_point(user_id: int, args: list) -> Point:
                 },
             )
     else:
-        cached_point = redis.hgetall(f"weather:{user_id}")
+        cached_point = await redis.hgetall(f"weather:{user_id}")
         point = Point(
             "",
             float(cached_point["latitude"]),

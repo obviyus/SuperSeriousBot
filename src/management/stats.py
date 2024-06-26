@@ -7,7 +7,7 @@ from telegram.helpers import mention_html
 
 import commands
 import utils.string
-from config.db import get_db, redis
+from config.db import get_db, get_redis
 from utils import readable_time
 from utils.decorators import description, example, triggers, usage
 
@@ -21,22 +21,23 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     user_object = update.message.from_user
     if user_object.username:
+        redis = await get_redis()
         username_lower = user_object.username.lower()
 
         # Store last seen time and message link in Redis
-        redis.set(f"seen:{username_lower}", round(datetime.now().timestamp()))
+        await redis.set(f"seen:{username_lower}", round(datetime.now().timestamp()))
 
         if update.message.link:
-            redis.set(f"seen_message:{username_lower}", update.message.link)
+            await redis.set(f"seen_message:{username_lower}", update.message.link)
 
         # Store the original casing of the username
-        redis.set(f"username_case:{username_lower}", user_object.username)
+        await redis.set(f"username_case:{username_lower}", user_object.username)
 
         # Map user ID to the correctly cased username
-        redis.set(f"user_id:{user_object.id}", user_object.username)
+        await redis.set(f"user_id:{user_object.id}", user_object.username)
 
         # Map the lowercase username to the user ID
-        redis.set(f"username:{username_lower}", user_object.id)
+        await redis.set(f"username:{username_lower}", user_object.id)
 
     chat_id = update.message.chat_id
     async with get_db(write=True) as conn:
@@ -106,10 +107,11 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     username_lower = username_input[1].lower()
 
-    last_seen = redis.get(f"seen:{username_lower}")
-    message_link = redis.get(f"seen_message:{username_lower}")
+    redis = await get_redis()
+    last_seen = await redis.get(f"seen:{username_lower}")
+    message_link = await redis.get(f"seen_message:{username_lower}")
 
-    username_display = redis.get(f"username_case:{username_lower}")
+    username_display = await redis.get(f"username_case:{username_lower}")
     if not username_display:
         username_display = f"@{username_input[1]}"
 

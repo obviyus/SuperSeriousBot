@@ -1,10 +1,10 @@
 from datetime import datetime
-from async_lru import alru_cache
 
+from async_lru import alru_cache
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
-from config.db import redis
+from config.db import get_redis
 
 
 async def readable_time(input_timestamp: int) -> str:
@@ -49,13 +49,14 @@ async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
     """
     Get the username and/or first_name for a user_id.
     """
-    username = redis.get(f"user_id:{user_id}")
+    redis = await get_redis()
+    username = await redis.get(f"user_id:{user_id}")
     if username:
         return username
     else:
         chat = await context.bot.get_chat(user_id)
         if chat.username:
-            redis.set(f"user_id:{user_id}", chat.username)
+            await redis.set(f"user_id:{user_id}", chat.username)
             return chat.username
         elif chat.first_name:
             return chat.first_name
@@ -81,5 +82,6 @@ async def get_user_id_from_username(username: str) -> int | None:
     """
     Get the user_id from a username.
     """
-    user_id = redis.get(f"username:{username.lower().replace('@', '')}")
+    redis = await get_redis()
+    user_id = await redis.get(f"username:{username.lower().replace('@', '')}")
     return int(user_id) if user_id else None

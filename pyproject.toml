@@ -8,7 +8,6 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 Cerberus = "^1.3.5"
-redis = "^5.0.6"
 redvid = "^2.0.5"
 python-telegram-bot = { version = "^21.3", extras = [
     "rate-limiter",
@@ -36,6 +35,7 @@ deep-translator = "^1.11.4"
 translatepy = "^2.3"
 aiohttp = "^3.9.5"
 caribou = "^0.3.0"
+aioredis = "^2.0.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

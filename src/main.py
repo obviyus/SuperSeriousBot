@@ -33,7 +33,12 @@ from commands.sed import sed
 from commands.subscribe import worker_reddit_subscriptions
 from commands.tv import handle_chosen_movie, inline_show_search
 from commands.youtube import worker_youtube_subscriptions
-from config.db import PRIMARY_DB_PATH, initialize_db_pool, rebuild_fts5, redis
+from config.db import (
+    PRIMARY_DB_PATH,
+    get_redis,
+    initialize_db_pool,
+    rebuild_fts5,
+)
 from config.logger import logger
 from config.options import config
 from utils import command_limits
@@ -52,7 +57,14 @@ async def post_init(application: Application) -> None:
     Initialize the bot.
     """
     logger.info(f"Started @{application.bot.username} (ID: {application.bot.id})")
-    redis.set("bot_startup_time", datetime.datetime.now().timestamp())
+
+    try:
+        redis = await get_redis()
+        await redis.set("bot_startup_time", datetime.datetime.now().timestamp())
+    except Exception as e:
+        logger.error(
+            f"Failed to set bot startup time in Redis: {str(e)}. Continuing without Redis."
+        )
 
     if (
         "LOGGING_CHANNEL_ID" in config["TELEGRAM"]
@@ -118,6 +130,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def setup_application() -> Application:
     await initialize_db_pool()
+    await get_redis()
 
     application = (
         ApplicationBuilder()

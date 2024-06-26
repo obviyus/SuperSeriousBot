@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from config.db import get_db, redis
+from config.db import get_db, get_redis
 from utils import readable_time
 from utils.decorators import description, example, triggers, usage
 
@@ -46,7 +46,8 @@ async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 @triggers(["uptime"])
 @description("Get duration since the bot instance was started.")
 async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    uptime = redis.get("bot_startup_time")
+    redis = await get_redis()
+    uptime = await redis.get("bot_startup_time")
     if not uptime:
         await update.message.reply_text("This bot has not been started yet.")
         return
