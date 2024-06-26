@@ -92,7 +92,7 @@ async def store_offer(offer: dict[str, str]):
     """
     Store offers in the database.
     """
-    async with await get_db() as conn:
+    async with get_db(write=True) as conn:
         await conn.execute(
             """
             INSERT INTO steam_offers (game_id, name, url, release_date, review_score, original_price, final_price, discount)          
@@ -131,7 +131,7 @@ async def enable_steam_offers(
             )
             return
 
-    async with await get_db() as conn:
+    async with get_db(write=True) as conn:
         await conn.execute(
             """
             INSERT INTO group_settings (chat_id, steam_offers) VALUES (?, 1)
@@ -149,7 +149,7 @@ async def offer_worker(context: ContextTypes.DEFAULT_TYPE):
     if not offers:
         return
 
-    async with await get_db() as conn:
+    async with get_db() as conn:
         notify = []
 
         for offer in offers:

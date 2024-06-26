@@ -14,7 +14,7 @@ from utils.decorators import description, example, triggers, usage
 @description("Get the social graph of this group.")
 async def get_oldest_mention(chat_id: int) -> str | None:
     """Get the creation time of the oldest mention in the chat."""
-    async with await get_db() as conn:
+    async with get_db() as conn:
         async with conn.execute(
             """
             SELECT create_time FROM main.chat_mentions WHERE chat_id = ? ORDER BY create_time LIMIT 1;

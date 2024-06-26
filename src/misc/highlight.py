@@ -10,7 +10,7 @@ async def highlight_keyboard_builder(
     chat_id: int, user_id: int
 ) -> InlineKeyboardMarkup:
     """Build the highlight keyboard."""
-    async with await get_db() as conn:
+    async with get_db() as conn:
         async with conn.execute(
             """
             SELECT * FROM 'highlights' WHERE chat_id = ? AND user_id = ?
@@ -42,7 +42,7 @@ async def highlight_button_handler(
         await query.answer("You can only delete your own highlights.")
         return
 
-    async with await get_db() as conn:
+    async with get_db(write=True) as conn:
         await conn.execute(
             """
             DELETE FROM 'highlights' WHERE id = ?
@@ -86,7 +86,7 @@ async def highlighter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         return
 
-    async with await get_db() as conn:
+    async with get_db(write=True) as conn:
         async with conn.execute(
             """SELECT * FROM highlights WHERE chat_id = ? AND string = ? COLLATE NOCASE""",
             (update.message.chat_id, highlight_string),
@@ -117,7 +117,7 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not update.message or not update.message.text:
         return
 
-    async with await get_db() as conn:
+    async with get_db() as conn:
         async with conn.execute(
             """SELECT * FROM highlights WHERE chat_id = ?""", (update.message.chat_id,)
         ) as cursor:

@@ -29,7 +29,7 @@ async def generate_network_for_chat(
     graph = nx.DiGraph()
 
     logger.info(f"Generating network for chat_id: {chat_id}")
-    async with await get_db() as conn:
+    async with get_db() as conn:
         async with conn.execute(
             """
             SELECT mentioning_user_id AS source, mentioned_user_id AS target
@@ -105,7 +105,7 @@ async def worker_build_network(context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Worker function to build a network for a chat.
     """
-    async with await get_db() as conn:
+    async with get_db() as conn:
         async with conn.execute(
             "SELECT DISTINCT chat_id FROM chat_mentions;"
         ) as cursor:

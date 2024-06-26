@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import html
 import json
@@ -25,14 +26,13 @@ import commands
 import misc
 from commands import steam
 from commands.habit import worker_habit_tracker
-from commands.quote import migrate_quote_db
 from commands.randdit import worker_seed_posts
 from commands.remind import worker_reminder
 from commands.sed import sed
 from commands.subscribe import worker_reddit_subscriptions
 from commands.tv import handle_chosen_movie, inline_show_search
 from commands.youtube import worker_youtube_subscriptions
-from config.db import PRIMARY_DB_PATH, rebuild_fts5, redis
+from config.db import PRIMARY_DB_PATH, initialize_db_pool, rebuild_fts5, redis
 from config.logger import logger
 from config.options import config
 from misc.highlight import highlight_worker
@@ -124,6 +124,8 @@ def main():
     except Exception as e:
         logger.error(f"Error running database migrations: {e}")
 
+    asyncio.run(initialize_db_pool())
+
     application = (
         ApplicationBuilder()
         .token(config["TELEGRAM"]["TOKEN"])
@@ -203,9 +205,6 @@ def main():
 
     # Seed random Reddit posts
     job_queue.run_once(worker_seed_posts, 10)
-
-    # Check for DB migrations
-    job_queue.run_once(migrate_quote_db, 10)
 
     # Steam offer worker
     job_queue.run_repeating(steam.offer_worker, interval=3600, first=10)

@@ -19,7 +19,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Search command handler.
     """
-    async with await get_db() as conn:
+    async with get_db() as conn:
         async with conn.execute(
             """
             SELECT fts FROM group_settings
@@ -70,7 +70,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
         params = (update.message.chat_id, query)
 
-    async with await get_db() as conn:
+    async with get_db() as conn:
         async with conn.execute(sql, params) as cursor:
             results = await cursor.fetchone()
 
@@ -100,7 +100,7 @@ async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await update.message.reply_text("You are not a moderator.")
             return
 
-    async with await get_db() as conn:
+    async with get_db(write=True) as conn:
         await conn.execute(
             """
             INSERT INTO group_settings (chat_id, fts) VALUES (?, 1)
@@ -137,8 +137,8 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     filename = uuid.uuid4()
     await file.download_to_drive(f"{filename}.json")
 
-    async with await get_db() as db:
-        await db.execute("PRAGMA journal_mode=WAL;")
+    async with get_db(write=True) as conn:
+        await conn.execute("PRAGMA journal_mode=WAL;")
 
         processed_lines = 0
         with open(f"{filename}.json", "rb") as file:
@@ -161,7 +161,7 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 user_id = message["from_id"].replace("user", "")
                 create_time = dateparser.parse(message["date"])
 
-                await db.execute(
+                await conn.execute(
                     """
                     INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text)
                     VALUES (?, ?, ?, ?, ?)
@@ -178,9 +178,9 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 processed_lines += 1
                 if processed_lines % 1000 == 0:
                     logging.info(f"Processed {processed_lines} lines.")
-                    await db.commit()
+                    await conn.commit()
 
-        await db.commit()
+        await conn.commit()
         logging.info("Processing completed.")
 
     await update.message.reply_text("Chat stats imported.")

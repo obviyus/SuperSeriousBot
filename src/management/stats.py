@@ -39,7 +39,7 @@ async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         redis.set(f"username:{username_lower}", user_object.id)
 
     chat_id = update.message.chat_id
-    async with await get_db() as conn:
+    async with get_db(write=True) as conn:
         try:
             await conn.execute(
                 "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
@@ -142,7 +142,7 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
 
-    async with await get_db() as conn:
+    async with get_db() as conn:
         async with conn.execute(
             """SELECT create_time,user_id, COUNT(user_id) AS user_count
             FROM chat_stats 
@@ -178,7 +178,7 @@ async def get_total_chat_stats(
 ) -> None:
     chat_id = update.message.chat_id
 
-    async with await get_db() as conn:
+    async with get_db() as conn:
         async with conn.execute(
             """
             SELECT create_time, user_id, COUNT(user_id) AS user_count
