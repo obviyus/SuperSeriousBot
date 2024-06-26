@@ -1,3 +1,10 @@
+# [1.83.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.4...v1.83.0) (2024-06-26)
+
+
+### Features
+
+* **redis:** switch to aioredis ([8ec5687](https://github.com/obviyus/SuperSeriousBot/commit/8ec56873c232d8e84efb5d5ae41589bb3ac15ac4))
+
 ## [1.82.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.3...v1.82.4) (2024-06-26)
 
 
