@@ -174,13 +174,11 @@ def command_wrapper(fn: Callable):
             tasks = [
                 message.set_reaction(ReactionEmoji.WRITING_HAND),
                 message.reply_chat_action(ChatAction.TYPING),
+                fn(update, context),
             ]
+
             await asyncio.gather(*tasks)
 
-            # Execute the main function
-            logger.info(f"Executing /{fn.__name__} from {update.message.from_user}")
-            result = await fn(update, context)
-            logger.info(f"/{fn.__name__} completed successfully")
             sent_command = next(
                 iter(
                     update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()
@@ -198,11 +196,10 @@ def command_wrapper(fn: Callable):
                         )
                         await conn.commit()
 
-            return result
-
         except Exception as e:
             logger.error(f"Error in /{fn.__name__}: {str(e)}")
             logger.error(traceback.format_exc())
+
     return wrapped_command
 
 
