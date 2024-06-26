@@ -1,3 +1,10 @@
+## [1.82.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.3...v1.82.4) (2024-06-26)
+
+
+### Bug Fixes
+
+* **yt:** import ydl instance, not opts ([c6413b3](https://github.com/obviyus/SuperSeriousBot/commit/c6413b381e9ae49bea3f1cfb2e9d98cd31056bac))
+
 ## [1.82.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.2...v1.82.3) (2024-06-26)
 
 
