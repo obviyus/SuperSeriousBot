@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Optional
 
 import aiosqlite
-from aioredis import Redis, from_url
+from redis.asyncio import Redis, from_url
 from telegram.ext import ContextTypes
 
 from config import logger

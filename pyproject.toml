@@ -35,7 +35,7 @@ deep-translator = "^1.11.4"
 translatepy = "^2.3"
 aiohttp = "^3.9.5"
 caribou = "^0.3.0"
-aioredis = "^2.0.1"
+redis = "^5.0.6"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
