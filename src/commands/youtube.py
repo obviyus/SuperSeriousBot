@@ -167,7 +167,7 @@ async def get_video_history(conn, subscription_id: int) -> dict:
 
 
 async def worker_youtube_subscriptions(context: ContextTypes.DEFAULT_TYPE) -> None:
-    async with get_db() as conn:
+    async with get_db(write=True) as conn:
         async with conn.execute(
             """
             SELECT s.*, COUNT(sub.user_id) as subscriber_count 
