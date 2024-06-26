@@ -116,15 +116,8 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
 
-def main():
-    try:
-        migrations_dir = os.path.join(os.getcwd(), "migrations")
-        caribou.upgrade(PRIMARY_DB_PATH, migrations_dir)
-        logger.info("Database migrations completed successfully.")
-    except Exception as e:
-        logger.error(f"Error running database migrations: {e}")
-
-    asyncio.run(initialize_db_pool())
+async def setup_application() -> Application:
+    await initialize_db_pool()
 
     application = (
         ApplicationBuilder()
@@ -141,10 +134,6 @@ def main():
         handlers={
             # Handle every Update and increment command + message count
             0: [
-                MessageHandler(
-                    filters.TEXT & filters.Regex(r"^ping$"),
-                    commands.ping,
-                ),
                 MessageHandler(
                     filters.TEXT,
                     commands.every_message_action,
@@ -209,6 +198,19 @@ def main():
     # Steam offer worker
     job_queue.run_repeating(steam.offer_worker, interval=3600, first=10)
 
+    return application
+
+
+def main():
+    try:
+        migrations_dir = os.path.join(os.getcwd(), "migrations")
+        caribou.upgrade(PRIMARY_DB_PATH, migrations_dir)
+        logger.info("Database migrations completed successfully.")
+    except Exception as e:
+        logger.error(f"Error running database migrations: {e}")
+
+    application = asyncio.get_event_loop().run_until_complete(setup_application())
+
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(
             f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']} with port {os.environ.get('PORT', '8443')}"
@@ -219,8 +221,11 @@ def main():
             webhook_url=config["TELEGRAM"]["WEBHOOK_URL"],
         )
     else:
-        logger.info("Using polling...")
-        application.run_polling(drop_pending_updates=False)
+        try:
+            logger.info("Using polling...")
+            application.run_polling(drop_pending_updates=False)
+        except Exception as e:
+            logger.error(f"Error in polling: {str(e)}")
 
 
 if __name__ == "__main__":
