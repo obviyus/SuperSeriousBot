@@ -1,3 +1,10 @@
+## [1.83.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.83.0...v1.83.1) (2024-06-26)
+
+
+### Bug Fixes
+
+* **redis:** deprecate aioredis ([9db58df](https://github.com/obviyus/SuperSeriousBot/commit/9db58df423cfeda4835e3d1040041ebaa59d92de))
+
 # [1.83.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.82.4...v1.83.0) (2024-06-26)
 
 
