@@ -46,7 +46,7 @@ async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 @triggers(["uptime"])
 @description("Get duration since the bot instance was started.")
 async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    uptime = await redis.get("bot_startup_time")
+    uptime = redis.get("bot_startup_time")
     if not uptime:
         await update.message.reply_text("This bot has not been started yet.")
         return
