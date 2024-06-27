@@ -1,3 +1,5 @@
+import asyncio
+
 import aiohttp
 from bs4 import BeautifulSoup
 from telegram import Update
@@ -154,8 +156,9 @@ async def offer_worker(context: ContextTypes.DEFAULT_TYPE):
 
         for offer in offers:
             async with conn.execute(
+                # Check if the offer has been notified within the last month
                 """
-                SELECT * FROM steam_offers WHERE game_id = ? AND create_time >= DATETIME('now', '-1 month');
+                SELECT * FROM steam_offers WHERE game_id = ? AND notified = 1 AND create_time > datetime('now', '-1 month');
                 """,
                 (offer["id"],),
             ) as cursor:
@@ -163,6 +166,7 @@ async def offer_worker(context: ContextTypes.DEFAULT_TYPE):
                     continue
 
             await store_offer(offer)
+            notify.append(offer)
 
         if not notify:
             return
@@ -174,25 +178,36 @@ async def offer_worker(context: ContextTypes.DEFAULT_TYPE):
         ) as cursor:
             groups = await cursor.fetchall()
 
-    for group in groups:
-        message = "🎮 New free Steam games available:\n\n"
+    message = "🎮 New Free Steam Games Available! 🎉\n\n"
 
-        for offer in notify:
-            message += (
-                f"<a href='{offer['url']}'>{offer['name']}</a>\n"
-                f"Release date: {offer['release_date']}\n"
-                f"Review score: {offer['review_score']}\n"
-                f"Original price: {offer['original_price']}\n"
-                f"Final price: {offer['final_price']}\n"
-                f"Discount: {offer['discount']}\n\n"
-            )
-
-        await context.bot.send_message(
-            group["chat_id"], message, parse_mode=ParseMode.HTML
+    for offer in notify:
+        message += (
+            f"🏷️ <b><a href='{offer['url']}'>{offer['name']}</a></b>\n"
+            f"📅 Release: {offer['release_date'] or 'N/A'}\n"
+            f"⭐ Rating: {offer['review_score'] or 'N/A'}\n"
+            f"💰 Price: <s>{offer['original_price'] or 'N/A'}</s> → {offer['final_price'] or 'FREE'}\n"
+            f"🏷️ Discount: {offer['discount'] or 'N/A'}\n"
+            f"──────────────────\n\n"
         )
 
+    message = message.strip()
 
-if __name__ == "__main__":
-    import asyncio
+    tasks = []
+    for group in groups:
+        tasks.append(
+            context.bot.send_message(
+                group["chat_id"], message, parse_mode=ParseMode.HTML
+            )
+        )
 
-    asyncio.run(fetch_offers(None))
+    await asyncio.gather(*tasks)
+
+    async with get_db(write=True) as conn:
+        for offer in notify:
+            await conn.execute(
+                """
+                UPDATE steam_offers SET notified = 1 WHERE game_id = ?;
+                """,
+                (offer["id"],),
+            )
+        await conn.commit()
