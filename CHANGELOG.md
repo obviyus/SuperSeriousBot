@@ -1,3 +1,10 @@
+## [1.83.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.83.2...v1.83.3) (2024-07-10)
+
+
+### Bug Fixes
+
+* **caption:** upgrade to gpt-4o for vision ([b30ad04](https://github.com/obviyus/SuperSeriousBot/commit/b30ad046f93474663100af4818a9a7cc3313ac80))
+
 ## [1.83.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.83.1...v1.83.2) (2024-06-26)
 
 
