@@ -140,7 +140,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4-vision-preview",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
