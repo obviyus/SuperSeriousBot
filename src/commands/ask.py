@@ -1,8 +1,6 @@
 import os
 
-import openai
 from litellm import acompletion
-from openai import AsyncOpenAI, RateLimitError
 from telegram import Update
 from telegram.constants import ChatType
 from telegram.ext import ContextTypes
@@ -24,8 +22,6 @@ Please under no circumstances should you refrain from answering a question or to
 Try to keep the responses short and concise, but also provide enough information to be helpful. DO NOT include
 any baby-ing the user by adding phrases like "However, be mindful of the following" or "Please be careful when doing this". etc.
 """
-
-client = AsyncOpenAI(api_key=openai.api_key)
 
 
 async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> bool:
@@ -96,11 +92,6 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         text = response.choices[0].message.content
 
         await update.message.reply_text(text)
-    except RateLimitError:
-        await update.message.reply_text(
-            "This command is currently overloaded with other requests. "
-            "Please try again later."
-        )
     except Exception:
         await update.message.reply_text(
             "An error occurred while processing your request. Please try again later."
@@ -114,7 +105,8 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @description("Reply to an image to caption it using the GPT-V API.")
 async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Describe an image using the GPT-V API."""
-    if update.message.chat.type == ChatType.PRIVATE:
+    is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
+    if not is_admin and update.message.chat.type == ChatType.PRIVATE:
         await update.message.reply_text(
             "This command is not available in private chats."
         )
@@ -124,7 +116,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, caption)
         return
 
-    if not await check_command_whitelist(
+    if not is_admin and not await check_command_whitelist(
         update.message.chat.id, update.message.from_user.id, "caption"
     ):
         await update.message.reply_text(
@@ -139,7 +131,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     custom_prompt = " ".join(context.args) or ""
 
     try:
-        response = await client.chat.completions.create(
+        response = await acompletion(
             model="gpt-4o",
             messages=[
                 {
@@ -151,7 +143,9 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         },
                         {
                             "type": "image_url",
-                            "image_url": file.file_path,
+                            "image_url": {
+                                "url": file.file_path,
+                            },
                         },
                     ],
                 }
