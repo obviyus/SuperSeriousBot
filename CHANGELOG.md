@@ -1,3 +1,10 @@
+# [1.84.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.83.3...v1.84.0) (2024-07-11)
+
+
+### Features
+
+* **caption:** use litellm for vision ([4b33aed](https://github.com/obviyus/SuperSeriousBot/commit/4b33aed8105afd5f801a246ea9fa5dd6a4f872ac))
+
 ## [1.83.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.83.2...v1.83.3) (2024-07-10)
 
 
