@@ -82,7 +82,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         response = await acompletion(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query},
@@ -132,7 +132,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         response = await acompletion(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "user",
