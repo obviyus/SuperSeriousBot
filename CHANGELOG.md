@@ -1,3 +1,10 @@
+# [1.85.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.84.0...v1.85.0) (2024-07-19)
+
+
+### Features
+
+* **ask:** upgrade to 4o-mini ([cdb5451](https://github.com/obviyus/SuperSeriousBot/commit/cdb54513f6e6d82cf314fee700afd55317b14157))
+
 # [1.84.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.83.3...v1.84.0) (2024-07-11)
 
 
