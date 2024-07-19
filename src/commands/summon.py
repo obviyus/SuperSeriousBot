@@ -16,21 +16,25 @@ async def get_group_members(group_id: int, context: CallbackContext) -> list:
     async with get_db() as conn:
         async with conn.execute(
             """
-            SELECT user_id FROM summon_group_members WHERE group_id = ?
+            SELECT user_id, chat_id
+            FROM summon_group_members
+                JOIN summon_groups ON summon_groups.id = summon_group_members.group_id
+            WHERE group_id = ?;
             """,
             (group_id,),
         ) as cursor:
-            user_ids = await cursor.fetchall()
+            group_members = [(row[0], row[1]) for row in await cursor.fetchall()]
 
     members = []
-    for user_id in user_ids:
+    for user_id, chat_id in group_members:
         try:
-            member = await context.bot.get_chat_member(context.chat_id, user_id[0])
+            member = await context.bot.get_chat_member(chat_id, user_id)
             if member.status not in [ChatMember.LEFT, ChatMember.BANNED]:
-                username = await utils.get_username(user_id[0], context)
-                members.append(f"@{username}")
-        except Exception:
-            pass
+                username = await utils.get_username(user_id, context)
+                if username:
+                    members.append(f"@{username}")
+        except Exception as e:
+            print(f"Error getting member {user_id}: {e}")
 
     return members
 
@@ -85,11 +89,16 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
     async with get_db(write=True) as conn:
         if action == "join":
             await conn.execute(
-                "INSERT OR IGNORE INTO summon_group_members (group_id, user_id) VALUES (?, ?)",
+                """
+                INSERT INTO summon_group_members (group_id, user_id)
+                VALUES (?, ?)
+                ON CONFLICT (group_id, user_id) DO NOTHING
+                """,
                 (group_id, query.from_user.id),
             )
             await conn.commit()
             await query.answer("Joined group.")
+            return
         elif action == "leave":
             await conn.execute(
                 "DELETE FROM summon_group_members WHERE group_id = ? AND user_id = ?",
@@ -97,6 +106,7 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
             )
             await conn.commit()
             await query.answer("Left group.")
+            return
         elif action == "resummon":
             last_tag_time = summon_log.get(group_id)
             if last_tag_time and (datetime.now() - last_tag_time).seconds < 60:
@@ -111,8 +121,30 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
             summon_log[group_id] = datetime.now()
             return
 
-    members = await get_group_members(group_id, context)
-    await send_chunked_messages(query.message.chat_id, members, context, group_id)
+
+async def get_or_create_group(conn, group_name, chat_id, user_id):
+    async with conn.execute(
+        "SELECT id FROM summon_groups WHERE group_name = ? COLLATE NOCASE AND chat_id = ?",
+        (group_name, chat_id),
+    ) as cursor:
+        result = await cursor.fetchone()
+
+    if result:
+        return result[0]
+
+    async with conn.execute(
+        "INSERT INTO summon_groups (group_name, chat_id, creator_id) VALUES (?, ?, ?)",
+        (group_name, chat_id, user_id),
+    ) as cursor:
+        await conn.commit()
+        group_id = cursor.lastrowid
+
+    await conn.execute(
+        "INSERT INTO summon_group_members (group_id, user_id) VALUES (?, ?)",
+        (group_id, user_id),
+    )
+    await conn.commit()
+    return group_id
 
 
 @usage("/summon [GROUP_NAME]")
@@ -120,6 +152,10 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
 @triggers(["summon"])
 @description("Tag users present in a group of tags. Join by using keyboard buttons.")
 async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat.type == "private":
+        await update.message.reply_text("This command can only be used in group chats.")
+        return
+
     if not context.args:
         await commands.usage_string(update.message, summon)
         return
@@ -127,30 +163,10 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     group_name = context.args[0].lower()
 
     async with get_db(write=True) as conn:
-        async with conn.execute(
-            "SELECT id FROM summon_groups WHERE group_name = ? COLLATE NOCASE AND chat_id = ?",
-            (group_name, update.message.chat_id),
-        ) as cursor:
-            result = await cursor.fetchone()
-
-        if result:
-            group_id = result[0]
-        else:
-            await conn.execute(
-                "INSERT INTO summon_groups (group_name, chat_id, creator_id) VALUES (?, ?, ?)",
-                (group_name, update.message.chat_id, update.message.from_user.id),
-            )
-            group_id = conn.lastrowid
-            await conn.execute(
-                "INSERT INTO summon_group_members (group_id, user_id) VALUES (?, ?)",
-                (group_id, update.message.from_user.id),
-            )
-            await conn.commit()
-            await update.message.reply_text(
-                f"Group <code>{group_name}</code> created. Tag all users in it using <code>/summon {group_name}</code>.",
-                parse_mode=ParseMode.HTML,
-            )
+        group_id = await get_or_create_group(
+            conn, group_name, update.effective_chat.id, update.effective_user.id
+        )
 
     members = await get_group_members(group_id, context)
-    await send_chunked_messages(update.message.chat_id, members, context, group_id)
+    await send_chunked_messages(update.effective_chat.id, members, context, group_id)
     summon_log[group_id] = datetime.now()
