@@ -25,7 +25,7 @@ async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE, limit=10) -> Non
     """Pre-seed the random posts cache when the bot starts"""
     logging.info("Pre-seeding 10 random posts...")
 
-    async def runner(is_nsfw):
+    async def runner(is_nsfw = False):
         try:
             post = await (await reddit.random_subreddit(is_nsfw)).random()
             while post is None or post.spoiler:
@@ -41,8 +41,7 @@ async def worker_seed_posts(context: ContextTypes.DEFAULT_TYPE, limit=10) -> Non
 
     tasks = []
     for _ in range(limit):
-        tasks.append(asyncio.ensure_future(runner(False)))
-        tasks.append(asyncio.ensure_future(runner(True)))
+        tasks.append(asyncio.ensure_future(runner()))
 
     await asyncio.gather(*tasks)
 
@@ -54,20 +53,6 @@ def make_response(post: models.Submission, username=None) -> str:
         f"\n\n<a href='https://reddit.com{post.permalink}'>/r/{post.subreddit.display_name}</a>"
         f"\n\n{'@' + username if username else ''}"
     )
-
-
-@usage("/nsfw")
-@example("/nsfw")
-@api_key("REDDIT")
-@triggers(["nsfw"])
-@description("Get random NSFW post from Reddit.")
-async def nsfw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Get a random NSFW post from Reddit"""
-    if len(random_posts_nsfw) < 5:
-        context.job_queue.run_once(worker_seed_posts, 0)
-        await worker_seed_posts(context, 2)
-
-    await update.message.reply_text(random_posts_nsfw.pop(), parse_mode=ParseMode.HTML)
 
 
 @example("/r")
