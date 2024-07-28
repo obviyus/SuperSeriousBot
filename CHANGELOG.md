@@ -1,3 +1,10 @@
+## [1.85.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.85.1...v1.85.2) (2024-07-28)
+
+
+### Bug Fixes
+
+* **r:** remove nsfw command ([35eff81](https://github.com/obviyus/SuperSeriousBot/commit/35eff81ee83ab7097668883125213f7c5a05453a))
+
 ## [1.85.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.85.0...v1.85.1) (2024-07-19)
 
 
