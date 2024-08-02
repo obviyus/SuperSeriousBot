@@ -23,16 +23,15 @@ from telegram.ext import (
 )
 
 import commands
-from commands.highlight import highlight_worker
 import misc
 from commands import steam
 from commands.habit import worker_habit_tracker
+from commands.highlight import highlight_worker
 from commands.randdit import worker_seed_posts
 from commands.remind import worker_reminder
 from commands.sed import sed
 from commands.subscribe import worker_reddit_subscriptions
 from commands.tv import handle_chosen_movie, inline_show_search
-from commands.youtube import worker_youtube_subscriptions
 from config.db import (
     PRIMARY_DB_PATH,
     get_redis,
@@ -188,7 +187,6 @@ async def setup_application() -> Application:
 
     # Notification workers
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
-    job_queue.run_repeating(worker_youtube_subscriptions, interval=300, first=10)
     job_queue.run_repeating(worker_reminder, interval=60, first=10)
     job_queue.run_repeating(rebuild_fts5, interval=3600, first=10)
 

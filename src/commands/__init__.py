@@ -52,7 +52,6 @@ from . import (
     ud,
     uwu,
     weather,
-    youtube,
 )
 from .highlight import highlight_button_handler
 from .subscribe import (
@@ -93,7 +92,6 @@ COMMAND_MODULES = [
     ud,
     uwu,
     weather,
-    youtube,
 ]
 
 # Collect all command functions
