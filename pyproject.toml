@@ -14,7 +14,7 @@ python-telegram-bot = { version = "^21.4", extras = [
     "job-queue",
     "webhooks",
 ] }
-yt-dlp = "^2024.7.25"
+yt-dlp = "^2024.8.1"
 asyncpraw = "^7.7.1"
 dateparser = "^1.2.0"
 coloredlogs = "^15.0.1"
@@ -30,12 +30,12 @@ cinemagoer = { git = "https://github.com/cinemagoer/cinemagoer" }
 async-lru = "^2.0.4"
 aiosqlite = "0.17.0"
 ijson = "^3.3.0"
-litellm = "^1.42.5"
+litellm = "^1.42.9"
 deep-translator = "^1.11.4"
 translatepy = "^2.3"
-aiohttp = "^3.9.5"
+aiohttp = "^3.10.0"
 caribou = "^0.3.0"
-redis = "^5.0.7"
+redis = "^5.0.8"
 pyrogram = "^2.0.106"
 tgcrypto = "^1.2.5"
 
