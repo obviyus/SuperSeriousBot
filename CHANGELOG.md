@@ -1,3 +1,10 @@
+# [1.86.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.85.2...v1.86.0) (2024-08-02)
+
+
+### Features
+
+* **yt:** remove YouTube notifications ([cbec22d](https://github.com/obviyus/SuperSeriousBot/commit/cbec22d8d50807dcb6e9c9806d17e8599b16ad83))
+
 ## [1.85.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.85.1...v1.85.2) (2024-07-28)
 
 
