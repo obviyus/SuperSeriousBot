@@ -1,3 +1,10 @@
+## [1.86.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.86.0...v1.86.1) (2024-08-03)
+
+
+### Bug Fixes
+
+* **button:** remove unused YT handler ([049b9da](https://github.com/obviyus/SuperSeriousBot/commit/049b9da030066d4f992fccf9399de50920c4b266))
+
 # [1.86.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.85.2...v1.86.0) (2024-08-02)
 
 
