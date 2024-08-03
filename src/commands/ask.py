@@ -45,9 +45,9 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
 @usage("/ask [query]")
 @api_key("OPEN_AI_API_KEY")
 @example("/ask How long does a train between Tokyo and Hokkaido take?")
-@description("Ask anything using OpenAI's GPT-3.5 Turbo API.")
+@description("Ask anything using OpenAI's GPT-4o Turbo API.")
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Ask anything using OpenAI's GPT-3.5 Turbo API."""
+    """Ask anything using OpenAI's GPT-4o Turbo API."""
     if (
         update.message.chat.type == ChatType.PRIVATE
         and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
