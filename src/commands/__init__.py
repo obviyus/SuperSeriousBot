@@ -233,7 +233,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "hb": habit.habit_button_handler,
         "hl": highlight_button_handler,
         "sg": summon.summon_keyboard_button,
-        "yt": youtube.youtube_button,
         "unsubscribe_reddit": reddit_subscription_button_handler,
     }
 
