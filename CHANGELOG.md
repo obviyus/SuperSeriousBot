@@ -1,3 +1,10 @@
+# [1.87.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.86.1...v1.87.0) (2024-08-19)
+
+
+### Features
+
+* **tldw:** create TLDW function ([8e8b9e0](https://github.com/obviyus/SuperSeriousBot/commit/8e8b9e091ad9f6054ec47ad6f505c75a960e2244))
+
 ## [1.86.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.86.0...v1.86.1) (2024-08-03)
 
 
