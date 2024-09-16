@@ -1,3 +1,10 @@
+## [1.87.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.87.0...v1.87.1) (2024-09-16)
+
+
+### Bug Fixes
+
+* handle invalid chats in habit ([1d175ec](https://github.com/obviyus/SuperSeriousBot/commit/1d175ec74d7afe40a9fdb0fb49d9adbe0e162fae))
+
 # [1.87.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.86.1...v1.87.0) (2024-08-19)
 
 
