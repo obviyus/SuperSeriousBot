@@ -4,7 +4,7 @@ from async_lru import alru_cache
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
-from config.db import get_redis
+from config.db import get_db
 
 
 async def readable_time(input_timestamp: int) -> str:
@@ -49,14 +49,23 @@ async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
     """
     Get the username and/or first_name for a user_id.
     """
-    redis = await get_redis()
-    username = await redis.get(f"user_id:{user_id}")
-    if username:
-        return username
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT username FROM user_stats WHERE user_id = ?",
+            (user_id,),
+        ) as cursor:
+            result = await cursor.fetchone()
+
+    if result and result["username"]:
+        return result["username"]
     else:
         chat = await context.bot.get_chat(user_id)
         if chat.username:
-            await redis.set(f"user_id:{user_id}", chat.username)
+            async with get_db(write=True) as conn:
+                await conn.execute(
+                    "INSERT INTO user_stats (user_id, username) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET username = excluded.username",
+                    (user_id, chat.username),
+                )
             return chat.username
         elif chat.first_name:
             return chat.first_name
@@ -82,6 +91,11 @@ async def get_user_id_from_username(username: str) -> int | None:
     """
     Get the user_id from a username.
     """
-    redis = await get_redis()
-    user_id = await redis.get(f"username:{username.lower().replace('@', '')}")
-    return int(user_id) if user_id else None
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT user_id FROM user_stats WHERE LOWER(username) = ?",
+            (username.lower().replace("@", ""),),
+        ) as cursor:
+            result = await cursor.fetchone()
+
+    return int(result["user_id"]) if result else None
