@@ -7,66 +7,69 @@ from telegram.helpers import mention_html
 
 import commands
 import utils.string
-from config.db import get_db, get_redis
+from config.db import get_db
 from utils import readable_time
 from utils.decorators import description, example, triggers, usage
 
 
 async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Increment message count for a user. Also store last seen time in Redis.
+    Increment message count for a user. Also store last seen time in the database.
     """
     if not update.message:
         return
 
     user_object = update.message.from_user
     if user_object.username:
-        redis = await get_redis()
         username_lower = user_object.username.lower()
+        chat_id = update.message.chat_id
 
-        # Store last seen time and message link in Redis
-        await redis.set(f"seen:{username_lower}", round(datetime.now().timestamp()))
-
-        if update.message.link:
-            await redis.set(f"seen_message:{username_lower}", update.message.link)
-
-        # Store the original casing of the username
-        await redis.set(f"username_case:{username_lower}", user_object.username)
-
-        # Map user ID to the correctly cased username
-        await redis.set(f"user_id:{user_object.id}", user_object.username)
-
-        # Map the lowercase username to the user ID
-        await redis.set(f"username:{username_lower}", user_object.id)
-
-    chat_id = update.message.chat_id
-    async with get_db(write=True) as conn:
-        try:
-            await conn.execute(
-                "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
-                (chat_id, user_object.id, update.message.message_id),
-            )
-
-            if update.message.text:
-                async with conn.execute(
+        async with get_db(write=True) as conn:
+            try:
+                # Update user stats
+                await conn.execute(
                     """
-                    SELECT fts FROM group_settings
-                    WHERE chat_id = ?;
+                    INSERT INTO user_stats (user_id, username, last_seen, last_message_link)
+                        VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        username = excluded.username,
+                        last_seen = excluded.last_seen,
+                        last_message_link = excluded.last_message_link
                     """,
-                    (update.message.chat_id,),
-                ) as cursor:
-                    result = await cursor.fetchone()
+                    (
+                        user_object.id,
+                        user_object.username,
+                        datetime.now(),
+                        update.message.link if update.message.link else None,
+                    ),
+                )
 
-                is_enabled = result["fts"] if result else False
-                if is_enabled:
-                    await conn.execute(
-                        "UPDATE chat_stats SET message_text = ? WHERE rowid = last_insert_rowid()",
-                        (update.message.text,),
-                    )
-            await conn.commit()
-        except Exception as e:
-            await conn.rollback()
-            print(f"Error in increment: {e}")
+                # Insert message stats
+                await conn.execute(
+                    "INSERT OR IGNORE INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
+                    (chat_id, user_object.id, update.message.message_id),
+                )
+
+                if update.message.text:
+                    async with conn.execute(
+                        """
+                        SELECT fts FROM group_settings
+                        WHERE chat_id = ?;
+                        """,
+                        (update.message.chat_id,),
+                    ) as cursor:
+                        result = await cursor.fetchone()
+
+                    is_enabled = result["fts"] if result else False
+                    if is_enabled:
+                        await conn.execute(
+                            "UPDATE chat_stats SET message_text = ? WHERE rowid = last_insert_rowid()",
+                            (update.message.text,),
+                        )
+                await conn.commit()
+            except Exception as e:
+                await conn.rollback()
+                print(f"Error in increment: {e}")
 
 
 async def stat_string_builder(
@@ -107,18 +110,20 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     username_lower = username_input[1].lower()
 
-    redis = await get_redis()
-    last_seen = await redis.get(f"seen:{username_lower}")
-    message_link = await redis.get(f"seen_message:{username_lower}")
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT username, last_seen, last_message_link FROM user_stats WHERE LOWER(username) = ?",
+            (username_lower,),
+        ) as cursor:
+            user_stats = await cursor.fetchone()
 
-    username_display = await redis.get(f"username_case:{username_lower}")
-    if not username_display:
-        username_display = f"@{username_input[1]}"
-
-    if not last_seen:
-        not_seen_text = f"{username_display} has never been seen."
-        await update.message.reply_text(not_seen_text)
+    if not user_stats:
+        await update.message.reply_text(f"@{username_input[1]} has never been seen.")
         return
+
+    last_seen = user_stats["last_seen"]
+    message_link = user_stats["last_message_link"]
+    username_display = user_stats["username"]
 
     try:
         last_seen = int(last_seen)
@@ -146,10 +151,11 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     async with get_db() as conn:
         async with conn.execute(
-            """SELECT create_time,user_id, COUNT(user_id) AS user_count
-            FROM chat_stats 
+            """
+            SELECT create_time,user_id, COUNT(user_id) AS user_count
+                FROM chat_stats 
             WHERE chat_id = ? AND 
-            create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')
+                create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')
             GROUP BY user_id
             ORDER BY COUNT(user_id) DESC
             LIMIT 10;
@@ -159,10 +165,11 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             users = await cursor.fetchall()
 
         async with conn.execute(
-            """SELECT COUNT(id) AS total_count
-            FROM chat_stats 
+            """
+            SELECT COUNT(id) AS total_count
+                FROM chat_stats 
             WHERE chat_id = ? AND 
-            create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime');
+                create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime');
             """,
             (chat_id,),
         ) as cursor:
@@ -184,7 +191,7 @@ async def get_total_chat_stats(
         async with conn.execute(
             """
             SELECT create_time, user_id, COUNT(user_id) AS user_count
-            FROM chat_stats
+                FROM chat_stats
             WHERE chat_id = ?
             GROUP BY user_id
             ORDER BY COUNT(user_id) DESC
@@ -197,7 +204,7 @@ async def get_total_chat_stats(
         async with conn.execute(
             """
             SELECT COUNT(id) AS total_count
-            FROM chat_stats
+                FROM chat_stats
             WHERE chat_id = ?;
             """,
             (chat_id,),
