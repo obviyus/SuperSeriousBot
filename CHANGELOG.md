@@ -1,3 +1,11 @@
+## [1.87.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.87.1...v1.87.2) (2024-09-17)
+
+
+### Bug Fixes
+
+* store user data in SQLite ([95801f5](https://github.com/obviyus/SuperSeriousBot/commit/95801f565ab302655885a9434c522521030590d1))
+* use SQLite for /seen ([a9fa4f0](https://github.com/obviyus/SuperSeriousBot/commit/a9fa4f028994496ea39cb01d50bbedc7eb947283))
+
 ## [1.87.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.87.0...v1.87.1) (2024-09-16)
 
 
