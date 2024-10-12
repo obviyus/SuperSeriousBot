@@ -1,3 +1,10 @@
+# [1.89.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.88.0...v1.89.0) (2024-10-12)
+
+
+### Features
+
+* tldw with RapidAPI ([0a34e6d](https://github.com/obviyus/SuperSeriousBot/commit/0a34e6dc7cc38c13cfc48712ee7fd32d82da4be0))
+
 # [1.88.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.87.2...v1.88.0) (2024-10-12)
 
 
