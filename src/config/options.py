@@ -1,154 +1,83 @@
 import os
-
-from cerberus import Validator
-
-import utils
+from pydantic import BaseModel, Field, ValidationError
+from typing import List, Optional, Dict
 from config.logger import logger
+import utils
 
-schema = {
-    "TELEGRAM": {
-        "type": "dict",
-        "schema": {
-            "ADMINS": {
-                "type": "list",
-                "required": False,
-                "default": [],
-            },
-            "TOKEN": {
-                "type": "string",
-                "required": True,
-            },
-            "UPDATER": {
-                "type": "string",
-                "required": False,
-                "allowed": ["webhook", "polling"],
-                "default": "polling",
-            },
-            "WEBHOOK_URL": {
-                "type": "string",
-                "required": False,
-            },
-            "LOGGING_CHANNEL_ID": {
-                "type": "integer",
-                "required": False,
-                "nullable": True,
-            },
-            "QUOTE_CHANNEL_ID": {
-                "type": "integer",
-                "required": True,
-                "nullable": False,
-            },
+
+class RedditConfig(BaseModel):
+    CLIENT_ID: Optional[str] = ""
+    CLIENT_SECRET: Optional[str] = ""
+    USER_AGENT: Optional[str] = ""
+
+
+class APIConfig(BaseModel):
+    GIPHY_API_KEY: Optional[str] = ""
+    GOODREADS_API_KEY: Optional[str] = ""
+    SMMRY_API_KEY: Optional[str] = ""
+    STEAM_API_KEY: Optional[str] = ""
+    WOLFRAM_APP_ID: Optional[str] = ""
+    INSTAGRAM_SESSION_NAME: Optional[str] = ""
+    IMGUR_API_KEY: Optional[str] = ""
+    OPEN_AI_API_KEY: Optional[str] = ""
+    YOUTUBE_API_KEY: Optional[str] = ""
+    REDDIT: RedditConfig = RedditConfig()
+    RAPID_API_KEY: Optional[str] = ""
+    WINDY_API_KEY: Optional[str] = ""
+
+
+class TelegramConfig(BaseModel):
+    ADMINS: List[str] = Field(default_factory=list)
+    TOKEN: str
+    UPDATER: Optional[str] = Field(default="polling", pattern="^(webhook|polling)$")
+    WEBHOOK_URL: Optional[str] = None
+    LOGGING_CHANNEL_ID: Optional[int] = None
+    QUOTE_CHANNEL_ID: int
+
+
+class Config(BaseModel):
+    TELEGRAM: TelegramConfig
+    API: APIConfig
+
+
+try:
+    config = Config(
+        TELEGRAM={
+            "ADMINS": os.environ.get("ADMINS", "").split(" "),
+            "TOKEN": os.environ.get("TELEGRAM_TOKEN"),
+            "UPDATER": os.environ.get("UPDATER"),
+            "WEBHOOK_URL": f"""{os.environ.get("WEBHOOK_URL")}/{os.environ.get("TELEGRAM_TOKEN")}""",
+            "LOGGING_CHANNEL_ID": (
+                int(os.environ.get("LOGGING_CHANNEL_ID"))
+                if os.environ.get("LOGGING_CHANNEL_ID")
+                else None
+            ),
+            "QUOTE_CHANNEL_ID": int(os.environ.get("QUOTE_CHANNEL_ID")),
         },
-    },
-    "API": {
-        "type": "dict",
-        "schema": {
-            "GIPHY_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
-            "GOODREADS_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
-            "SMMRY_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
-            "STEAM_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
-            "WOLFRAM_APP_ID": {
-                "type": "string",
-                "required": False,
-            },
-            "INSTAGRAM_SESSION_NAME": {
-                "type": "string",
-                "required": False,
-            },
-            "IMGUR_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
-            "OPEN_AI_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
-            "YOUTUBE_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
+        API={
+            "GIPHY_API_KEY": os.environ.get("GIPHY_API_KEY", ""),
+            "GOODREADS_API_KEY": os.environ.get("GOODREADS_API_KEY", ""),
+            "IMGUR_API_KEY": os.environ.get("IMGUR_API_KEY", ""),
+            "INSTAGRAM_SESSION_NAME": os.environ.get("INSTAGRAM_SESSION_NAME", ""),
             "REDDIT": {
-                "type": "dict",
-                "schema": {
-                    "CLIENT_ID": {
-                        "type": "string",
-                        "required": False,
-                    },
-                    "CLIENT_SECRET": {
-                        "type": "string",
-                        "required": False,
-                    },
-                    "USER_AGENT": {
-                        "type": "string",
-                        "required": False,
-                    },
-                },
+                "CLIENT_ID": os.environ.get("REDDIT_CLIENT_ID", ""),
+                "CLIENT_SECRET": os.environ.get("REDDIT_CLIENT_SECRET", ""),
+                "USER_AGENT": os.environ.get("REDDIT_USER_AGENT", ""),
             },
-            "RAPID_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
-            "WINDY_API_KEY": {
-                "type": "string",
-                "required": False,
-            },
+            "RAPID_API_KEY": os.environ.get("RAPID_API_KEY", ""),
+            "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
+            "STEAM_API_KEY": os.environ.get("STEAM_API_KEY", ""),
+            "OPEN_AI_API_KEY": os.environ.get("OPEN_AI_API_KEY", ""),
+            "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
+            "WINDY_API_KEY": os.environ.get("WINDY_API_KEY", ""),
+            "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
         },
-    },
-}
-
-config = {
-    "TELEGRAM": {
-        "ADMINS": os.environ.get("ADMINS", "").split(" "),
-        "TOKEN": os.environ.get("TELEGRAM_TOKEN"),
-        "UPDATER": os.environ.get("UPDATER"),
-        "WEBHOOK_URL": f"""{os.environ.get("WEBHOOK_URL")}/{os.environ.get("TELEGRAM_TOKEN")}""",
-        "LOGGING_CHANNEL_ID": int(os.environ.get("LOGGING_CHANNEL_ID"))
-        if os.environ.get("LOGGING_CHANNEL_ID")
-        else None,
-        "QUOTE_CHANNEL_ID": int(os.environ.get("QUOTE_CHANNEL_ID"))
-        if os.environ.get("QUOTE_CHANNEL_ID")
-        else None,
-    },
-    "API": {
-        "GIPHY_API_KEY": os.environ.get("GIPHY_API_KEY", ""),
-        "GOODREADS_API_KEY": os.environ.get("GOODREADS_API_KEY", ""),
-        "IMGUR_API_KEY": os.environ.get("IMGUR_API_KEY", ""),
-        "INSTAGRAM_SESSION_NAME": os.environ.get("INSTAGRAM_SESSION_NAME", ""),
-        "REDDIT": {
-            "CLIENT_ID": os.environ.get("REDDIT_CLIENT_ID", ""),
-            "CLIENT_SECRET": os.environ.get("REDDIT_CLIENT_SECRET", ""),
-            "USER_AGENT": os.environ.get("REDDIT_USER_AGENT", ""),
-        },
-        "RAPID_API_KEY": os.environ.get("RAPID_API_KEY", ""),
-        "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
-        "STEAM_API_KEY": os.environ.get("STEAM_API_KEY", ""),
-        "OPEN_AI_API_KEY": os.environ.get("OPEN_AI_API_KEY", ""),
-        "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
-        "WINDY_API_KEY": os.environ.get("WINDY_API_KEY", ""),
-        "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
-    },
-}
-
-v = Validator(schema)
-v.allow_unknown = True
-
-if v.validate(config):
+    )
     logger.info("Valid configuration found.")
-    config = utils.scrub_dict(config)
-    logger.info(config)
-else:
+    config_dict = utils.scrub_dict(config.model_dump())
+    config = config_dict
+    logger.info(config_dict)
+except ValidationError as e:
     logger.error("Invalid configuration found.")
-    logger.error(v.errors)
+    logger.error(e.json())
     exit(1)
