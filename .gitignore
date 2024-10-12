@@ -137,3 +137,5 @@ dmypy.json
 
 # Project Specific
 *.html
+scripts/
+db/
