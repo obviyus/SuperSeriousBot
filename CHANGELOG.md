@@ -1,3 +1,11 @@
+# [1.88.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.87.2...v1.88.0) (2024-10-12)
+
+
+### Features
+
+* migrate from Cerberus to Pydantic ([004cee4](https://github.com/obviyus/SuperSeriousBot/commit/004cee42b48fe50fdb0ad871b96cc977ccc8ed43))
+* remove tldw and tv commands ([a295d9f](https://github.com/obviyus/SuperSeriousBot/commit/a295d9f903520e92114eb98c88a5747526731831))
+
 ## [1.87.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.87.1...v1.87.2) (2024-09-17)
 
 
