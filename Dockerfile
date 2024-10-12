@@ -1,38 +1,51 @@
-FROM python:3.11-slim as python-base
+FROM python:3.12-slim AS build
 
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_VIRTUALENVS_IN_PROJECT=true \
-    POETRY_NO_INTERACTION=1
+SHELL ["sh", "-exc"]
 
-FROM python-base as builder-base
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y \
+RUN apt-get update -qy && apt-get install -qyy \
+    -o APT::Install-Recommends=false \
+    -o APT::Install-Suggests=false \
     curl \
     build-essential \
     libxml2-dev \
     libxslt1-dev \
     libz-dev \
-    ffmpeg
+    ffmpeg \
+    git
 
-RUN pip install poetry
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_PYTHON=python3.12 \
+    UV_PROJECT_ENVIRONMENT=/app
+
+COPY pyproject.toml /_lock/
+COPY uv.lock /_lock/
+
+RUN --mount=type=cache,target=/root/.cache \
+    cd /_lock && \
+    uv sync --locked --no-dev --no-install-project
+
+COPY . /code
+RUN --mount=type=cache,target=/root/.cache \
+    uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps /code
+
+FROM build AS runtime
 
 WORKDIR /code
-COPY poetry.lock pyproject.toml /code/
 
-RUN poetry install --no-dev
+RUN groupadd -r app && useradd -r -d /code -g app -N app
 
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y dumb-init sqlite3 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -qy && apt-get install -qyy \
+    -o APT::Install-Recommends=false \
+    -o APT::Install-Suggests=false \
+    dumb-init
 
-COPY . .
+COPY --from=build --chown=app:app /code /code
 
-ENTRYPOINT ["dumb-init", "--", "poetry", "run"]
+ENTRYPOINT ["dumb-init", "--", "uv", "run"]
 CMD ["python", "src/main.py"]
 
 LABEL org.opencontainers.image.source="https://github.com/obviyus/SuperSeriousBot"
