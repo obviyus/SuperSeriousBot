@@ -14,9 +14,7 @@ from telegram.ext import (
     Application,
     ApplicationBuilder,
     CallbackQueryHandler,
-    ChosenInlineResultHandler,
     ContextTypes,
-    InlineQueryHandler,
     MessageHandler,
     TypeHandler,
     filters,
@@ -31,7 +29,6 @@ from commands.randdit import worker_seed_posts
 from commands.remind import worker_reminder
 from commands.sed import sed
 from commands.subscribe import worker_reddit_subscriptions
-from commands.tv import handle_chosen_movie, inline_show_search
 from config.db import (
     PRIMARY_DB_PATH,
     get_redis,
@@ -157,12 +154,6 @@ async def setup_application() -> Application:
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
                     sed,
                 ),
-                # TV Show Query Handlers
-                InlineQueryHandler(
-                    inline_show_search,
-                ),
-                # Handle chosen show
-                ChosenInlineResultHandler(handle_chosen_movie),
                 # Master Button Handler
                 CallbackQueryHandler(
                     commands.button_handler,
@@ -214,7 +205,7 @@ async def setup_application() -> Application:
 
 def main():
     try:
-        migrations_dir = os.path.join(os.getcwd(), "migrations")
+        migrations_dir = os.path.join(os.getcwd(), "../migrations")
         caribou.upgrade(PRIMARY_DB_PATH, migrations_dir)
         logger.info("Database migrations completed successfully.")
     except Exception as e:
