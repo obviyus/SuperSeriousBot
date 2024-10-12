@@ -16,9 +16,9 @@ logging_config = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "verbose"
-            if os.environ.get("ENV") == "development"
-            else "simple",
+            "formatter": (
+                "verbose" if os.environ.get("ENV") == "development" else "simple"
+            ),
             "level": "INFO" if os.environ.get("ENV") == "development" else "INFO",
         },
     },
