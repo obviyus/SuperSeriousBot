@@ -1,3 +1,10 @@
+# [1.90.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.89.1...v1.90.0) (2024-12-09)
+
+
+### Features
+
+* command blocklist ([005b64a](https://github.com/obviyus/SuperSeriousBot/commit/005b64ae871d77ea6f6f0f9d23106bc8b2b35d25))
+
 ## [1.89.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.89.0...v1.89.1) (2024-10-12)
 
 
