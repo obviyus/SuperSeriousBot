@@ -18,7 +18,7 @@ import utils
 from config import logger
 from config.db import get_db
 from config.options import config
-from management import botstats, stats
+from management import botstats, stats, blocks
 from . import (
     animals,
     ask,
@@ -64,6 +64,7 @@ COMMAND_MODULES = [
     animals,
     ask,
     book,
+    blocks,
     calc,
     camera,
     define,
@@ -165,6 +166,15 @@ async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
             )
 
 
+async def is_user_blocked(user_id: int, command: str) -> bool:
+    async with get_db() as conn:
+        result = await conn.execute(
+            "SELECT 1 FROM command_blocklist WHERE user_id = ? AND command = ?",
+            (user_id, command),
+        )
+        return bool(await result.fetchone())
+
+
 def command_wrapper(fn: Callable):
     @wraps(fn)
     async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -173,14 +183,7 @@ def command_wrapper(fn: Callable):
             return
 
         try:
-            tasks = [
-                message.set_reaction(ReactionEmoji.WRITING_HAND),
-                message.reply_chat_action(ChatAction.TYPING),
-                fn(update, context),
-            ]
-
-            await asyncio.gather(*tasks)
-
+            # Check if user is blocked
             sent_command = next(
                 iter(
                     update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()
@@ -189,14 +192,28 @@ def command_wrapper(fn: Callable):
             )
             if sent_command:
                 sent_command = sent_command.split("@")[0][1:]
-                if sent_command in command_doc_list:
-                    await management.increment(update, context)
-                    async with get_db(write=True) as conn:
-                        await conn.execute(
-                            "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
-                            (sent_command, update.message.from_user.id),
-                        )
-                        await conn.commit()
+                if await is_user_blocked(update.message.from_user.id, sent_command):
+                    await message.reply_text(
+                        "❌ You are blocked from using this command."
+                    )
+                    return
+
+            tasks = [
+                message.set_reaction(ReactionEmoji.WRITING_HAND),
+                message.reply_chat_action(ChatAction.TYPING),
+                fn(update, context),
+            ]
+
+            await asyncio.gather(*tasks)
+
+            if sent_command and sent_command in command_doc_list:
+                await management.increment(update, context)
+                async with get_db(write=True) as conn:
+                    await conn.execute(
+                        "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
+                        (sent_command, update.message.from_user.id),
+                    )
+                    await conn.commit()
 
         except Exception as e:
             logger.error(f"Error in /{fn.__name__}: {str(e)}")
