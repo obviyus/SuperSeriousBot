@@ -158,3 +158,62 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
         )
+
+
+@triggers(["based"])
+@usage("/based [query]")
+@api_key("NANO_GPT_API_KEY")
+@example("/based What's your opinion on pineapple on pizza?")
+@description("Ask anything using Llama 3.3 abliterated.")
+async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Ask anything using Llama 3.3 abliterated."""
+    if (
+        update.message.chat.type == ChatType.PRIVATE
+        and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
+    ):
+        await update.message.reply_text(
+            "This command is not available in private chats."
+        )
+        return
+
+    if not context.args:
+        await commands.usage_string(update.message, based)
+        return
+
+    if (
+        not await check_command_whitelist(
+            update.message.chat.id, update.message.from_user.id, "ask"
+        )
+        and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
+    ):
+        await update.message.reply_text(
+            "This command is not available in this chat. "
+            "Please contact an admin to whitelist this command."
+        )
+        return
+
+    query: str = " ".join(context.args)
+    token_count = len(context.args)
+
+    if token_count > 64:
+        await update.message.reply_text("Please keep your query under 64 words.")
+        return
+
+    try:
+        response = await acompletion(
+            model="openai/huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+            api_key=config["API"]["NANO_GPT_API_KEY"],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": query},
+            ],
+            api_base="https://nano-gpt.com/api/v1",
+        )
+
+        text = response.choices[0].message.content
+
+        await update.message.reply_text(text)
+    except Exception as e:
+        await update.message.reply_text(
+            f"An error occurred while processing your request: {str(e)}"
+        )

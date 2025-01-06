@@ -1,8 +1,10 @@
 import os
+from typing import List, Optional
+
 from pydantic import BaseModel, Field, ValidationError
-from typing import List, Optional, Dict
-from config.logger import logger
+
 import utils
+from config.logger import logger
 
 
 class RedditConfig(BaseModel):
@@ -24,6 +26,7 @@ class APIConfig(BaseModel):
     REDDIT: RedditConfig = RedditConfig()
     RAPID_API_KEY: Optional[str] = ""
     WINDY_API_KEY: Optional[str] = ""
+    NANO_GPT_API_KEY: Optional[str] = ""
 
 
 class TelegramConfig(BaseModel):
@@ -71,6 +74,7 @@ try:
             "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
             "WINDY_API_KEY": os.environ.get("WINDY_API_KEY", ""),
             "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
+            "NANO_GPT_API_KEY": os.environ.get("NANO_GPT_API_KEY", ""),
         },
     )
     logger.info("Valid configuration found.")
