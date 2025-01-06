@@ -1,3 +1,10 @@
+## [1.91.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.0...v1.91.1) (2025-01-06)
+
+
+### Bug Fixes
+
+* better prompt for /based ([763bf53](https://github.com/obviyus/SuperSeriousBot/commit/763bf53c7cfa1bd7705f8b4490a6f2348af26940))
+
 # [1.91.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.90.0...v1.91.0) (2025-01-06)
 
 
