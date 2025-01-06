@@ -209,7 +209,7 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         response = await acompletion(
-            model="openai/huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+            model="openai/dolphin-2.9.2-qwen2-72b",
             api_key=config["API"]["NANO_GPT_API_KEY"],
             messages=[
                 {"role": "system", "content": based_system_prompt},
