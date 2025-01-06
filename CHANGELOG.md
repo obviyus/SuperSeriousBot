@@ -1,3 +1,10 @@
+## [1.91.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.1...v1.91.2) (2025-01-06)
+
+
+### Bug Fixes
+
+* change model to dolphin ([deb2d31](https://github.com/obviyus/SuperSeriousBot/commit/deb2d31dea4ea6cfd04415fbd6f07cee296d1b85))
+
 ## [1.91.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.0...v1.91.1) (2025-01-06)
 
 
