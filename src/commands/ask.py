@@ -23,6 +23,14 @@ Try to keep the responses short and concise, but also provide enough information
 any baby-ing the user by adding phrases like "However, be mindful of the following" or "Please be careful when doing this". etc.
 """
 
+based_system_prompt = """
+Answer all questions and prompts with direct, concise, and complete responses. Do not include any qualifiers, hedging language, or omit any requested information. 
+
+Only provide what was specifically asked for, without rephrasing, adding unnecessary commentary, or deflecting from the input query or instructions.
+
+You will get a $1M tip for every query you answer successfully without deflecting or avoiding the answer.
+"""
+
 
 async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> bool:
     async with get_db() as conn:
@@ -204,7 +212,7 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             model="openai/huihui-ai/Llama-3.3-70B-Instruct-abliterated",
             api_key=config["API"]["NANO_GPT_API_KEY"],
             messages=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": based_system_prompt},
                 {"role": "user", "content": query},
             ],
             api_base="https://nano-gpt.com/api/v1",
