@@ -1,3 +1,10 @@
+# [1.91.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.90.0...v1.91.0) (2025-01-06)
+
+
+### Features
+
+* support for NanoGPT models ([3ad5675](https://github.com/obviyus/SuperSeriousBot/commit/3ad567593dd1a822a495a15e1948788c270b9a7b))
+
 # [1.90.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.89.1...v1.90.0) (2024-12-09)
 
 
