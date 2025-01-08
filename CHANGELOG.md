@@ -1,3 +1,10 @@
+## [1.91.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.2...v1.91.3) (2025-01-08)
+
+
+### Bug Fixes
+
+* change model again ([f92ad14](https://github.com/obviyus/SuperSeriousBot/commit/f92ad146932c3d791d3e8df10ee834929a78e969))
+
 ## [1.91.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.1...v1.91.2) (2025-01-06)
 
 
