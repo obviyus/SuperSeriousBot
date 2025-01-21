@@ -41,7 +41,8 @@ RUN groupadd -r app && useradd -r -d /code -g app -N app
 RUN apt-get update -qy && apt-get install -qyy \
     -o APT::Install-Recommends=false \
     -o APT::Install-Suggests=false \
-    dumb-init
+    dumb-init \
+    sqlite3
 
 COPY --from=build --chown=app:app /code /code
 
