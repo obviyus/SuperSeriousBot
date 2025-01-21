@@ -1,3 +1,10 @@
+## [1.91.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.3...v1.91.4) (2025-01-21)
+
+
+### Bug Fixes
+
+* clean up /book logic ([edd8d2d](https://github.com/obviyus/SuperSeriousBot/commit/edd8d2d5c45dc6355ad784175fad5d8eb5594cea))
+
 ## [1.91.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.2...v1.91.3) (2025-01-08)
 
 
