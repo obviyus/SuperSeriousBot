@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 import aiohttp
 import dateparser
@@ -13,6 +15,70 @@ from config import config
 from utils.decorators import api_key, description, example, triggers, usage
 
 WEBCAM_API = "https://api.windy.com/webcams/api/v3/webcams"
+CACHE_TIMEOUT = 300  # 5 minutes
+REQUEST_TIMEOUT = 10  # seconds
+
+
+@dataclass
+class WebcamData:
+    """Container for webcam information"""
+
+    title: str
+    status: str
+    last_updated: datetime
+    city: str
+    latitude: float
+    longitude: float
+    image_url: str
+
+    @classmethod
+    def from_api_response(cls, data: dict) -> "WebcamData":
+        """Create WebcamData instance from API response"""
+        return cls(
+            title=data["title"],
+            status=data["status"],
+            last_updated=dateparser.parse(data["lastUpdatedOn"]),
+            city=data["location"]["city"],
+            latitude=data["location"]["latitude"],
+            longitude=data["location"]["longitude"],
+            image_url=data["images"]["current"]["preview"],
+        )
+
+    def format_caption(self) -> str:
+        """Format webcam information for message caption"""
+        minutes_ago = int((datetime.now() - self.last_updated).total_seconds() / 60)
+        return (
+            f"📹 <b>{self.title}</b> ({self.status})\n\n"
+            f"🕒 Last updated: {minutes_ago} minutes ago\n"
+            f"📍 {self.city} (<i>{self.latitude}, {self.longitude}</i>)"
+        )
+
+
+async def _get_webcam(latitude: float, longitude: float) -> Optional[WebcamData]:
+    """Fetch webcam data from Windy API with caching"""
+    params = {
+        "nearby": f"{latitude},{longitude},250",
+        "include": "location,images",
+        "limit": 1,
+    }
+    headers = {"X-WINDY-API-KEY": config["API"]["WINDY_API_KEY"]}
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                WEBCAM_API, params=params, headers=headers, timeout=REQUEST_TIMEOUT
+            ) as response:
+                if response.status != 200:
+                    return None
+
+                data = await response.json()
+                if not data.get("webcams"):
+                    return None
+
+                return WebcamData.from_api_response(data["webcams"][0])
+
+    except (aiohttp.ClientError, KeyError, ValueError):
+        return None
 
 
 @triggers(["camera", "cam"])
@@ -28,55 +94,21 @@ async def camera(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     point = Point(" ".join(context.args))
     if not point.found:
-        await update.message.reply_text("Could not find location.")
+        await update.message.reply_text("❌ Could not find location.")
         return
 
     webcam = await _get_webcam(point.latitude, point.longitude)
     if not webcam:
-        await update.message.reply_text("No cameras found.")
+        await update.message.reply_text("❌ No cameras found in this area.")
         return
 
     try:
-        await _send_webcam_image(update, webcam)
+        await update.message.reply_photo(
+            photo=webcam.image_url,
+            caption=webcam.format_caption(),
+            parse_mode=ParseMode.HTML,
+        )
     except BadRequest:
         await update.message.reply_text(
-            "Something went wrong while sending the image. Try again later."
+            "❌ Failed to fetch camera image. Please try again later."
         )
-
-
-async def _get_webcam(latitude: float, longitude: float) -> dict:
-    """Fetch webcam data from Windy API."""
-    params = {
-        "nearby": f"{latitude},{longitude},250",
-        "include": "location,images",
-        "limit": 1,
-    }
-    headers = {"X-WINDY-API-KEY": config["API"]["WINDY_API_KEY"]}
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(WEBCAM_API, params=params, headers=headers) as response:
-            if response.status != 200:
-                return None
-            data = await response.json()
-            return data["webcams"][0] if data["webcams"] else None
-
-
-async def _send_webcam_image(update: Update, webcam: dict) -> None:
-    """Send webcam image with caption."""
-    time_since_update = (
-        datetime.now().timestamp()
-        - dateparser.parse(webcam["lastUpdatedOn"]).timestamp()
-    )
-
-    caption = (
-        f'📹 <b>{webcam["title"]}</b> ({webcam["status"]})\n\n'
-        f"🕒 Last updated: {int(time_since_update / 60)} minutes ago\n"
-        f'📍 {webcam["location"]["city"]} '
-        f'(<i>{webcam["location"]["latitude"]}, {webcam["location"]["longitude"]}</i>)'
-    )
-
-    await update.message.reply_photo(
-        photo=webcam["images"]["current"]["preview"],
-        caption=caption,
-        parse_mode=ParseMode.HTML,
-    )
