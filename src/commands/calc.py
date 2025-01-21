@@ -1,3 +1,6 @@
+from functools import lru_cache
+from typing import Optional
+
 import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -7,6 +10,38 @@ from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 
 WOLFRAM_SHORT_QUERY = "https://api.wolframalpha.com/v1/result"
+
+
+@lru_cache(maxsize=100)
+async def fetch_wolfram_result(query: str) -> str:
+    """Fetch result from WolframAlpha API with caching"""
+    params = {"i": query, "appid": config["API"]["WOLFRAM_APP_ID"]}
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(
+                WOLFRAM_SHORT_QUERY, params=params, timeout=10
+            ) as response:
+                if response.status == 200:
+                    return await response.text()
+                elif response.status == 501:
+                    return "❌ WolframAlpha couldn't understand your query"
+                elif response.status == 403:
+                    return "❌ API key error"
+                else:
+                    return f"❌ Error {response.status}: {await response.text()}"
+        except aiohttp.ClientTimeout:
+            return "❌ Request timed out"
+        except aiohttp.ClientError as e:
+            return f"❌ Connection error: {str(e)}"
+
+
+def sanitize_query(query: str) -> Optional[str]:
+    """Validate and sanitize the input query"""
+    query = query.strip()
+    if not query or len(query) > 1000:
+        return None
+    return query
 
 
 @triggers(["calc"])
@@ -20,21 +55,10 @@ async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, calc)
         return
 
-    query: str = " ".join(context.args)
+    query = sanitize_query(" ".join(context.args))
+    if not query:
+        await update.message.reply_text("❌ Invalid query")
+        return
+
     result = await fetch_wolfram_result(query)
     await update.message.reply_text(result)
-
-
-async def fetch_wolfram_result(query: str) -> str:
-    """Fetch result from WolframAlpha API"""
-    params = {"i": query, "appid": config["API"]["WOLFRAM_APP_ID"]}
-
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.get(WOLFRAM_SHORT_QUERY, params=params) as response:
-                if response.status == 200:
-                    return await response.text()
-                else:
-                    return f"Error: HTTP {response.status}. {await response.text()}"
-        except aiohttp.ClientError as e:
-            return f"Error: Unable to connect to WolframAlpha API. {str(e)}"
