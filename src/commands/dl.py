@@ -120,21 +120,55 @@ class MediaDownloader:
             return None
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(
-                "https://instagram-media-downloader.p.rapidapi.com/rapid/post.php",
-                headers={
-                    "X-RapidAPI-Key": config["API"]["RAPID_API_KEY"],
-                    "X-RapidAPI-Host": "instagram-media-downloader.p.rapidapi.com",
-                },
-                params={"url": url},
-            ) as response:
-                data = await response.json()
+            try:
+                api_url = "https://instagram-downloader-download-instagram-videos-stories1.p.rapidapi.com/get-info-rapidapi"
+                
+                async with session.get(
+                    api_url,
+                    headers={
+                        "X-RapidAPI-Key": config["API"]["RAPID_API_KEY"],
+                        "X-RapidAPI-Host": "instagram-downloader-download-instagram-videos-stories1.p.rapidapi.com",
+                    },
+                    params={"url": url},
+                ) as response:
+                    if response.status != 200:
+                        logger.error(f"Instagram API error: {response.status}")
+                        await message.reply_text("Failed to fetch Instagram content.")
+                        return None
+                        
+                    data = await response.json()
+                    logger.info(f"Instagram API response: {data}")
+                    
+                    if data.get("error"):
+                        error_msg = data.get("message", "Unknown error")
+                        logger.error(f"Instagram API error: {error_msg}")
+                        await message.reply_text(f"Failed to fetch Instagram content: {error_msg}")
+                        return None
 
-        if "video" in data:
-            return [Media(url=data["video"], type=MediaType.VIDEO)]
-        elif "image" in data:
-            return [Media(url=data["image"], type=MediaType.IMAGE)]
-        return None
+                    media_type = data.get("type")
+                    if media_type == "video":
+                        return [Media(url=data["download_url"], type=MediaType.VIDEO)]
+                    elif media_type == "image":
+                        return [Media(url=data["download_url"], type=MediaType.IMAGE)]
+                    elif media_type == "carousel":
+                        media_list = []
+                        for item in data["carousel"][:MAX_IMAGE_COUNT]:
+                            media_list.append(
+                                Media(
+                                    url=item["download_url"],
+                                    type=MediaType.VIDEO if item["type"] == "video" else MediaType.IMAGE
+                                )
+                            )
+                        return media_list
+                    
+                    logger.error(f"Unsupported Instagram content type: {media_type}")
+                    await message.reply_text("Unsupported Instagram content type.")
+                    return None
+                    
+            except aiohttp.ClientError as e:
+                logger.error(f"Instagram download error: {e}")
+                await message.reply_text("Failed to download Instagram content.")
+                return None
 
     async def download_youtube(
         self, url: str, message: Message
