@@ -1,3 +1,11 @@
+# [1.92.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.4...v1.92.0) (2025-02-15)
+
+
+### Features
+
+* change Instagram /dl provider ([e40d777](https://github.com/obviyus/SuperSeriousBot/commit/e40d77720d13a6ed8d715359ec80609d13c63642))
+* upgrade /ask model to use web search ([83c6971](https://github.com/obviyus/SuperSeriousBot/commit/83c69711eadc375bbebff320362bae54997744d0))
+
 ## [1.91.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.3...v1.91.4) (2025-01-21)
 
 
