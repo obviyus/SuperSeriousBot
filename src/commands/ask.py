@@ -51,11 +51,11 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
 
 @triggers(["ask"])
 @usage("/ask [query]")
-@api_key("OPEN_AI_API_KEY")
+@api_key("NANO_GPT_API_KEY")
 @example("/ask How long does a train between Tokyo and Hokkaido take?")
-@description("Ask anything using OpenAI's GPT-4o Turbo API.")
+@description("Ask anything using Gemini 2.0 Flash API.")
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Ask anything using OpenAI's GPT-4o Turbo API."""
+    """Ask anything using Gemini 2.0 Flash API."""
     if (
         update.message.chat.type == ChatType.PRIVATE
         and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
@@ -90,19 +90,21 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         response = await acompletion(
-            model="gpt-4o-mini",
+            model="openai/gemini-2.0-flash-exp-search",
+            api_key=config["API"]["NANO_GPT_API_KEY"],
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query},
             ],
+            api_base="https://nano-gpt.com/api/v1",
         )
 
         text = response.choices[0].message.content
 
         await update.message.reply_text(text)
-    except Exception:
+    except Exception as e:
         await update.message.reply_text(
-            "An error occurred while processing your request. Please try again later."
+            f"An error occurred while processing your request: {str(e)}"
         )
 
 
