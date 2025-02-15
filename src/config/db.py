@@ -91,6 +91,7 @@ db_pool = DatabasePool(PRIMARY_DB_PATH, MAX_CONNECTIONS)
 
 
 async def initialize_db_pool():
+    logger.info(f"Using database path: {PRIMARY_DB_PATH}")
     await db_pool.initialize()
 
 
