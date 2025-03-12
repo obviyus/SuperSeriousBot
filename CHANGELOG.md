@@ -1,3 +1,10 @@
+# [1.93.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.92.0...v1.93.0) (2025-03-12)
+
+
+### Features
+
+* remove reddit post subscriptions ([86ae2fc](https://github.com/obviyus/SuperSeriousBot/commit/86ae2fc60059d361e2292a1931f33cc963f4dcfb))
+
 # [1.92.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.91.4...v1.92.0) (2025-02-15)
 
 
