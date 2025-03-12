@@ -55,9 +55,6 @@ from . import (
     weather,
 )
 from .highlight import highlight_button_handler
-from .subscribe import (
-    reddit_subscription_button_handler,
-)
 
 # Import all command functions
 COMMAND_MODULES = [
@@ -252,7 +249,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "hb": habit.habit_button_handler,
         "hl": highlight_button_handler,
         "sg": summon.summon_keyboard_button,
-        "unsubscribe_reddit": reddit_subscription_button_handler,
     }
 
     for prefix, handler in handlers.items():
