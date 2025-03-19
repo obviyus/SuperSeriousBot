@@ -1,3 +1,10 @@
+## [1.94.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.94.0...v1.94.1) (2025-03-19)
+
+
+### Bug Fixes
+
+* remove trailing whitespace ([62e85b6](https://github.com/obviyus/SuperSeriousBot/commit/62e85b65882f2f6ee6d6fec1d79613f55d205a7e))
+
 # [1.94.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.93.0...v1.94.0) (2025-03-19)
 
 
