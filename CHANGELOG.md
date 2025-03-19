@@ -1,3 +1,10 @@
+# [1.94.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.93.0...v1.94.0) (2025-03-19)
+
+
+### Features
+
+* change /based model ([776cea1](https://github.com/obviyus/SuperSeriousBot/commit/776cea199f86dd82322df0d6380dfeaae87ee455))
+
 # [1.93.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.92.0...v1.93.0) (2025-03-12)
 
 
