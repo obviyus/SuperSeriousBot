@@ -4,6 +4,7 @@ from litellm import acompletion
 from telegram import Update
 from telegram.constants import ChatType, ParseMode
 from telegram.ext import ContextTypes
+from telegram.helpers import escape_markdown
 
 import commands
 from config.db import get_db
@@ -112,8 +113,9 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
+        escaped_text = escape_markdown(text)
 
-        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
@@ -176,7 +178,8 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         await update.message.reply_text(
-            response.choices[0].message.content, parse_mode=ParseMode.MARKDOWN
+            escape_markdown(response.choices[0].message.content),
+            parse_mode=ParseMode.MARKDOWN,
         )
     except Exception as e:
         await update.message.reply_text(
@@ -235,8 +238,9 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
+        escaped_text = escape_markdown(text)
 
-        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
