@@ -5,6 +5,9 @@ from pydantic import BaseModel, Field, ValidationError
 
 import utils
 from config.logger import logger
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class RedditConfig(BaseModel):
@@ -27,6 +30,7 @@ class APIConfig(BaseModel):
     RAPID_API_KEY: Optional[str] = ""
     WINDY_API_KEY: Optional[str] = ""
     NANO_GPT_API_KEY: Optional[str] = ""
+    EMBEDEZ_API_KEY: Optional[str] = ""
 
 
 class TelegramConfig(BaseModel):
@@ -75,6 +79,7 @@ try:
             "WINDY_API_KEY": os.environ.get("WINDY_API_KEY", ""),
             "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
             "NANO_GPT_API_KEY": os.environ.get("NANO_GPT_API_KEY", ""),
+            "EMBEDEZ_API_KEY": os.environ.get("EMBEDEZ_API_KEY", ""),
         },
     )
     logger.info("Valid configuration found.")

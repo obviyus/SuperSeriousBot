@@ -3,13 +3,10 @@ import os
 import re
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import List, Optional
+from typing import List
 from urllib.parse import urlparse
 
 import aiohttp
-from asyncpraw.exceptions import InvalidURL
-from asyncprawcore import Forbidden, NotFound
-from redvid import Downloader
 from telegram import InputMediaPhoto, InputMediaVideo, Message, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
@@ -19,7 +16,6 @@ import utils
 from config.logger import logger
 from config.options import config
 from utils.decorators import description, example, triggers, usage
-from .reddit_comment import reddit
 
 MAX_IMAGE_COUNT = 10
 MAX_VIDEO_SIZE = 45 * (1 << 20)  # 45 MB
@@ -37,8 +33,21 @@ class Media:
 
 
 class MediaDownloader:
+    EMBEDEZ_API_URL = "https://embedez.com/api/v1/providers/combined"
+    SUPPORTED_DOMAINS = [
+        "instagram.com",
+        "twitter.com",
+        "x.com",
+        "tiktok.com",
+        "ifunny.co",
+        "reddit.com",
+        "v.redd.it",
+        "snapchat.com",
+        "facebook.com",
+        "bilibili.com",
+    ]
+
     def __init__(self):
-        self.reddit_dl = Downloader(max_s=MAX_VIDEO_SIZE, auto_max=True)
         self.ydl = YoutubeDL(
             {
                 "format": f"b[filesize<=?{MAX_VIDEO_SIZE}]",
@@ -50,130 +59,174 @@ class MediaDownloader:
             }
         )
 
-    async def download_imgur(self, url: str) -> List[Media]:
-        """Download images from Imgur"""
-        imgur_hash = urlparse(url).path.split("/")[-1]
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"https://api.imgur.com/3/album/{imgur_hash}/images",
-                headers={
-                    "Authorization": f"Client-ID {config['API']['IMGUR_API_KEY']}"
-                },
-            ) as response:
-                if response.status != 200:
-                    return [Media(url=url, type=MediaType.IMAGE)]
-                data = await response.json()
-                return [
-                    Media(url=img["link"], type=MediaType.IMAGE)
-                    for img in data["data"][:MAX_IMAGE_COUNT]
-                ]
+        # Check if API key is available
+        if "EMBEDEZ_API_KEY" not in config.get("API", {}):
+            logger.warning(
+                "EMBEDEZ_API_KEY not found in config, some downloads may fail"
+            )
 
-    async def download_reddit_video(self, url: str, message: Message) -> None:
-        """Download and send Reddit video"""
-        self.reddit_dl.url = url
+    async def download_media(self, url: str, message: Message) -> None:
+        """Main handler to download media from a URL"""
         try:
-            file_path = self.reddit_dl.download()
-            if isinstance(file_path, int):
-                if file_path == 0:
-                    await message.reply_text("Video too large for Telegram.")
+            parsed_url = urlparse(url)
+            hostname = (parsed_url.hostname or "").lower().removeprefix("www.")
+
+            # Special case for v.redd.it URLs - convert to full reddit URL if needed
+            if hostname == "v.redd.it":
+                # Extract the ID from v.redd.it URL
+                video_id = parsed_url.path.strip("/")
+                if video_id:
+                    # Try with embedez directly first
+                    await self._handle_with_embedez(url, message)
                     return
-                file_path = self.reddit_dl.file_name
 
-            await message.reply_video(video=open(file_path, "rb"))
-            os.remove(file_path)
+            domain = next((d for d in self.SUPPORTED_DOMAINS if d in hostname), None)
+
+            if domain:
+                await self._handle_with_embedez(url, message)
+            elif "youtu" in hostname:  # YouTube requires special handling
+                await self._handle_youtube(url, message)
+            else:
+                await message.reply_text("Unsupported URL format.")
         except Exception as e:
-            logger.error(f"Reddit video download error: {e}")
-            await message.reply_text("Failed to download video.")
+            logger.error(f"Error handling {url}: {str(e)}")
+            await message.reply_text(f"Failed to download content: {str(e)}")
 
-    async def process_reddit_post(
-        self, url: str, message: Message
-    ) -> Optional[List[Media]]:
-        """Process Reddit post media"""
-        try:
-            post = await reddit.submission(url=url.replace("old.", ""))
-            if hasattr(post, "crosspost_parent"):
-                post = await reddit.submission(id=post.crosspost_parent.split("_")[1])
-
-            if hasattr(post, "is_gallery"):
-                return [
-                    Media(
-                        url=post.media_metadata[i["media_id"]]["p"][-1]["u"],
-                        type=MediaType.IMAGE,
-                    )
-                    for i in post.gallery_data["items"][:MAX_IMAGE_COUNT]
-                ]
-            elif post.is_video or post.domain == "v.redd.it":
-                await self.download_reddit_video(post.url, message)
-                return None
-            return [Media(url=post.url, type=MediaType.IMAGE)]
-        except (InvalidURL, NotFound, Forbidden) as e:
-            logger.error(f"Reddit error: {e}")
-            await message.reply_text("Cannot access this Reddit content.")
-            return None
-
-    async def download_instagram(
-        self, url: str, message: Message
-    ) -> Optional[List[Media]]:
-        """Download Instagram media"""
-        if "RAPID_API_KEY" not in config["API"]:
-            await message.reply_text("Instagram API key missing. Contact bot owner.")
-            return None
+    async def _handle_with_embedez(self, url: str, message: Message) -> None:
+        """Handle media download using embedez API"""
+        if "EMBEDEZ_API_KEY" not in config.get("API", {}):
+            await message.reply_text("API key missing. Contact bot owner.")
+            return
 
         async with aiohttp.ClientSession() as session:
             try:
-                api_url = "https://instagram-downloader-download-instagram-videos-stories1.p.rapidapi.com/get-info-rapidapi"
-                
+                headers = {
+                    "Authorization": f"Bearer {config['API']['EMBEDEZ_API_KEY']}"
+                }
+                params = {"q": url}
+
                 async with session.get(
-                    api_url,
-                    headers={
-                        "X-RapidAPI-Key": config["API"]["RAPID_API_KEY"],
-                        "X-RapidAPI-Host": "instagram-downloader-download-instagram-videos-stories1.p.rapidapi.com",
-                    },
-                    params={"url": url},
+                    self.EMBEDEZ_API_URL, headers=headers, params=params
                 ) as response:
                     if response.status != 200:
-                        logger.error(f"Instagram API error: {response.status}")
-                        await message.reply_text("Failed to fetch Instagram content.")
-                        return None
-                        
+                        logger.error(f"embedez API error: {response.status}")
+                        await message.reply_text("Failed to fetch content.")
+                        return
+
                     data = await response.json()
-                    logger.info(f"Instagram API response: {data}")
-                    
+
                     if data.get("error"):
                         error_msg = data.get("message", "Unknown error")
-                        logger.error(f"Instagram API error: {error_msg}")
-                        await message.reply_text(f"Failed to fetch Instagram content: {error_msg}")
-                        return None
+                        logger.error(f"embedez API error: {error_msg}")
+                        await message.reply_text(
+                            f"Failed to fetch content: {error_msg}"
+                        )
+                        return
 
-                    media_type = data.get("type")
-                    if media_type == "video":
-                        return [Media(url=data["download_url"], type=MediaType.VIDEO)]
-                    elif media_type == "image":
-                        return [Media(url=data["download_url"], type=MediaType.IMAGE)]
-                    elif media_type == "carousel":
-                        media_list = []
-                        for item in data["carousel"][:MAX_IMAGE_COUNT]:
-                            media_list.append(
-                                Media(
-                                    url=item["download_url"],
-                                    type=MediaType.VIDEO if item["type"] == "video" else MediaType.IMAGE
-                                )
-                            )
-                        return media_list
-                    
-                    logger.error(f"Unsupported Instagram content type: {media_type}")
-                    await message.reply_text("Unsupported Instagram content type.")
-                    return None
-                    
+                    # Process media based on response structure
+                    media_list = await self._process_embedez_response(data)
+                    if media_list:
+                        await self.send_media_group(message, media_list)
+                    else:
+                        await message.reply_text("No media found in the response.")
+
             except aiohttp.ClientError as e:
-                logger.error(f"Instagram download error: {e}")
-                await message.reply_text("Failed to download Instagram content.")
-                return None
+                logger.error(f"embedez API request error: {e}")
+                await message.reply_text("Failed to download content.")
 
-    async def download_youtube(
-        self, url: str, message: Message
-    ) -> Optional[List[Media]]:
-        """Download YouTube video"""
+    async def _process_embedez_response(self, data: dict) -> List[Media]:
+        """Process embedez API response and extract media URLs"""
+        media_list = []
+
+        # Check if response has the expected structure
+        if "success" in data and data.get("success") and "data" in data:
+            response_data = data["data"]
+
+            # Check for media in the content section
+            if "content" in response_data and "media" in response_data["content"]:
+                media_items = response_data["content"]["media"]
+                if isinstance(media_items, list):
+                    for item in media_items[:MAX_IMAGE_COUNT]:
+                        if (
+                            "type" in item
+                            and "source" in item
+                            and "url" in item["source"]
+                        ):
+                            media_type = (
+                                MediaType.VIDEO
+                                if item["type"] == "video"
+                                else MediaType.IMAGE
+                            )
+                            media_list.append(
+                                Media(url=item["source"]["url"], type=media_type)
+                            )
+
+            # If no media found in content.media, look for a single media item in content
+            if not media_list and "content" in response_data:
+                content = response_data["content"]
+                # Check for source.url structure
+                if "source" in content and "url" in content["source"]:
+                    media_type = (
+                        MediaType.VIDEO
+                        if content.get("type") == "video"
+                        else MediaType.IMAGE
+                    )
+                    media_list.append(
+                        Media(url=content["source"]["url"], type=media_type)
+                    )
+                # For Reddit videos, sometimes the structure is different
+                elif "url" in content and isinstance(content["url"], str):
+                    # Assume it's a video for reddit URLs
+                    video_url = content["url"]
+                    if "v.redd.it" in video_url or video_url.endswith((".mp4", ".mov")):
+                        media_list.append(Media(url=video_url, type=MediaType.VIDEO))
+                    else:
+                        media_list.append(Media(url=video_url, type=MediaType.IMAGE))
+
+        # Fallback for other response structures
+        if not media_list:
+            # The structure might vary depending on the source platform
+            # Check common patterns
+            if "media" in data:
+                media_items = data["media"]
+                if isinstance(media_items, list):
+                    for item in media_items[:MAX_IMAGE_COUNT]:
+                        if "type" in item and "url" in item:
+                            media_type = (
+                                MediaType.VIDEO
+                                if item["type"] == "video"
+                                else MediaType.IMAGE
+                            )
+                            media_list.append(Media(url=item["url"], type=media_type))
+                elif isinstance(media_items, dict) and "url" in media_items:
+                    # Single media item
+                    media_type = (
+                        MediaType.VIDEO
+                        if media_items.get("type") == "video"
+                        else MediaType.IMAGE
+                    )
+                    media_list.append(Media(url=media_items["url"], type=media_type))
+
+            # Last fallback - look for direct URL
+            if not media_list and "url" in data:
+                # Check if it's a video URL
+                if data.get("type") == "video" or data["url"].endswith(
+                    (".mp4", ".mov", ".avi")
+                ):
+                    media_list.append(Media(url=data["url"], type=MediaType.VIDEO))
+                else:
+                    media_list.append(Media(url=data["url"], type=MediaType.IMAGE))
+
+        # Log extracted media for debugging
+        if media_list:
+            logger.info(f"Extracted {len(media_list)} media items")
+        else:
+            logger.warning(f"No media extracted from response: {str(data)}...")
+
+        return media_list
+
+    async def _handle_youtube(self, url: str, message: Message) -> None:
+        """Handle YouTube video download"""
         try:
             info = await asyncio.get_running_loop().run_in_executor(
                 None, lambda: self.ydl.extract_info(url, download=True)
@@ -182,11 +235,9 @@ class MediaDownloader:
 
             await message.reply_video(video=open(video_path, "rb"))
             os.remove(video_path)
-            return None
         except Exception as e:
             logger.error(f"YouTube download error: {e}")
             await message.reply_text("Failed to download YouTube video.")
-            return None
 
     async def send_media_group(self, message: Message, media_list: List[Media]) -> None:
         """Send media group with proper error handling"""
@@ -194,6 +245,21 @@ class MediaDownloader:
             await message.reply_text("No media found.")
             return
 
+        # For single media item, send directly to avoid media group issues
+        if len(media_list) == 1:
+            media = media_list[0]
+            try:
+                if media.type == MediaType.IMAGE:
+                    await message.reply_photo(photo=media.url)
+                else:
+                    await message.reply_video(video=media.url)
+                return
+            except BadRequest as e:
+                logger.error(f"Failed to send single media: {str(e)}")
+                await message.reply_text("Media unavailable or too large.")
+                return
+
+        # For multiple media items, use media group
         try:
             await message.reply_media_group(
                 [
@@ -203,28 +269,20 @@ class MediaDownloader:
                     for m in media_list[:10]
                 ]
             )
-        except BadRequest:
+        except BadRequest as e:
+            logger.error(f"Failed to send media group: {str(e)}")
             await message.reply_text("Media unavailable or too large.")
 
 
 downloader = MediaDownloader()
 
-URL_HANDLERS = {
-    r"(?:www\.)?imgur\.com": downloader.download_imgur,
-    r"(?:www\.|old\.)?reddit\.com|redd\.it": downloader.process_reddit_post,
-    r"i\.redd\.it|preview\.redd\.it": lambda url, _: [
-        Media(url=url, type=MediaType.IMAGE)
-    ],
-    r"v\.redd\.it": downloader.download_reddit_video,
-    r"(?:www\.)?instagram\.com": downloader.download_instagram,
-    r"(?:www\.)?youtu(?:\.be|be\.com)": downloader.download_youtube,
-}
-
 
 @triggers(["dl"])
 @usage("/dl [URL]")
 @example("/dl https://www.instagram.com/p/abcdefg/")
-@description("Download media from Reddit, Imgur, and other platforms.")
+@description(
+    "Download media from Reddit, Imgur, Instagram, TikTok, Twitter, and other platforms."
+)
 async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Download media from supported platforms."""
     if not update.message:
@@ -235,16 +293,5 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Please provide a valid URL.")
         return
 
-    parsed_url = urlparse(url if isinstance(url, str) else url.geturl())
-    hostname = (
-        (parsed_url.hostname or "").lower().removeprefix("www.").removeprefix("m.")
-    )
-
-    for pattern, handler in URL_HANDLERS.items():
-        if re.match(pattern, hostname, re.IGNORECASE):
-            result = await handler(parsed_url.geturl(), update.message)
-            if isinstance(result, list):
-                await downloader.send_media_group(update.message, result)
-            return
-
-    await update.message.reply_text("Unsupported URL format.")
+    url_string = url if isinstance(url, str) else url.geturl()
+    await downloader.download_media(url_string, update.message)

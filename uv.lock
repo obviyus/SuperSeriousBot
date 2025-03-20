@@ -1222,18 +1222,6 @@ wheels = [
 ]
 
 [[package]]
-name = "redvid"
-version = "2.0.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a3/7f/f97ae7ac0a15310462dd07f6d6656bfa8ba83d603c1b8de9bee4ce48ac5d/redvid-2.0.5.tar.gz", hash = "sha256:f69dba0bbd402c0927f8d0dae6f413ef4e01ba277d5ebd524fa0030fdd8c57cd", size = 25556 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/bb/49640d9b29a3740c9181d46225b451cedfd3ab6ef0bdfb3e0cacd6c42bd4/redvid-2.0.5-py3-none-any.whl", hash = "sha256:56abb4eb76f81efb45444845d140beb4b547ffe1d29f48cfe41476c8d1ebe38f", size = 24223 },
-]
-
-[[package]]
 name = "referencing"
 version = "0.36.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1435,10 +1423,10 @@ dependencies = [
     { name = "litellm" },
     { name = "networkx" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "python-telegram-bot", extra = ["job-queue", "rate-limiter", "webhooks"] },
     { name = "pyvis" },
     { name = "redis" },
-    { name = "redvid" },
     { name = "requests" },
     { name = "spurdify" },
     { name = "translatepy" },
@@ -1463,10 +1451,10 @@ requires-dist = [
     { name = "litellm", specifier = ">=1.52.12" },
     { name = "networkx", specifier = ">=3.4.2" },
     { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "python-telegram-bot", extras = ["job-queue", "rate-limiter", "webhooks"], specifier = ">=21.7" },
     { name = "pyvis", specifier = ">=0.3.2" },
     { name = "redis", specifier = ">=5.2.0" },
-    { name = "redvid", specifier = ">=2.0.5" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "spurdify", specifier = ">=0.3.0" },
     { name = "translatepy", specifier = ">=2.3" },
