@@ -2,17 +2,16 @@ FROM python:3.12-slim AS build
 
 SHELL ["sh", "-exc"]
 
-# Combine RUN commands and cleanup in the same layer
-RUN apt-get update -qy && \
-    apt-get install -qyy --no-install-recommends \
+RUN apt-get update -qy && apt-get install -qyy \
+    -o APT::Install-Recommends=false \
+    -o APT::Install-Suggests=false \
     curl \
     build-essential \
     libxml2-dev \
     libxslt1-dev \
     libz-dev \
     ffmpeg \
-    git && \
-    rm -rf /var/lib/apt/lists/*
+    git
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
@@ -22,36 +21,32 @@ ENV UV_LINK_MODE=copy \
     UV_PYTHON=python3.12 \
     UV_PROJECT_ENVIRONMENT=/app
 
-# Copy only dependency files first to leverage Docker layer caching
-WORKDIR /code
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml /_lock/
+COPY uv.lock /_lock/
 
-# Install dependencies with better caching
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,target=/root/.cache \
+    cd /_lock && \
     uv sync --locked --no-dev --no-install-project
 
-# Copy application code
-COPY . .
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps .
+COPY . /code
+RUN --mount=type=cache,target=/root/.cache \
+    uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps /code
 
-FROM python:3.12-slim AS runtime
+FROM build AS runtime
 
 WORKDIR /code
 
-RUN groupadd -r app && useradd -r -d /code -g app -N app && \
-    apt-get update -qy && \
-    apt-get install -qyy --no-install-recommends \
-    dumb-init \
-    sqlite3 && \
-    rm -rf /var/lib/apt/lists/*
+RUN groupadd -r app && useradd -r -d /code -g app -N app
 
-COPY --from=build --chown=app:app /app /app
+RUN apt-get update -qy && apt-get install -qyy \
+    -o APT::Install-Recommends=false \
+    -o APT::Install-Suggests=false \
+    dumb-init \
+    sqlite3
+
 COPY --from=build --chown=app:app /code /code
 
-USER app
-
-ENTRYPOINT ["dumb-init", "--"]
+ENTRYPOINT ["dumb-init", "--", "uv", "run"]
 CMD ["python", "src/main.py"]
 
 LABEL org.opencontainers.image.source="https://github.com/obviyus/SuperSeriousBot"
