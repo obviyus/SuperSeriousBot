@@ -1,3 +1,10 @@
+## [1.95.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.95.0...v1.95.1) (2025-03-20)
+
+
+### Bug Fixes
+
+* escape markdown in response ([51f8714](https://github.com/obviyus/SuperSeriousBot/commit/51f871497f5d361b11a3012397388a803073b485))
+
 # [1.95.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.94.1...v1.95.0) (2025-03-20)
 
 
