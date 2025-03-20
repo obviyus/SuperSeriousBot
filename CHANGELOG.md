@@ -1,3 +1,11 @@
+# [1.95.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.94.1...v1.95.0) (2025-03-20)
+
+
+### Features
+
+* support markdown ([224fe7b](https://github.com/obviyus/SuperSeriousBot/commit/224fe7bd739c5529c312a9bafe4f6668e68bb9f6))
+* use embedez for instagram ([4cf1bce](https://github.com/obviyus/SuperSeriousBot/commit/4cf1bceed966212a9d64da53f45bbe34ea426c1a))
+
 ## [1.94.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.94.0...v1.94.1) (2025-03-19)
 
 
