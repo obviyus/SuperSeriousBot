@@ -1,3 +1,10 @@
+## [1.95.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.95.2...v1.95.3) (2025-03-22)
+
+
+### Bug Fixes
+
+* use HTML formatting ([e0aa811](https://github.com/obviyus/SuperSeriousBot/commit/e0aa811112d3264feda33b887d7516608fcdcbbe))
+
 ## [1.95.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.95.1...v1.95.2) (2025-03-22)
 
 
