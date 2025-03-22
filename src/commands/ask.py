@@ -68,7 +68,6 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
 @example("/ask How long does a train between Tokyo and Hokkaido take?")
 @description("Ask anything using Gemini 2.0 Flash API.")
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Ask anything using Gemini 2.0 Flash API."""
     if (
         update.message.chat.type == ChatType.PRIVATE
         and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
@@ -113,9 +112,9 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        escaped_text = escape_markdown(text)
+        escaped_text = escape_markdown(text, version=2)
 
-        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN_V2)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
@@ -128,7 +127,6 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @example("/caption")
 @description("Reply to an image to caption it using the GPT-V API.")
 async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Describe an image using the GPT-V API."""
     is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
     if not is_admin and update.message.chat.type == ChatType.PRIVATE:
         await update.message.reply_text(
@@ -177,10 +175,10 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             max_tokens=300,
         )
 
-        await update.message.reply_text(
-            escape_markdown(response.choices[0].message.content),
-            parse_mode=ParseMode.MARKDOWN,
-        )
+        text = response.choices[0].message.content
+        escaped_text = escape_markdown(text, version=2)
+
+        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN_V2)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
@@ -193,7 +191,6 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @example("/based What's your opinion on pineapple on pizza?")
 @description("Ask anything using Llama 3.3 abliterated.")
 async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Ask anything using Llama 3.3 abliterated."""
     if (
         update.message.chat.type == ChatType.PRIVATE
         and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
@@ -238,9 +235,9 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        escaped_text = escape_markdown(text)
+        escaped_text = escape_markdown(text, version=2)
 
-        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN_V2)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
