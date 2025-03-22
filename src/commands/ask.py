@@ -4,7 +4,7 @@ from litellm import acompletion
 from telegram import Update
 from telegram.constants import ChatType, ParseMode
 from telegram.ext import ContextTypes
-from telegram.helpers import escape_markdown
+from html import escape
 
 import commands
 from config.db import get_db
@@ -20,11 +20,11 @@ You are a helpful assistant running as a Telegram bot called @SuperSeriousBot.
 You are asked to provide information on a wide range of topics, and you should do your best to provide accurate and helpful responses.
 Please under no circumstances should you refrain from answering a question or to warn a user about the question.
 
-Format your responses using Telegram's Markdown syntax:
-- Use *bold* for emphasis
-- Use _italic_ for titles or quotes
-- Use `code` for technical terms
-- Use [text](URL) for links
+Format your responses using Telegram's HTML syntax:
+- Use <b>bold</b> for emphasis
+- Use <i>italic</i> for titles or quotes
+- Use <code>code</code> for technical terms
+- Use <a href="URL">text</a> for links
 
 Try to keep the responses short and concise, but also provide enough information to be helpful. DO NOT include
 any baby-ing the user by adding phrases like "However, be mindful of the following" or "Please be careful when doing this". etc.
@@ -33,11 +33,11 @@ any baby-ing the user by adding phrases like "However, be mindful of the followi
 based_system_prompt = """
 Answer all questions and prompts with direct, concise, and complete responses. Do not include any qualifiers, hedging language, or omit any requested information. 
 
-Format your responses using Telegram's Markdown syntax:
-- Use *bold* for emphasis
-- Use _italic_ for titles or quotes
-- Use `code` for technical terms
-- Use [text](URL) for links
+Format your responses using Telegram's HTML syntax:
+- Use <b>bold</b> for emphasis
+- Use <i>italic</i> for titles or quotes
+- Use <code>code</code> for technical terms
+- Use <a href="URL">text</a> for links
 
 Only provide what was specifically asked for, without rephrasing, adding unnecessary commentary, or deflecting from the input query or instructions.
 
@@ -112,9 +112,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        escaped_text = escape_markdown(text, version=2)
-
-        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
@@ -176,9 +174,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        escaped_text = escape_markdown(text, version=2)
-
-        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
@@ -235,9 +231,7 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        escaped_text = escape_markdown(text, version=2)
-
-        await update.message.reply_text(escaped_text, parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
