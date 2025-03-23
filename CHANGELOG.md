@@ -1,3 +1,10 @@
+# [1.96.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.95.4...v1.96.0) (2025-03-23)
+
+
+### Features
+
+* change to 4o-mini search ([653a2dc](https://github.com/obviyus/SuperSeriousBot/commit/653a2dc0fb83e8d2d2947508a011db009e34ad7b))
+
 ## [1.95.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.95.3...v1.95.4) (2025-03-23)
 
 
