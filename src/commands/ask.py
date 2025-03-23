@@ -119,7 +119,9 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(
+            text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
+        )
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
@@ -181,7 +183,9 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(
+            text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
+        )
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
@@ -238,7 +242,9 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(
+            text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
+        )
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
