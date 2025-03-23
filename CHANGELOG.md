@@ -1,3 +1,10 @@
+## [1.98.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.98.0...v1.98.1) (2025-03-23)
+
+
+### Bug Fixes
+
+* disable web preview ([fadd897](https://github.com/obviyus/SuperSeriousBot/commit/fadd89746199888bc5301ec7acd5cb2821511218))
+
 # [1.98.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.97.0...v1.98.0) (2025-03-23)
 
 
