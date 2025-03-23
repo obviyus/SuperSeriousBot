@@ -1,3 +1,10 @@
+# [1.98.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.97.0...v1.98.0) (2025-03-23)
+
+
+### Features
+
+* update prompt for md + brevity ([875bbb3](https://github.com/obviyus/SuperSeriousBot/commit/875bbb386c0e592e50f68b2f2514df4589aecb5d))
+
 # [1.97.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.96.0...v1.97.0) (2025-03-23)
 
 
