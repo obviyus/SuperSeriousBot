@@ -1,3 +1,10 @@
+## [1.95.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.95.3...v1.95.4) (2025-03-23)
+
+
+### Bug Fixes
+
+* remove all formatting ([3ae1849](https://github.com/obviyus/SuperSeriousBot/commit/3ae18493c52b53fc2e552e96ae835fe8cfe0a11d))
+
 ## [1.95.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.95.2...v1.95.3) (2025-03-22)
 
 
