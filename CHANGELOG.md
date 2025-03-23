@@ -1,3 +1,10 @@
+# [1.97.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.96.0...v1.97.0) (2025-03-23)
+
+
+### Features
+
+* markdown formatting ([e992cba](https://github.com/obviyus/SuperSeriousBot/commit/e992cba6ff867799de12606c2fa2b3cb163bb6c0))
+
 # [1.96.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.95.4...v1.96.0) (2025-03-23)
 
 
