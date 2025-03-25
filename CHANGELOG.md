@@ -1,3 +1,10 @@
+## [1.99.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.99.0...v1.99.1) (2025-03-25)
+
+
+### Bug Fixes
+
+* remove all markdown ([8631ec4](https://github.com/obviyus/SuperSeriousBot/commit/8631ec441f6d48b20e7c64dd26ab335482c3c7ef))
+
 # [1.99.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.98.1...v1.99.0) (2025-03-25)
 
 
