@@ -1,3 +1,10 @@
+# [1.99.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.98.1...v1.99.0) (2025-03-25)
+
+
+### Features
+
+* move back to flash with search ([6adf463](https://github.com/obviyus/SuperSeriousBot/commit/6adf4636f8093fadb1e3945635060518c3af1696))
+
 ## [1.98.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.98.0...v1.98.1) (2025-03-23)
 
 
