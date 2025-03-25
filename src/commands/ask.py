@@ -109,7 +109,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         response = await acompletion(
-            model="openai/gpt-4o-mini-search-preview",
+            model="openai/gemini-2.0-flash-exp-search",
             api_key=config["API"]["NANO_GPT_API_KEY"],
             messages=[
                 {"role": "system", "content": system_prompt},
