@@ -40,9 +40,11 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
             """
                 SELECT 1
                 FROM command_whitelist 
-                WHERE command = ? 
-                AND (whitelist_type = 'chat' AND whitelist_id = ?)
-                OR (whitelist_type = 'user' AND whitelist_id = ?);
+                WHERE command = ?
+                AND (
+                    (whitelist_type = 'chat' AND whitelist_id = ?) 
+                    OR (whitelist_type = 'user' AND whitelist_id = ?)
+                );
                 """,
             (command, chat_id, user_id),
         ) as cursor:
@@ -60,6 +62,9 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if (
         update.message.chat.type == ChatType.PRIVATE
         and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
+        and not await check_command_whitelist(
+            update.message.from_user.id, update.message.from_user.id, "ask"
+        )
     ):
         await update.message.reply_text(
             "This command is not available in private chats."
