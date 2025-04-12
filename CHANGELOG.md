@@ -1,3 +1,10 @@
+# [1.100.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.99.1...v1.100.0) (2025-04-12)
+
+
+### Features
+
+* allow /ask in private chats ([dd5c500](https://github.com/obviyus/SuperSeriousBot/commit/dd5c500e07f20d4420e477930908f201c913b07d))
+
 ## [1.99.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.99.0...v1.99.1) (2025-03-25)
 
 
