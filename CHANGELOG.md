@@ -1,3 +1,10 @@
+## [1.100.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.100.0...v1.100.1) (2025-04-17)
+
+
+### Bug Fixes
+
+* handle sending errors ([ab6644c](https://github.com/obviyus/SuperSeriousBot/commit/ab6644c810231b5b20fb4227edb4bdb462da7fa0))
+
 # [1.100.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.99.1...v1.100.0) (2025-04-12)
 
 
