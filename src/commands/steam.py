@@ -156,9 +156,9 @@ async def offer_worker(context: ContextTypes.DEFAULT_TYPE):
 
         for offer in offers:
             async with conn.execute(
-                # Check if the offer has been notified within the last month
+                # Check if the offer has been notified before
                 """
-                SELECT * FROM steam_offers WHERE game_id = ? AND notified = 1 AND create_time > datetime('now', '-1 month');
+                SELECT 1 FROM steam_offers WHERE game_id = ? AND notified = 1 LIMIT 1;
                 """,
                 (offer["id"],),
             ) as cursor:
@@ -194,11 +194,14 @@ async def offer_worker(context: ContextTypes.DEFAULT_TYPE):
 
     tasks = []
     for group in groups:
-        tasks.append(
-            context.bot.send_message(
-                group["chat_id"], message, parse_mode=ParseMode.HTML
+        try:
+            tasks.append(
+                context.bot.send_message(
+                    group["chat_id"], message, parse_mode=ParseMode.HTML
+                )
             )
-        )
+        except Exception as e:
+            print(f"Error sending message to group {group['chat_id']}: {e}")
 
     await asyncio.gather(*tasks)
 
