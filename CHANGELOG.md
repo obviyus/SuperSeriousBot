@@ -1,3 +1,10 @@
+## [1.101.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.101.1...v1.101.2) (2025-04-18)
+
+
+### Bug Fixes
+
+* re-add scrub dict ([afd0f4e](https://github.com/obviyus/SuperSeriousBot/commit/afd0f4e5488faed2b941452e0168e4f25e6df6e8))
+
 ## [1.101.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.101.0...v1.101.1) (2025-04-18)
 
 
