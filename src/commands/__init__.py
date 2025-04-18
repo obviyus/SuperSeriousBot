@@ -19,6 +19,7 @@ from config import logger
 from config.db import get_db
 from config.options import config
 from management import botstats, stats, blocks
+
 from . import (
     animals,
     ask,
@@ -288,24 +289,3 @@ async def save_mentions(
                     (mentioning_user_id, user_id, message.chat.id, message.message_id),
                 )
                 await conn.commit()
-
-
-async def mention_parser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Parse mentions in messages."""
-    if not update.message:
-        return
-
-    mentions = update.message.parse_entities(
-        [MessageEntity.TEXT_MENTION, MessageEntity.MENTION]
-    )
-    if mentions:
-        usernames = set(re.findall("(@[\w|\d|_]{5,})", update.message.text))
-        await save_mentions(update.message.from_user.id, usernames, update.message)
-    elif update.message.reply_to_message:
-        await save_mentions(
-            update.message.from_user.id,
-            {str(update.message.reply_to_message.from_user.id)},
-            update.message,
-        )
-
-    await management.increment(update, context)

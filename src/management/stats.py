@@ -12,66 +12,6 @@ from utils import readable_time
 from utils.decorators import description, example, triggers, usage
 
 
-async def increment(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Increment message count for a user. Also store last seen time in the database.
-    """
-    if not update.message:
-        return
-
-    user_object = update.message.from_user
-    if user_object.username:
-        username_lower = user_object.username.lower()
-        chat_id = update.message.chat_id
-
-        async with get_db(write=True) as conn:
-            try:
-                # Update user stats
-                await conn.execute(
-                    """
-                    INSERT INTO user_stats (user_id, username, last_seen, last_message_link)
-                        VALUES (?, ?, ?, ?)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        username = excluded.username,
-                        last_seen = excluded.last_seen,
-                        last_message_link = excluded.last_message_link
-                    """,
-                    (
-                        user_object.id,
-                        user_object.username,
-                        datetime.now(),
-                        update.message.link if update.message.link else None,
-                    ),
-                )
-
-                # Insert message stats
-                await conn.execute(
-                    "INSERT OR IGNORE INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
-                    (chat_id, user_object.id, update.message.message_id),
-                )
-
-                if update.message.text:
-                    async with conn.execute(
-                        """
-                        SELECT fts FROM group_settings
-                        WHERE chat_id = ?;
-                        """,
-                        (update.message.chat_id,),
-                    ) as cursor:
-                        result = await cursor.fetchone()
-
-                    is_enabled = result["fts"] if result else False
-                    if is_enabled:
-                        await conn.execute(
-                            "UPDATE chat_stats SET message_text = ? WHERE rowid = last_insert_rowid()",
-                            (update.message.text,),
-                        )
-                await conn.commit()
-            except Exception as e:
-                await conn.rollback()
-                print(f"Error in increment: {e}")
-
-
 async def stat_string_builder(
     rows: list,
     message: Message,

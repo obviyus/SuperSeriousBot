@@ -30,13 +30,14 @@ from commands.remind import worker_reminder
 from commands.sed import sed
 from config.db import (
     PRIMARY_DB_PATH,
+    close_redis,
     get_redis,
-    initialize_db_pool,
     rebuild_fts5,
 )
 from config.logger import logger
 from config.options import config
 from utils import command_limits
+from management.message_tracking import message_stats_handler, mention_handler
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -77,6 +78,15 @@ async def post_init(application: Application) -> None:
     # Set commands for bot instance
     bot_commands = get_valid_bot_commands(commands.list_of_commands)
     await application.bot.set_my_commands(bot_commands)
+
+
+async def post_shutdown(application: Application) -> None:
+    """
+    Shutdown the bot.
+    """
+    logger.info(f"Shutting down @{application.bot.username} (ID: {application.bot.id})")
+    await close_redis()
+    logger.info("Cleanup finished.")
 
 
 def get_valid_bot_commands(command_list: List) -> List[BotCommand]:
@@ -124,7 +134,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def setup_application() -> Application:
-    await initialize_db_pool()
     await get_redis()
 
     application = (
@@ -133,6 +142,7 @@ async def setup_application() -> Application:
         .rate_limiter(AIORateLimiter(max_retries=10))
         .concurrent_updates(True)
         .post_init(post_init)
+        .post_shutdown(post_shutdown)
         .build()
     )
 
@@ -140,30 +150,31 @@ async def setup_application() -> Application:
 
     application.add_handlers(
         handlers={
-            # Handle every Update and increment command + message count
+            # Handle reactions to messages
             0: [
                 MessageHandler(
                     filters.TEXT,
                     commands.every_message_action,
                 ),
             ],
+            # Handle commands
             1: commands.command_handler_list,
+            # Handle sed and button callbacks
             2: [
                 MessageHandler(
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
                     sed,
                 ),
-                # Master Button Handler
                 CallbackQueryHandler(
                     commands.button_handler,
                 ),
             ],
+            # Handle message stats and mentions
             3: [
-                TypeHandler(
-                    Update,
-                    commands.mention_parser,
-                ),
+                message_stats_handler,
+                mention_handler,
             ],
+            # Handle highlights
             4: [
                 MessageHandler(
                     ~filters.ChatType.PRIVATE,
