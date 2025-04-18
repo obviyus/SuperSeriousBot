@@ -10,10 +10,12 @@ from telegram.ext import ContextTypes
 
 from config import logger
 
+PRIMARY_DB_PATH = Path(os.getenv("DATABASE_PATH_PREFIX", ".")) / "SuperSeriousBot.db"
+
 
 @asynccontextmanager
 async def get_db(write: bool = False) -> AsyncGenerator[aiosqlite.Connection, None]:
-    db_path = Path(os.getenv("DATABASE_PATH_PREFIX", ".")) / "SuperSeriousBot.db"
+    db_path = PRIMARY_DB_PATH
     conn = None
     try:
         conn = await aiosqlite.connect(db_path, isolation_level=None)
