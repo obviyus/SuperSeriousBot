@@ -1,3 +1,13 @@
+# [1.101.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.100.1...v1.101.0) (2025-04-18)
+
+
+### Features
+
+* parse mentions separately ([e2ecfbd](https://github.com/obviyus/SuperSeriousBot/commit/e2ecfbd961bb4d320fe0503f93c96822552a7c82))
+* remove dead code ([4dd62a0](https://github.com/obviyus/SuperSeriousBot/commit/4dd62a06d87834d9c1cabe7cc500cd12cab032e3))
+* remove unnecessary scrub call ([28bb702](https://github.com/obviyus/SuperSeriousBot/commit/28bb702db144081db3c08f4097aeba99ecd5c69c))
+* simplified DB management ([3105bee](https://github.com/obviyus/SuperSeriousBot/commit/3105bee48b37a7e54e7d10301ff284215dd23630))
+
 ## [1.100.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.100.0...v1.100.1) (2025-04-17)
 
 
