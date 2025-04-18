@@ -3,7 +3,6 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-import utils
 from config.logger import logger
 from dotenv import load_dotenv
 
@@ -83,9 +82,7 @@ try:
         },
     )
     logger.info("Valid configuration found.")
-    config_dict = utils.scrub_dict(config.model_dump())
-    config = config_dict
-    logger.info(config_dict)
+    logger.info(config.model_dump())
 except ValidationError as e:
     logger.error("Invalid configuration found.")
     logger.error(e.json())
