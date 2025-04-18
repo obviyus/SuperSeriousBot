@@ -1,3 +1,10 @@
+## [1.101.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.101.2...v1.101.3) (2025-04-18)
+
+
+### Bug Fixes
+
+* export DB path ([f9c2ea8](https://github.com/obviyus/SuperSeriousBot/commit/f9c2ea86e7b98cad49c1442225828226bf493ab9))
+
 ## [1.101.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.101.1...v1.101.2) (2025-04-18)
 
 
