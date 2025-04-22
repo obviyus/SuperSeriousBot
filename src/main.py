@@ -16,13 +16,11 @@ from telegram.ext import (
     CallbackQueryHandler,
     ContextTypes,
     MessageHandler,
-    TypeHandler,
     filters,
 )
 
 import commands
 import misc
-from commands import steam
 from commands.habit import worker_habit_tracker
 from commands.highlight import highlight_worker
 from commands.randdit import worker_seed_posts
@@ -199,9 +197,6 @@ async def setup_application() -> Application:
 
     # Seed random Reddit posts
     job_queue.run_once(worker_seed_posts, 10)
-
-    # Steam offer worker
-    job_queue.run_repeating(steam.offer_worker, interval=3600, first=10)
 
     return application
 
