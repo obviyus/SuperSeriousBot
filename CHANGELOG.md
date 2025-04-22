@@ -1,3 +1,10 @@
+# [1.102.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.101.3...v1.102.0) (2025-04-22)
+
+
+### Features
+
+* remove Steam offer feature ([4d709cf](https://github.com/obviyus/SuperSeriousBot/commit/4d709cfb7799866b896a35ddb9d78cdaa93c01dc))
+
 ## [1.101.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.101.2...v1.101.3) (2025-04-18)
 
 
