@@ -1,3 +1,11 @@
+# [1.103.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.102.0...v1.103.0) (2025-05-13)
+
+
+### Features
+
+* remove camera command ([efc6759](https://github.com/obviyus/SuperSeriousBot/commit/efc6759ecba8acdcef029ce5d92aac82603e1bb8))
+* send as file if output too long ([7949f58](https://github.com/obviyus/SuperSeriousBot/commit/7949f58f913b1bb018afce285efc2ce19624f8f6))
+
 # [1.102.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.101.3...v1.102.0) (2025-04-22)
 
 
