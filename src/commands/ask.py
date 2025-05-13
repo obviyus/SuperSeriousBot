@@ -1,4 +1,5 @@
 import os
+import io
 
 from litellm import acompletion
 from telegram import Update
@@ -51,6 +52,16 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
             result = await cursor.fetchone()
 
     return bool(result)
+
+
+async def send_response(update: Update, text: str) -> None:
+    """Send response as a message or file if too long."""
+    if len(text) <= 4096:
+        await update.message.reply_text(text, disable_web_page_preview=True)
+    else:
+        buffer = io.BytesIO(text.encode())
+        buffer.name = "response.txt"
+        await update.message.reply_document(buffer)
 
 
 @triggers(["ask"])
@@ -106,7 +117,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        await update.message.reply_text(text, disable_web_page_preview=True)
+        await send_response(update, text)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
@@ -225,7 +236,7 @@ async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        await update.message.reply_text(text, disable_web_page_preview=True)
+        await send_response(update, text)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
