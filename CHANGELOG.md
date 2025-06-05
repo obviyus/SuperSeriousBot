@@ -1,3 +1,10 @@
+# [1.104.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.103.0...v1.104.0) (2025-06-05)
+
+
+### Features
+
+* remove reddit commands ([b22123b](https://github.com/obviyus/SuperSeriousBot/commit/b22123bdae659d66f9463eff684370283fb78d9d))
+
 # [1.103.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.102.0...v1.103.0) (2025-05-13)
 
 
