@@ -4,7 +4,6 @@ Commands for general use.
 
 import asyncio
 import random
-import re
 import traceback
 from functools import wraps
 from typing import Callable, Dict, List, Set
@@ -13,13 +12,11 @@ from telegram import Message, MessageEntity, Update
 from telegram.constants import ChatAction, ParseMode, ReactionEmoji
 from telegram.ext import CommandHandler, ContextTypes
 
-import management
 import utils
 from config import logger
 from config.db import get_db
 from config.options import config
-from management import botstats, stats, blocks
-
+from management import blocks, botstats, stats
 from . import (
     animals,
     ask,
@@ -38,8 +35,6 @@ from . import (
     midjourney,
     ping,
     quote,
-    randdit,
-    reddit_comment,
     remind,
     search,
     spurdo,
@@ -75,8 +70,6 @@ COMMAND_MODULES = [
     midjourney,
     ping,
     quote,
-    randdit,
-    reddit_comment,
     remind,
     search,
     spurdo,
@@ -201,7 +194,6 @@ def command_wrapper(fn: Callable):
             await asyncio.gather(*tasks)
 
             if sent_command and sent_command in command_doc_list:
-                await management.increment(update, context)
                 async with get_db(write=True) as conn:
                     await conn.execute(
                         "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",

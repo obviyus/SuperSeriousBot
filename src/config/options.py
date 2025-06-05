@@ -11,12 +11,6 @@ import utils
 load_dotenv()
 
 
-class RedditConfig(BaseModel):
-    CLIENT_ID: Optional[str] = ""
-    CLIENT_SECRET: Optional[str] = ""
-    USER_AGENT: Optional[str] = ""
-
-
 class APIConfig(BaseModel):
     GIPHY_API_KEY: Optional[str] = ""
     GOODREADS_API_KEY: Optional[str] = ""
@@ -27,7 +21,6 @@ class APIConfig(BaseModel):
     IMGUR_API_KEY: Optional[str] = ""
     OPEN_AI_API_KEY: Optional[str] = ""
     YOUTUBE_API_KEY: Optional[str] = ""
-    REDDIT: RedditConfig = RedditConfig()
     RAPID_API_KEY: Optional[str] = ""
     WINDY_API_KEY: Optional[str] = ""
     NANO_GPT_API_KEY: Optional[str] = ""
@@ -67,11 +60,6 @@ try:
             "GOODREADS_API_KEY": os.environ.get("GOODREADS_API_KEY", ""),
             "IMGUR_API_KEY": os.environ.get("IMGUR_API_KEY", ""),
             "INSTAGRAM_SESSION_NAME": os.environ.get("INSTAGRAM_SESSION_NAME", ""),
-            "REDDIT": {
-                "CLIENT_ID": os.environ.get("REDDIT_CLIENT_ID", ""),
-                "CLIENT_SECRET": os.environ.get("REDDIT_CLIENT_SECRET", ""),
-                "USER_AGENT": os.environ.get("REDDIT_USER_AGENT", ""),
-            },
             "RAPID_API_KEY": os.environ.get("RAPID_API_KEY", ""),
             "SMMRY_API_KEY": os.environ.get("SMMRY_API_KEY", ""),
             "STEAM_API_KEY": os.environ.get("STEAM_API_KEY", ""),

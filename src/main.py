@@ -23,7 +23,6 @@ import commands
 import misc
 from commands.habit import worker_habit_tracker
 from commands.highlight import highlight_worker
-from commands.randdit import worker_seed_posts
 from commands.remind import worker_reminder
 from commands.sed import sed
 from config.db import (
@@ -194,9 +193,6 @@ async def setup_application() -> Application:
 
     # Build social graph
     job_queue.run_daily(misc.worker_build_network, time=datetime.time(19, 30))
-
-    # Seed random Reddit posts
-    job_queue.run_once(worker_seed_posts, 10)
 
     return application
 
