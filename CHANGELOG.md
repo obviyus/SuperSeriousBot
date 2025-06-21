@@ -1,3 +1,10 @@
+# [1.105.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.104.0...v1.105.0) (2025-06-21)
+
+
+### Features
+
+* support Reddit DASH downloads ([02cd67a](https://github.com/obviyus/SuperSeriousBot/commit/02cd67a25f2949f4986314e4c7b475ce75c94ee1))
+
 # [1.104.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.103.0...v1.104.0) (2025-06-05)
 
 
