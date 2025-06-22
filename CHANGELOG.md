@@ -1,3 +1,10 @@
+# [1.107.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.106.0...v1.107.0) (2025-06-22)
+
+
+### Features
+
+* tldw with self-hosted transcript API ([4e33e09](https://github.com/obviyus/SuperSeriousBot/commit/4e33e09c238b90b7a3eadf2d05b0debb8db4e29c))
+
 # [1.106.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.105.0...v1.106.0) (2025-06-22)
 
 
