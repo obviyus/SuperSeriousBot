@@ -1,3 +1,11 @@
+# [1.106.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.105.0...v1.106.0) (2025-06-22)
+
+
+### Features
+
+* remove /mj command ([15b9dd9](https://github.com/obviyus/SuperSeriousBot/commit/15b9dd96a5ce2bdb7a51843490540a628a3fdef7))
+* tldr with jina ([af79622](https://github.com/obviyus/SuperSeriousBot/commit/af796225a4bc6372760647fb715fd67993ec586b))
+
 # [1.105.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.104.0...v1.105.0) (2025-06-21)
 
 
