@@ -12,72 +12,78 @@ from config import config
 from config.db import get_db
 from utils.decorators import api_key, description, example, triggers, usage
 
-SYSTEM_PROMPT = """
-You are a helpful assistant running as a Telegram bot called @SuperSeriousBot. Your task is to summarize the transcript of a YouTube video in a concise, engaging manner suitable for a Telegram message.
-
-Guidelines for your summary:
-1. Be concise: Aim for 2-3 short paragraphs (around 150-200 words total).
-2. Highlight key points: Focus on the main ideas, key takeaways, and conclusion of the video.
-3. Structure your response for easy reading on mobile devices:
-   - Use short sentences and paragraphs.
-   - Utilize bullet points for listing main ideas if appropriate.
-4. End with a short conclusion or takeaway.
-5. Use Telegram-compatible Markdown for formatting:
-   - *bold* for emphasis
-   - _italic_ for titles or quotes
-   - `code` for technical terms
-   - [text](URL) for links (if mentioned in the video)
-
-Remember, your goal is to provide value to the user quickly and effectively.
-"""
-
 
 def extract_video_id(url: str) -> Optional[str]:
     """Extract YouTube video ID from various URL formats."""
     parsed_url = urlparse(url)
-    if parsed_url.netloc == "youtu.be":
-        return parsed_url.path[1:]
-    if parsed_url.netloc in ("www.youtube.com", "youtube.com"):
-        if parsed_url.path == "/watch":
+
+    # Handle youtu.be URLs
+    if parsed_url.netloc in ("youtu.be", "www.youtu.be"):
+        video_id = parsed_url.path[1:]  # Remove leading slash
+        return video_id.split("?")[0] if video_id else None
+
+    # Handle all YouTube domains
+    youtube_domains = {
+        "www.youtube.com",
+        "youtube.com",
+        "m.youtube.com",
+        "www.youtube-nocookie.com",
+        "music.youtube.com",
+        "gaming.youtube.com",
+    }
+
+    if parsed_url.netloc in youtube_domains:
+        # Handle /watch URLs
+        if parsed_url.path in ("/watch", "/watch_popup"):
             p = parse_qs(parsed_url.query)
             return p.get("v", [None])[0]
-        if parsed_url.path.startswith(("/embed/", "/v/")):
-            return parsed_url.path.split("/")[2]
+
+        # Handle /embed/, /v/, /shorts/ URLs
+        if parsed_url.path.startswith(("/embed/", "/v/", "/shorts/")):
+            path_parts = parsed_url.path.split("/")
+            return path_parts[2] if len(path_parts) > 2 else None
+
+        # Handle attribution links
+        if parsed_url.path == "/attribution_link":
+            p = parse_qs(parsed_url.query)
+            u_param = p.get("u", [None])[0]
+            if u_param and u_param.startswith("/watch?v="):
+                return parse_qs(u_param.split("?", 1)[1]).get("v", [None])[0]
+
     return None
 
 
 async def get_transcript(video_id: str) -> Optional[str]:
-    """Retrieve and format the transcript for a given video ID."""
-    video_url = f"https://www.youtube.com/watch?v={video_id}"
+    """Retrieve transcript from self-hosted API."""
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            "https://youtube-transcripts.p.rapidapi.com/youtube/transcript",
-            headers={
-                "x-rapidapi-key": config["API"]["RAPID_API_KEY"],
-                "x-rapidapi-host": "youtube-transcripts.p.rapidapi.com",
-            },
-            params={"url": video_url},
+            "http://100.86.6.118:1206/t",
+            params={"v": video_id, "format": "markdown"},
         ) as response:
             if response.status != 200:
                 return None
-            data = await response.json()
-            if not data.get("content"):
-                return None
-
-            # Join all texts from the transcript
-            return " ".join([item["text"] for item in data["content"]])
+            return await response.text()
 
 
 async def summarize_transcript(transcript: str) -> str:
     """Summarize the given transcript using AI."""
-    response = await acompletion(
-        model="gpt-4o-mini",
+    # Generate summary using LLM
+    llm_response = await acompletion(
+        model="openai/gemini-2.5-flash",
+        api_key=config["API"]["NANO_GPT_API_KEY"],
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": transcript},
+            {
+                "role": "system",
+                "content": "You are a helpful assistant that creates concise summaries. Create a clear, informative TLDR summary of the provided text, which is a YouTube video transcript. Focus on the main points and key information. Make it as short as possible.",
+            },
+            {
+                "role": "user",
+                "content": f"Please create a TLDR summary of this content:\n\n{transcript}",
+            },
         ],
+        api_base="https://nano-gpt.com/api/v1",
     )
-    return response.choices[0].message.content
+    return llm_response.choices[0].message.content
 
 
 async def get_cached_summary(conn, video_id: str) -> Optional[str]:
