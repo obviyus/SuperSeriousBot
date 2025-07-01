@@ -2,7 +2,7 @@ import asyncio
 import os
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 import aiohttp
@@ -49,7 +49,6 @@ class MediaDownloader:
         "tiktok.com",
         "ifunny.co",
         "reddit.com",
-        "v.redd.it",
         "snapchat.com",
         "facebook.com",
         "bilibili.com",
@@ -121,20 +120,21 @@ class MediaDownloader:
             if hostname == "v.redd.it":
                 if await self._handle_vreddit_direct(url, message):
                     return  # Success, no need for fallback
+                # If direct method failed, fall through to embedez
+
+            # Try embedez first for supported domains
+            if hostname == "v.redd.it" or self._is_supported_domain(hostname):
                 success = await self._handle_with_embedez(url, message)
-                if not success:
-                    await self._handle_youtube(url, message)
-            elif self._is_supported_domain(hostname):
-                success = await self._handle_with_embedez(url, message)
-                if not success:
-                    await self._handle_youtube(url, message)
-            elif "youtu" in hostname:
-                await self._handle_youtube(url, message)
+                if success:
+                    return
+                # If embedez failed, try yt-dlp as fallback
+                await self._handle_ytdlp(url, message)
             else:
-                await message.reply_text("Unsupported URL format.")
+                # For unsupported domains, try yt-dlp directly
+                await self._handle_ytdlp(url, message)
         except Exception as e:
             logger.error(f"Error handling {url}: {str(e)}")
-            await message.reply_text(f"Failed to download content: {str(e)}")
+            # Silent failure - don't notify user of technical errors
 
     def _validate_api_config(self) -> None:
         """Validate API configuration and log warnings."""
@@ -149,19 +149,11 @@ class MediaDownloader:
         section = config.get(API_SECTION, {})
         return bool(section.get(APKG_KEY))
 
-    async def _handle_api_error(
-        self, message: Message, error_msg: str = "Failed to download content"
-    ) -> None:
-        """Handle API-related errors with consistent messaging."""
-        logger.error(f"API error: {error_msg}")
-        await message.reply_text(error_msg)
-
     async def _handle_with_embedez(self, url: str, message: Message) -> bool:
-        """Handle media download using embedez API. Returns True if successful."""
+        """Handle media download using embedez API."""
         if not self._has_api_key():
-            await message.reply_text("API key missing. Contact bot owner.")
+            logger.warning("API key missing for embedez")
             return False
-
 
         async with aiohttp.ClientSession() as session:
             try:
@@ -171,25 +163,21 @@ class MediaDownloader:
                 async with session.get(
                     self.EMBEDEZ_API_URL, headers=headers, params=params
                 ) as response:
-                    if response.status == 429:
-                        await self._handle_api_error(
-                            message,
-                            "Embedez API rate limit reached or invalid API key."
-                        )
+                    if response.status == 429:  # Rate limit
+                        logger.warning("Embedez API rate limit reached")
                         return False
-                    if response.status != 200:
-                        await self._handle_api_error(
-                            message, f"API returned status {response.status}"
-                        )
+                    elif response.status == 401:  # Unauthorized
+                        logger.warning("Embedez API unauthorized - invalid key")
+                        return False
+                    elif response.status != 200:
+                        logger.warning(f"Embedez API returned status {response.status}")
                         return False
 
                     data = await response.json()
 
                     if data.get("error"):
                         error_msg = data.get("message", "Unknown error")
-                        await self._handle_api_error(
-                            message, f"Failed to fetch content: {error_msg}"
-                        )
+                        logger.warning(f"Embedez API error: {error_msg}")
                         return False
 
                     # Process and send media
@@ -198,17 +186,12 @@ class MediaDownloader:
                         await self.send_media_group(message, media_list)
                         return True
                     else:
-                        await message.reply_text("No media found in the response.")
+                        logger.info("No media found in embedez response")
                         return False
 
             except aiohttp.ClientError as e:
-                await self._handle_api_error(message, f"Network error: {str(e)}")
+                logger.warning(f"Embedez network error: {str(e)}")
                 return False
-            except Exception as e:
-                await self._handle_api_error(message, str(e))
-                return False
-
-        return False
 
     def _extract_media_from_list(self, media_items: List[Dict]) -> List[Media]:
         """Extract media from a list of media items."""
@@ -319,8 +302,8 @@ class MediaDownloader:
 
         return media_list
 
-    async def _handle_youtube(self, url: str, message: Message) -> bool:
-        """Handle media download using yt-dlp. Returns True if successful."""
+    async def _handle_ytdlp(self, url: str, message: Message) -> None:
+        """Handle media download using yt-dlp."""
         try:
             info = await asyncio.get_running_loop().run_in_executor(
                 None, lambda: self.ydl.extract_info(url, download=True)
@@ -331,9 +314,8 @@ class MediaDownloader:
             os.remove(video_path)
             return True
         except Exception as e:
-            logger.error(f"YouTube download error: {e}")
-            await message.reply_text("Failed to download YouTube video.")
-            return False
+            logger.error(f"yt-dlp download error: {e}")
+            # Silent failure - don't notify user
 
     async def _send_single_media(self, message: Message, media: Media) -> bool:
         """Send a single media item. Returns True if successful."""
