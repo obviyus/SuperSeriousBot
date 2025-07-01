@@ -135,14 +135,16 @@ class MediaDownloader:
 
     def _validate_api_config(self) -> None:
         """Validate API configuration and log warnings."""
-        if APKG_KEY not in config.get(API_SECTION, {}):
+        section = config.get(API_SECTION, {})
+        if not section.get(APKG_KEY):
             logger.warning(
-                "EMBEDEZ_API_KEY not found in config, some downloads may fail"
+                "EMBEDEZ_API_KEY not found or empty, some downloads may fail"
             )
 
     def _has_api_key(self) -> bool:
-        """Check if API key is available."""
-        return APKG_KEY in config.get(API_SECTION, {})
+        """Check if API key is available and non-empty."""
+        section = config.get(API_SECTION, {})
+        return bool(section.get(APKG_KEY))
 
     async def _handle_api_error(
         self, message: Message, error_msg: str = "Failed to download content"
