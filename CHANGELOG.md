@@ -1,3 +1,10 @@
+## [1.107.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.107.2...v1.107.3) (2025-07-01)
+
+
+### Bug Fixes
+
+* silent failures in /dl ([a6d3832](https://github.com/obviyus/SuperSeriousBot/commit/a6d383287022a6fd59418b9bd5fc15d6eff52e54))
+
 ## [1.107.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.107.1...v1.107.2) (2025-07-01)
 
 
