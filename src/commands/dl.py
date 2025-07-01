@@ -121,10 +121,13 @@ class MediaDownloader:
             if hostname == "v.redd.it":
                 if await self._handle_vreddit_direct(url, message):
                     return  # Success, no need for fallback
-                # If direct method failed, fall through to embedez
-
-            if hostname == "v.redd.it" or self._is_supported_domain(hostname):
-                await self._handle_with_embedez(url, message)
+                success = await self._handle_with_embedez(url, message)
+                if not success:
+                    await self._handle_youtube(url, message)
+            elif self._is_supported_domain(hostname):
+                success = await self._handle_with_embedez(url, message)
+                if not success:
+                    await self._handle_youtube(url, message)
             elif "youtu" in hostname:
                 await self._handle_youtube(url, message)
             else:
@@ -153,11 +156,12 @@ class MediaDownloader:
         logger.error(f"API error: {error_msg}")
         await message.reply_text(error_msg)
 
-    async def _handle_with_embedez(self, url: str, message: Message) -> None:
-        """Handle media download using embedez API."""
+    async def _handle_with_embedez(self, url: str, message: Message) -> bool:
+        """Handle media download using embedez API. Returns True if successful."""
         if not self._has_api_key():
             await message.reply_text("API key missing. Contact bot owner.")
-            return
+            return False
+
 
         async with aiohttp.ClientSession() as session:
             try:
@@ -167,11 +171,17 @@ class MediaDownloader:
                 async with session.get(
                     self.EMBEDEZ_API_URL, headers=headers, params=params
                 ) as response:
+                    if response.status == 429:
+                        await self._handle_api_error(
+                            message,
+                            "Embedez API rate limit reached or invalid API key."
+                        )
+                        return False
                     if response.status != 200:
                         await self._handle_api_error(
                             message, f"API returned status {response.status}"
                         )
-                        return
+                        return False
 
                     data = await response.json()
 
@@ -180,17 +190,25 @@ class MediaDownloader:
                         await self._handle_api_error(
                             message, f"Failed to fetch content: {error_msg}"
                         )
-                        return
+                        return False
 
                     # Process and send media
-                    media_list = self._process_embedez_response(data)
+                    media_list = await self._process_embedez_response(data)
                     if media_list:
                         await self.send_media_group(message, media_list)
+                        return True
                     else:
                         await message.reply_text("No media found in the response.")
+                        return False
 
             except aiohttp.ClientError as e:
                 await self._handle_api_error(message, f"Network error: {str(e)}")
+                return False
+            except Exception as e:
+                await self._handle_api_error(message, str(e))
+                return False
+
+        return False
 
     def _extract_media_from_list(self, media_items: List[Dict]) -> List[Media]:
         """Extract media from a list of media items."""
@@ -301,8 +319,8 @@ class MediaDownloader:
 
         return media_list
 
-    async def _handle_youtube(self, url: str, message: Message) -> None:
-        """Handle YouTube video download"""
+    async def _handle_youtube(self, url: str, message: Message) -> bool:
+        """Handle media download using yt-dlp. Returns True if successful."""
         try:
             info = await asyncio.get_running_loop().run_in_executor(
                 None, lambda: self.ydl.extract_info(url, download=True)
@@ -311,9 +329,11 @@ class MediaDownloader:
 
             await message.reply_video(video=open(video_path, "rb"))
             os.remove(video_path)
+            return True
         except Exception as e:
             logger.error(f"YouTube download error: {e}")
             await message.reply_text("Failed to download YouTube video.")
+            return False
 
     async def _send_single_media(self, message: Message, media: Media) -> bool:
         """Send a single media item. Returns True if successful."""
