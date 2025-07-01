@@ -1,3 +1,10 @@
+## [1.107.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.107.0...v1.107.1) (2025-07-01)
+
+
+### Bug Fixes
+
+* **dl:** validate Embedez API key ([cfb8edc](https://github.com/obviyus/SuperSeriousBot/commit/cfb8edc7c78fac0fc32c1c442747ae4e925db0e8))
+
 # [1.107.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.106.0...v1.107.0) (2025-06-22)
 
 
