@@ -1,3 +1,10 @@
+## [1.107.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.107.1...v1.107.2) (2025-07-01)
+
+
+### Bug Fixes
+
+* re-add PTB deps ([e7b4778](https://github.com/obviyus/SuperSeriousBot/commit/e7b4778b86844045516b23f7fb7caa6eac3558c9))
+
 ## [1.107.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.107.0...v1.107.1) (2025-07-01)
 
 
