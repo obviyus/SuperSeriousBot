@@ -1,3 +1,11 @@
+# [1.108.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.107.3...v1.108.0) (2025-07-07)
+
+
+### Features
+
+* attach group name in summon message ([3cc1ee1](https://github.com/obviyus/SuperSeriousBot/commit/3cc1ee1695d42f30178dd4555567a6e400e3b539))
+* group member count + improved rate limit feedback ([248afda](https://github.com/obviyus/SuperSeriousBot/commit/248afdaea3bfc7d548d3b62f7a2c705810fcf2cf))
+
 ## [1.107.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.107.2...v1.107.3) (2025-07-01)
 
 
