@@ -74,12 +74,14 @@ async def send_chunked_messages(
     for idx in range(0, len(members), 5):
         chunk = members[idx : idx + 5]
         await context.bot.send_message(
-            chat_id, f"[{group_name}] {' '.join(chunk)}", parse_mode=ParseMode.HTML
+            chat_id,
+            f"[{group_name}] ({len(members)} members) {' '.join(chunk)}",
+            parse_mode=ParseMode.HTML,
         )
 
     await context.bot.send_message(
         chat_id,
-        "Use the buttons below to join or leave the group:",
+        f"Use the buttons below to join or leave group '{group_name}' ({len(members)} members):",
         reply_markup=await summon_keyboard(group_id),
         parse_mode=ParseMode.HTML,
     )
@@ -114,7 +116,10 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
         elif action == "resummon":
             last_tag_time = summon_log.get(group_id)
             if last_tag_time and (datetime.now() - last_tag_time).seconds < 60:
-                await query.answer("You can only resummon once every 60 seconds.")
+                remaining_seconds = 60 - (datetime.now() - last_tag_time).seconds
+                await query.answer(
+                    f"You can only resummon once every 60 seconds. Wait {remaining_seconds}s."
+                )
                 return
 
             await query.answer("Resummoning...")
