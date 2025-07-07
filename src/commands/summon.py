@@ -56,12 +56,16 @@ async def summon_keyboard(group_id: int) -> InlineKeyboardMarkup:
 
 
 async def send_chunked_messages(
-    chat_id: int, members: list, context: ContextTypes.DEFAULT_TYPE, group_id: int
+    chat_id: int,
+    members: list,
+    context: ContextTypes.DEFAULT_TYPE,
+    group_id: int,
+    group_name: str,
 ):
     if not members:
         await context.bot.send_message(
             chat_id,
-            "No users in this group.",
+            f"No users in group '{group_name}'.",
             reply_markup=await summon_keyboard(group_id),
             parse_mode=ParseMode.HTML,
         )
@@ -70,7 +74,7 @@ async def send_chunked_messages(
     for idx in range(0, len(members), 5):
         chunk = members[idx : idx + 5]
         await context.bot.send_message(
-            chat_id, " ".join(chunk), parse_mode=ParseMode.HTML
+            chat_id, f"[{group_name}] {' '.join(chunk)}", parse_mode=ParseMode.HTML
         )
 
     await context.bot.send_message(
@@ -114,9 +118,17 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
                 return
 
             await query.answer("Resummoning...")
+            # Get group name for resummon
+            async with get_db() as conn:
+                async with conn.execute(
+                    "SELECT group_name FROM summon_groups WHERE id = ?", (group_id,)
+                ) as cursor:
+                    result = await cursor.fetchone()
+                    group_name = result[0] if result else "Unknown"
+
             members = await get_group_members(group_id, context)
             await send_chunked_messages(
-                query.message.chat_id, members, context, group_id
+                query.message.chat_id, members, context, group_id, group_name
             )
             summon_log[group_id] = datetime.now()
             return
@@ -168,5 +180,7 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
     members = await get_group_members(group_id, context)
-    await send_chunked_messages(update.effective_chat.id, members, context, group_id)
+    await send_chunked_messages(
+        update.effective_chat.id, members, context, group_id, group_name
+    )
     summon_log[group_id] = datetime.now()
