@@ -1,123 +1,17 @@
 from typing import Tuple
 
-from deep_translator import GoogleTranslator
+import difflib
+import gtts.lang
+import io
+
+from gtts import gTTS
+from googletrans import Translator as GTranslator
 from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
-from translatepy import Translator
-from translatepy.exceptions import NoResult, UnknownLanguage
 
 import commands
 from utils.decorators import description, example, triggers, usage
-
-translator = Translator()
-
-supported_languages = {
-    "af",
-    "am",
-    "ar",
-    "az",
-    "be",
-    "bg",
-    "bn",
-    "bs",
-    "ca",
-    "ceb",
-    "co",
-    "cs",
-    "cy",
-    "da",
-    "de",
-    "el",
-    "eo",
-    "es",
-    "et",
-    "eu",
-    "fa",
-    "fi",
-    "fr",
-    "fy",
-    "ga",
-    "gd",
-    "gl",
-    "gu",
-    "ha",
-    "haw",
-    "hi",
-    "hmn",
-    "hr",
-    "ht",
-    "hu",
-    "hy",
-    "id",
-    "ig",
-    "is",
-    "it",
-    "he",
-    "ja",
-    "jv",
-    "ka",
-    "kk",
-    "km",
-    "kn",
-    "ko",
-    "ku",
-    "ky",
-    "la",
-    "lb",
-    "lo",
-    "lt",
-    "lv",
-    "mg",
-    "mi",
-    "mk",
-    "ml",
-    "mn",
-    "mr",
-    "ms",
-    "mt",
-    "my",
-    "ne",
-    "nl",
-    "no",
-    "ny",
-    "or",
-    "pa",
-    "pl",
-    "ps",
-    "pt",
-    "ro",
-    "ru",
-    "sd",
-    "si",
-    "sk",
-    "sl",
-    "sm",
-    "sn",
-    "so",
-    "sq",
-    "sr",
-    "st",
-    "su",
-    "sv",
-    "sw",
-    "ta",
-    "te",
-    "tg",
-    "th",
-    "tl",
-    "tr",
-    "ug",
-    "uk",
-    "ur",
-    "uz",
-    "vi",
-    "xh",
-    "yi",
-    "yo",
-    "zh",
-    "zu",
-}
 
 
 async def text_grabber(
@@ -129,16 +23,12 @@ async def text_grabber(
     if message.reply_to_message:
         text = message.reply_to_message.text or message.reply_to_message.caption
         if context.args:
-            target_language = (
-                context.args[0] if context.args[0] in supported_languages else "en"
-            )
+            target_language = context.args[0]
     else:
         if context.args:
             if "-" in context.args:
                 separator_index = context.args.index("-")
-                target_language = (
-                    context.args[0] if context.args[0] in supported_languages else "en"
-                )
+                target_language = context.args[0]
                 text = " ".join(context.args[separator_index + 1 :])
             else:
                 text = " ".join(context.args)
@@ -152,10 +42,14 @@ async def text_grabber(
 async def translate_and_reply(
     message: Message, text: str, target_language: str
 ) -> None:
-    translated = GoogleTranslator(source="auto", target=target_language).translate(text)
-    await message.reply_text(
-        translated,
-    )
+    try:
+        async with GTranslator() as translator:
+            translated = await translator.translate(text, dest=target_language)
+        await message.reply_text(
+            translated.text,
+        )
+    except ValueError:
+        await message.reply_text(f"Invalid target language: {target_language}")
 
 
 @triggers(["tl"])
@@ -193,15 +87,28 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(update.message, tts)
         return
 
+    text, lang = result
+    langs = gtts.lang.tts_langs()
+    if lang.lower() not in langs:
+        closest = difflib.get_close_matches(
+            lang.lower(), list(langs.keys()), n=1, cutoff=0.5
+        )
+        if closest:
+            sim = difflib.SequenceMatcher(None, lang.lower(), closest[0]).ratio() * 100
+            await update.message.reply_text(
+                f"Couldn't recognize the given language: <b>{lang}</b>. "
+                f"Did you mean: {closest[0]} ({langs[closest[0]]})? <b>Similarity: {sim:.2f}%</b>",
+                parse_mode=ParseMode.HTML,
+            )
+        else:
+            await update.message.reply_text(f"Invalid language: <b>{lang}</b>")
+        return
+
     try:
-        await update.message.reply_voice(
-            translator.text_to_speech(result[0], source_language=result[1]).result,
-        )
-    except UnknownLanguage as e:
-        await update.message.reply_text(
-            f"Couldn't recognize the given language: <b>{result[1]}</b>. "
-            f"Did you mean: {e.guessed_language[:2]} ({e.guessed_language})? <b>Similarity: {e.similarity:.2f}%</b>",
-            parse_mode=ParseMode.HTML,
-        )
-    except NoResult:
-        await update.message.reply_text("No service returned a valid result.")
+        tts_obj = gTTS(text, lang=lang.lower())
+        fp = io.BytesIO()
+        tts_obj.write_to_fp(fp)
+        fp.seek(0)
+        await update.message.reply_voice(fp)
+    except Exception as e:
+        await update.message.reply_text(f"Error: {str(e)}")
