@@ -1,3 +1,10 @@
+# [1.109.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.108.0...v1.109.0) (2025-07-11)
+
+
+### Features
+
+* switch to updated packages for /tts and /tl ([500ca60](https://github.com/obviyus/SuperSeriousBot/commit/500ca60574d1df976125d06fb46474c5a405af4d))
+
 # [1.108.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.107.3...v1.108.0) (2025-07-07)
 
 
