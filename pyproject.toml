@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "aiohttp>=3.12.13",
+    "aiohttp>=3.12.14",
     "aiosqlite>=0.21.0",
     "async-lru>=2.0.5",
     "beautifulsoup4>=4.13.4",
@@ -17,7 +17,7 @@ dependencies = [
     "gtts>=2.5.4",
     "howlongtobeatpy>=1.0.18",
     "ijson>=3.4.0",
-    "litellm>=1.74.0",
+    "litellm>=1.74.3",
     "networkx>=3.5",
     "pydantic>=2.11.7",
     "python-dotenv>=1.1.1",
