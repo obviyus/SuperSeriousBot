@@ -1,3 +1,10 @@
+# [1.110.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.109.0...v1.110.0) (2025-07-13)
+
+
+### Features
+
+* add quote_recent_history migration and update quote commands ([cf26d98](https://github.com/obviyus/SuperSeriousBot/commit/cf26d98c875b32d6d48c9b8084bbf5ec72c25f48))
+
 # [1.109.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.108.0...v1.109.0) (2025-07-11)
 
 
