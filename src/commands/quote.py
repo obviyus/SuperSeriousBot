@@ -84,7 +84,21 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @description("Return a random message from QuotesDB for this group.")
 async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a quote from QuotesDB."""
-    async with get_db() as conn:
+    async with get_db(write=True) as conn:
+        # Clean up old history entries (older than 10 quotes)
+        await conn.execute(
+            """
+            DELETE FROM quote_recent_history 
+            WHERE chat_id = ? AND id NOT IN (
+                SELECT id FROM quote_recent_history 
+                WHERE chat_id = ? 
+                ORDER BY shown_time DESC 
+                LIMIT 10
+            );
+            """,
+            (update.message.chat_id, update.message.chat_id),
+        )
+
         if context.args:
             author_username = context.args[0].replace("@", "")
             author_user_id = await utils.string.get_user_id_from_username(
@@ -98,15 +112,32 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 return
 
+            # Get quotes excluding recently shown ones
             async with conn.execute(
                 """
                 SELECT * FROM quote_db 
                 WHERE chat_id = ? AND message_user_id = ? 
+                AND id NOT IN (
+                    SELECT quote_id FROM quote_recent_history 
+                    WHERE chat_id = ?
+                )
                 ORDER BY RANDOM() LIMIT 1;
                 """,
-                (update.message.chat_id, author_user_id),
+                (update.message.chat_id, author_user_id, update.message.chat_id),
             ) as cursor:
                 row = await cursor.fetchone()
+
+            # If no non-recent quotes available, fall back to any quote
+            if not row:
+                async with conn.execute(
+                    """
+                    SELECT * FROM quote_db 
+                    WHERE chat_id = ? AND message_user_id = ? 
+                    ORDER BY RANDOM() LIMIT 1;
+                    """,
+                    (update.message.chat_id, author_user_id),
+                ) as cursor:
+                    row = await cursor.fetchone()
 
             if not row:
                 await update.message.reply_text(
@@ -115,13 +146,30 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 return
         else:
+            # Get quotes excluding recently shown ones
             async with conn.execute(
                 """
-                SELECT * FROM quote_db WHERE chat_id = ? ORDER BY RANDOM() LIMIT 1;
+                SELECT * FROM quote_db 
+                WHERE chat_id = ? 
+                AND id NOT IN (
+                    SELECT quote_id FROM quote_recent_history 
+                    WHERE chat_id = ?
+                )
+                ORDER BY RANDOM() LIMIT 1;
                 """,
-                (update.message.chat_id,),
+                (update.message.chat_id, update.message.chat_id),
             ) as cursor:
                 row = await cursor.fetchone()
+
+            # If no non-recent quotes available, fall back to any quote
+            if not row:
+                async with conn.execute(
+                    """
+                    SELECT * FROM quote_db WHERE chat_id = ? ORDER BY RANDOM() LIMIT 1;
+                    """,
+                    (update.message.chat_id,),
+                ) as cursor:
+                    row = await cursor.fetchone()
 
             if not row:
                 await update.message.reply_text(
@@ -129,6 +177,15 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     parse_mode=ParseMode.HTML,
                 )
                 return
+
+        # Record this quote in recent history
+        await conn.execute(
+            """
+            INSERT INTO quote_recent_history (chat_id, quote_id) VALUES (?, ?);
+            """,
+            (update.message.chat_id, row["id"]),
+        )
+        await conn.commit()
 
         try:
             await update.message.chat.forward_from(
@@ -142,6 +199,13 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await conn.execute(
                 """
                 DELETE FROM quote_db WHERE id = ?;
+                """,
+                (row["id"],),
+            )
+            # Also remove from recent history if it was just added
+            await conn.execute(
+                """
+                DELETE FROM quote_recent_history WHERE quote_id = ?;
                 """,
                 (row["id"],),
             )
