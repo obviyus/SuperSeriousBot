@@ -1,3 +1,10 @@
+# [1.111.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.110.0...v1.111.0) (2025-07-26)
+
+
+### Features
+
+* enhance network generation with batch user name fetching and improved DB queries ([b81cb74](https://github.com/obviyus/SuperSeriousBot/commit/b81cb74a0365517cb8365cf682c7078a2518e111))
+
 # [1.110.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.109.0...v1.110.0) (2025-07-13)
 
 
