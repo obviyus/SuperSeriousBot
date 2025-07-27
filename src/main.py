@@ -199,8 +199,11 @@ async def setup_application() -> Application:
 
 def main():
     try:
-        migrations_dir = os.path.join(os.getcwd(), "../migrations")
-        caribou.upgrade(PRIMARY_DB_PATH, migrations_dir)
+        # AIDEV-NOTE: Migrations are in the project root, not parent directory
+        # This works for both Docker (/code/migrations) and local development
+        migrations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "migrations")
+        caribou.upgrade(str(PRIMARY_DB_PATH), migrations_dir)
+        logger.info(f"Running migrations from {migrations_dir} on database {PRIMARY_DB_PATH}")
         logger.info("Database migrations completed successfully.")
     except Exception as e:
         logger.error(f"Error running database migrations: {e}")
