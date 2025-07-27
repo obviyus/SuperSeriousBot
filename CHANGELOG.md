@@ -1,3 +1,10 @@
+# [1.112.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.111.0...v1.112.0) (2025-07-27)
+
+
+### Features
+
+* optimize chat_mentions table with new indexes ([27e9b60](https://github.com/obviyus/SuperSeriousBot/commit/27e9b60e95fb7f3a9333fd52506caad2473d2cc4))
+
 # [1.111.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.110.0...v1.111.0) (2025-07-26)
 
 
