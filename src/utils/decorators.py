@@ -43,15 +43,21 @@ def _add_attribute(attr_name: str, attr_value: str):
     return decorator
 
 
-description = lambda desc: _add_attribute("description", desc)
-usage = lambda usage_doc: _add_attribute("usage", usage_doc)
-example = lambda example_doc: _add_attribute("example", example_doc)
-api_key = lambda name: _add_attribute("api_key_name", name)
-deprecated = lambda message: _add_attribute("deprecated", message)
+def description(desc: str) -> Callable[[F], F]:
+    return _add_attribute("description", desc)
 
-# Type hints for the decorators
-description.__annotations__["return"] = Callable[[F], F]
-usage.__annotations__["return"] = Callable[[F], F]
-example.__annotations__["return"] = Callable[[F], F]
-api_key.__annotations__["return"] = Callable[[F], F]
-deprecated.__annotations__["return"] = Callable[[F], F]
+
+def usage(usage_doc: str) -> Callable[[F], F]:
+    return _add_attribute("usage", usage_doc)
+
+
+def example(example_doc: str) -> Callable[[F], F]:
+    return _add_attribute("example", example_doc)
+
+
+def api_key(name: str) -> Callable[[F], F]:
+    return _add_attribute("api_key_name", name)
+
+
+def deprecated(message: str) -> Callable[[F], F]:
+    return _add_attribute("deprecated", message)

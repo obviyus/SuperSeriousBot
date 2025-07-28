@@ -1,1 +1,1 @@
-from .vis_builder import worker_build_network
+from .vis_builder import worker_build_network as worker_build_network

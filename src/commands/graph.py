@@ -71,7 +71,7 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # AIDEV-NOTE: Only fetch top 3 edges instead of sorting all
         # Using heap for O(n) complexity instead of O(n log n) sorting
         import heapq
-        
+
         # Get top 3 incoming edges
         incoming_heap = []
         for edge in graph.in_edges(user_id, data=True):
@@ -81,9 +81,9 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     heapq.heappush(incoming_heap, (width, edge))
                 elif width > incoming_heap[0][0]:
                     heapq.heapreplace(incoming_heap, (width, edge))
-        
+
         edges_incoming = [edge for _, edge in sorted(incoming_heap, reverse=True)]
-        
+
         # Get top 3 outgoing edges
         outgoing_heap = []
         for edge in graph.out_edges(user_id, data=True):
@@ -93,7 +93,7 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     heapq.heappush(outgoing_heap, (width, edge))
                 elif width > outgoing_heap[0][0]:
                     heapq.heapreplace(outgoing_heap, (width, edge))
-        
+
         edges_outgoing = [edge for _, edge in sorted(outgoing_heap, reverse=True)]
 
         text = f"From the social graph of <b>{update.message.chat.title}</b>:"
@@ -104,16 +104,18 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             user_ids_to_fetch.add(edge[1])
         for edge in edges_incoming:
             user_ids_to_fetch.add(edge[0])
-        
+
         # Pre-fetch all names in parallel
-        name_tasks = {uid: utils.get_first_name(uid, context) for uid in user_ids_to_fetch}
+        name_tasks = {
+            uid: utils.get_first_name(uid, context) for uid in user_ids_to_fetch
+        }
         names = {}
         for uid, task in name_tasks.items():
             try:
                 names[uid] = await task
             except Exception:
                 names[uid] = str(uid)
-        
+
         if edges_outgoing:
             text += "\n\nYou have the strongest connections to:"
             for edge in edges_outgoing:
@@ -121,9 +123,9 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     f"\n<code>{edge[2]['weight']:6}"
                     f" ⟶ {names.get(edge[1], str(edge[1]))}</code>"
                 )
-        
+
         if edges_incoming:
-            text += f"\n\nYou have the strongest connections from:"
+            text += "\n\nYou have the strongest connections from:"
             for edge in edges_incoming:
                 text += (
                     f"\n<code>{edge[2]['weight']:6}"
@@ -134,5 +136,7 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception as e:
         # AIDEV-NOTE: Catch all exceptions to prevent crashes
         logger.error(f"Error in get_friends: {e}")
-        await update.message.reply_text("An error occurred while fetching your connections.")
+        await update.message.reply_text(
+            "An error occurred while fetching your connections."
+        )
         return

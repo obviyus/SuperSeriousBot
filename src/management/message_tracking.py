@@ -3,7 +3,6 @@ Message tracking and stats handlers.
 """
 
 from datetime import datetime
-from typing import Optional
 
 from telegram import Update, Message, MessageEntity
 from telegram.ext import (

@@ -3,7 +3,7 @@ import io
 
 from litellm import acompletion
 from telegram import Update
-from telegram.constants import ChatType, ParseMode
+from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 import commands
