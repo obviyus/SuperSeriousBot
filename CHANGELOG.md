@@ -1,3 +1,10 @@
+# [1.113.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.112.0...v1.113.0) (2025-08-01)
+
+
+### Features
+
+* switch to openrouter for LLM calls ([89a8d48](https://github.com/obviyus/SuperSeriousBot/commit/89a8d484c1dbc7604989d6ca8adf6c12954c3396))
+
 # [1.112.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.111.0...v1.112.0) (2025-07-27)
 
 
