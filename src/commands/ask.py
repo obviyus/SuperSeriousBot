@@ -50,7 +50,9 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
 async def send_response(update: Update, text: str) -> None:
     """Send response as a message or file if too long."""
     if len(text) <= 4096:
-        await update.message.reply_text(text, disable_web_page_preview=True)
+        await update.message.reply_text(
+            text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
+        )
     else:
         buffer = io.BytesIO(text.encode())
         buffer.name = "response.txt"
@@ -111,7 +113,6 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "HTTP-Referer": "https://t.me/SuperSeriousBot",
             },
             api_key=config["API"]["OPENROUTER_API_KEY"],
-            parse_mode=ParseMode.MARKDOWN,
         )
 
         text = response.choices[0].message.content
@@ -179,11 +180,12 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "HTTP-Referer": "https://t.me/SuperSeriousBot",
             },
             api_key=config["API"]["OPENROUTER_API_KEY"],
-            parse_mode=ParseMode.MARKDOWN,
         )
 
         text = response.choices[0].message.content
-        await update.message.reply_text(text, disable_web_page_preview=True)
+        await update.message.reply_text(
+            text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
+        )
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"

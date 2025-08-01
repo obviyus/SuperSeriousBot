@@ -65,7 +65,6 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 "HTTP-Referer": "https://t.me/SuperSeriousBot",
             },
             api_key=config["API"]["OPENROUTER_API_KEY"],
-            parse_mode=ParseMode.MARKDOWN,
             max_tokens=1000,
         )
 

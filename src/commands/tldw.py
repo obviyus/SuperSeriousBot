@@ -89,7 +89,6 @@ async def summarize_transcript(transcript: str) -> str:
             "HTTP-Referer": "https://t.me/SuperSeriousBot",
         },
         api_key=config["API"]["OPENROUTER_API_KEY"],
-        parse_mode=ParseMode.MARKDOWN,
         max_tokens=1000,
     )
     return llm_response.choices[0].message.content
