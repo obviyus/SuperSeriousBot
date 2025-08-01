@@ -1,3 +1,10 @@
+# [1.114.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.113.1...v1.114.0) (2025-08-01)
+
+
+### Features
+
+* configurable model command ([1191308](https://github.com/obviyus/SuperSeriousBot/commit/1191308f9b238af3994ea351f0bbc726006e0c8d))
+
 ## [1.113.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.113.0...v1.113.1) (2025-08-01)
 
 
