@@ -1,3 +1,10 @@
+## [1.113.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.113.0...v1.113.1) (2025-08-01)
+
+
+### Bug Fixes
+
+* add parse_mode to message replies in ask, tldr, and tldw commands ([0a9b7f8](https://github.com/obviyus/SuperSeriousBot/commit/0a9b7f82c736baf03afb8b34c6717437305b6ce2))
+
 # [1.113.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.112.0...v1.113.0) (2025-08-01)
 
 
