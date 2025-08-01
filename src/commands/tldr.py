@@ -49,7 +49,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Generate summary using LLM
         llm_response = await acompletion(
-            model="openrouter/x-ai/grok-3-mini",
+            model="openrouter/google/gemini-2.5-flash",
             messages=[
                 {
                     "role": "system",

@@ -59,11 +59,22 @@ async def send_response(update: Update, text: str) -> None:
         await update.message.reply_document(buffer)
 
 
+async def get_ai_model() -> str:
+    """Get the configured AI model from database, fallback to default."""
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT ai_model FROM group_settings WHERE chat_id = ?",
+            (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
+        ) as cursor:
+            result = await cursor.fetchone()
+            return result[0] if result else "openrouter/google/gemini-2.5-flash"
+
+
 @triggers(["ask"])
 @usage("/ask [query]")
 @api_key("OPENROUTER_API_KEY")
 @example("/ask How long does a train between Tokyo and Hokkaido take?")
-@description("Ask anything using Gemini 2.0 Flash API.")
+@description("Ask anything using AI.")
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if (
         update.message.chat.type == ChatType.PRIVATE
@@ -101,8 +112,9 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     try:
+        model_name = await get_ai_model()
         response = await acompletion(
-            model="openrouter/x-ai/grok-3-mini:online",
+            model=model_name,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query},
