@@ -1,3 +1,10 @@
+# [1.115.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.114.0...v1.115.0) (2025-08-01)
+
+
+### Features
+
+* use Gemini search by default ([82e4af6](https://github.com/obviyus/SuperSeriousBot/commit/82e4af68d318e99b15e446645bb9e7e4f5f1dcce))
+
 # [1.114.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.113.1...v1.114.0) (2025-08-01)
 
 
