@@ -56,7 +56,7 @@ def example(example_doc: str) -> Callable[[F], F]:
 
 
 def api_key(name: str) -> Callable[[F], F]:
-    return _add_attribute("api_key_name", name)
+    return _add_attribute("api_key", name)
 
 
 def deprecated(message: str) -> Callable[[F], F]:

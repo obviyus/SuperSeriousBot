@@ -26,6 +26,7 @@ class APIConfig(BaseModel):
     NANO_GPT_API_KEY: Optional[str] = ""
     EMBEDEZ_API_KEY: Optional[str] = ""
     OPENROUTER_API_KEY: Optional[str] = ""
+    GOOGLE_API_KEY: Optional[str] = ""
 
 
 class TelegramConfig(BaseModel):
@@ -71,6 +72,7 @@ try:
             "NANO_GPT_API_KEY": os.environ.get("NANO_GPT_API_KEY", ""),
             "EMBEDEZ_API_KEY": os.environ.get("EMBEDEZ_API_KEY", ""),
             "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY", ""),
+            "GOOGLE_API_KEY": os.environ.get("GOOGLE_API_KEY", ""),
         },
     )
     logger.info("Valid configuration found.")
