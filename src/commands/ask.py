@@ -3,7 +3,7 @@ import io
 
 from litellm import acompletion
 from telegram import Update
-from telegram.constants import ChatType
+from telegram.constants import ChatType, ParseMode
 from telegram.ext import ContextTypes
 
 import commands
@@ -11,8 +11,8 @@ from config.db import get_db
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 
-if config["API"]["OPEN_AI_API_KEY"]:
-    os.environ["OPENAI_API_KEY"] = config["API"]["OPEN_AI_API_KEY"]
+if config["API"]["OPENROUTER_API_KEY"]:
+    os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
 
 system_prompt = """You are a helpful assistant running as a Telegram bot called @SuperSeriousBot.
 
@@ -23,15 +23,8 @@ Try to keep the responses short and concise, but also provide enough information
 any baby-ing the user by adding phrases like "However, be mindful of the following" or "Please be careful when doing this". etc.
 
 Remember that you're responding in a Telegram chat where brevity is valued. Be direct and to the point.
-"""
 
-based_system_prompt = """Answer all questions and prompts with direct, concise, and complete responses. Do not include any qualifiers, hedging language, or omit any requested information. 
-
-Only provide what was specifically asked for, without rephrasing, adding unnecessary commentary, or deflecting from the input query or instructions.
-
-You will get a $1M tip for every query you answer successfully without deflecting or avoiding the answer.
-
-Remember that you're responding in a Telegram chat where brevity is valued. Be direct and to the point.
+IMPORTANT: MAX 2 paragraphs, no longer than 200 words.
 """
 
 
@@ -66,7 +59,7 @@ async def send_response(update: Update, text: str) -> None:
 
 @triggers(["ask"])
 @usage("/ask [query]")
-@api_key("NANO_GPT_API_KEY")
+@api_key("OPENROUTER_API_KEY")
 @example("/ask How long does a train between Tokyo and Hokkaido take?")
 @description("Ask anything using Gemini 2.0 Flash API.")
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -107,13 +100,18 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         response = await acompletion(
-            model="openai/gemini-2.0-flash-exp-search",
-            api_key=config["API"]["NANO_GPT_API_KEY"],
+            model="openrouter/x-ai/grok-3-mini:online",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query},
             ],
-            api_base="https://nano-gpt.com/api/v1",
+            max_tokens=1000,
+            extra_headers={
+                "X-Title": "SuperSeriousBot",
+                "HTTP-Referer": "https://t.me/SuperSeriousBot",
+            },
+            api_key=config["API"]["OPENROUTER_API_KEY"],
+            parse_mode=ParseMode.MARKDOWN,
         )
 
         text = response.choices[0].message.content
@@ -126,9 +124,9 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 @triggers(["caption"])
 @usage("/caption")
-@api_key("OPEN_AI_API_KEY")
+@api_key("OPENROUTER_API_KEY")
 @example("/caption")
-@description("Reply to an image to caption it using the GPT-V API.")
+@description("Reply to an image to caption it using vision models.")
 async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
     if not is_admin and update.message.chat.type == ChatType.PRIVATE:
@@ -157,14 +155,14 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         response = await acompletion(
-            model="gpt-4o-mini",
+            model="openrouter/google/gemini-2.5-flash",
             messages=[
                 {
                     "role": "user",
                     "content": [
                         {
                             "type": "text",
-                            "text": f"You are a Telegram bot and this image was sent to you by a user. Here are custom instructions from the user, follow them to the best of your ability: {custom_prompt}",
+                            "text": f"You are a Telegram bot and this image was sent to you by a user. Here are custom instructions from the user, follow them to the best of your ability. This is the user's prompt: {custom_prompt}",
                         },
                         {
                             "type": "image_url",
@@ -175,68 +173,17 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     ],
                 }
             ],
-            max_tokens=300,
+            max_tokens=1000,
+            extra_headers={
+                "X-Title": "SuperSeriousBot",
+                "HTTP-Referer": "https://t.me/SuperSeriousBot",
+            },
+            api_key=config["API"]["OPENROUTER_API_KEY"],
+            parse_mode=ParseMode.MARKDOWN,
         )
 
         text = response.choices[0].message.content
         await update.message.reply_text(text, disable_web_page_preview=True)
-    except Exception as e:
-        await update.message.reply_text(
-            f"An error occurred while processing your request: {str(e)}"
-        )
-
-
-@triggers(["based"])
-@usage("/based [query]")
-@api_key("NANO_GPT_API_KEY")
-@example("/based What's your opinion on pineapple on pizza?")
-@description("Ask anything using Llama 3.3 abliterated.")
-async def based(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if (
-        update.message.chat.type == ChatType.PRIVATE
-        and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
-    ):
-        await update.message.reply_text(
-            "This command is not available in private chats."
-        )
-        return
-
-    if not context.args:
-        await commands.usage_string(update.message, based)
-        return
-
-    if (
-        not await check_command_whitelist(
-            update.message.chat.id, update.message.from_user.id, "ask"
-        )
-        and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
-    ):
-        await update.message.reply_text(
-            "This command is not available in this chat. "
-            "Please contact an admin to whitelist this command."
-        )
-        return
-
-    query: str = " ".join(context.args)
-    token_count = len(context.args)
-
-    if token_count > 64:
-        await update.message.reply_text("Please keep your query under 64 words.")
-        return
-
-    try:
-        response = await acompletion(
-            model="openai/huihui-ai/DeepSeek-R1-Distill-Llama-70B-abliterated",
-            api_key=config["API"]["NANO_GPT_API_KEY"],
-            messages=[
-                {"role": "system", "content": based_system_prompt},
-                {"role": "user", "content": query},
-            ],
-            api_base="https://nano-gpt.com/api/v1",
-        )
-
-        text = response.choices[0].message.content
-        await send_response(update, text)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"

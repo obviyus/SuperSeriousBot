@@ -14,14 +14,14 @@ from config.logger import logger
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 
-if config["API"]["OPEN_AI_API_KEY"]:
-    os.environ["OPENAI_API_KEY"] = config["API"]["OPEN_AI_API_KEY"]
+if config["API"]["OPENROUTER_API_KEY"]:
+    os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
 
 
 @usage("/tldr")
 @example("/tldr")
 @triggers(["tldr"])
-@api_key("NANO_GPT_API_KEY")
+@api_key("OPENROUTER_API_KEY")
 @description("Reply to a message to generate a summary of the URL.")
 async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -49,8 +49,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Generate summary using LLM
         llm_response = await acompletion(
-            model="openai/gemini-2.5-flash",
-            api_key=config["API"]["NANO_GPT_API_KEY"],
+            model="openrouter/x-ai/grok-3-mini",
             messages=[
                 {
                     "role": "system",
@@ -61,7 +60,13 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                     "content": f"Please create a TLDR summary of this content:\n\n{raw_text}",
                 },
             ],
-            api_base="https://nano-gpt.com/api/v1",
+            extra_headers={
+                "X-Title": "SuperSeriousBot",
+                "HTTP-Referer": "https://t.me/SuperSeriousBot",
+            },
+            api_key=config["API"]["OPENROUTER_API_KEY"],
+            parse_mode=ParseMode.MARKDOWN,
+            max_tokens=1000,
         )
 
         summary = llm_response.choices[0].message.content

@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -11,6 +12,9 @@ import utils
 from config import config
 from config.db import get_db
 from utils.decorators import api_key, description, example, triggers, usage
+
+if config["API"]["OPENROUTER_API_KEY"]:
+    os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
 
 
 def extract_video_id(url: str) -> Optional[str]:
@@ -69,8 +73,7 @@ async def summarize_transcript(transcript: str) -> str:
     """Summarize the given transcript using AI."""
     # Generate summary using LLM
     llm_response = await acompletion(
-        model="openai/gemini-2.5-flash",
-        api_key=config["API"]["NANO_GPT_API_KEY"],
+        model="openrouter/x-ai/grok-3-mini",
         messages=[
             {
                 "role": "system",
@@ -81,7 +84,13 @@ async def summarize_transcript(transcript: str) -> str:
                 "content": f"Please create a TLDR summary of this content:\n\n{transcript}",
             },
         ],
-        api_base="https://nano-gpt.com/api/v1",
+        extra_headers={
+            "X-Title": "SuperSeriousBot",
+            "HTTP-Referer": "https://t.me/SuperSeriousBot",
+        },
+        api_key=config["API"]["OPENROUTER_API_KEY"],
+        parse_mode=ParseMode.MARKDOWN,
+        max_tokens=1000,
     )
     return llm_response.choices[0].message.content
 
@@ -106,7 +115,7 @@ async def cache_summary(conn, video_id: str, summary: str, user_id: int):
 
 @triggers(["tldw"])
 @usage("/tldw [YOUTUBE_URL]")
-@api_key("OPEN_AI_API_KEY")
+@api_key("OPENROUTER_API_KEY")
 @example("/tldw https://www.youtube.com/watch?v=xuCn8ux2gbs")
 @description("Too Long; Didn't Watch for YouTube videos.")
 async def tldw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

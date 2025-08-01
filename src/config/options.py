@@ -25,6 +25,7 @@ class APIConfig(BaseModel):
     WINDY_API_KEY: Optional[str] = ""
     NANO_GPT_API_KEY: Optional[str] = ""
     EMBEDEZ_API_KEY: Optional[str] = ""
+    OPENROUTER_API_KEY: Optional[str] = ""
 
 
 class TelegramConfig(BaseModel):
@@ -69,6 +70,7 @@ try:
             "YOUTUBE_API_KEY": os.environ.get("YOUTUBE_API_KEY", ""),
             "NANO_GPT_API_KEY": os.environ.get("NANO_GPT_API_KEY", ""),
             "EMBEDEZ_API_KEY": os.environ.get("EMBEDEZ_API_KEY", ""),
+            "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY", ""),
         },
     )
     logger.info("Valid configuration found.")
