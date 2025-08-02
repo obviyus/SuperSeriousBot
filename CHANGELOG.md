@@ -1,3 +1,10 @@
+## [1.115.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.115.0...v1.115.1) (2025-08-02)
+
+
+### Bug Fixes
+
+* add error handling for Markdown parsing in message replies ([3178d9b](https://github.com/obviyus/SuperSeriousBot/commit/3178d9b7c8e46d03a6338aa649e05543686789c8))
+
 # [1.115.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.114.0...v1.115.0) (2025-08-01)
 
 
