@@ -52,14 +52,23 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
 
 async def send_response(update: Update, text: str) -> None:
     """Send response as a message or file if too long."""
-    if len(text) <= 4096:
-        await update.message.reply_text(
-            text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
-        )
-    else:
-        buffer = io.BytesIO(text.encode())
-        buffer.name = "response.txt"
-        await update.message.reply_document(buffer)
+    try:
+        if len(text) <= 4096:
+            await update.message.reply_text(
+                text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            buffer = io.BytesIO(text.encode())
+            buffer.name = "response.txt"
+            await update.message.reply_document(buffer)
+    except Exception:
+        # Markdown parsing failed, fallback to plain text
+        if len(text) <= 4096:
+            await update.message.reply_text(text, disable_web_page_preview=True)
+        else:
+            buffer = io.BytesIO(text.encode())
+            buffer.name = "response.txt"
+            await update.message.reply_document(buffer)
 
 
 async def get_ai_model() -> str:
@@ -230,9 +239,13 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         text = response.choices[0].message.content
-        await update.message.reply_text(
-            text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
-        )
+        try:
+            await update.message.reply_text(
+                text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
+            )
+        except Exception:
+            # Markdown parsing failed, fallback to plain text
+            await update.message.reply_text(text, disable_web_page_preview=True)
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {str(e)}"
