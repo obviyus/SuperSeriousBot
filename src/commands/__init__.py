@@ -215,7 +215,9 @@ for command in list_of_commands:
     if hasattr(command, "triggers"):
         handler = (
             command
-            if not hasattr(command, "api_key") or command.api_key in config["API"]
+            if not hasattr(command, "api_key")
+            or command.api_key in config["API"]
+            or command.api_key in config["TELEGRAM"]
             else disabled
         )
         handler = command_wrapper(handler)
