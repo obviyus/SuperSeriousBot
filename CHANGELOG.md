@@ -1,3 +1,10 @@
+## [1.115.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.115.1...v1.115.2) (2025-08-04)
+
+
+### Bug Fixes
+
+* allow command API keys from TELEGRAM config ([ac40a3b](https://github.com/obviyus/SuperSeriousBot/commit/ac40a3b3af4c77c52bcf1a14148a87ab38123d9d))
+
 ## [1.115.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.115.0...v1.115.1) (2025-08-02)
 
 
