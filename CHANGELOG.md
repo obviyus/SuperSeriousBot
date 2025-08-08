@@ -1,3 +1,10 @@
+# [1.116.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.115.2...v1.116.0) (2025-08-08)
+
+
+### Features
+
+* add user stats command to display individual user activity ([a5af5a0](https://github.com/obviyus/SuperSeriousBot/commit/a5af5a0b119690345fcc8cf9568f1b1558c9c3ba))
+
 ## [1.115.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.115.1...v1.115.2) (2025-08-04)
 
 
