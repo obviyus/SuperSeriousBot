@@ -106,6 +106,7 @@ list_of_commands.extend(
         stats.get_chat_stats,
         stats.get_last_seen,
         stats.get_total_chat_stats,
+        stats.get_user_stats,
     ]
 )
 

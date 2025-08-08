@@ -8,6 +8,7 @@ from .stats import (
     get_last_seen,
     get_chat_stats,
     get_total_chat_stats,
+    get_user_stats,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "get_last_seen",
     "get_chat_stats",
     "get_total_chat_stats",
+    "get_user_stats",
 ]

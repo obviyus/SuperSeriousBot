@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from telegram import Message, Update
 from telegram.constants import ParseMode
@@ -82,6 +82,68 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
+def _sparkline(values: list[int]) -> str:
+    """Return a unicode sparkline for a list of non-negative integers."""
+    if not values:
+        return ""
+    levels = "▁▂▃▄▅▆▇█"
+    max_value = max(values) or 1
+    return "".join(
+        levels[min(len(levels) - 1, int(v / max_value * (len(levels) - 1)))]
+        for v in values
+    )
+
+
+def _format_horizontal_bars(
+    labels: list[str], values: list[int], width: int = 20
+) -> str:
+    """Return a simple monospaced horizontal bar chart string."""
+    if not values:
+        return ""
+    max_value = max(values) or 1
+    lines: list[str] = []
+    for label, value in zip(labels, values):
+        bar_len = 0 if max_value == 0 else int(round(value / max_value * width))
+        bar = "█" * bar_len
+        lines.append(f"{label:>3} | {bar:<{width}} {value}")
+    return "\n".join(lines)
+
+
+async def _resolve_target_user(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> tuple[int | None, str | None]:
+    """Resolve target user_id and display username from args/reply/self."""
+    # Prefer explicit @username arg
+    if context.args:
+        username_input = context.args[0].split("@")
+        if len(username_input) > 1:
+            username_lower = username_input[1].lower()
+            async with get_db() as conn:
+                async with conn.execute(
+                    "SELECT user_id, username FROM user_stats WHERE LOWER(username) = ?",
+                    (username_lower,),
+                ) as cursor:
+                    row = await cursor.fetchone()
+            if row:
+                return int(row["user_id"]), row["username"]
+
+    # If replying to a user
+    if (
+        update.message
+        and update.message.reply_to_message
+        and update.message.reply_to_message.from_user
+    ):
+        replied = update.message.reply_to_message.from_user
+        return replied.id, replied.username or replied.full_name
+
+    # Fallback to the caller
+    if update.message and update.message.from_user:
+        caller = update.message.from_user
+        return caller.id, caller.username or caller.full_name
+
+    return None, None
+
+
 @usage("/stats")
 @example("/stats")
 @triggers(["stats"])
@@ -152,3 +214,181 @@ async def get_total_chat_stats(
             total_count = (await cursor.fetchone())["total_count"]
 
     await stat_string_builder(users, update.message, context, total_count)
+
+
+@usage("/ustats [username]")
+@example("/ustats @obviyus")
+@triggers(["ustats", "ustat", "userstats"])
+@description("Show a user's weekly activity and other stats in this group.")
+async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
+    chat_id = update.message.chat_id
+
+    user_id, username_display = await _resolve_target_user(update, context)
+    if not user_id:
+        await update.message.reply_text(
+            "Couldn't resolve target user. Usage: /ustats [@username]"
+        )
+        return
+
+    # Build the last 7 days (oldest -> newest) date keys in localtime
+    today_local = datetime.now()
+    day_keys: list[str] = []
+    day_labels: list[str] = []
+    for i in range(6, -1, -1):
+        day = today_local - timedelta(days=i)
+        day_keys.append(day.strftime("%Y-%m-%d"))
+        day_labels.append(day.strftime("%a"))
+
+    # Fetch per-day counts for the user, last 7 days
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT DATE(create_time, 'localtime') AS d, COUNT(*) AS cnt
+            FROM chat_stats
+            WHERE chat_id = ?
+              AND user_id = ?
+              AND create_time >= DATE('now', '-6 days', 'localtime')
+              AND create_time < DATE('now', '+1 day', 'localtime')
+            GROUP BY d
+            """,
+            (chat_id, user_id),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        counts_map = {row["d"]: row["cnt"] for row in rows}
+        week_counts = [int(counts_map.get(k, 0)) for k in day_keys]
+        user_week_total = sum(week_counts)
+
+        # Group total for the same period
+        async with conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM chat_stats
+            WHERE chat_id = ?
+              AND create_time >= DATE('now', '-6 days', 'localtime')
+              AND create_time < DATE('now', '+1 day', 'localtime')
+            """,
+            (chat_id,),
+        ) as cursor:
+            group_week_total = int((await cursor.fetchone())["total"] or 0)
+
+        # Most active hour (last 30 days)
+        async with conn.execute(
+            """
+            SELECT strftime('%H', create_time, 'localtime') AS hour, COUNT(*) AS cnt
+            FROM chat_stats
+            WHERE chat_id = ? AND user_id = ?
+              AND create_time >= DATE('now', '-30 days', 'localtime')
+            GROUP BY hour
+            ORDER BY cnt DESC
+            LIMIT 1;
+            """,
+            (chat_id, user_id),
+        ) as cursor:
+            hour_row = await cursor.fetchone()
+            top_hour = hour_row["hour"] if hour_row else None
+
+        # Most active day of week (0=Sun..6=Sat) across recent history (90d)
+        async with conn.execute(
+            """
+            SELECT strftime('%w', create_time, 'localtime') AS dow, COUNT(*) AS cnt
+            FROM chat_stats
+            WHERE chat_id = ? AND user_id = ?
+              AND create_time >= DATE('now', '-90 days', 'localtime')
+            GROUP BY dow
+            ORDER BY cnt DESC
+            LIMIT 1;
+            """,
+            (chat_id, user_id),
+        ) as cursor:
+            dow_row = await cursor.fetchone()
+            top_dow = dow_row["dow"] if dow_row else None
+
+        # Dates with at least one message (for streak calc, last 60 days)
+        async with conn.execute(
+            """
+            SELECT DATE(create_time, 'localtime') AS d
+            FROM chat_stats
+            WHERE chat_id = ? AND user_id = ?
+              AND create_time >= DATE('now', '-60 days', 'localtime')
+            GROUP BY d
+            """,
+            (chat_id, user_id),
+        ) as cursor:
+            date_rows = await cursor.fetchall()
+            active_dates = {r["d"] for r in date_rows}
+
+        # Lifetime total for this chat
+        async with conn.execute(
+            "SELECT COUNT(*) AS total FROM chat_stats WHERE chat_id = ? AND user_id = ?",
+            (chat_id, user_id),
+        ) as cursor:
+            lifetime_total = int((await cursor.fetchone())["total"] or 0)
+
+    # Streak calculation from today backwards
+    streak = 0
+    probe = today_local
+    while streak < 60:  # cap
+        key = probe.strftime("%Y-%m-%d")
+        if key in active_dates:
+            streak += 1
+            probe -= timedelta(days=1)
+        else:
+            break
+
+    # Build charts
+    spark = _sparkline(week_counts)
+    bars = _format_horizontal_bars(day_labels, week_counts)
+
+    # Friendly labels
+    dow_names = {
+        "0": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat",
+    }
+    top_dow_name = dow_names.get(top_dow, "-") if top_dow is not None else "-"
+    if top_hour is not None:
+        hour_int = int(top_hour)
+        top_hour_label = f"{hour_int:02d}:00–{(hour_int + 1) % 24:02d}:00"
+    else:
+        top_hour_label = "-"
+
+    share = (
+        (user_week_total / group_week_total * 100.0) if group_week_total > 0 else 0.0
+    )
+    avg_per_day = user_week_total / 7.0
+
+    # Header name
+    target_name = username_display or str(user_id)
+    header = (
+        f"User stats for <b>{target_name}</b> in <b>{update.message.chat.title}</b>\n"
+    )
+
+    if user_week_total == 0:
+        await update.message.reply_text(
+            header + "\nNo messages in the last 7 days.",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    text = (
+        header
+        + f"\nLast 7d: <b>{user_week_total}</b> msgs ({share:.1f}% of group) • avg {avg_per_day:.2f}/day"
+        + f"\nLifetime in this chat: <b>{lifetime_total}</b> msgs"
+        + (
+            f"\nMost active hour: <b>{top_hour_label}</b> \nMost active day: <b>{top_dow_name}</b>"
+        )
+        + (f"\nCurrent streak: <b>{streak}</b> day(s)" if streak > 0 else "")
+        + "\n\n<pre>"
+        + bars
+        + "</pre>"
+        + (f"\nSparkline: <code>{spark}</code>" if spark else "")
+    )
+
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
