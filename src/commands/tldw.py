@@ -58,15 +58,29 @@ def extract_video_id(url: str) -> Optional[str]:
 
 
 async def get_transcript(video_id: str) -> Optional[str]:
-    """Retrieve transcript from self-hosted API."""
+    """Retrieve transcript from NanoGPT API."""
+    headers = {"Content-Type": "application/json"}
+    api_key = config["API"].get("NANO_GPT_API_KEY")
+    if api_key:
+        headers["x-api-key"] = api_key
+
+    payload = {
+        "urls": [f"https://www.youtube.com/watch?v={video_id}"]
+    }
+
     async with aiohttp.ClientSession() as session:
-        async with session.get(
-            "http://100.86.6.118:1206/t",
-            params={"v": video_id, "format": "markdown"},
+        async with session.post(
+            "https://nano-gpt.com/api/youtube-transcribe",
+            headers=headers,
+            json=payload,
         ) as response:
             if response.status != 200:
                 return None
-            return await response.text()
+            data = await response.json()
+            transcripts = data.get("transcripts")
+            if not transcripts:
+                return None
+            return transcripts[0].get("transcript")
 
 
 async def summarize_transcript(transcript: str) -> str:
