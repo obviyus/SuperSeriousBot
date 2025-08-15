@@ -1,3 +1,10 @@
+# [1.117.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.116.0...v1.117.0) (2025-08-15)
+
+
+### Features
+
+* enhance TLDR command to summarize replied messages and URLs ([0d10e0f](https://github.com/obviyus/SuperSeriousBot/commit/0d10e0f5adc7e6c3b76aa676da2de84cccf03d7c))
+
 # [1.116.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.115.2...v1.116.0) (2025-08-08)
 
 
