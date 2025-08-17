@@ -27,6 +27,7 @@ class APIConfig(BaseModel):
     EMBEDEZ_API_KEY: Optional[str] = ""
     OPENROUTER_API_KEY: Optional[str] = ""
     GOOGLE_API_KEY: Optional[str] = ""
+    COBALT_URL: Optional[str] = ""
 
 
 class TelegramConfig(BaseModel):
@@ -73,6 +74,7 @@ try:
             "EMBEDEZ_API_KEY": os.environ.get("EMBEDEZ_API_KEY", ""),
             "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY", ""),
             "GOOGLE_API_KEY": os.environ.get("GOOGLE_API_KEY", ""),
+            "COBALT_URL": os.environ.get("COBALT_URL", ""),
         },
     )
     logger.info("Valid configuration found.")
