@@ -1,3 +1,10 @@
+# [1.118.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.117.0...v1.118.0) (2025-08-17)
+
+
+### Features
+
+* integrate Cobalt media handling into download command ([6d04a35](https://github.com/obviyus/SuperSeriousBot/commit/6d04a3528dc08e607067e2444cad28cd5e3b523e))
+
 # [1.117.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.116.0...v1.117.0) (2025-08-15)
 
 
