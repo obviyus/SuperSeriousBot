@@ -1,3 +1,15 @@
+# [1.121.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.120.0...v1.121.0) (2025-08-20)
+
+
+### Bug Fixes
+
+* improve date parsing for message timestamps in import_chat_stats ([5db3a73](https://github.com/obviyus/SuperSeriousBot/commit/5db3a73fcc95c420c9ba61a2d7e0b3d822d9d5ff))
+
+
+### Features
+
+* remove expensive dateparser in loop ([e7cdcba](https://github.com/obviyus/SuperSeriousBot/commit/e7cdcbad646ec8edcc47c41ebd4cdb3b26904dab))
+
 # [1.120.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.119.0...v1.120.0) (2025-08-20)
 
 
