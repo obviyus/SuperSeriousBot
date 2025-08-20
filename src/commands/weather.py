@@ -2,7 +2,6 @@ import asyncio
 import time
 
 import aiohttp
-import dateparser
 from geopy import Nominatim
 from telegram import Update
 from telegram.constants import ParseMode
@@ -99,12 +98,34 @@ class Point:
         )
 
     @staticmethod
-    def _get_current_time_index(time_series: list) -> int:
-        current_time = time.time()
-        for index, data in enumerate(time_series):
-            if dateparser.parse(data).timestamp() > current_time:
-                return index - 1 if index > 0 else 0
-        return len(time_series) - 1
+    def _get_current_time_index(time_series: list[str]) -> int:
+        """Return the index of the most recent time <= now using binary search.
+
+        Compares ISO-8601 timestamps as strings at minute precision, avoiding
+        heavy parsing. Assumes ascending order.
+        """
+        if not time_series:
+            return 0
+
+        # Current UTC time formatted to match series precision
+        target = time.strftime("%Y-%m-%dT%H:%M", time.gmtime())
+
+        def norm(ts: str) -> str:
+            # Normalize to 'YYYY-MM-DDTHH:MM', drop trailing 'Z' if present
+            if ts.endswith("Z"):
+                ts = ts[:-1]
+            return ts[:16]
+
+        lo, hi = 0, len(time_series) - 1
+        ans = 0
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            if norm(time_series[mid]) <= target:
+                ans = mid
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        return ans
 
 
 @usage("/w")
