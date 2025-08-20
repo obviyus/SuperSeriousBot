@@ -1,7 +1,8 @@
+import asyncio
 import logging
 import uuid
+from datetime import datetime
 
-import dateparser
 import ijson
 from telegram import Update
 from telegram.constants import ChatType
@@ -141,7 +142,8 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await conn.execute("PRAGMA journal_mode=WAL;")
 
         processed_lines = 0
-        with open(f"{filename}.json", "rb") as file:
+        loop = asyncio.get_running_loop()
+        with await loop.run_in_executor(None, open, f"{filename}.json", "rb") as file:
             messages = ijson.items(file, "messages.item")
 
             for message in messages:
@@ -159,7 +161,19 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 text = "".join(text_parts)
 
                 user_id = message["from_id"].replace("user", "")
-                create_time = dateparser.parse(message["date"])
+                # Fast ISO-8601 parse: handle 'Z' and offsets, store as
+                # 'YYYY-MM-DD HH:MM:SS' in UTC for SQLite-friendly comparisons
+                raw = message["date"]
+                if raw.endswith("Z"):
+                    raw = raw[:-1] + "+00:00"
+                try:
+                    dt = datetime.fromisoformat(raw)
+                except ValueError:
+                    # Fallback if string has no offset or unusual format
+                    dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S")
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(datetime.UTC).replace(tzinfo=None)
+                create_time = dt.strftime("%Y-%m-%d %H:%M:%S")
 
                 await conn.execute(
                     """
