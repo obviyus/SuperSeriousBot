@@ -1,7 +1,7 @@
 import html
 import os
 
-import requests
+import aiohttp
 from litellm import acompletion
 from telegram import Update
 from telegram.constants import ParseMode
@@ -9,7 +9,6 @@ from telegram.ext import ContextTypes
 
 import commands
 import utils
-
 from config.logger import logger
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
@@ -37,10 +36,12 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         # Summarize content from URL via r.jina.ai
         try:
             jina_url = f"https://r.jina.ai/{url.geturl()}"
-            response = requests.get(jina_url, timeout=30)
-            response.raise_for_status()
-
-            raw_text = response.text
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    jina_url, timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    response.raise_for_status()
+                    raw_text = await response.text()
 
             max_chars = 20000
             if len(raw_text) > max_chars:
@@ -75,7 +76,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 disable_web_page_preview=True,
                 parse_mode=ParseMode.HTML,
             )
-        except requests.RequestException as e:
+        except aiohttp.ClientError as e:
             logger.error(f"Error fetching content from {url.geturl()}: {e}")
             await message.reply_text(
                 "Failed to fetch content from the URL. Please check if the URL is accessible."
@@ -83,7 +84,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception as e:
             logger.error(f"Error generating TLDR for {url.geturl()}: {e}")
             await message.reply_text(
-                f"An error occurred while generating the summary: {str(e)}"
+                f"An error occurred while generating the summary: {e!s}"
             )
         return
 
@@ -132,5 +133,5 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Error generating TLDR for replied message: {e}")
         await message.reply_text(
-            f"An error occurred while generating the summary: {str(e)}"
+            f"An error occurred while generating the summary: {e!s}"
         )
