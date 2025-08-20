@@ -78,7 +78,7 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
         async with conn.execute(
             """
-            SELECT id FROM main.command_stats ORDER BY id DESC LIMIT 1; 
+            SELECT id FROM main.command_stats ORDER BY id DESC LIMIT 1;
             """
         ) as cursor:
             total_count = (await cursor.fetchone())["id"]
@@ -112,7 +112,7 @@ async def get_object_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
         async with conn.execute(
             """
-            SELECT SUM(fetch_count) AS fetch_count FROM main.object_store; 
+            SELECT SUM(fetch_count) AS fetch_count FROM main.object_store;
             """
         ) as cursor:
             total_fetch_count = (await cursor.fetchone())["fetch_count"]

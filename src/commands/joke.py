@@ -40,5 +40,5 @@ async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if random.random() < 0.01:
         await asyncio.sleep(2.0)
         await context.bot.send_message(
-            text="Please don’t kick me 👉👈", chat_id=update.message.chat_id
+            text="Please don't kick me 👉👈", chat_id=update.message.chat_id
         )

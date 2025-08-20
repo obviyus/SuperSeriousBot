@@ -80,7 +80,7 @@ def format_ud_definition(result: dict, prefix: str = "") -> str:
         f"{prefix}<a href='{result['permalink']}'><b>{result['word']}</b></a>\n\n"
         f"{definition}\n\n"
         f"<i>{ud_example}</i>\n\n"
-        f"<pre>👍 × {result['thumbs_up']}</pre>"
+        f"<pre>👍 x {result['thumbs_up']}</pre>"
     )
 
 
