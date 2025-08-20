@@ -5,8 +5,8 @@ Commands for general use.
 import asyncio
 import random
 import traceback
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Dict, List, Set
 
 from telegram import Message, MessageEntity, Update
 from telegram.constants import ChatAction, ParseMode, ReactionEmoji
@@ -17,6 +17,7 @@ from config import logger
 from config.db import get_db
 from config.options import config
 from management import blocks, botstats, stats
+
 from . import (
     animals,
     ask,
@@ -136,7 +137,7 @@ async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ This command is disabled.")
 
 
-def get_random_item_from_list(items: List):
+def get_random_item_from_list(items: list):
     return random.choice(items)
 
 
@@ -203,14 +204,14 @@ def command_wrapper(fn: Callable):
                     await conn.commit()
 
         except Exception as e:
-            logger.error(f"Error in /{fn.__name__}: {str(e)}")
+            logger.error(f"Error in /{fn.__name__}: {e!s}")
             logger.error(traceback.format_exc())
 
     return wrapped_command
 
 
 command_handler_list = []
-command_doc_list: Dict[str, Dict[str, str]] = {}
+command_doc_list: dict[str, dict[str, str]] = {}
 
 for command in list_of_commands:
     if hasattr(command, "triggers"):
@@ -261,7 +262,7 @@ async def usage_string(message: Message, func) -> None:
 
 
 async def save_mentions(
-    mentioning_user_id: int, mentioned_users: Set[str], message: Message
+    mentioning_user_id: int, mentioned_users: set[str], message: Message
 ) -> None:
     """Save a mention in the database."""
     for user in mentioned_users:

@@ -1,5 +1,4 @@
 from functools import lru_cache
-from typing import Optional
 
 import aiohttp
 from telegram import Update
@@ -33,10 +32,10 @@ async def fetch_wolfram_result(query: str) -> str:
         except aiohttp.ClientTimeout:
             return "❌ Request timed out"
         except aiohttp.ClientError as e:
-            return f"❌ Connection error: {str(e)}"
+            return f"❌ Connection error: {e!s}"
 
 
-def sanitize_query(query: str) -> Optional[str]:
+def sanitize_query(query: str) -> str | None:
     """Validate and sanitize the input query"""
     query = query.strip()
     if not query or len(query) > 1000:

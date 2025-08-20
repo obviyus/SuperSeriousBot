@@ -19,7 +19,7 @@ async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         gif_url = await fetch_random_gif()
         await update.message.reply_animation(animation=gif_url)
     except GiphyAPIError as e:
-        await update.message.reply_text(f"Error fetching GIF: {str(e)}")
+        await update.message.reply_text(f"Error fetching GIF: {e!s}")
 
 
 async def fetch_random_gif() -> str:

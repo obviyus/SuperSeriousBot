@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 import aiohttp
@@ -17,7 +16,7 @@ if config["API"]["OPENROUTER_API_KEY"]:
     os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
 
 
-def extract_video_id(url: str) -> Optional[str]:
+def extract_video_id(url: str) -> str | None:
     """Extract YouTube video ID from various URL formats."""
     parsed_url = urlparse(url)
 
@@ -57,7 +56,7 @@ def extract_video_id(url: str) -> Optional[str]:
     return None
 
 
-async def get_transcript(video_id: str) -> Optional[str]:
+async def get_transcript(video_id: str) -> str | None:
     """Retrieve transcript from NanoGPT API."""
     headers = {"Content-Type": "application/json"}
     api_key = config["API"].get("NANO_GPT_API_KEY")
@@ -106,7 +105,7 @@ async def summarize_transcript(transcript: str) -> str:
     return llm_response.choices[0].message.content
 
 
-async def get_cached_summary(conn, video_id: str) -> Optional[str]:
+async def get_cached_summary(conn, video_id: str) -> str | None:
     """Retrieve cached summary from the database."""
     async with conn.execute(
         "SELECT summary FROM tldw WHERE video_id = ?;", (video_id,)

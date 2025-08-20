@@ -1,7 +1,6 @@
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional
 
 import aiohttp
 from telegram import Update
@@ -48,7 +47,7 @@ class BookDetails:
 
 
 @lru_cache(maxsize=100)
-async def _search_book(session: aiohttp.ClientSession, query: str) -> Optional[str]:
+async def _search_book(session: aiohttp.ClientSession, query: str) -> str | None:
     """Search for a book and return its ID with caching"""
     params = {"q": query, "key": config["API"]["GOODREADS_API_KEY"]}
     try:
@@ -73,7 +72,7 @@ def _truncate_description(desc: str, limit: int = 200) -> str:
 
 async def _get_book_details(
     session: aiohttp.ClientSession, book_id: str
-) -> Optional[BookDetails]:
+) -> BookDetails | None:
     """Fetch and parse book details"""
     params = {"id": book_id, "key": config["API"]["GOODREADS_API_KEY"]}
     try:

@@ -1,11 +1,9 @@
-from typing import Tuple
-
 import difflib
-import gtts.lang
 import io
 
-from gtts import gTTS
+import gtts.lang
 from googletrans import Translator as GTranslator
+from gtts import gTTS
 from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -16,7 +14,7 @@ from utils.decorators import description, example, triggers, usage
 
 async def text_grabber(
     message: Message, context: ContextTypes.DEFAULT_TYPE
-) -> Tuple[str, str] | None:
+) -> tuple[str, str] | None:
     text = None
     target_language = "en"
 
@@ -111,4 +109,4 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         fp.seek(0)
         await update.message.reply_voice(fp)
     except Exception as e:
-        await update.message.reply_text(f"Error: {str(e)}")
+        await update.message.reply_text(f"Error: {e!s}")

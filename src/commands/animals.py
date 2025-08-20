@@ -1,4 +1,4 @@
-from typing import Callable, Dict
+from collections.abc import Callable
 
 import aiohttp
 from telegram import Update
@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 from utils.decorators import description, example, triggers, usage
 
-ANIMAL_APIS: Dict[str, tuple[str, Callable]] = {
+ANIMAL_APIS: dict[str, tuple[str, Callable]] = {
     "shiba": (
         "https://shibe.online/api/shibes?count=1&urls=true&httpsUrls=true",
         lambda data: data[0],

@@ -1,10 +1,11 @@
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, List, TypeVar, Union, cast
+from typing import Any, TypeVar, cast
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def triggers(trigger_command: Union[str, List[str]]):
+def triggers(trigger_command: str | list[str]):
     """Trigger decorator for commands.
 
     :param trigger_command: The command trigger(s) for the command.

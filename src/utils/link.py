@@ -1,4 +1,3 @@
-from typing import Dict
 from urllib.parse import ParseResult, urlparse
 
 from telegram import Message, MessageEntity
@@ -36,7 +35,7 @@ def extract_link(message: Message) -> ParseResult | None:
             results[key] = key.url
 
     # Remove exact duplicates and keep the first appearance
-    filtered_results: Dict[str, MessageEntity] = {}
+    filtered_results: dict[str, MessageEntity] = {}
     for key, value in results.items():
         if not filtered_results.get(value):
             filtered_results[value] = key

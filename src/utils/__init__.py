@@ -3,21 +3,21 @@ Common functionality between functions.
 """
 
 from .cleaner import scrub_dict, scrub_html_tags
-from .link import grab_links, extract_link
+from .link import extract_link, grab_links
 from .string import (
-    readable_time,
-    get_username,
     get_first_name,
     get_user_id_from_username,
+    get_username,
+    readable_time,
 )
 
 __all__ = [
-    "scrub_dict",
-    "scrub_html_tags",
-    "grab_links",
     "extract_link",
-    "readable_time",
-    "get_username",
     "get_first_name",
     "get_user_id_from_username",
+    "get_username",
+    "grab_links",
+    "readable_time",
+    "scrub_dict",
+    "scrub_html_tags",
 ]

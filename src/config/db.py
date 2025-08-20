@@ -1,8 +1,8 @@
 import asyncio
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator, Optional
 
 import aiosqlite
 from redis.asyncio import Redis, from_url
@@ -35,7 +35,7 @@ REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
 MAX_REDIS_RETRIES = 5
 REDIS_RETRY_DELAY = 5
 
-redis_client: Optional[Redis] = None
+redis_client: Redis | None = None
 
 
 async def get_redis() -> Redis:
@@ -51,7 +51,7 @@ async def get_redis() -> Redis:
                 return redis_client
             except Exception as e:
                 logger.warning(
-                    f"Failed to connect to Redis (attempt {attempt + 1}/{MAX_REDIS_RETRIES}): {str(e)}"
+                    f"Failed to connect to Redis (attempt {attempt + 1}/{MAX_REDIS_RETRIES}): {e!s}"
                 )
                 if attempt == MAX_REDIS_RETRIES - 1:
                     logger.error(

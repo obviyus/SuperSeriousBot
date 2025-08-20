@@ -79,7 +79,7 @@ async def habit_button_handler(
             await conn.commit()
         except Exception as e:
             await conn.rollback()
-            logger.error(f"Error in habit_button_handler: {str(e)}")
+            logger.error(f"Error in habit_button_handler: {e!s}")
             await query.answer("An error occurred. Please try again.")
             return
 
@@ -89,7 +89,7 @@ async def habit_button_handler(
             reply_markup=await habit_keyboard(habit_id),
         )
     except Exception as e:
-        logger.error(f"Error updating message in habit_button_handler: {str(e)}")
+        logger.error(f"Error updating message in habit_button_handler: {e!s}")
 
 
 async def handle_check_in(conn, habit_id, query):
@@ -149,9 +149,7 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             message_tasks.append(task)
         except Exception as e:
-            logger.error(
-                f"Error sending message for habit {group_habit['id']}: {str(e)}"
-            )
+            logger.error(f"Error sending message for habit {group_habit['id']}: {e!s}")
 
     await asyncio.gather(*message_tasks)
 

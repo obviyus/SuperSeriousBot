@@ -1,3 +1,4 @@
+from config.logger import logger
 from config.options import config
 
 
@@ -12,7 +13,7 @@ async def is_admin(user_id: str) -> bool:
         bool: True if user is admin, False otherwise
     """
     try:
-        print(user_id, config["TELEGRAM"]["ADMINS"])
+        logger.debug(f"Admin check for user_id={user_id}")
         return str(user_id) in config["TELEGRAM"]["ADMINS"]
     except (ValueError, TypeError):
         return False

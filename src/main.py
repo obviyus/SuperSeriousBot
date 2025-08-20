@@ -4,7 +4,6 @@ import html
 import json
 import os
 import traceback
-from typing import List
 
 import caribou
 from telegram import BotCommand, Update
@@ -32,8 +31,8 @@ from config.db import (
 )
 from config.logger import logger
 from config.options import config
+from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
-from management.message_tracking import message_stats_handler, mention_handler
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -55,7 +54,7 @@ async def post_init(application: Application) -> None:
         await redis.set("bot_startup_time", datetime.datetime.now().timestamp())
     except Exception as e:
         logger.error(
-            f"Failed to set bot startup time in Redis: {str(e)}. Continuing without Redis."
+            f"Failed to set bot startup time in Redis: {e!s}. Continuing without Redis."
         )
 
     if (
@@ -85,7 +84,7 @@ async def post_shutdown(application: Application) -> None:
     logger.info("Cleanup finished.")
 
 
-def get_valid_bot_commands(command_list: List) -> List[BotCommand]:
+def get_valid_bot_commands(command_list: list) -> list[BotCommand]:
     """
     Filter and format valid commands for the bot.
     """
@@ -110,11 +109,27 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     # Build the message with some markup and additional information about what happened.
     # You might need to add some logic to deal with messages longer than the 4096-character limit.
     update_str = update.to_dict() if isinstance(update, Update) else str(update)
+
+    # Limit the size of the update dump and traceback to stay under Telegram limits
+    try:
+        safe_update_json = html.escape(
+            json.dumps(update_str, indent=2, ensure_ascii=False)
+        )
+    except Exception:
+        safe_update_json = html.escape(str(update_str))
+
+    safe_update_json = (
+        (safe_update_json[:1500] + "…")
+        if len(safe_update_json) > 1500
+        else safe_update_json
+    )
+    safe_tb = html.escape("".join(tb_list[-2:]))
+    safe_tb = (safe_tb[:1500] + "…") if len(safe_tb) > 1500 else safe_tb
+
     message = (
-        f"An exception was raised while handling an update:\n\n"
-        f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
-        "</pre>\n\n"
-        f"<pre>{html.escape(''.join([tb_list[-1], tb_list[-2]]))}</pre>"
+        "An exception was raised while handling an update:\n\n"
+        f"<pre>update = {safe_update_json}</pre>\n\n"
+        f"<pre>{safe_tb}</pre>"
     )
 
     if (

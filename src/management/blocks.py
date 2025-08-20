@@ -43,7 +43,7 @@ async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     except ValueError:
         await update.message.reply_text("❌ Invalid user ID")
     except Exception as e:
-        await update.message.reply_text(f"❌ Error: {str(e)}")
+        await update.message.reply_text(f"❌ Error: {e!s}")
 
 
 @usage("/unblock <user_id> <command>")
@@ -84,7 +84,7 @@ async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     except ValueError:
         await update.message.reply_text("❌ Invalid user ID")
     except Exception as e:
-        await update.message.reply_text(f"❌ Error: {str(e)}")
+        await update.message.reply_text(f"❌ Error: {e!s}")
 
 
 @usage("/blocklist")

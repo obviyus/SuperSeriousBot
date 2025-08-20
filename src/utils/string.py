@@ -14,34 +14,26 @@ async def readable_time(input_timestamp: int) -> str:
     seconds = abs(round(datetime.now().timestamp()) - input_timestamp)
 
     if seconds < 60:
-        return "{0:.1f} second".format(seconds).rstrip("0").rstrip(".") + (
+        return f"{seconds:.1f} second".rstrip("0").rstrip(".") + (
             "s" if seconds > 1 else ""
         )
     elif seconds < 3600:
         minutes = seconds / 60
-        return "{0:.1f} minute".format(minutes).rstrip("0").rstrip(".") + (
+        return f"{minutes:.1f} minute".rstrip("0").rstrip(".") + (
             "s" if minutes > 1 else ""
         )
     elif seconds < 86400:
         hours = seconds / 3600
-        return "{0:.1f} hour".format(hours).rstrip("0").rstrip(".") + (
-            "s" if hours > 1 else ""
-        )
+        return f"{hours:.1f} hour".rstrip("0").rstrip(".") + ("s" if hours > 1 else "")
     elif seconds < 604800:
         days = seconds / 86400
-        return "{0:.1f} day".format(days).rstrip("0").rstrip(".") + (
-            "s" if days > 1 else ""
-        )
+        return f"{days:.1f} day".rstrip("0").rstrip(".") + ("s" if days > 1 else "")
     elif seconds < 31536000:
         weeks = seconds / 604800
-        return "{0:.1f} week".format(weeks).rstrip("0").rstrip(".") + (
-            "s" if weeks > 1 else ""
-        )
+        return f"{weeks:.1f} week".rstrip("0").rstrip(".") + ("s" if weeks > 1 else "")
     else:
         years = seconds / 31536000
-        return "{0:.1f} year".format(years).rstrip("0").rstrip(".") + (
-            "s" if years > 1 else ""
-        )
+        return f"{years:.1f} year".rstrip("0").rstrip(".") + ("s" if years > 1 else "")
 
 
 @alru_cache(maxsize=128)

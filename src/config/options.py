@@ -1,41 +1,39 @@
 import os
-from typing import List, Optional
 
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError
 
-from config.logger import logger
-from dotenv import load_dotenv
-
 import utils
+from config.logger import logger
 
 load_dotenv()
 
 
 class APIConfig(BaseModel):
-    GIPHY_API_KEY: Optional[str] = ""
-    GOODREADS_API_KEY: Optional[str] = ""
-    SMMRY_API_KEY: Optional[str] = ""
-    STEAM_API_KEY: Optional[str] = ""
-    WOLFRAM_APP_ID: Optional[str] = ""
-    INSTAGRAM_SESSION_NAME: Optional[str] = ""
-    IMGUR_API_KEY: Optional[str] = ""
-    OPEN_AI_API_KEY: Optional[str] = ""
-    YOUTUBE_API_KEY: Optional[str] = ""
-    RAPID_API_KEY: Optional[str] = ""
-    WINDY_API_KEY: Optional[str] = ""
-    NANO_GPT_API_KEY: Optional[str] = ""
-    EMBEDEZ_API_KEY: Optional[str] = ""
-    OPENROUTER_API_KEY: Optional[str] = ""
-    GOOGLE_API_KEY: Optional[str] = ""
-    COBALT_URL: Optional[str] = ""
+    GIPHY_API_KEY: str | None = ""
+    GOODREADS_API_KEY: str | None = ""
+    SMMRY_API_KEY: str | None = ""
+    STEAM_API_KEY: str | None = ""
+    WOLFRAM_APP_ID: str | None = ""
+    INSTAGRAM_SESSION_NAME: str | None = ""
+    IMGUR_API_KEY: str | None = ""
+    OPEN_AI_API_KEY: str | None = ""
+    YOUTUBE_API_KEY: str | None = ""
+    RAPID_API_KEY: str | None = ""
+    WINDY_API_KEY: str | None = ""
+    NANO_GPT_API_KEY: str | None = ""
+    EMBEDEZ_API_KEY: str | None = ""
+    OPENROUTER_API_KEY: str | None = ""
+    GOOGLE_API_KEY: str | None = ""
+    COBALT_URL: str | None = ""
 
 
 class TelegramConfig(BaseModel):
-    ADMINS: List[str] = Field(default_factory=list)
+    ADMINS: list[str] = Field(default_factory=list)
     TOKEN: str
-    UPDATER: Optional[str] = Field(default="polling", pattern="^(webhook|polling)$")
-    WEBHOOK_URL: Optional[str] = None
-    LOGGING_CHANNEL_ID: Optional[int] = None
+    UPDATER: str | None = Field(default="polling", pattern="^(webhook|polling)$")
+    WEBHOOK_URL: str | None = None
+    LOGGING_CHANNEL_ID: int | None = None
     QUOTE_CHANNEL_ID: int
 
 

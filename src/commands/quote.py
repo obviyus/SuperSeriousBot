@@ -58,8 +58,8 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     async with get_db(write=True) as conn:
         await conn.execute(
             """
-            INSERT INTO quote_db 
-            (message_id, chat_id, message_user_id, saver_user_id, forwarded_message_id) 
+            INSERT INTO quote_db
+            (message_id, chat_id, message_user_id, saver_user_id, forwarded_message_id)
             VALUES (?, ?, ?, ?, ?);
             """,
             (
@@ -88,11 +88,11 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Clean up old history entries (older than 10 quotes)
         await conn.execute(
             """
-            DELETE FROM quote_recent_history 
+            DELETE FROM quote_recent_history
             WHERE chat_id = ? AND id NOT IN (
-                SELECT id FROM quote_recent_history 
-                WHERE chat_id = ? 
-                ORDER BY shown_time DESC 
+                SELECT id FROM quote_recent_history
+                WHERE chat_id = ?
+                ORDER BY shown_time DESC
                 LIMIT 10
             );
             """,
@@ -115,10 +115,10 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # Get quotes excluding recently shown ones
             async with conn.execute(
                 """
-                SELECT * FROM quote_db 
-                WHERE chat_id = ? AND message_user_id = ? 
+                SELECT * FROM quote_db
+                WHERE chat_id = ? AND message_user_id = ?
                 AND id NOT IN (
-                    SELECT quote_id FROM quote_recent_history 
+                    SELECT quote_id FROM quote_recent_history
                     WHERE chat_id = ?
                 )
                 ORDER BY RANDOM() LIMIT 1;
@@ -131,8 +131,8 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if not row:
                 async with conn.execute(
                     """
-                    SELECT * FROM quote_db 
-                    WHERE chat_id = ? AND message_user_id = ? 
+                    SELECT * FROM quote_db
+                    WHERE chat_id = ? AND message_user_id = ?
                     ORDER BY RANDOM() LIMIT 1;
                     """,
                     (update.message.chat_id, author_user_id),
@@ -149,10 +149,10 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # Get quotes excluding recently shown ones
             async with conn.execute(
                 """
-                SELECT * FROM quote_db 
-                WHERE chat_id = ? 
+                SELECT * FROM quote_db
+                WHERE chat_id = ?
                 AND id NOT IN (
-                    SELECT quote_id FROM quote_recent_history 
+                    SELECT quote_id FROM quote_recent_history
                     WHERE chat_id = ?
                 )
                 ORDER BY RANDOM() LIMIT 1;

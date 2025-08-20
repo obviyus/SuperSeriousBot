@@ -78,18 +78,12 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if edges_outgoing:
             text += "\n\nYou have the strongest connections to:"
             for edge in edges_outgoing:
-                text += (
-                    f"\n<code>{edge[2]['weight']:6}"
-                    f" ⟶ {names.get(edge[1], str(edge[1]))}</code>"
-                )
+                text += f"\n<code>{edge[2]['weight']:6} ⟶ {names.get(edge[1], str(edge[1]))}</code>"
 
         if edges_incoming:
             text += "\n\nYou have the strongest connections from:"
             for edge in edges_incoming:
-                text += (
-                    f"\n<code>{edge[2]['weight']:6}"
-                    f" ← {names.get(edge[0], str(edge[0]))}</code>"
-                )
+                text += f"\n<code>{edge[2]['weight']:6} ← {names.get(edge[0], str(edge[0]))}</code>"
 
         await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     except Exception as e:

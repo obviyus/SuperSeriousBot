@@ -1,5 +1,5 @@
 import html
-from typing import Any, Dict, List
+from typing import Any
 
 import aiohttp
 from telegram import Update
@@ -36,7 +36,7 @@ async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def _fetch_definition(word: str) -> Dict[str, Any]:
+async def _fetch_definition(word: str) -> dict[str, Any]:
     """Fetch word definition from the API"""
     async with aiohttp.ClientSession() as session:
         async with session.get(DICTIONARY_API_ENDPOINT.format(word)) as response:
@@ -46,7 +46,7 @@ async def _fetch_definition(word: str) -> Dict[str, Any]:
             return data[0] if data else {}
 
 
-def _format_definition(response: Dict[str, Any]) -> str:
+def _format_definition(response: dict[str, Any]) -> str:
     """Format the API response into a readable definition"""
     text = f"<b>{response['word']}</b>"
 
@@ -72,12 +72,12 @@ def _format_definition(response: Dict[str, Any]) -> str:
     return text
 
 
-def _get_phonetics(response: Dict[str, Any]) -> str:
+def _get_phonetics(response: dict[str, Any]) -> str:
     """Extract phonetics from the response"""
     phonetics = response.get("phonetics", [])
     return phonetics[0].get("text", "") if phonetics else ""
 
 
-def _get_synonyms(definition: Dict[str, Any]) -> List[str]:
+def _get_synonyms(definition: dict[str, Any]) -> list[str]:
     """Extract synonyms from the definition"""
     return definition.get("synonyms", [])

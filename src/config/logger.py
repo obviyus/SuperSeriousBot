@@ -19,7 +19,7 @@ logging_config = {
             "formatter": (
                 "verbose" if os.environ.get("ENV") == "development" else "simple"
             ),
-            "level": "INFO" if os.environ.get("ENV") == "development" else "INFO",
+            "level": "INFO",
         },
     },
     "loggers": {

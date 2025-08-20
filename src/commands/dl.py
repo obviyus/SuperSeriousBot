@@ -1,5 +1,4 @@
 import io
-from typing import List, Optional, Tuple
 
 import aiohttp
 from telegram import InputFile, InputMediaPhoto, InputMediaVideo, Message, Update
@@ -10,7 +9,6 @@ import utils
 from config.logger import logger
 from config.options import config
 from utils.decorators import description, example, triggers, usage
-
 
 MAX_MEDIA_COUNT = 10
 MAX_DOWNLOAD_SIZE = 47 * (1 << 20)  # ~47 MB cap to stay under Telegram limits
@@ -28,7 +26,7 @@ def _is_video(filename_or_url: str) -> bool:
 
 async def _download_to_memory(
     url: str,
-) -> Tuple[io.BytesIO, Optional[str], Optional[int]]:
+) -> tuple[io.BytesIO, str | None, int | None]:
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             if resp.status != 200:
@@ -58,7 +56,7 @@ async def _download_to_memory(
             return buffer, resp.headers.get("Content-Type"), expected_size
 
 
-async def _fetch_and_send(message: Message, url: str, filename: Optional[str]) -> None:
+async def _fetch_and_send(message: Message, url: str, filename: str | None) -> None:
     try:
         buffer, content_type, _ = await _download_to_memory(url)
         safe_name = filename or "file"
@@ -85,7 +83,7 @@ async def _fetch_and_send(message: Message, url: str, filename: Optional[str]) -
         await message.reply_text("Failed to download media.")
 
 
-async def _send_picker(message: Message, picker_items: List[dict]) -> None:
+async def _send_picker(message: Message, picker_items: list[dict]) -> None:
     if not picker_items:
         await message.reply_text("No media found.")
         return
@@ -128,7 +126,7 @@ async def _cobalt_request(cobalt_base_url: str, target_url: str) -> dict:
                 text = await resp.text()
                 raise RuntimeError(
                     f"Cobalt non-JSON response: {resp.status} {text[:120]}"
-                )
+                ) from None
             if resp.status != 200 and data.get("status") != "error":
                 raise RuntimeError(f"Cobalt HTTP {resp.status}: {data}")
             return data

@@ -1,5 +1,5 @@
-import os
 import io
+import os
 
 from litellm import acompletion
 from telegram import Update
@@ -36,10 +36,10 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
         async with conn.execute(
             """
                 SELECT 1
-                FROM command_whitelist 
+                FROM command_whitelist
                 WHERE command = ?
                 AND (
-                    (whitelist_type = 'chat' AND whitelist_id = ?) 
+                    (whitelist_type = 'chat' AND whitelist_id = ?)
                     OR (whitelist_type = 'user' AND whitelist_id = ?)
                 );
                 """,
@@ -175,7 +175,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await send_response(update, text)
     except Exception as e:
         await update.message.reply_text(
-            f"An error occurred while processing your request: {str(e)}"
+            f"An error occurred while processing your request: {e!s}"
         )
 
 
@@ -248,5 +248,5 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text(text, disable_web_page_preview=True)
     except Exception as e:
         await update.message.reply_text(
-            f"An error occurred while processing your request: {str(e)}"
+            f"An error occurred while processing your request: {e!s}"
         )

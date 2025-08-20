@@ -1,6 +1,6 @@
 from telegram import Update
-from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
+from telegram.ext import ContextTypes
 
 from config.db import get_db
 from config.options import config
@@ -47,7 +47,7 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Insert or update the global model setting
         await conn.execute(
             """
-            INSERT INTO group_settings (chat_id, ai_model) 
+            INSERT INTO group_settings (chat_id, ai_model)
             VALUES (?, ?)
             ON CONFLICT(chat_id) DO UPDATE SET ai_model = excluded.ai_model
             """,

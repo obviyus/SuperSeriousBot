@@ -23,7 +23,7 @@ async def stat_string_builder(
         return
 
     text = f"Stats for <b>{message.chat.title}:</b>\n\n"
-    for timestamp, user_id, count in rows:
+    for _, user_id, count in rows:
         percent = round(count / total_count * 100, 2)
         text += f"""<code>{percent:4.1f}% - {await utils.string.get_first_name(user_id, context)}</code>\n"""
 
@@ -102,8 +102,8 @@ def _format_horizontal_bars(
         return ""
     max_value = max(values) or 1
     lines: list[str] = []
-    for label, value in zip(labels, values):
-        bar_len = 0 if max_value == 0 else int(round(value / max_value * width))
+    for label, value in zip(labels, values, strict=False):
+        bar_len = 0 if max_value == 0 else round(value / max_value * width)
         bar = "█" * bar_len
         lines.append(f"{label:>3} | {bar:<{width}} {value}")
     return "\n".join(lines)
@@ -155,8 +155,8 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         async with conn.execute(
             """
             SELECT create_time,user_id, COUNT(user_id) AS user_count
-                FROM chat_stats 
-            WHERE chat_id = ? AND 
+                FROM chat_stats
+            WHERE chat_id = ? AND
                 create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')
             GROUP BY user_id
             ORDER BY COUNT(user_id) DESC
@@ -169,8 +169,8 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         async with conn.execute(
             """
             SELECT COUNT(id) AS total_count
-                FROM chat_stats 
-            WHERE chat_id = ? AND 
+                FROM chat_stats
+            WHERE chat_id = ? AND
                 create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime');
             """,
             (chat_id,),
@@ -355,7 +355,7 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     top_dow_name = dow_names.get(top_dow, "-") if top_dow is not None else "-"
     if top_hour is not None:
         hour_int = int(top_hour)
-        top_hour_label = f"{hour_int:02d}:00–{(hour_int + 1) % 24:02d}:00"
+        top_hour_label = f"{hour_int:02d}:00-{(hour_int + 1) % 24:02d}:00"
     else:
         top_hour_label = "-"
 

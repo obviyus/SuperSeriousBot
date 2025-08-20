@@ -4,11 +4,11 @@ Message tracking and stats handlers.
 
 from datetime import datetime
 
-from telegram import Update, Message, MessageEntity
+from telegram import Message, MessageEntity, Update
 from telegram.ext import (
+    ContextTypes,
     MessageHandler,
     filters,
-    ContextTypes,
 )
 
 from config.db import get_db
