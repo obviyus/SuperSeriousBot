@@ -1,3 +1,10 @@
+# [1.120.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.119.0...v1.120.0) (2025-08-20)
+
+
+### Features
+
+* use non blocking operations for I/O ([869ada6](https://github.com/obviyus/SuperSeriousBot/commit/869ada637761981e5b06f37e0c4b0f2b2e6ab4eb))
+
 # [1.119.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.118.0...v1.119.0) (2025-08-20)
 
 
