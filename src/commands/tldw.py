@@ -64,9 +64,7 @@ async def get_transcript(video_id: str) -> Optional[str]:
     if api_key:
         headers["x-api-key"] = api_key
 
-    payload = {
-        "urls": [f"https://www.youtube.com/watch?v={video_id}"]
-    }
+    payload = {"urls": [f"https://www.youtube.com/watch?v={video_id}"]}
 
     async with aiohttp.ClientSession() as session:
         async with session.post(

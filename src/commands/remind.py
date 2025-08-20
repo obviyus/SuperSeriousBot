@@ -45,7 +45,7 @@ async def reminder_list(user_id: int, chat_id: int) -> str:
 
     for index, reminder in enumerate(results):
         parsed_time = datetime.datetime.fromtimestamp(reminder["target_time"])
-        text += f'\n{index + 1}. <code>{reminder["title"]}</code> in {readable_time(parsed_time)}'
+        text += f"\n{index + 1}. <code>{reminder['title']}</code> in {readable_time(parsed_time)}"
 
     return text
 
@@ -119,7 +119,7 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await conn.commit()
 
     await update.message.reply_text(
-        text=f'I will remind you about <code>{title}</code> on {target_time.strftime("%B %d, %Y at %I:%M%p %Z")}',
+        text=f"I will remind you about <code>{title}</code> on {target_time.strftime('%B %d, %Y at %I:%M%p %Z')}",
         parse_mode=ParseMode.HTML,
     )
 
@@ -137,7 +137,7 @@ async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
             existing_reminders = await cursor.fetchall()
 
     for reminder in existing_reminders:
-        text = f'⏰ <code>{reminder["title"]}</code>\n\n@{await utils.get_username(reminder["user_id"], context)}'
+        text = f"⏰ <code>{reminder['title']}</code>\n\n@{await utils.get_username(reminder['user_id'], context)}"
         await context.bot.send_message(
             reminder["chat_id"], text, parse_mode=ParseMode.HTML
         )

@@ -15,7 +15,10 @@ async def spurdo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = ""
     if not context.args:
         try:
-            args: str = update.message.reply_to_message.text or update.message.reply_to_message.caption  # type: ignore
+            args: str = (
+                update.message.reply_to_message.text
+                or update.message.reply_to_message.caption
+            )  # type: ignore
             text = spurdify(args)
         except AttributeError:
             await commands.usage_string(update.message, spurdo)

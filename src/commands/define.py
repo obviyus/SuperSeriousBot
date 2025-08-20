@@ -48,7 +48,7 @@ async def _fetch_definition(word: str) -> Dict[str, Any]:
 
 def _format_definition(response: Dict[str, Any]) -> str:
     """Format the API response into a readable definition"""
-    text = f'<b>{response["word"]}</b>'
+    text = f"<b>{response['word']}</b>"
 
     phonetics = _get_phonetics(response)
     if phonetics:
@@ -61,7 +61,7 @@ def _format_definition(response: Dict[str, Any]) -> str:
         if part_of_speech and definitions:
             text += f"\n\n<b>{part_of_speech}</b>"
             definition = definitions[0]
-            text += f'\n  -  {html.escape(definition.get("definition", ""))}'
+            text += f"\n  -  {html.escape(definition.get('definition', ''))}"
 
             synonyms = _get_synonyms(definition)
             if synonyms:

@@ -85,7 +85,7 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     text = f"Stats for <b>@{context.bot.username}:</b>\n\n"
     for row in rows:
-        text += f"""<code>{row['command_count']:4} - /{row['command']}</code>\n"""
+        text += f"""<code>{row["command_count"]:4} - /{row["command"]}</code>\n"""
 
     text += f"\nTotal: <b>{total_count}</b>"
     await update.message.reply_text(
@@ -119,7 +119,7 @@ async def get_object_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     text = f"Object Stats for <b>@{context.bot.username}:</b>\n\n"
     for row in rows:
-        text += f"""<code>{row['key']:4} - {row['fetch_count']}</code>\n"""
+        text += f"""<code>{row["key"]:4} - {row["fetch_count"]}</code>\n"""
 
     text += f"\nTotal: <b>{total_fetch_count}</b>"
     await update.message.reply_text(

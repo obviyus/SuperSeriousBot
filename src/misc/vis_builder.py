@@ -19,19 +19,19 @@ async def batch_get_user_names(
     # AIDEV-NOTE: Using semaphore to prevent rate limiting
     semaphore = asyncio.Semaphore(10)
     user_names = {}
-    
+
     async def fetch_name(user_id: int):
         async with semaphore:
             try:
                 return user_id, await utils.get_first_name(user_id, context)
             except (BadRequest, Forbidden):
                 return user_id, str(user_id)
-    
+
     results = await asyncio.gather(*[fetch_name(uid) for uid in user_ids])
-    
+
     for user_id, name in results:
         user_names[user_id] = name
-    
+
     return user_names
 
 
@@ -43,8 +43,7 @@ async def generate_network_for_chat(
     fed into vis.js to generate a graph.
     """
     logger.info(f"Generating network for chat_id: {chat_id}")
-    
-    
+
     # AIDEV-NOTE: Use indexed query with hint for better performance
     # The idx_chat_mentions_network index covers this query perfectly
     async with get_db() as conn:
@@ -61,44 +60,40 @@ async def generate_network_for_chat(
             (chat_id,),
         ) as cursor:
             mentions = await cursor.fetchall()
-    
+
     if not mentions:
         logger.info(f"No mentions found for chat_id: {chat_id}")
         return
-    
+
     # AIDEV-NOTE: Pre-allocate data structures for better performance
     # Using estimated sizes reduces memory reallocation
     unique_users = set()
     edge_data = []
-    
+
     # Process mentions in a single pass
     for row in mentions:
         source, target, count = row["source"], row["target"], row["count"]
         unique_users.add(source)
         unique_users.add(target)
         edge_data.append((source, target, count))
-    
+
     user_names = await batch_get_user_names(unique_users, context)
-    
+
     # Get chat title
     try:
         chat_title = f"Chat {(await context.bot.get_chat(chat_id)).title}"
     except (BadRequest, Forbidden):
         chat_title = f"Chat {chat_id}"
-    
+
     # AIDEV-NOTE: Create graph with size hints for better memory allocation
     graph = nx.DiGraph()
-    
+
     # Add all nodes at once with generator for memory efficiency
-    graph.add_nodes_from(
-        (uid, {"label": user_names[uid]}) for uid in unique_users
-    )
-    
+    graph.add_nodes_from((uid, {"label": user_names[uid]}) for uid in unique_users)
+
     # Add all edges at once with generator
-    graph.add_edges_from(
-        (src, tgt, {"weight": cnt}) for src, tgt, cnt in edge_data
-    )
-    
+    graph.add_edges_from((src, tgt, {"weight": cnt}) for src, tgt, cnt in edge_data)
+
     # AIDEV-NOTE: Optimize visualization for large graphs
     # Adjust physics settings based on graph size
     node_count = len(unique_users)
@@ -107,7 +102,7 @@ async def generate_network_for_chat(
         height, width = 1500, 1500
     else:
         height, width = 1000, 1000
-    
+
     network = Network(
         heading=chat_title,
         height=height,
@@ -115,21 +110,20 @@ async def generate_network_for_chat(
         directed=True,  # Explicitly set for performance
         notebook=False,  # Disable notebook mode
     )
-    
+
     network.from_nx(graph)
-    
+
     logger.info(
         f"Finished generating a network with {len(network.nodes)} nodes and {len(network.edges)} edges"
     )
-    
+
     # Cache the network for the chat
     context.bot_data[f"network_{chat_id}"] = graph
-    
-    
+
     # Use Path for better file operations
     vis_dir = Path("vis")
     vis_dir.mkdir(exist_ok=True)
-    
+
     # AIDEV-NOTE: Adaptive physics settings based on graph size
     if node_count > 200:
         # Disable physics for very large graphs
@@ -160,8 +154,8 @@ async def generate_network_for_chat(
     }
   }
 }"""
-    
-    network.set_options(f'const options = {physics_options}')
+
+    network.set_options(f"const options = {physics_options}")
     network.save_graph(str(vis_dir / f"{chat_id}.html"))
 
 
@@ -185,31 +179,33 @@ async def worker_build_network(context: ContextTypes.DEFAULT_TYPE) -> None:
             """
         ) as cursor:
             chats = await cursor.fetchall()
-    
+
     if not chats:
         logger.info("No chats with mentions found")
         return
-    
+
     # AIDEV-NOTE: Adaptive concurrency based on system load
     # Lower concurrency prevents API rate limits and memory issues
     max_concurrent = min(3, len(chats))  # Max 3 concurrent builds
     semaphore = asyncio.Semaphore(max_concurrent)
-    
+
     async def process_chat(chat_data: dict):
         async with semaphore:
             try:
                 # Skip very small graphs
                 if chat_data["mention_count"] < 10:
-                    logger.debug(f"Skipping small graph for chat {chat_data['chat_id']}")
+                    logger.debug(
+                        f"Skipping small graph for chat {chat_data['chat_id']}"
+                    )
                     return
                 await generate_network_for_chat(chat_data["chat_id"], context)
             except Exception as e:
                 logger.error(f"Error building network for {chat_data['chat_id']}: {e}")
-    
+
     # Process in batches to control memory usage
     batch_size = 10
     for i in range(0, len(chats), batch_size):
-        batch = chats[i:i + batch_size]
+        batch = chats[i : i + batch_size]
         tasks = [process_chat(chat_data) for chat_data in batch]
         await asyncio.gather(*tasks, return_exceptions=True)
         # Small delay between batches

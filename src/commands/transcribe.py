@@ -7,7 +7,7 @@ from utils.decorators import deprecated, description, example, triggers, usage
 @triggers(["tr"])
 @example("/tr")
 @usage("/tr")
-@description("Transcribe an audio message. " "Reply to a message to transcribe it.")
+@description("Transcribe an audio message. Reply to a message to transcribe it.")
 @deprecated(
     "This command has been deprecated due to technical issues. "
     "Contact @obviyus if you have a use case for this command."
