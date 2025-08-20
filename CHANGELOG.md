@@ -1,3 +1,15 @@
+# [1.119.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.118.0...v1.119.0) (2025-08-20)
+
+
+### Bug Fixes
+
+* replace dummy Instagram URL ([a60c277](https://github.com/obviyus/SuperSeriousBot/commit/a60c277f28f504a555bd5fc80bcdbc613a0a7805))
+
+
+### Features
+
+* remove deprecated visbuilder command ([a7db034](https://github.com/obviyus/SuperSeriousBot/commit/a7db034488c7b366ea24b99b3b45a253efc7fd54))
+
 # [1.118.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.117.0...v1.118.0) (2025-08-17)
 
 
