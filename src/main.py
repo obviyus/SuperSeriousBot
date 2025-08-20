@@ -20,7 +20,6 @@ from telegram.ext import (
 )
 
 import commands
-import misc
 from commands.habit import worker_habit_tracker
 from commands.highlight import highlight_worker
 from commands.remind import worker_reminder
@@ -190,9 +189,6 @@ async def setup_application() -> Application:
 
     # Reset command usage count every day at 12:00 UTC
     job_queue.run_daily(command_limits.reset_command_limits, time=datetime.time(18, 30))
-
-    # Build social graph
-    job_queue.run_daily(misc.worker_build_network, time=datetime.time(19, 30))
 
     return application
 

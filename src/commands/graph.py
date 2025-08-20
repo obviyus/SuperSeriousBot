@@ -5,48 +5,7 @@ from telegram.ext import ContextTypes
 
 import utils
 from config import logger
-from config.db import get_db
 from utils.decorators import description, example, triggers, usage
-
-
-@usage("/graph")
-@example("/graph")
-@triggers(["graph"])
-@description("Get the social graph of this group.")
-async def get_oldest_mention(chat_id: int) -> str | None:
-    """Get the creation time of the oldest mention in the chat."""
-    # AIDEV-NOTE: Using indexed query - idx_chat_mentions_chat_create covers this
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-            SELECT MIN(create_time) as create_time 
-            FROM chat_mentions 
-            WHERE chat_id = ?
-            """,
-            (chat_id,),
-        ) as cursor:
-            result = await cursor.fetchone()
-
-    return result["create_time"] if result and result["create_time"] else None
-
-
-async def get_social_graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Get the social graph of this group."""
-    if not update.message:
-        return
-
-    oldest_mention = await get_oldest_mention(update.message.chat_id)
-    if not oldest_mention:
-        await update.message.reply_text(
-            text="This group has no recorded activity.", parse_mode=ParseMode.MARKDOWN
-        )
-        return
-
-    await update.message.reply_text(
-        f"This group's social graph is available at: https://bot.superserio.us/vis/{update.message.chat_id}.html."
-        f"\n\nBuilt using data since {oldest_mention}.",
-        parse_mode=ParseMode.HTML,
-    )
 
 
 @usage("/friends")
