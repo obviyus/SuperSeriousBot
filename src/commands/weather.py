@@ -1,6 +1,5 @@
 import asyncio
 import time
-from typing import Dict, Tuple
 
 import aiohttp
 import dateparser
@@ -22,24 +21,27 @@ AQI_ENDPOINT = "https://air-quality-api.open-meteo.com/v1/air-quality"
 class Point:
     def __init__(
         self,
-        name: str,
-        latitude: float = None,
-        longitude: float = None,
-        address: str = None,
+        latitude: float,
+        longitude: float,
+        address: str,
     ):
-        self.found = False
-        if latitude and longitude and address:
-            self.latitude = latitude
-            self.longitude = longitude
-            self.address = address
-            self.found = True
-        elif name:
-            location = geolocator.geocode(name, exactly_one=True)
-            if location:
-                self.found = True
-                self.latitude = location.latitude
-                self.longitude = location.longitude
-                self.address = self._format_address(location.address)
+        self.found = True
+        self.latitude = latitude
+        self.longitude = longitude
+        self.address = address
+
+    @classmethod
+    async def from_name(cls, name: str) -> "Point":
+        location = await asyncio.to_thread(geolocator.geocode, name, exactly_one=True)
+        if not location:
+            p = cls(0.0, 0.0, "")
+            p.found = False
+            return p
+        return cls(
+            latitude=location.latitude,
+            longitude=location.longitude,
+            address=cls._format_address(location.address),
+        )
 
     @staticmethod
     def _format_address(address: str) -> str:
@@ -49,13 +51,13 @@ class Point:
         except IndexError:
             return address
 
-    async def get_data(self, session: aiohttp.ClientSession) -> Tuple[Dict, str]:
+    async def get_data(self, session: aiohttp.ClientSession) -> tuple[dict, str]:
         weather_data, aqi = await asyncio.gather(
             self._fetch_weather(session), self._fetch_aqi(session)
         )
         return weather_data, aqi
 
-    async def _fetch_weather(self, session: aiohttp.ClientSession) -> Dict:
+    async def _fetch_weather(self, session: aiohttp.ClientSession) -> dict:
         async with session.get(
             WEATHER_ENDPOINT,
             params={
@@ -80,7 +82,7 @@ class Point:
             return self._process_aqi_data(data)
 
     @staticmethod
-    def _process_weather_data(data: Dict) -> Dict:
+    def _process_weather_data(data: dict) -> dict:
         current_index = Point._get_current_time_index(data["hourly"]["time"])
         return {
             "temperature": f"{data['hourly']['temperature_2m'][current_index]} {data['hourly_units']['temperature_2m']}",
@@ -90,7 +92,7 @@ class Point:
         }
 
     @staticmethod
-    def _process_aqi_data(data: Dict) -> str:
+    def _process_aqi_data(data: dict) -> str:
         current_index = Point._get_current_time_index(data["hourly"]["time"])
         return (
             f"{data['hourly']['pm2_5'][current_index]} {data['hourly_units']['pm2_5']}"
@@ -132,11 +134,11 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def get_point(user_id: int, args: list) -> Point:
     redis = await get_redis()
     if args:
-        point = Point(" ".join(args))
+        point = await Point.from_name(" ".join(args))
         if point.found:
-            await redis.hmset(
+            await redis.hset(
                 f"weather:{user_id}",
-                {
+                mapping={
                     "latitude": point.latitude,
                     "longitude": point.longitude,
                     "address": point.address,
@@ -145,7 +147,6 @@ async def get_point(user_id: int, args: list) -> Point:
     else:
         cached_point = await redis.hgetall(f"weather:{user_id}")
         point = Point(
-            "",
             float(cached_point["latitude"]),
             float(cached_point["longitude"]),
             cached_point["address"],
@@ -153,7 +154,7 @@ async def get_point(user_id: int, args: list) -> Point:
     return point
 
 
-def format_weather_message(address: str, weather_data: Dict, aqi: str) -> str:
+def format_weather_message(address: str, weather_data: dict, aqi: str) -> str:
     return f"""<b>{address}</b>
 
 🌡️ <b>Temperature:</b> {weather_data["temperature"]}
