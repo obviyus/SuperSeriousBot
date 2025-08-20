@@ -169,7 +169,7 @@ async def _handle_cobalt_response(message: Message, data: dict) -> None:
 
 @triggers(["dl"])
 @usage("/dl [URL]")
-@example("/dl https://www.instagram.com/reel/DL9zVAMsqFp/")
+@example("/dl https://www.instagram.com/reel/A1234567890/")
 @description("Download media via cobalt.tools-compatible instance.")
 async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message:
