@@ -1,3 +1,10 @@
+## [1.122.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.0...v1.122.1) (2025-09-03)
+
+
+### Bug Fixes
+
+* enhance response validation in /edit command ([ed3e16e](https://github.com/obviyus/SuperSeriousBot/commit/ed3e16efc75963a98dfc0f08c0887875a94cb618))
+
 # [1.122.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.121.0...v1.122.0) (2025-09-03)
 
 
