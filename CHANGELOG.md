@@ -1,3 +1,10 @@
+## [1.122.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.1...v1.122.2) (2025-09-03)
+
+
+### Bug Fixes
+
+* update /edit command to use OpenRouter API and improve image handling ([989694e](https://github.com/obviyus/SuperSeriousBot/commit/989694e7bb09876de0728e5d826ec5cd26e65452))
+
 ## [1.122.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.0...v1.122.1) (2025-09-03)
 
 
