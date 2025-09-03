@@ -316,8 +316,31 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             contents=[prompt, image],
         )
 
+        # Validate response structure
+        if not response or not response.candidates:
+            await update.message.reply_text(
+                "No response received from AI. Please try again."
+            )
+            return
+
+        candidate = response.candidates[0]
+
+        # Check if the request was blocked due to prohibited content
+        if hasattr(candidate, "finish_reason") and candidate.finish_reason:
+            if str(candidate.finish_reason) == "FinishReason.PROHIBITED_CONTENT":
+                await update.message.reply_text(
+                    "❌ This request was blocked by the AI due to content policies. Please try a different prompt."
+                )
+                return
+
+        if not candidate.content:
+            await update.message.reply_text(
+                "Invalid response format from AI. Please try again."
+            )
+            return
+
         # Process the response - extract generated image
-        for part in response.candidates[0].content.parts:
+        for part in candidate.content.parts:
             if part.inline_data is not None:
                 # If there's image data, send the image
                 image_data = part.inline_data.data
