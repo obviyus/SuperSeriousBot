@@ -1,7 +1,7 @@
+import base64
 import io
 import os
 
-from google import genai
 from litellm import acompletion
 from telegram import Update
 from telegram.constants import ChatType, ParseMode
@@ -255,7 +255,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 @triggers(["edit"])
 @usage("/edit [prompt]")
-@api_key("GOOGLE_API_KEY")
+@api_key("OPENROUTER_API_KEY")
 @example("/edit Make it look like a painting")
 @description(
     "Reply to an image to edit it using AI. Provide a prompt describing the desired changes."
@@ -302,69 +302,95 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Download the image using Telegram's built-in method
         image_data = await file.download_as_bytearray()
 
-        # Create Google GenAI client
-        client = genai.Client(api_key=config["API"]["GOOGLE_API_KEY"])
+        # Convert image to base64 for OpenRouter API
+        image_base64 = base64.b64encode(image_data).decode("utf-8")
+        image_url = f"data:image/jpeg;base64,{image_base64}"
 
-        # Create PIL Image from downloaded data
-        from PIL import Image
+        # Create the prompt that includes both the edit request and the image
+        full_prompt = (
+            f"Please edit this image according to the following description: {prompt}"
+        )
 
-        image = Image.open(io.BytesIO(image_data))
-
-        # Call Gemini API for image generation/editing using the direct client
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-image-preview",
-            contents=[prompt, image],
+        # Call OpenRouter API for image generation/editing
+        response = await acompletion(
+            model="openrouter/google/gemini-2.5-flash-image-preview",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": full_prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                }
+            ],
+            modalities=["image", "text"],
+            extra_headers={
+                "X-Title": "SuperSeriousBot",
+                "HTTP-Referer": "https://t.me/SuperSeriousBot",
+            },
+            api_key=config["API"]["OPENROUTER_API_KEY"],
         )
 
         # Validate response structure
-        if not response or not response.candidates:
+        if not response or not response.choices:
             await update.message.reply_text(
                 "No response received from AI. Please try again."
             )
             return
 
-        candidate = response.candidates[0]
+        choice = response.choices[0]
+        message = choice.message
 
-        # Check if the request was blocked due to prohibited content
-        if hasattr(candidate, "finish_reason") and candidate.finish_reason:
-            if str(candidate.finish_reason) == "FinishReason.PROHIBITED_CONTENT":
+        # Check if there's an error in the response
+        if hasattr(choice, "finish_reason") and choice.finish_reason:
+            if str(choice.finish_reason).upper() in [
+                "CONTENT_FILTER",
+                "SAFETY",
+                "MODERATION",
+            ]:
                 await update.message.reply_text(
                     "❌ This request was blocked by the AI due to content policies. Please try a different prompt."
                 )
                 return
 
-        if not candidate.content:
+        # Process the response - check for images in the message
+        if hasattr(message, "images") and message.images:
+            # Extract the first generated image
+            image_info = message.images[0]
+            if "image_url" in image_info and "url" in image_info["image_url"]:
+                image_url_data = image_info["image_url"]["url"]
+
+                # Parse base64 data URL
+                if image_url_data.startswith("data:image/"):
+                    # Extract base64 data after comma
+                    base64_data = image_url_data.split(",")[1]
+                    image_data = base64.b64decode(base64_data)
+                    buffer = io.BytesIO(image_data)
+
+                    # Create caption with metadata
+                    username = update.effective_user.username
+                    user_mention = (
+                        f"@{username}"
+                        if username
+                        else f"User {update.effective_user.id}"
+                    )
+                    caption = f"📝 Requested by {user_mention}\n🎨 Prompt: {prompt}"
+
+                    await update.message.reply_photo(buffer, caption=caption)
+                    return
+
+        # If no image was generated, check for text response
+        if message.content:
             await update.message.reply_text(
-                "Invalid response format from AI. Please try again."
+                f"AI Response: {message.content}\n\n(Note: No edited image was generated)"
             )
             return
 
-        # Process the response - extract generated image
-        for part in candidate.content.parts:
-            if part.inline_data is not None:
-                # If there's image data, send the image
-                image_data = part.inline_data.data
-                buffer = io.BytesIO(image_data)
-
-                # Create caption with metadata
-                username = update.effective_user.username
-                user_mention = (
-                    f"@{username}" if username else f"User {update.effective_user.id}"
-                )
-                caption = f"📝 Requested by {user_mention}\n🎨 Prompt: {prompt}"
-
-                await update.message.reply_photo(buffer, caption=caption)
-                return
-
-        # If no image was generated
+        # If no image was generated and no text response
         await update.message.reply_text(
             "Could not generate edited image. Please try again."
         )
 
-    except ImportError as e:
-        await update.message.reply_text(
-            f"Missing dependency: {e}. Please install required packages: pip install aiohttp google-genai pillow"
-        )
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {e!s}"
