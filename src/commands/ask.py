@@ -1,6 +1,7 @@
 import io
 import os
 
+from google import genai
 from litellm import acompletion
 from telegram import Update
 from telegram.constants import ChatType, ParseMode
@@ -246,6 +247,101 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception:
             # Markdown parsing failed, fallback to plain text
             await update.message.reply_text(text, disable_web_page_preview=True)
+    except Exception as e:
+        await update.message.reply_text(
+            f"An error occurred while processing your request: {e!s}"
+        )
+
+
+@triggers(["edit"])
+@usage("/edit [prompt]")
+@api_key("GOOGLE_API_KEY")
+@example("/edit Make it look like a painting")
+@description(
+    "Reply to an image to edit it using AI. Provide a prompt describing the desired changes."
+)
+async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
+
+    # Check if in private chat and not admin
+    if not is_admin and update.message.chat.type == ChatType.PRIVATE:
+        await update.message.reply_text(
+            "This command is not available in private chats."
+        )
+        return
+
+    # Check if replying to a message with a photo
+    if not update.message.reply_to_message or not update.message.reply_to_message.photo:
+        await commands.usage_string(update.message, edit)
+        return
+
+    # Check command whitelist
+    if not is_admin and not await check_command_whitelist(
+        update.message.chat.id, update.message.from_user.id, "edit"
+    ):
+        await update.message.reply_text(
+            "This command is not available in this chat. "
+            "Please contact an admin to whitelist this command."
+        )
+        return
+
+    # Get the prompt from args
+    if not context.args:
+        await update.message.reply_text(
+            "Please provide a prompt describing how to edit the image."
+        )
+        return
+
+    prompt = " ".join(context.args)
+
+    try:
+        # Get the photo file
+        photo = update.message.reply_to_message.photo[-1]
+        file = await context.bot.getFile(photo.file_id)
+
+        # Download the image using Telegram's built-in method
+        image_data = await file.download_as_bytearray()
+
+        # Create Google GenAI client
+        client = genai.Client(api_key=config["API"]["GOOGLE_API_KEY"])
+
+        # Create PIL Image from downloaded data
+        from PIL import Image
+
+        image = Image.open(io.BytesIO(image_data))
+
+        # Call Gemini API for image generation/editing using the direct client
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-image-preview",
+            contents=[prompt, image],
+        )
+
+        # Process the response - extract generated image
+        for part in response.candidates[0].content.parts:
+            if part.inline_data is not None:
+                # If there's image data, send the image
+                image_data = part.inline_data.data
+                buffer = io.BytesIO(image_data)
+
+                # Create caption with metadata
+                username = update.effective_user.username
+                user_mention = (
+                    f"@{username}" if username else f"User {update.effective_user.id}"
+                )
+                caption = f"📝 Requested by {user_mention}\n🎨 Prompt: {prompt}"
+
+                await update.message.reply_photo(buffer, caption=caption)
+                return
+
+        # If no image was generated
+        await update.message.reply_text(
+            "Could not generate edited image. Please try again."
+        )
+
+    except ImportError as e:
+        await update.message.reply_text(
+            f"Missing dependency: {e}. Please install required packages: pip install aiohttp google-genai pillow"
+        )
     except Exception as e:
         await update.message.reply_text(
             f"An error occurred while processing your request: {e!s}"
