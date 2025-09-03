@@ -1,3 +1,10 @@
+# [1.122.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.121.0...v1.122.0) (2025-09-03)
+
+
+### Features
+
+* new /edit command using nano-banana ([05a1cb0](https://github.com/obviyus/SuperSeriousBot/commit/05a1cb0253081e0b61b752745b1986305a322e89))
+
 # [1.121.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.120.0...v1.121.0) (2025-08-20)
 
 
