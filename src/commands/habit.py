@@ -1,6 +1,7 @@
 import asyncio
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 import commands
@@ -148,6 +149,18 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
                 reply_markup=await habit_keyboard(group_habit["id"]),
             )
             message_tasks.append(task)
+        except BadRequest as e:
+            if "Chat not found" in str(e):
+                logger.warning(
+                    f"Chat not found for habit {group_habit['id']}, removing habit"
+                )
+                async with get_db(write=True) as conn:
+                    await conn.execute(
+                        "DELETE FROM habit WHERE id = ?", (group_habit["id"],)
+                    )
+                    await conn.commit()
+            else:
+                logger.error(f"BadRequest error for habit {group_habit['id']}: {e!s}")
         except Exception as e:
             logger.error(f"Error sending message for habit {group_habit['id']}: {e!s}")
 
@@ -185,7 +198,7 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "A habit with this name already exists in this group. Adding you to it..."
             )
         else:
-            await conn.execute(
+            cursor = await conn.execute(
                 "INSERT INTO habit (chat_id, habit_name, weekly_goal, creator_id) VALUES (?, ?, ?, ?)",
                 (
                     update.effective_chat.id,
@@ -194,7 +207,7 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     update.message.from_user.id,
                 ),
             )
-            habit_id = conn.lastrowid
+            habit_id = cursor.lastrowid
             await conn.execute(
                 "INSERT INTO habit_members (habit_id, user_id) VALUES (?, ?)",
                 (habit_id, update.message.from_user.id),
