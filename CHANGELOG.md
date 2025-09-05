@@ -1,3 +1,10 @@
+## [1.122.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.2...v1.122.3) (2025-09-05)
+
+
+### Bug Fixes
+
+* handle BadRequest error for non-existent chat in habit tracker ([e861970](https://github.com/obviyus/SuperSeriousBot/commit/e8619703685fb5cb7246a6858385626c510879c5))
+
 ## [1.122.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.1...v1.122.2) (2025-09-03)
 
 
