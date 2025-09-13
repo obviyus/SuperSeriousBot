@@ -1,3 +1,10 @@
+# [1.123.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.4...v1.123.0) (2025-09-13)
+
+
+### Features
+
+* allow tldw to summarize replied URLs ([dc51434](https://github.com/obviyus/SuperSeriousBot/commit/dc5143471e3ab32bd83716e93d43505beb1f0c5a))
+
 ## [1.122.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.3...v1.122.4) (2025-09-13)
 
 
