@@ -134,7 +134,7 @@ async def tldw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not message:
         return
 
-    url = utils.extract_link(message.reply_to_message or message)
+    url = utils.extract_link(message)
     if not url:
         await message.reply_text("Please provide a valid YouTube URL to summarize.")
         return
