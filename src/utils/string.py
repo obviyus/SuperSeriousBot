@@ -51,7 +51,15 @@ async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
     if result and result["username"]:
         return result["username"]
     else:
-        chat = await context.bot.get_chat(user_id)
+        try:
+            chat = await context.bot.get_chat(user_id)
+        except BadRequest:
+            # User not found / inaccessible; fall back to showing the numeric ID
+            return f"{user_id}"
+        except Exception:
+            # Any other unexpected error; fall back gracefully
+            return f"{user_id}"
+
         if chat.username:
             async with get_db(write=True) as conn:
                 await conn.execute(

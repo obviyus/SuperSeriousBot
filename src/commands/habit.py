@@ -142,11 +142,19 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     message_tasks = []
     for group_habit in group_habits:
+        # Build message and keyboard first; if this fails, skip sending
+        try:
+            text = await habit_message_builder(group_habit["id"], context)
+            keyboard = await habit_keyboard(group_habit["id"])
+        except Exception as e:
+            logger.error(f"Error building message for habit {group_habit['id']}: {e!s}")
+            continue
+
         try:
             task = context.bot.send_message(
                 chat_id=group_habit["chat_id"],
-                text=await habit_message_builder(group_habit["id"], context),
-                reply_markup=await habit_keyboard(group_habit["id"]),
+                text=text,
+                reply_markup=keyboard,
             )
             message_tasks.append(task)
         except BadRequest as e:
@@ -154,9 +162,19 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
                 logger.warning(
                     f"Chat not found for habit {group_habit['id']}, removing habit"
                 )
+                # Manually cascade delete dependents to avoid FK constraint failures
                 async with get_db(write=True) as conn:
                     await conn.execute(
-                        "DELETE FROM habit WHERE id = ?", (group_habit["id"],)
+                        "DELETE FROM habit_log WHERE habit_id = ?",
+                        (group_habit["id"],),
+                    )
+                    await conn.execute(
+                        "DELETE FROM habit_members WHERE habit_id = ?",
+                        (group_habit["id"],),
+                    )
+                    await conn.execute(
+                        "DELETE FROM habit WHERE id = ?",
+                        (group_habit["id"],),
                     )
                     await conn.commit()
             else:
