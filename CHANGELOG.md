@@ -1,3 +1,10 @@
+## [1.122.4](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.3...v1.122.4) (2025-09-13)
+
+
+### Bug Fixes
+
+* improve error handling in habit tracker and user retrieval ([0a99431](https://github.com/obviyus/SuperSeriousBot/commit/0a99431b487add6427712bac1b9c899f633d0fb8))
+
 ## [1.122.3](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.2...v1.122.3) (2025-09-05)
 
 
