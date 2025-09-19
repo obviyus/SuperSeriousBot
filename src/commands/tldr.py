@@ -48,7 +48,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 raw_text = raw_text[:max_chars] + "..."
 
             llm_response = await acompletion(
-                model="openrouter/google/gemini-2.5-flash",
+                model="openrouter/openai/gpt-5-mini",
                 messages=[
                     {
                         "role": "system",
@@ -61,7 +61,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 ],
                 extra_headers={
                     "X-Title": "SuperSeriousBot",
-                    "HTTP-Referer": "https://t.me/SuperSeriousBot",
+                    "HTTP-Referer": "https://superserio.us",
                 },
                 api_key=config["API"]["OPENROUTER_API_KEY"],
                 max_tokens=1000,
@@ -105,7 +105,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             raw_text = raw_text[:max_chars] + "..."
 
         llm_response = await acompletion(
-            model="openrouter/google/gemini-2.5-flash",
+            model="openrouter/openai/gpt-5-mini",
             messages=[
                 {
                     "role": "system",
@@ -118,7 +118,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             ],
             extra_headers={
                 "X-Title": "SuperSeriousBot",
-                "HTTP-Referer": "https://t.me/SuperSeriousBot",
+                "HTTP-Referer": "https://superserio.us",
             },
             api_key=config["API"]["OPENROUTER_API_KEY"],
             max_tokens=1000,

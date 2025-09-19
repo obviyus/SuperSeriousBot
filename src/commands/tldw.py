@@ -84,7 +84,7 @@ async def summarize_transcript(transcript: str) -> str:
     """Summarize the given transcript using AI."""
     # Generate summary using LLM
     llm_response = await acompletion(
-        model="openrouter/google/gemini-2.5-flash",
+        model="openrouter/openai/gpt-5-mini",
         messages=[
             {
                 "role": "system",
@@ -92,12 +92,12 @@ async def summarize_transcript(transcript: str) -> str:
             },
             {
                 "role": "user",
-                "content": f"Please create a TLDR summary of this content:\n\n{transcript}",
+                "content": f"YouTube transcript:\n\n{transcript}",
             },
         ],
         extra_headers={
             "X-Title": "SuperSeriousBot",
-            "HTTP-Referer": "https://t.me/SuperSeriousBot",
+            "HTTP-Referer": "https://superserio.us",
         },
         api_key=config["API"]["OPENROUTER_API_KEY"],
         max_tokens=1000,
