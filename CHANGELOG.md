@@ -1,3 +1,10 @@
+# [1.124.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.123.0...v1.124.0) (2025-09-19)
+
+
+### Features
+
+* switch to gpt-5-mini ([1fd1e00](https://github.com/obviyus/SuperSeriousBot/commit/1fd1e00bb1b970ec9470e8e1193186620e825f51))
+
 # [1.123.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.122.4...v1.123.0) (2025-09-13)
 
 
