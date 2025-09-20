@@ -1,3 +1,10 @@
+## [1.125.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.125.0...v1.125.1) (2025-09-20)
+
+
+### Bug Fixes
+
+* change referrer to correct URL ([a8016ad](https://github.com/obviyus/SuperSeriousBot/commit/a8016ad4eed317dcdf51ff2baa0d4d42fcddae41))
+
 # [1.125.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.124.0...v1.125.0) (2025-09-20)
 
 
