@@ -154,7 +154,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 max_tokens=1000,
                 extra_headers={
                     "X-Title": "SuperSeriousBot",
-                    "HTTP-Referer": "https://t.me/SuperSeriousBot",
+                    "HTTP-Referer": "https://superserio.us",
                 },
                 api_key=config["API"]["OPENROUTER_API_KEY"],
             )
