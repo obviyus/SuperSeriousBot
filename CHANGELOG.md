@@ -1,3 +1,10 @@
+# [1.125.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.124.0...v1.125.0) (2025-09-20)
+
+
+### Features
+
+* change model to grok-4-fast ([132c799](https://github.com/obviyus/SuperSeriousBot/commit/132c799c17fb58c3698c9ddf0f199626661e1aaf))
+
 # [1.124.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.123.0...v1.124.0) (2025-09-19)
 
 
