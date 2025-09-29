@@ -1,5 +1,6 @@
 import base64
 import io
+import mimetypes
 import os
 
 from litellm import acompletion
@@ -209,6 +210,14 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     photo = update.message.reply_to_message.photo[-1]
     file = await context.bot.getFile(photo.file_id)
 
+    # Download the image and convert it to a data URL that includes a supported MIME type.
+    image_data = await file.download_as_bytearray()
+    mime_type, _ = mimetypes.guess_type(file.file_path)
+    if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
+        mime_type = "image/jpeg"
+    image_base64 = base64.b64encode(image_data).decode("utf-8")
+    image_url = f"data:{mime_type};base64,{image_base64}"
+
     custom_prompt = " ".join(context.args) or ""
 
     try:
@@ -225,7 +234,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         {
                             "type": "image_url",
                             "image_url": {
-                                "url": file.file_path,
+                                "url": image_url,
                             },
                         },
                     ],
