@@ -1,3 +1,10 @@
+## [1.125.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.125.1...v1.125.2) (2025-10-04)
+
+
+### Bug Fixes
+
+* update model reference to remove unnecessary suffix ([9e357ef](https://github.com/obviyus/SuperSeriousBot/commit/9e357efd4fe4f2225963e24a4adea443f6031456))
+
 ## [1.125.1](https://github.com/obviyus/SuperSeriousBot/compare/v1.125.0...v1.125.1) (2025-09-20)
 
 
