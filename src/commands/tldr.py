@@ -48,7 +48,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 raw_text = raw_text[:max_chars] + "..."
 
             llm_response = await acompletion(
-                model="openrouter/x-ai/grok-4-fast:free",
+                model="openrouter/x-ai/grok-4-fast",
                 messages=[
                     {
                         "role": "system",
@@ -105,7 +105,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             raw_text = raw_text[:max_chars] + "..."
 
         llm_response = await acompletion(
-            model="openrouter/x-ai/grok-4-fast:free",
+            model="openrouter/x-ai/grok-4-fast",
             messages=[
                 {
                     "role": "system",

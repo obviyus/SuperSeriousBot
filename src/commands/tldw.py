@@ -84,7 +84,7 @@ async def summarize_transcript(transcript: str) -> str:
     """Summarize the given transcript using AI."""
     # Generate summary using LLM
     llm_response = await acompletion(
-        model="openrouter/x-ai/grok-4-fast:free",
+        model="openrouter/x-ai/grok-4-fast",
         messages=[
             {
                 "role": "system",

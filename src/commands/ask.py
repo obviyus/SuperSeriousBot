@@ -222,7 +222,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         response = await acompletion(
-            model="openrouter/x-ai/grok-4-fast:free",
+            model="openrouter/x-ai/grok-4-fast",
             messages=[
                 {
                     "role": "user",
