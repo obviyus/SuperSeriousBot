@@ -179,7 +179,7 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     target = url.geturl() if hasattr(url, "geturl") else str(url)
-    cobalt_base = config["API"].get("COBALT_URL") or "http://100.88.216.3:9000"
+    cobalt_base = config["API"].get("COBALT_URL") or "http://100.69.132.40:9000"
 
     try:
         data = await _cobalt_request(cobalt_base, target)
