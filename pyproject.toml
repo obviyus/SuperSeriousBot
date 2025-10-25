@@ -3,9 +3,9 @@ name = "superseriousbot"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
-  "aiohttp~=3.12.15",
+  "aiohttp~=3.13.1",
   "aiosqlite>=0.21.0",
   "async-lru>=2.0.5",
   "beautifulsoup4~=4.14.2",
@@ -17,16 +17,16 @@ dependencies = [
   "gtts>=2.5.4",
   "howlongtobeatpy>=1.0.18",
   "ijson~=3.4.0.post0",
-  "litellm[proxy]~=1.78.6",
+  "litellm[proxy]~=1.78.7",
   "networkx>=3.5",
   "pydantic~=2.12.3",
   "python-dotenv>=1.1.1",
   "python-telegram-bot[job-queue,rate-limiter,webhooks]~=22.5",
-  "redis>=5.2.0",
+  "redis>=7.0.0",
   "requests~=2.32.5",
   "spurdify>=0.3.0",
   "uwuify>=1.3.1",
-  "yt-dlp~=2025.10.14",
+  "yt-dlp~=2025.10.22",
 ]
 
 

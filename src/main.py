@@ -1,8 +1,10 @@
 import asyncio
+import contextlib
 import datetime
 import html
 import json
 import os
+import re
 import traceback
 
 import caribou
@@ -33,6 +35,45 @@ from config.logger import logger
 from config.options import config
 from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
+
+
+def ensure_caribou_py314_compat() -> None:
+    """
+    Adjust Caribou's SQLite parameter handling for Python 3.14.
+    """
+    from caribou import migrate as caribou_migrate
+
+    if getattr(caribou_migrate, "_py314_param_patch", False):
+        return
+
+    placeholder_pattern = re.compile(r":([0-9]+)")
+    original_transaction = caribou_migrate.transaction
+
+    @contextlib.contextmanager
+    def patched_execute(conn, sql, params=None):
+        params = [] if params is None else params
+        if isinstance(params, (list, tuple)):
+            placeholders = placeholder_pattern.findall(sql)
+            if placeholders:
+                params = {
+                    name: params[idx]
+                    for idx, name in enumerate(placeholders)
+                    if idx < len(params)
+                }
+        cursor = conn.execute(sql, params)
+        try:
+            yield cursor
+        finally:
+            cursor.close()
+
+    def patched_update_version(self, version):
+        sql = f"update {caribou_migrate.VERSION_TABLE} set version = ?"
+        with original_transaction(self.conn):
+            self.conn.execute(sql, (version,))
+
+    caribou_migrate.execute = patched_execute
+    caribou_migrate.Database.update_version = patched_update_version
+    caribou_migrate._py314_param_patch = True
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -209,6 +250,7 @@ async def setup_application() -> Application:
 
 
 def main():
+    ensure_caribou_py314_compat()
     try:
         # AIDEV-NOTE: Migrations are in the project root, not parent directory
         # This works for both Docker (/code/migrations) and local development
@@ -223,7 +265,9 @@ def main():
     except Exception as e:
         logger.error(f"Error running database migrations: {e}")
 
-    application = asyncio.get_event_loop().run_until_complete(setup_application())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    application = loop.run_until_complete(setup_application())
 
     if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
         logger.info(

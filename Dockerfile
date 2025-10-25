@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS build
+FROM python:3.14-slim AS build
 
 SHELL ["sh", "-exc"]
 
@@ -18,7 +18,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
-    UV_PYTHON=python3.12 \
+    UV_PYTHON=python3.14 \
     UV_PROJECT_ENVIRONMENT=/app
 
 COPY pyproject.toml /_lock/
