@@ -16,9 +16,6 @@ from utils.decorators import api_key, description, example, triggers, usage
 if config["API"]["OPENROUTER_API_KEY"]:
     os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
 
-if config["API"]["GOOGLE_API_KEY"]:
-    os.environ["GEMINI_API_KEY"] = config["API"]["GOOGLE_API_KEY"]
-
 system_prompt = """You are a helpful assistant running as a Telegram bot called @SuperSeriousBot.
 
 You are asked to provide information on a wide range of topics, and you should do your best to provide accurate and helpful responses.
@@ -86,10 +83,10 @@ async def get_ai_model() -> str:
 
 @triggers(["ask"])
 @usage("/ask [-m] [query]")
-@api_key("GOOGLE_API_KEY")
+@api_key("OPENROUTER_API_KEY")
 @example("/ask How long does a train between Tokyo and Hokkaido take?")
 @description(
-    "Ask anything using AI with Google search grounding. Use -m for custom model."
+    "Ask anything using AI with Grok web search grounding. Use -m for custom model."
 )
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if (
@@ -128,12 +125,12 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         use_custom_model = True
         args.pop(0)  # Remove -m from args
 
-        # Check if custom model requires OpenRouter API key
-        if not config["API"]["OPENROUTER_API_KEY"]:
-            await update.message.reply_text(
-                "Custom model option requires OPENROUTER_API_KEY to be configured."
-            )
-            return
+    openrouter_api_key = config["API"].get("OPENROUTER_API_KEY")
+    if not openrouter_api_key:
+        await update.message.reply_text(
+            "OPENROUTER_API_KEY is required to use this command."
+        )
+        return
 
     query: str = " ".join(args)
     token_count = len(args)
@@ -157,20 +154,28 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     "X-Title": "SuperSeriousBot",
                     "HTTP-Referer": "https://superserio.us",
                 },
-                api_key=config["API"]["OPENROUTER_API_KEY"],
+                api_key=openrouter_api_key,
             )
         else:
-            # Use Google AI Studio with search grounding
-            tools = [{"googleSearch": {}}]  # Enable Google Search grounding
+            # Use Grok with native web search via OpenRouter
             response = await acompletion(
-                model="gemini/gemini-2.0-flash",
+                model="openrouter/x-ai/grok-4-fast",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": query},
                 ],
-                tools=tools,
                 max_tokens=1000,
-                api_key=config["API"]["GOOGLE_API_KEY"],
+                plugins=[
+                    {
+                        "id": "web",
+                        "engine": "native",
+                    }
+                ],
+                extra_headers={
+                    "X-Title": "SuperSeriousBot",
+                    "HTTP-Referer": "https://superserio.us",
+                },
+                api_key=openrouter_api_key,
             )
 
         text = response.choices[0].message.content
