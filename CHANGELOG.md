@@ -1,3 +1,11 @@
+# [1.126.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.125.2...v1.126.0) (2025-10-25)
+
+
+### Features
+
+* upgrade to python 3.14 ([049510b](https://github.com/obviyus/SuperSeriousBot/commit/049510b4c62aaebe6a00e5d8ed615feff5735a58))
+* use grok-4-fast for web search ([502368a](https://github.com/obviyus/SuperSeriousBot/commit/502368a6da6aafe3e4b8c5f064012510ab358ae4))
+
 ## [1.125.2](https://github.com/obviyus/SuperSeriousBot/compare/v1.125.1...v1.125.2) (2025-10-04)
 
 
