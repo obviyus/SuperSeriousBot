@@ -14,7 +14,7 @@ PRIMARY_DB_PATH = Path(os.getenv("DATABASE_PATH_PREFIX", ".")) / "SuperSeriousBo
 
 
 @asynccontextmanager
-async def get_db(write: bool = False) -> AsyncGenerator[aiosqlite.Connection, None]:
+async def get_db(write: bool = False) -> AsyncGenerator[aiosqlite.Connection]:
     db_path = PRIMARY_DB_PATH
     conn = None
     try:

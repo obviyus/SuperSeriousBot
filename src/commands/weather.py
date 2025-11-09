@@ -30,7 +30,7 @@ class Point:
         self.address = address
 
     @classmethod
-    async def from_name(cls, name: str) -> "Point":
+    async def from_name(cls, name: str) -> Point:
         location = await asyncio.to_thread(geolocator.geocode, name, exactly_one=True)
         if not location:
             p = cls(0.0, 0.0, "")
