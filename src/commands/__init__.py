@@ -48,6 +48,7 @@ from . import (
     ud,
     uwu,
     weather,
+    whitelist,
 )
 from .highlight import highlight_button_handler
 
@@ -83,6 +84,7 @@ COMMAND_MODULES = [
     ud,
     uwu,
     weather,
+    whitelist,
 ]
 
 # Collect all command functions
