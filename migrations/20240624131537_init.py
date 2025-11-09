@@ -33,7 +33,7 @@ def upgrade(connection):
 
     connection.execute(
         """
-        CREATE UNIQUE INDEX IF NOT EXISTS chat_stats_chat_user_message_id_index 
+        CREATE UNIQUE INDEX IF NOT EXISTS chat_stats_chat_user_message_id_index
         ON chat_stats (chat_id, user_id, message_id)
     """
     )
@@ -332,25 +332,25 @@ def upgrade(connection):
     # Create indexes
     connection.execute(
         """
-        CREATE INDEX IF NOT EXISTS command_stats_user_id_command_index 
+        CREATE INDEX IF NOT EXISTS command_stats_user_id_command_index
         ON command_stats (command, user_id)
     """
     )
     connection.execute(
         """
-        CREATE INDEX IF NOT EXISTS tv_opt_in_user_id_chat_id_index 
+        CREATE INDEX IF NOT EXISTS tv_opt_in_user_id_chat_id_index
         ON tv_opt_in (user_id, chat_id)
     """
     )
     connection.execute(
         """
-        CREATE INDEX IF NOT EXISTS summon_groups_group_name_index 
+        CREATE INDEX IF NOT EXISTS summon_groups_group_name_index
         ON summon_groups (group_name)
     """
     )
     connection.execute(
         """
-        CREATE INDEX IF NOT EXISTS highlight_words_word_index 
+        CREATE INDEX IF NOT EXISTS highlight_words_word_index
         ON highlights (string)
     """
     )

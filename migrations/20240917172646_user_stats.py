@@ -1,7 +1,7 @@
 """
 This module contains a Caribou migration.
 
-Migration Name: user_stats 
+Migration Name: user_stats
 Migration Version: 20240917172646
 """
 

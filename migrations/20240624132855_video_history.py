@@ -1,7 +1,7 @@
 """
 This module contains a Caribou migration.
 
-Migration Name: video_history 
+Migration Name: video_history
 Migration Version: 20240624132855
 """
 

@@ -1,7 +1,7 @@
 """
 This module contains a Caribou migration.
 
-Migration Name: tldw 
+Migration Name: tldw
 Migration Version: 20240819123959
 """
 

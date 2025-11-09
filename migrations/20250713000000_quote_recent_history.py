@@ -23,7 +23,7 @@ def upgrade(connection):
     # Index for efficient cleanup and querying
     connection.execute(
         """
-        CREATE INDEX IF NOT EXISTS quote_recent_history_chat_time_index 
+        CREATE INDEX IF NOT EXISTS quote_recent_history_chat_time_index
         ON quote_recent_history (chat_id, shown_time)
         """
     )

@@ -1,7 +1,7 @@
 """
 This module contains a Caribou migration.
 
-Migration Name: steam_offer_notify 
+Migration Name: steam_offer_notify
 Migration Version: 20240627091908
 """
 

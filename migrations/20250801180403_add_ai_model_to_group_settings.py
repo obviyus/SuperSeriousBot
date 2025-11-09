@@ -5,7 +5,7 @@ Add ai_model column to group_settings table
 
 def upgrade(connection):
     connection.execute("""
-        ALTER TABLE group_settings 
+        ALTER TABLE group_settings
         ADD COLUMN ai_model TEXT DEFAULT 'openrouter/google/gemini-2.5-flash'
     """)
 

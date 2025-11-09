@@ -1,7 +1,7 @@
 """
 This module contains a Caribou migration.
 
-Migration Name: summon_pk 
+Migration Name: summon_pk
 Migration Version: 20240719174601
 """
 
