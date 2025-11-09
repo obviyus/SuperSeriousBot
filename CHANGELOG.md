@@ -1,3 +1,16 @@
+# [1.127.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.126.0...v1.127.0) (2025-11-09)
+
+
+### Bug Fixes
+
+* reformat with ruff ([ff03937](https://github.com/obviyus/SuperSeriousBot/commit/ff03937f4d2bf717210b45bae6eca6b5a2628d26))
+
+
+### Features
+
+* re-enable transcribe command ([8a25bb8](https://github.com/obviyus/SuperSeriousBot/commit/8a25bb8ec903060f384a1797813b791d1c0c163e))
+* whitelist command ([0844ef9](https://github.com/obviyus/SuperSeriousBot/commit/0844ef9a95a893f7ea2745a58cd35b304f8ebb1d))
+
 # [1.126.0](https://github.com/obviyus/SuperSeriousBot/compare/v1.125.2...v1.126.0) (2025-10-25)
 
 
