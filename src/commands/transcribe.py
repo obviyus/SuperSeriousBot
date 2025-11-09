@@ -18,7 +18,7 @@ from utils.decorators import api_key, description, example, triggers, usage
 from .ask import check_command_whitelist
 
 OPENROUTER_MODEL = "openai/gpt-4o-audio-preview"
-FALLBACK_PROMPT = "Please transcribe this audio file. Do not dump out a wall of text. Keep it readable, suitable for a Telegram message."
+FALLBACK_PROMPT = "Please transcribe this audio file. Do not dump out a wall of text. Keep it readable, suitable for a Telegram message. Respond immediately with the transscript, no preamble or additional commentary."
 
 
 class AudioSource(NamedTuple):
