@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 
 from config.db import get_db
+from utils.messages import get_message
 
 
 async def _save_message_stats(message: Message) -> None:
@@ -55,7 +56,7 @@ async def _save_message_stats(message: Message) -> None:
                 ) as cursor:
                     result = await cursor.fetchone()
 
-                is_enabled = result["fts"] if result else False
+                is_enabled = bool(result["fts"]) if result else False
                 if is_enabled:
                     await conn.execute(
                         "UPDATE chat_stats SET message_text = ? WHERE rowid = last_insert_rowid()",
@@ -92,26 +93,33 @@ async def _save_mention(
 
 async def handle_message_stats(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle message stats for non-command messages."""
-    if not update.message or update.message.text.startswith("/"):
+    message = get_message(update)
+
+    if not message:
         return
 
-    await _save_message_stats(update.message)
+    if not message.text or message.text.startswith("/"):
+        return
+
+    await _save_message_stats(message)
 
 
 async def handle_mentions(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle mentions in messages."""
-    if not update.message or not update.message.from_user:
+    message = get_message(update)
+
+    if not message or not message.from_user:
         return
 
-    mentioning_user_id = update.message.from_user.id
+    mentioning_user_id = message.from_user.id
 
     # Handle text mentions and @ mentions
-    if update.message.entities:
-        for entity in update.message.entities:
+    if message.entities:
+        for entity in message.entities:
             if entity.type == MessageEntity.TEXT_MENTION and entity.user:
-                await _save_mention(mentioning_user_id, entity.user.id, update.message)
-            elif entity.type == MessageEntity.MENTION:
-                mentioned_username = update.message.text[
+                await _save_mention(mentioning_user_id, entity.user.id, message)
+            elif entity.type == MessageEntity.MENTION and message.text:
+                mentioned_username = message.text[
                     entity.offset + 1 : entity.offset + entity.length
                 ]
                 async with get_db() as conn:
@@ -122,15 +130,15 @@ async def handle_mentions(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                         result = await cursor.fetchone()
                         if result:
                             await _save_mention(
-                                mentioning_user_id, result["user_id"], update.message
+                                mentioning_user_id, result["user_id"], message
                             )
 
     # Handle replies
-    elif update.message.reply_to_message and update.message.reply_to_message.from_user:
+    elif message.reply_to_message and message.reply_to_message.from_user:
         await _save_mention(
             mentioning_user_id,
-            update.message.reply_to_message.from_user.id,
-            update.message,
+            message.reply_to_message.from_user.id,
+            message,
         )
 
 

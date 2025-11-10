@@ -11,6 +11,7 @@ import utils
 from config import config
 from config.db import get_db
 from utils.decorators import api_key, description, example, triggers, usage
+from utils.messages import get_message
 
 if config["API"]["OPENROUTER_API_KEY"]:
     os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
@@ -102,7 +103,8 @@ async def summarize_transcript(transcript: str) -> str:
         api_key=config["API"]["OPENROUTER_API_KEY"],
         max_tokens=1000,
     )
-    return llm_response.choices[0].message.content
+    content = llm_response.choices[0].message.content  # type: ignore
+    return str(content) if content else "No summary available"
 
 
 async def get_cached_summary(conn, video_id: str) -> str | None:
@@ -129,9 +131,11 @@ async def cache_summary(conn, video_id: str, summary: str, user_id: int):
 @example("/tldw https://www.youtube.com/watch?v=xuCn8ux2gbs")
 @description("Too Long; Didn't Watch for YouTube videos.")
 async def tldw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Too Long; Didn't Watch for YouTube videos"""
-    message = update.message
+    message = get_message(update)
     if not message:
+        return
+    """Too Long; Didn't Watch for YouTube videos"""
+    if not message.from_user:
         return
 
     url = utils.extract_link(message)

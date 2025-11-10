@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 import utils
 from config import logger
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 @usage("/friends")
@@ -13,18 +14,24 @@ from utils.decorators import description, example, triggers, usage
 @triggers(["friends"])
 @description("Get the strongest connected user to your account.")
 async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Get the strongest connected user to your account."""
+    if not message.from_user:
+        return
+
     try:
         # AIDEV-NOTE: Direct dict access is faster than __getitem__
-        graph: DiGraph = context.bot_data.get(f"network_{update.message.chat_id}")
-        if not graph:
-            await update.message.reply_text("This group has no social graph yet.")
+        graph = context.bot_data.get(f"network_{message.chat_id}")
+        if not graph or not isinstance(graph, DiGraph):
+            await message.reply_text("This group has no social graph yet.")
             return
 
-        user_id = int(update.message.from_user.id)
+        user_id = int(message.from_user.id)
 
         if not graph.has_node(user_id):
-            await update.message.reply_text("You are not in this group's social graph.")
+            await message.reply_text("You are not in this group's social graph.")
             return
 
         # AIDEV-NOTE: Only fetch top 3 edges instead of sorting all
@@ -55,7 +62,7 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         edges_outgoing = [edge for _, edge in sorted(outgoing_heap, reverse=True)]
 
-        text = f"From the social graph of <b>{update.message.chat.title}</b>:"
+        text = f"From the social graph of <b>{message.chat.title}</b>:"
 
         # AIDEV-NOTE: Batch fetch names for better performance
         user_ids_to_fetch = set()
@@ -85,11 +92,9 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             for edge in edges_incoming:
                 text += f"\n<code>{edge[2]['weight']:6} ← {names.get(edge[0], str(edge[0]))}</code>"
 
-        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+        await message.reply_text(text, parse_mode=ParseMode.HTML)
     except Exception as e:
         # AIDEV-NOTE: Catch all exceptions to prevent crashes
         logger.error(f"Error in get_friends: {e}")
-        await update.message.reply_text(
-            "An error occurred while fetching your connections."
-        )
+        await message.reply_text("An error occurred while fetching your connections.")
         return

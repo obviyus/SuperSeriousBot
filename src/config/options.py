@@ -43,20 +43,33 @@ class Config(BaseModel):
 
 
 try:
+    admin_data = [admin for admin in os.environ.get("ADMINS", "").split(" ") if admin]
+    token = os.environ.get("TELEGRAM_TOKEN")
+    if not token:
+        raise RuntimeError("TELEGRAM_TOKEN must be set")
+
+    updater = os.environ.get("UPDATER") or "polling"
+    webhook_base = os.environ.get("WEBHOOK_URL")
+    webhook_url = f"{webhook_base}/{token}" if webhook_base else None
+
+    logging_channel_value = os.environ.get("LOGGING_CHANNEL_ID")
+    logging_channel_id = int(logging_channel_value) if logging_channel_value else None
+
+    quote_channel_value = os.environ.get("QUOTE_CHANNEL_ID")
+    if not quote_channel_value:
+        raise RuntimeError("QUOTE_CHANNEL_ID must be set")
+    quote_channel_id = int(quote_channel_value)
+
     config = Config(
-        TELEGRAM={
-            "ADMINS": os.environ.get("ADMINS", "").split(" "),
-            "TOKEN": os.environ.get("TELEGRAM_TOKEN"),
-            "UPDATER": os.environ.get("UPDATER"),
-            "WEBHOOK_URL": f"""{os.environ.get("WEBHOOK_URL")}/{os.environ.get("TELEGRAM_TOKEN")}""",
-            "LOGGING_CHANNEL_ID": (
-                int(os.environ.get("LOGGING_CHANNEL_ID"))
-                if os.environ.get("LOGGING_CHANNEL_ID")
-                else None
-            ),
-            "QUOTE_CHANNEL_ID": int(os.environ.get("QUOTE_CHANNEL_ID")),
+        TELEGRAM={  # type: ignore[arg-type]
+            "ADMINS": admin_data,
+            "TOKEN": token,
+            "UPDATER": updater,
+            "WEBHOOK_URL": webhook_url,
+            "LOGGING_CHANNEL_ID": logging_channel_id,
+            "QUOTE_CHANNEL_ID": quote_channel_id,
         },
-        API={
+        API={  # type: ignore[arg-type]
             "GIPHY_API_KEY": os.environ.get("GIPHY_API_KEY", ""),
             "GOODREADS_API_KEY": os.environ.get("GOODREADS_API_KEY", ""),
             "IMGUR_API_KEY": os.environ.get("IMGUR_API_KEY", ""),

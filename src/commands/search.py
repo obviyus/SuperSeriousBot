@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 
 from config.db import get_db
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 @triggers(["search"])
@@ -17,6 +18,9 @@ from utils.decorators import description, example, triggers, usage
 @description("Search for a message in the current chat for a user")
 @example("/search japan")
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """
     Search command handler.
     """
@@ -26,22 +30,22 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             SELECT fts FROM group_settings
             WHERE chat_id = ?;
             """,
-            (update.message.chat_id,),
+            (message.chat_id,),
         ) as cursor:
             setting = await cursor.fetchone()
 
     if not setting or not setting["fts"]:
-        await update.message.reply_text(
+        await message.reply_text(
             "Full text search is not enabled in this chat. To enable it, use /enable_fts."
         )
         return
 
     if not context.args:
-        await update.message.reply_text("Please provide a search query.")
+        await message.reply_text("Please provide a search query.")
         return
 
     query = " ".join(context.args)
-    if update.message.reply_to_message:
+    if message.reply_to_message and message.reply_to_message.from_user:
         sql = """
         SELECT cs.id, cs.chat_id, cs.message_id, cs.create_time, cs.user_id, cs.message_text
             FROM chat_stats cs
@@ -54,8 +58,8 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         LIMIT 1;
         """
         params = (
-            update.message.chat_id,
-            update.message.reply_to_message.from_user.id,
+            message.chat_id,
+            message.reply_to_message.from_user.id,
             query,
         )
     else:
@@ -69,19 +73,19 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         ORDER BY RANDOM()
         LIMIT 1;
         """
-        params = (update.message.chat_id, query)
+        params = (message.chat_id, query)
 
     async with get_db() as conn:
         async with conn.execute(sql, params) as cursor:
             results = await cursor.fetchone()
 
     if not results:
-        await update.message.reply_text("No results found.")
+        await message.reply_text("No results found.")
         return
 
     await context.bot.forward_message(
-        chat_id=update.message.chat_id,
-        from_chat_id=update.message.chat_id,
+        chat_id=message.chat_id,
+        from_chat_id=message.chat_id,
         message_id=results["message_id"],
     )
 
@@ -91,14 +95,20 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @description("Enable full text search in the current chat.")
 @example("/enable_fts")
 async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """
     Enable full text search in the current chat.
     """
+    if not message.from_user:
+        return
+
     # Check if user is a moderator
-    if update.message.chat.type != ChatType.PRIVATE:
-        chat_admins = await context.bot.get_chat_administrators(update.message.chat_id)
-        if update.message.from_user.id not in [admin.user.id for admin in chat_admins]:
-            await update.message.reply_text("You are not a moderator.")
+    if message.chat.type != ChatType.PRIVATE:
+        chat_admins = await context.bot.get_chat_administrators(message.chat_id)
+        if message.from_user.id not in [admin.user.id for admin in chat_admins]:
+            await message.reply_text("You are not a moderator.")
             return
 
     async with get_db(write=True) as conn:
@@ -107,11 +117,11 @@ async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             INSERT INTO group_settings (chat_id, fts) VALUES (?, 1)
             ON CONFLICT(chat_id) DO UPDATE SET fts = 1;
             """,
-            (update.message.chat_id,),
+            (message.chat_id,),
         )
         await conn.commit()
 
-    await update.message.reply_text("Full text search has been enabled in this chat.")
+    await message.reply_text("Full text search has been enabled in this chat.")
 
 
 @triggers(["import"])
@@ -119,19 +129,19 @@ async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 @description("Import chat stats for a chat given the JSON export.")
 @example("/import")
 async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """
     Import chat stats for a chat given the JSON export.
     """
-    if (
-        not update.message.reply_to_message
-        or not update.message.reply_to_message.document
-    ):
-        await update.message.reply_text("Please reply to a JSON file.")
+    if not message.reply_to_message or not message.reply_to_message.document:
+        await message.reply_text("Please reply to a JSON file.")
         return
 
-    document = update.message.reply_to_message.document
+    document = message.reply_to_message.document
     if document.mime_type != "application/json":
-        await update.message.reply_text("Please provide a JSON file.")
+        await message.reply_text("Please provide a JSON file.")
         return
 
     file = await document.get_file()
@@ -171,8 +181,10 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 except ValueError:
                     # Fallback if string has no offset or unusual format
                     dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S")
+                import datetime as dt_module
+
                 if dt.tzinfo is not None:
-                    dt = dt.astimezone(datetime.UTC).replace(tzinfo=None)
+                    dt = dt.astimezone(dt_module.UTC).replace(tzinfo=None)
                 create_time = dt.strftime("%Y-%m-%d %H:%M:%S")
 
                 await conn.execute(
@@ -182,7 +194,7 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                     ON CONFLICT(chat_id, user_id, message_id) DO NOTHING;
                     """,
                     (
-                        update.message.chat_id,
+                        message.chat_id,
                         user_id,
                         message["id"],
                         create_time,
@@ -197,4 +209,4 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await conn.commit()
         logging.info("Processing completed.")
 
-    await update.message.reply_text("Chat stats imported.")
+    await message.reply_text("Chat stats imported.")

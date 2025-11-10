@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 from config.db import get_db
 from config.options import config
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 # AIDEV-NOTE: Global AI model setting uses chat_id = -1 in group_settings table
 GLOBAL_CHAT_ID = -1
@@ -15,9 +16,12 @@ GLOBAL_CHAT_ID = -1
 @example("/model openrouter/google/gemini-2.0-flash-thinking-exp-1219:free")
 @description("Set the AI model for /ask and /caption commands (admin only)")
 async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message or not update.effective_user:
+        return
     # Check if user is admin
     if str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]:
-        await update.message.reply_text("❌ This command is only available to admins.")
+        await message.reply_text("❌ This command is only available to admins.")
         return
     if not context.args:
         # Show current model
@@ -35,7 +39,7 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         text += "To change, use: <code>/model &lt;model_name&gt;</code>\n"
         text += "Example: <code>/model openrouter/google/gemini-3.0-flash</code>"
 
-        await update.message.reply_text(
+        await message.reply_text(
             text,
             parse_mode=ParseMode.HTML,
         )
@@ -55,7 +59,7 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         await conn.commit()
 
-    await update.message.reply_text(
+    await message.reply_text(
         f"AI model updated to: `{new_model}`",
         parse_mode="Markdown",
     )

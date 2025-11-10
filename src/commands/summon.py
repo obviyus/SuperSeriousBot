@@ -8,6 +8,7 @@ import commands
 import utils
 from config.db import get_db
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 summon_log = {}
 
@@ -88,9 +89,16 @@ async def send_chunked_messages(
 
 
 async def summon_keyboard_button(update: Update, context: CallbackContext) -> None:
+    message = get_message(update)
+
+    if not message:
+        return
     query = update.callback_query
-    action, group_id = query.data.replace("sg:", "").split(",")
-    group_id = int(group_id)
+    if not query or not query.data or not query.from_user or not query.message:
+        return
+
+    action, group_id_str = query.data.replace("sg:", "").split(",")
+    group_id = int(group_id_str)
 
     async with get_db(write=True) as conn:
         if action == "join":
@@ -132,9 +140,14 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
                     group_name = result[0] if result else "Unknown"
 
             members = await get_group_members(group_id, context)
-            await send_chunked_messages(
-                query.message.chat_id, members, context, group_id, group_name
-            )
+
+            # query.message is guaranteed to be Message (not InaccessibleMessage) here
+            from telegram import Message as TelegramMessage
+
+            if isinstance(query.message, TelegramMessage):
+                await send_chunked_messages(
+                    query.message.chat_id, members, context, group_id, group_name
+                )
             summon_log[group_id] = datetime.now()
             return
 
@@ -169,12 +182,18 @@ async def get_or_create_group(conn, group_name, chat_id, user_id):
 @triggers(["summon"])
 @description("Tag users present in a group of tags. Join by using keyboard buttons.")
 async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
+    if not update.effective_chat or not update.effective_user:
+        return
+
     if update.effective_chat.type == "private":
-        await update.message.reply_text("This command can only be used in group chats.")
+        await message.reply_text("This command can only be used in group chats.")
         return
 
     if not context.args:
-        await commands.usage_string(update.message, summon)
+        await commands.usage_string(message, summon)
         return
 
     group_name = context.args[0].lower()

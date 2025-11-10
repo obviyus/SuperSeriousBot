@@ -1,8 +1,9 @@
 import asyncio
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import cast
 
 import aiosqlite
 from redis.asyncio import Redis, from_url
@@ -46,7 +47,7 @@ async def get_redis() -> Redis:
                 redis_client = await from_url(
                     REDIS_URL, encoding="utf-8", decode_responses=True
                 )
-                await redis_client.ping()
+                await cast(Awaitable[bool], redis_client.ping())
                 logger.info("Successfully connected to Redis")
                 return redis_client
             except Exception as e:
@@ -59,6 +60,8 @@ async def get_redis() -> Redis:
                     )
                     raise
                 await asyncio.sleep(REDIS_RETRY_DELAY)
+    if redis_client is None:
+        raise RuntimeError("Failed to establish Redis connection")
     return redis_client
 
 

@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 
 import commands
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 @triggers(["hltb"])
@@ -11,9 +12,12 @@ from utils.decorators import description, example, triggers, usage
 @example("/hltb Horizon Zero Dawn")
 @description("Find how long a game takes to beat.")
 async def hltb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Find how long a game takes to beat"""
     if not context.args:
-        await commands.usage_string(update.message, hltb)
+        await commands.usage_string(message, hltb)
         return
 
     game: str = " ".join(context.args) if context.args else ""
@@ -44,7 +48,7 @@ async def hltb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         text = "No entry found."
 
-    await update.message.reply_text(
+    await message.reply_text(
         text=text,
         parse_mode="HTML",
         disable_web_page_preview=False,

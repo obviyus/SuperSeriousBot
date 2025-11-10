@@ -1,0 +1,22 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.14",
+  "extraPaths": [
+    "src",
+    "stubs"
+  ],
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    ".venv",
+    "Dockerfile",
+    "docker-compose.yaml",
+    "assets",
+    "db",
+    "migrations",
+    "SuperSeriousBot.db",
+    "vis"
+  ]
+}

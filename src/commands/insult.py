@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 @usage("/insult")
@@ -10,6 +11,9 @@ from utils.decorators import description, example, triggers, usage
 @triggers(["insult"])
 @description("Send a random insult. Reply to a person to insult them.")
 async def insult(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Get a random insult"""
     insult_response: str = ""
     try:
@@ -24,7 +28,7 @@ async def insult(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception:
         insult_response = "I'm too polite to insult right now."
 
-    if update.message.reply_to_message:
-        await update.message.reply_to_message.reply_text(text=insult_response)
+    if message.reply_to_message:
+        await message.reply_to_message.reply_text(text=insult_response)
     else:
-        await update.message.reply_text(text=insult_response)
+        await message.reply_text(text=insult_response)

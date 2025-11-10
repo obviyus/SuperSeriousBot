@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 
 import commands
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 DICTIONARY_API_ENDPOINT = "https://api.dictionaryapi.dev/api/v2/entries/en_US/{}"
 
@@ -17,20 +18,23 @@ DICTIONARY_API_ENDPOINT = "https://api.dictionaryapi.dev/api/v2/entries/en_US/{}
 @description("Define a word.")
 @example("/define posthumous")
 async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Define a word"""
     if not context.args:
-        await commands.usage_string(update.message, define)
+        await commands.usage_string(message, define)
         return
 
     word = " ".join(context.args)
     definition = await _fetch_definition(word)
 
     if not definition:
-        await update.message.reply_text(text="Word not found.")
+        await message.reply_text(text="Word not found.")
         return
 
     formatted_definition = _format_definition(definition)
-    await update.message.reply_text(
+    await message.reply_text(
         text=formatted_definition,
         parse_mode=ParseMode.HTML,
     )

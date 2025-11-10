@@ -12,6 +12,7 @@ import commands
 from config.db import get_db
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
+from utils.messages import get_message
 
 if config["API"]["OPENROUTER_API_KEY"]:
     os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
@@ -50,24 +51,28 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
 
 
 async def send_response(update: Update, text: str) -> None:
+    message = get_message(update)
+
+    if not message:
+        return
     """Send response as a message or file if too long."""
     try:
         if len(text) <= 4096:
-            await update.message.reply_text(
+            await message.reply_text(
                 text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
             )
         else:
             buffer = io.BytesIO(text.encode())
             buffer.name = "response.txt"
-            await update.message.reply_document(buffer)
+            await message.reply_document(buffer)
     except Exception:
         # Markdown parsing failed, fallback to plain text
         if len(text) <= 4096:
-            await update.message.reply_text(text, disable_web_page_preview=True)
+            await message.reply_text(text, disable_web_page_preview=True)
         else:
             buffer = io.BytesIO(text.encode())
             buffer.name = "response.txt"
-            await update.message.reply_document(buffer)
+            await message.reply_document(buffer)
 
 
 async def get_ai_model() -> str:
@@ -89,29 +94,28 @@ async def get_ai_model() -> str:
     "Ask anything using AI with Grok web search grounding. Use -m for custom model."
 )
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message or not message.from_user or not update.effective_user:
+        return
     if (
-        update.message.chat.type == ChatType.PRIVATE
+        message.chat.type == ChatType.PRIVATE
         and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
         and not await check_command_whitelist(
-            update.message.from_user.id, update.message.from_user.id, "ask"
+            message.from_user.id, message.from_user.id, "ask"
         )
     ):
-        await update.message.reply_text(
-            "This command is not available in private chats."
-        )
+        await message.reply_text("This command is not available in private chats.")
         return
 
     if not context.args:
-        await commands.usage_string(update.message, ask)
+        await commands.usage_string(message, ask)
         return
 
     if (
-        not await check_command_whitelist(
-            update.message.chat.id, update.message.from_user.id, "ask"
-        )
+        not await check_command_whitelist(message.chat.id, message.from_user.id, "ask")
         and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
     ):
-        await update.message.reply_text(
+        await message.reply_text(
             "This command is not available in this chat. "
             "Please contact an admin to whitelist this command."
         )
@@ -127,16 +131,14 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     openrouter_api_key = config["API"].get("OPENROUTER_API_KEY")
     if not openrouter_api_key:
-        await update.message.reply_text(
-            "OPENROUTER_API_KEY is required to use this command."
-        )
+        await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
         return
 
     query: str = " ".join(args)
     token_count = len(args)
 
     if token_count > 64:
-        await update.message.reply_text("Please keep your query under 64 words.")
+        await message.reply_text("Please keep your query under 64 words.")
         return
 
     try:
@@ -178,10 +180,10 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 api_key=openrouter_api_key,
             )
 
-        text = response.choices[0].message.content
+        text = response.choices[0].message.content or ""  # type: ignore[attr-defined]
         await send_response(update, text)
     except Exception as e:
-        await update.message.reply_text(
+        await message.reply_text(
             f"An error occurred while processing your request: {e!s}"
         )
 
@@ -192,38 +194,41 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @example("/caption")
 @description("Reply to an image to caption it using vision models.")
 async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message or not message.from_user or not update.effective_user:
+        return
     is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
-    if not is_admin and update.message.chat.type == ChatType.PRIVATE:
-        await update.message.reply_text(
-            "This command is not available in private chats."
-        )
+    if not is_admin and message.chat.type == ChatType.PRIVATE:
+        await message.reply_text("This command is not available in private chats.")
         return
 
-    if not update.message.reply_to_message or not update.message.reply_to_message.photo:
-        await commands.usage_string(update.message, caption)
+    if not message.reply_to_message or not message.reply_to_message.photo:
+        await commands.usage_string(message, caption)
         return
 
     if not is_admin and not await check_command_whitelist(
-        update.message.chat.id, update.message.from_user.id, "caption"
+        message.chat.id, message.from_user.id, "caption"
     ):
-        await update.message.reply_text(
+        await message.reply_text(
             "This command is not available in this chat. "
             "Please contact an admin to whitelist this command."
         )
         return
 
-    photo = update.message.reply_to_message.photo[-1]
+    photo = message.reply_to_message.photo[-1]
     file = await context.bot.getFile(photo.file_id)
 
     # Download the image and convert it to a data URL that includes a supported MIME type.
     image_data = await file.download_as_bytearray()
-    mime_type, _ = mimetypes.guess_type(file.file_path)
+    mime_type, _ = (
+        mimetypes.guess_type(file.file_path) if file.file_path else (None, None)
+    )
     if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
         mime_type = "image/jpeg"
     image_base64 = base64.b64encode(image_data).decode("utf-8")
     image_url = f"data:{mime_type};base64,{image_base64}"
 
-    custom_prompt = " ".join(context.args) or ""
+    custom_prompt = " ".join(context.args) if context.args else ""
 
     try:
         response = await acompletion(
@@ -253,16 +258,16 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             api_key=config["API"]["OPENROUTER_API_KEY"],
         )
 
-        text = response.choices[0].message.content
+        text = response.choices[0].message.content or ""  # type: ignore[attr-defined]
         try:
-            await update.message.reply_text(
+            await message.reply_text(
                 text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
             )
         except Exception:
             # Markdown parsing failed, fallback to plain text
-            await update.message.reply_text(text, disable_web_page_preview=True)
+            await message.reply_text(text, disable_web_page_preview=True)
     except Exception as e:
-        await update.message.reply_text(
+        await message.reply_text(
             f"An error occurred while processing your request: {e!s}"
         )
 
@@ -275,25 +280,26 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     "Reply to an image to edit it using AI. Provide a prompt describing the desired changes."
 )
 async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message or not message.from_user or not update.effective_user:
+        return
     is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
 
     # Check if in private chat and not admin
-    if not is_admin and update.message.chat.type == ChatType.PRIVATE:
-        await update.message.reply_text(
-            "This command is not available in private chats."
-        )
+    if not is_admin and message.chat.type == ChatType.PRIVATE:
+        await message.reply_text("This command is not available in private chats.")
         return
 
     # Check if replying to a message with a photo
-    if not update.message.reply_to_message or not update.message.reply_to_message.photo:
-        await commands.usage_string(update.message, edit)
+    if not message.reply_to_message or not message.reply_to_message.photo:
+        await commands.usage_string(message, edit)
         return
 
     # Check command whitelist
     if not is_admin and not await check_command_whitelist(
-        update.message.chat.id, update.message.from_user.id, "edit"
+        message.chat.id, message.from_user.id, "edit"
     ):
-        await update.message.reply_text(
+        await message.reply_text(
             "This command is not available in this chat. "
             "Please contact an admin to whitelist this command."
         )
@@ -301,7 +307,7 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Get the prompt from args
     if not context.args:
-        await update.message.reply_text(
+        await message.reply_text(
             "Please provide a prompt describing how to edit the image."
         )
         return
@@ -310,7 +316,7 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         # Get the photo file
-        photo = update.message.reply_to_message.photo[-1]
+        photo = message.reply_to_message.photo[-1]
         file = await context.bot.getFile(photo.file_id)
 
         # Download the image using Telegram's built-in method
@@ -337,7 +343,7 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     ],
                 }
             ],
-            modalities=["image", "text"],
+            modalities=["image", "text"],  # type: ignore[arg-type]
             extra_headers={
                 "X-Title": "SuperSeriousBot",
                 "HTTP-Referer": "https://superserio.us",
@@ -346,14 +352,12 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         # Validate response structure
-        if not response or not response.choices:
-            await update.message.reply_text(
-                "No response received from AI. Please try again."
-            )
+        if not response or not response.choices:  # type: ignore[attr-defined]
+            await message.reply_text("No response received from AI. Please try again.")
             return
 
-        choice = response.choices[0]
-        message = choice.message
+        choice = response.choices[0]  # type: ignore[attr-defined]
+        ai_message = choice.message  # type: ignore[attr-defined]
 
         # Check if there's an error in the response
         if hasattr(choice, "finish_reason") and choice.finish_reason:
@@ -362,15 +366,15 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "SAFETY",
                 "MODERATION",
             ]:
-                await update.message.reply_text(
+                await message.reply_text(
                     "❌ This request was blocked by the AI due to content policies. Please try a different prompt."
                 )
                 return
 
         # Process the response - check for images in the message
-        if hasattr(message, "images") and message.images:
+        if hasattr(ai_message, "images") and ai_message.images:
             # Extract the first generated image
-            image_info = message.images[0]
+            image_info = ai_message.images[0]
             if "image_url" in image_info and "url" in image_info["image_url"]:
                 image_url_data = image_info["image_url"]["url"]
 
@@ -390,22 +394,20 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     )
                     caption = f"📝 Requested by {user_mention}\n🎨 Prompt: {prompt}"
 
-                    await update.message.reply_photo(buffer, caption=caption)
+                    await message.reply_photo(buffer, caption=caption)
                     return
 
         # If no image was generated, check for text response
-        if message.content:
-            await update.message.reply_text(
-                f"AI Response: {message.content}\n\n(Note: No edited image was generated)"
+        if ai_message.content:
+            await message.reply_text(
+                f"AI Response: {ai_message.content}\n\n(Note: No edited image was generated)"
             )
             return
 
         # If no image was generated and no text response
-        await update.message.reply_text(
-            "Could not generate edited image. Please try again."
-        )
+        await message.reply_text("Could not generate edited image. Please try again.")
 
     except Exception as e:
-        await update.message.reply_text(
+        await message.reply_text(
             f"An error occurred while processing your request: {e!s}"
         )

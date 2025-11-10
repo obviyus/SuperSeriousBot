@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 
 import commands
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 async def text_grabber(
@@ -58,15 +59,18 @@ async def translate_and_reply(
     "Reply to a message with just the language code to translate it."
 )
 async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """
     Translate a message.
     """
-    result = await text_grabber(update.message, context)
+    result = await text_grabber(message, context)
     if not result:
-        await commands.usage_string(update.message, translate)
+        await commands.usage_string(message, translate)
         return
 
-    await translate_and_reply(update.message, result[0], result[1])
+    await translate_and_reply(message, result[0], result[1])
 
 
 @triggers(["tts"])
@@ -77,12 +81,15 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     "Reply to a message with just the language code to TTS it."
 )
 async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """
     Transcribe a message and send it as a voice message.
     """
-    result = await text_grabber(update.message, context)
+    result = await text_grabber(message, context)
     if not result:
-        await commands.usage_string(update.message, tts)
+        await commands.usage_string(message, tts)
         return
 
     text, lang = result
@@ -93,13 +100,13 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         if closest:
             sim = difflib.SequenceMatcher(None, lang.lower(), closest[0]).ratio() * 100
-            await update.message.reply_text(
+            await message.reply_text(
                 f"Couldn't recognize the given language: <b>{lang}</b>. "
                 f"Did you mean: {closest[0]} ({langs[closest[0]]})? <b>Similarity: {sim:.2f}%</b>",
                 parse_mode=ParseMode.HTML,
             )
         else:
-            await update.message.reply_text(f"Invalid language: <b>{lang}</b>")
+            await message.reply_text(f"Invalid language: <b>{lang}</b>")
         return
 
     try:
@@ -107,6 +114,6 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         fp = io.BytesIO()
         tts_obj.write_to_fp(fp)
         fp.seek(0)
-        await update.message.reply_voice(fp)
+        await message.reply_voice(fp)
     except Exception as e:
-        await update.message.reply_text(f"Error: {e!s}")
+        await message.reply_text(f"Error: {e!s}")

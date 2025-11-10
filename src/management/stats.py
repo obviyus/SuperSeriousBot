@@ -10,6 +10,7 @@ import utils.string
 from config.db import get_db
 from utils import readable_time
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 async def stat_string_builder(
@@ -39,13 +40,16 @@ async def stat_string_builder(
 @example("/seen @obviyus")
 @description("Get duration since last message of a user.")
 async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     if not context.args:
-        await commands.usage_string(update.message, get_last_seen)
+        await commands.usage_string(message, get_last_seen)
         return
 
     username_input = context.args[0].split("@")
     if len(username_input) <= 1:
-        await commands.usage_string(update.message, get_last_seen)
+        await commands.usage_string(message, get_last_seen)
         return
 
     username_lower = username_input[1].lower()
@@ -58,7 +62,7 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             user_stats = await cursor.fetchone()
 
     if not user_stats:
-        await update.message.reply_text(f"@{username_input[1]} has never been seen.")
+        await message.reply_text(f"@{username_input[1]} has never been seen.")
         return
 
     last_seen = user_stats["last_seen"]
@@ -66,16 +70,16 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     username_display = user_stats["username"]
 
     try:
-        last_seen = int(last_seen)
+        last_seen_int = int(last_seen)
     except ValueError:
-        last_seen = datetime.fromisoformat(last_seen).timestamp()
+        last_seen_int = int(datetime.fromisoformat(last_seen).timestamp())
 
     # Create a link to the message if available
     html_message = f"\n\n🔗 <a href='{message_link}'>Link</a>" if message_link else ""
 
     user_mention_string = mention_html(username_display, username_display)
-    await update.message.reply_text(
-        f"Last message from {user_mention_string} was {await readable_time(last_seen)} ago.{html_message}",
+    await message.reply_text(
+        f"Last message from {user_mention_string} was {await readable_time(last_seen_int)} ago.{html_message}",
         disable_web_page_preview=True,
         disable_notification=True,
         parse_mode=ParseMode.HTML,
@@ -113,6 +117,7 @@ async def _resolve_target_user(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> tuple[int | None, str | None]:
     """Resolve target user_id and display username from args/reply/self."""
+    message = get_message(update)
     # Prefer explicit @username arg
     if context.args:
         username_input = context.args[0].split("@")
@@ -128,17 +133,13 @@ async def _resolve_target_user(
                 return int(row["user_id"]), row["username"]
 
     # If replying to a user
-    if (
-        update.message
-        and update.message.reply_to_message
-        and update.message.reply_to_message.from_user
-    ):
-        replied = update.message.reply_to_message.from_user
+    if message and message.reply_to_message and message.reply_to_message.from_user:
+        replied = message.reply_to_message.from_user
         return replied.id, replied.username or replied.full_name
 
     # Fallback to the caller
-    if update.message and update.message.from_user:
-        caller = update.message.from_user
+    if message and message.from_user:
+        caller = message.from_user
         return caller.id, caller.username or caller.full_name
 
     return None, None
@@ -149,7 +150,10 @@ async def _resolve_target_user(
 @triggers(["stats"])
 @description("Get message count by user for the last day.")
 async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = update.message.chat_id
+    message = get_message(update)
+    if not message:
+        return
+    chat_id = message.chat_id
 
     async with get_db() as conn:
         async with conn.execute(
@@ -164,7 +168,7 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             """,
             (chat_id,),
         ) as cursor:
-            users = await cursor.fetchall()
+            users = list(await cursor.fetchall())
 
         async with conn.execute(
             """
@@ -175,9 +179,10 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             """,
             (chat_id,),
         ) as cursor:
-            total_count = (await cursor.fetchone())["total_count"]
+            result = await cursor.fetchone()
+            total_count = result["total_count"] if result else 0
 
-    await stat_string_builder(users, update.message, context, total_count)
+    await stat_string_builder(users, message, context, total_count)
 
 
 @usage("/gstats")
@@ -187,7 +192,10 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def get_total_chat_stats(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    chat_id = update.message.chat_id
+    message = get_message(update)
+    if not message:
+        return
+    chat_id = message.chat_id
 
     async with get_db() as conn:
         async with conn.execute(
@@ -201,7 +209,7 @@ async def get_total_chat_stats(
             """,
             (chat_id,),
         ) as cursor:
-            users = await cursor.fetchall()
+            users = list(await cursor.fetchall())
 
         async with conn.execute(
             """
@@ -211,9 +219,10 @@ async def get_total_chat_stats(
             """,
             (chat_id,),
         ) as cursor:
-            total_count = (await cursor.fetchone())["total_count"]
+            result = await cursor.fetchone()
+            total_count = result["total_count"] if result else 0
 
-    await stat_string_builder(users, update.message, context, total_count)
+    await stat_string_builder(users, message, context, total_count)
 
 
 @usage("/ustats [username]")
@@ -221,13 +230,16 @@ async def get_total_chat_stats(
 @triggers(["ustats", "ustat", "userstats"])
 @description("Show a user's weekly activity and other stats in this group.")
 async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message:
+    message = get_message(update)
+    if not message:
         return
-    chat_id = update.message.chat_id
+    if not message:
+        return
+    chat_id = message.chat_id
 
     user_id, username_display = await _resolve_target_user(update, context)
     if not user_id:
-        await update.message.reply_text(
+        await message.reply_text(
             "Couldn't resolve target user. Usage: /ustats [@username]"
         )
         return
@@ -255,7 +267,7 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             """,
             (chat_id, user_id),
         ) as cursor:
-            rows = await cursor.fetchall()
+            rows = list(await cursor.fetchall())
 
         counts_map = {row["d"]: row["cnt"] for row in rows}
         week_counts = [int(counts_map.get(k, 0)) for k in day_keys]
@@ -272,7 +284,8 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             """,
             (chat_id,),
         ) as cursor:
-            group_week_total = int((await cursor.fetchone())["total"] or 0)
+            result = await cursor.fetchone()
+            group_week_total = int(result["total"]) if result and result["total"] else 0
 
         # Most active hour (last 30 days)
         async with conn.execute(
@@ -317,7 +330,7 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             """,
             (chat_id, user_id),
         ) as cursor:
-            date_rows = await cursor.fetchall()
+            date_rows = list(await cursor.fetchall())
             active_dates = {r["d"] for r in date_rows}
 
         # Lifetime total for this chat
@@ -325,7 +338,8 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "SELECT COUNT(*) AS total FROM chat_stats WHERE chat_id = ? AND user_id = ?",
             (chat_id, user_id),
         ) as cursor:
-            lifetime_total = int((await cursor.fetchone())["total"] or 0)
+            result = await cursor.fetchone()
+            lifetime_total = int(result["total"]) if result and result["total"] else 0
 
     # Streak calculation from today backwards
     streak = 0
@@ -366,12 +380,10 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Header name
     target_name = username_display or str(user_id)
-    header = (
-        f"User stats for <b>{target_name}</b> in <b>{update.message.chat.title}</b>\n"
-    )
+    header = f"User stats for <b>{target_name}</b> in <b>{message.chat.title}</b>\n"
 
     if user_week_total == 0:
-        await update.message.reply_text(
+        await message.reply_text(
             header + "\nNo messages in the last 7 days.",
             parse_mode=ParseMode.HTML,
         )
@@ -391,4 +403,4 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         + (f"\nSparkline: <code>{spark}</code>" if spark else "")
     )
 
-    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    await message.reply_text(text, parse_mode=ParseMode.HTML)

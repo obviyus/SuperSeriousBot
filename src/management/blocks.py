@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 from config.db import get_db
 from utils.admin import is_admin
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 @usage("/block <user_id> <command>")
@@ -12,12 +13,15 @@ from utils.decorators import description, example, triggers, usage
 @triggers(["block"])
 @description("Block a user from using specific commands")
 async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not await is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ This command is only available to admins")
+    message = get_message(update)
+    if not message:
+        return
+    if not update.effective_user or not await is_admin(str(update.effective_user.id)):
+        await message.reply_text("❌ This command is only available to admins")
         return
 
     if not context.args or len(context.args) < 2:
-        await update.message.reply_text("Usage: /block <user_id> <command>")
+        await message.reply_text("Usage: /block <user_id> <command>")
         return
 
     try:
@@ -35,15 +39,15 @@ async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             )
             await conn.commit()
 
-        await update.message.reply_text(
+        await message.reply_text(
             f"✅ User <code>{user_id}</code> blocked from using /{command}",
             parse_mode=ParseMode.HTML,
         )
 
     except ValueError:
-        await update.message.reply_text("❌ Invalid user ID")
+        await message.reply_text("❌ Invalid user ID")
     except Exception as e:
-        await update.message.reply_text(f"❌ Error: {e!s}")
+        await message.reply_text(f"❌ Error: {e!s}")
 
 
 @usage("/unblock <user_id> <command>")
@@ -51,12 +55,15 @@ async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 @triggers(["unblock"])
 @description("Unblock a user from using specific commands")
 async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not await is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ This command is only available to admins")
+    message = get_message(update)
+    if not message:
+        return
+    if not update.effective_user or not await is_admin(str(update.effective_user.id)):
+        await message.reply_text("❌ This command is only available to admins")
         return
 
     if not context.args or len(context.args) < 2:
-        await update.message.reply_text("Usage: /unblock <user_id> <command>")
+        await message.reply_text("Usage: /unblock <user_id> <command>")
         return
 
     try:
@@ -71,20 +78,20 @@ async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await conn.commit()
 
             if result.rowcount > 0:
-                await update.message.reply_text(
+                await message.reply_text(
                     f"✅ User <code>{user_id}</code> unblocked from /{command}",
                     parse_mode=ParseMode.HTML,
                 )
             else:
-                await update.message.reply_text(
+                await message.reply_text(
                     f"❓ User <code>{user_id}</code> was not blocked from /{command}",
                     parse_mode=ParseMode.HTML,
                 )
 
     except ValueError:
-        await update.message.reply_text("❌ Invalid user ID")
+        await message.reply_text("❌ Invalid user ID")
     except Exception as e:
-        await update.message.reply_text(f"❌ Error: {e!s}")
+        await message.reply_text(f"❌ Error: {e!s}")
 
 
 @usage("/blocklist")
@@ -92,8 +99,11 @@ async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 @triggers(["blocklist"])
 @description("Show all blocked users and their blocked commands")
 async def show_blocklist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not await is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ This command is only available to admins")
+    message = get_message(update)
+    if not message:
+        return
+    if not update.effective_user or not await is_admin(str(update.effective_user.id)):
+        await message.reply_text("❌ This command is only available to admins")
         return
 
     async with get_db() as conn:
@@ -107,7 +117,7 @@ async def show_blocklist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             blocks = await cursor.fetchall()
 
     if not blocks:
-        await update.message.reply_text("No blocked users found.")
+        await message.reply_text("No blocked users found.")
         return
 
     text = "🚫 <b>Command Blocklist:</b>\n\n"
@@ -119,4 +129,4 @@ async def show_blocklist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"When: {block['blocked_at']}\n\n"
         )
 
-    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    await message.reply_text(text, parse_mode=ParseMode.HTML)

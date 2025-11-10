@@ -12,6 +12,7 @@ import utils
 from config.logger import logger
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
+from utils.messages import get_message
 
 if config["API"]["OPENROUTER_API_KEY"]:
     os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
@@ -25,11 +26,14 @@ if config["API"]["OPENROUTER_API_KEY"]:
     "Reply to a message or link to generate a TLDR. If no link is found, the replied message text is summarized."
 )
 async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """
     Generate a TLDR for a given URL or replied text using LLM.
     """
 
-    message = update.message
+    message = message
     url = utils.extract_link(message)
 
     if url:
@@ -67,9 +71,10 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 max_tokens=1000,
             )
 
-            summary = llm_response.choices[0].message.content
+            summary = llm_response.choices[0].message.content  # type: ignore
+            summary_str = str(summary) if summary else "No summary available"
 
-            formatted_response = f"<b>TLDR Summary:</b>\n\n{html.escape(summary)}\n\n<b>Source:</b> {html.escape(url.geturl())}"
+            formatted_response = f"<b>TLDR Summary:</b>\n\n{html.escape(summary_str)}\n\n<b>Source:</b> {html.escape(url.geturl())}"
 
             await message.reply_text(
                 formatted_response,
@@ -98,6 +103,9 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     raw_text = source_message.text or source_message.caption or ""
+    username = (
+        source_message.from_user.username if source_message.from_user else "unknown"
+    )
 
     try:
         max_chars = 20000
@@ -113,7 +121,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 },
                 {
                     "role": "user",
-                    "content": f"Please create a TLDR summary of this message from {source_message.from_user.username}:\n\n{raw_text}",
+                    "content": f"Please create a TLDR summary of this message from {username}:\n\n{raw_text}",
                 },
             ],
             extra_headers={
@@ -124,8 +132,9 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             max_tokens=1000,
         )
 
-        summary = llm_response.choices[0].message.content
-        formatted_response = f"<b>TLDR Summary:</b>\n\n{html.escape(summary)}"
+        summary = llm_response.choices[0].message.content  # type: ignore
+        summary_str = str(summary) if summary else "No summary available"
+        formatted_response = f"<b>TLDR Summary:</b>\n\n{html.escape(summary_str)}"
 
         await message.reply_text(
             formatted_response, disable_web_page_preview=True, parse_mode=ParseMode.HTML

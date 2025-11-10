@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 from config.db import get_db, get_redis
 from utils import readable_time
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 @usage("/users")
@@ -12,13 +13,17 @@ from utils.decorators import description, example, triggers, usage
 @triggers(["users"])
 @description("Get number of users that use this bot.")
 async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     async with get_db() as conn:
         async with conn.execute(
             "SELECT COUNT(DISTINCT user_id) FROM chat_stats;"
         ) as cursor:
-            user_count = (await cursor.fetchone())[0]
+            result = await cursor.fetchone()
+            user_count = result[0] if result else 0
 
-    await update.message.reply_text(
+    await message.reply_text(
         f"@{context.bot.username} is used by <b>{user_count}</b> users.",
         parse_mode=ParseMode.HTML,
     )
@@ -29,13 +34,17 @@ async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 @triggers(["groups"])
 @description("Get number of groups that use bot.")
 async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     async with get_db() as conn:
         async with conn.execute(
             "SELECT COUNT(DISTINCT chat_id) FROM chat_stats;"
         ) as cursor:
-            chat_count = (await cursor.fetchone())[0]
+            result = await cursor.fetchone()
+            chat_count = result[0] if result else 0
 
-    await update.message.reply_text(
+    await message.reply_text(
         f"@{context.bot.username} is used in <b>{chat_count}</b> groups.",
         parse_mode=ParseMode.HTML,
     )
@@ -46,14 +55,17 @@ async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 @triggers(["uptime"])
 @description("Get duration since the bot instance was started.")
 async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     redis = await get_redis()
     uptime = await redis.get("bot_startup_time")
     if not uptime:
-        await update.message.reply_text("This bot has not been started yet.")
+        await message.reply_text("This bot has not been started yet.")
         return
 
     uptime = int(float(uptime))
-    await update.message.reply_text(
+    await message.reply_text(
         f"@{context.bot.username} has been online for <b>{await readable_time(uptime)}</b>.",
         parse_mode=ParseMode.HTML,
     )
@@ -64,6 +76,9 @@ async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 @triggers(["botstats"])
 @description("Get usage stats of all bot commands.")
 async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     async with get_db() as conn:
         async with conn.execute(
             """
@@ -81,14 +96,15 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             SELECT id FROM main.command_stats ORDER BY id DESC LIMIT 1;
             """
         ) as cursor:
-            total_count = (await cursor.fetchone())["id"]
+            result = await cursor.fetchone()
+            total_count = result["id"] if result else 0
 
     text = f"Stats for <b>@{context.bot.username}:</b>\n\n"
     for row in rows:
         text += f"""<code>{row["command_count"]:4} - /{row["command"]}</code>\n"""
 
     text += f"\nTotal: <b>{total_count}</b>"
-    await update.message.reply_text(
+    await message.reply_text(
         text,
         parse_mode=ParseMode.HTML,
     )
@@ -99,6 +115,9 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 @triggers(["objects"])
 @description("Get the top 10 most fetched objects from the object store.")
 async def get_object_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     async with get_db() as conn:
         async with conn.execute(
             """
@@ -115,14 +134,17 @@ async def get_object_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             SELECT SUM(fetch_count) AS fetch_count FROM main.object_store;
             """
         ) as cursor:
-            total_fetch_count = (await cursor.fetchone())["fetch_count"]
+            result = await cursor.fetchone()
+            total_fetch_count = (
+                result["fetch_count"] if result and result["fetch_count"] else 0
+            )
 
     text = f"Object Stats for <b>@{context.bot.username}:</b>\n\n"
     for row in rows:
         text += f"""<code>{row["key"]:4} - {row["fetch_count"]}</code>\n"""
 
     text += f"\nTotal: <b>{total_fetch_count}</b>"
-    await update.message.reply_text(
+    await message.reply_text(
         text,
         parse_mode=ParseMode.HTML,
     )

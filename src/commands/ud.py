@@ -4,6 +4,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 UD_API_URL = "https://api.urbandictionary.com/v0/define"
 UD_WOTD_URL = "https://api.urbandictionary.com/v0/words_of_the_day"
@@ -15,6 +16,9 @@ MAX_DEFINITION_LENGTH = 1000
 @example("/ud racism or /ud")
 @description("Search a word on Urban Dictionary or get the Word of the Day.")
 async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Search a word on Urban Dictionary or get the Word of the Day."""
     if not context.args:
         definition = await fetch_ud_wotd()
@@ -25,11 +29,11 @@ async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         wotd_prefix = ""
 
     if not definition:
-        await update.message.reply_text("No results found.")
+        await message.reply_text("No results found.")
         return
 
     formatted_definition = format_ud_definition(definition, wotd_prefix)
-    await update.message.reply_text(
+    await message.reply_text(
         formatted_definition,
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,

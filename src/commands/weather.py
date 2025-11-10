@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 import commands
 from config.db import get_redis
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 geolocator = Nominatim(user_agent="SuperSeriousBot")
 
@@ -37,9 +38,9 @@ class Point:
             p.found = False
             return p
         return cls(
-            latitude=location.latitude,
-            longitude=location.longitude,
-            address=cls._format_address(location.address),
+            latitude=location.latitude,  # type: ignore
+            longitude=location.longitude,  # type: ignore
+            address=cls._format_address(location.address),  # type: ignore
         )
 
     @staticmethod
@@ -133,40 +134,44 @@ class Point:
 @triggers(["weather", "w"])
 @description("Get the weather for a location. Saves your last location.")
 async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    redis = await get_redis()
-    if not context.args and not await redis.exists(
-        f"weather:{update.message.from_user.id}"
-    ):
-        await commands.usage_string(update.message, weather)
+    message = get_message(update)
+    if not message:
+        return
+    if not message.from_user:
         return
 
-    point = await get_point(update.message.from_user.id, context.args)
+    redis = await get_redis()
+    if not context.args and not await redis.exists(f"weather:{message.from_user.id}"):
+        await commands.usage_string(message, weather)
+        return
+
+    point = await get_point(message.from_user.id, context.args or [])
     if not point.found:
-        await update.message.reply_text("Could not find location.")
+        await message.reply_text("Could not find location.")
         return
 
     async with aiohttp.ClientSession() as session:
         weather_data, aqi = await point.get_data(session)
 
     text = format_weather_message(point.address, weather_data, aqi)
-    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    await message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
-async def get_point(user_id: int, args: list) -> Point:
+async def get_point(user_id: int, args: list[str]) -> Point:
     redis = await get_redis()
     if args:
         point = await Point.from_name(" ".join(args))
         if point.found:
-            await redis.hset(
+            await redis.hset(  # type: ignore
                 f"weather:{user_id}",
                 mapping={
-                    "latitude": point.latitude,
-                    "longitude": point.longitude,
+                    "latitude": str(point.latitude),
+                    "longitude": str(point.longitude),
                     "address": point.address,
                 },
             )
     else:
-        cached_point = await redis.hgetall(f"weather:{user_id}")
+        cached_point = await redis.hgetall(f"weather:{user_id}")  # type: ignore
         point = Point(
             float(cached_point["latitude"]),
             float(cached_point["longitude"]),

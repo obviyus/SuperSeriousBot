@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes
 import commands
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
+from utils.messages import get_message
 
 WOLFRAM_SHORT_QUERY = "https://api.wolframalpha.com/v1/result"
 
@@ -18,8 +19,9 @@ async def fetch_wolfram_result(query: str) -> str:
 
     async with aiohttp.ClientSession() as session:
         try:
+            timeout = aiohttp.ClientTimeout(total=10)
             async with session.get(
-                WOLFRAM_SHORT_QUERY, params=params, timeout=10
+                WOLFRAM_SHORT_QUERY, params=params, timeout=timeout
             ) as response:
                 if response.status == 200:
                     return await response.text()
@@ -29,7 +31,7 @@ async def fetch_wolfram_result(query: str) -> str:
                     return "❌ API key error"
                 else:
                     return f"❌ Error {response.status}: {await response.text()}"
-        except aiohttp.ClientTimeout:
+        except TimeoutError:
             return "❌ Request timed out"
         except aiohttp.ClientError as e:
             return f"❌ Connection error: {e!s}"
@@ -49,15 +51,18 @@ def sanitize_query(query: str) -> str | None:
 @example("/calc 300th digit of pi")
 @description("Perform a WolframAlpha query.")
 async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Calculate anything using WolframAlpha"""
     if not context.args:
-        await commands.usage_string(update.message, calc)
+        await commands.usage_string(message, calc)
         return
 
     query = sanitize_query(" ".join(context.args))
     if not query:
-        await update.message.reply_text("❌ Invalid query")
+        await message.reply_text("❌ Invalid query")
         return
 
     result = await fetch_wolfram_result(query)
-    await update.message.reply_text(result)
+    await message.reply_text(result)

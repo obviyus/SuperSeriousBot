@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes
 import commands
 from config.db import get_db
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 class FileType(enum.Enum):
@@ -28,13 +29,19 @@ class FileType(enum.Enum):
 @example("/set rickroll")
 @description("Reply to a media object to store it with a key. Get it back with /get.")
 async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Save a media object."""
-    if not update.message.reply_to_message:
-        await commands.usage_string(update.message, set_object)
+    if not message.from_user:
+        return
+
+    if not message.reply_to_message:
+        await commands.usage_string(message, set_object)
         return
 
     file_id, file_unique_id, file_type = None, None, None
-    reply = update.message.reply_to_message
+    reply = message.reply_to_message
 
     if reply.document:
         file_id, file_unique_id, file_type = (
@@ -85,11 +92,11 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             FileType.VIDEO_NOTE,
         )
     else:
-        await update.message.reply_text("Could not find a media object in the message.")
+        await message.reply_text("Could not find a media object in the message.")
         return
 
     if not context.args:
-        await update.message.reply_to_message.reply_text(
+        await message.reply_to_message.reply_text(
             "Please specify a key name for the object."
         )
         return
@@ -104,7 +111,7 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             (key,),
         ) as cursor:
             if await cursor.fetchone():
-                await update.message.reply_text(
+                await message.reply_text(
                     f"Object with key <code>{key}</code> already exists.",
                     parse_mode=ParseMode.HTML,
                 )
@@ -118,7 +125,7 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         ) as cursor:
             result = await cursor.fetchone()
             if result:
-                await update.message.reply_text(
+                await message.reply_text(
                     f"""This file has already been stored with key <code>{result["key"]}</code>.""",
                     parse_mode=ParseMode.HTML,
                 )
@@ -133,13 +140,13 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 key,
                 file_id,
                 file_unique_id,
-                update.message.from_user.id,
+                message.from_user.id,
                 file_type.value,
             ),
         )
         await conn.commit()
 
-    await update.message.reply_text(
+    await message.reply_text(
         f"Object with key <code>{key}</code> saved. You can get it by using <code>/get {key}</code>.",
         parse_mode=ParseMode.HTML,
     )
@@ -150,9 +157,12 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 @example("/get rickroll")
 @description("Get an object from the store.")
 async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Get a media object."""
     if not context.args:
-        await commands.usage_string(update.message, get_object)
+        await commands.usage_string(message, get_object)
         return
 
     key = context.args[0]
@@ -167,7 +177,7 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             row = await cursor.fetchone()
 
         if not row:
-            await update.message.reply_text(
+            await message.reply_text(
                 f"Object with key <code>{key}</code> does not exist.",
                 parse_mode=ParseMode.HTML,
             )
@@ -197,7 +207,7 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                     parse_mode=ParseMode.HTML,
                 )
 
-        target_message = update.message.reply_to_message or update.message
+        target_message = message.reply_to_message or message
         await send_media(target_message, file_type, file_id)
 
     async with get_db(write=True) as conn:

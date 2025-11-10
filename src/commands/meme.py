@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 @usage("/meme")
@@ -10,8 +11,11 @@ from utils.decorators import description, example, triggers, usage
 @triggers(["meme"])
 @description("Get a random meme.")
 async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Get a random meme"""
-    if not update.message:
+    if not message:
         return
 
     async with aiohttp.ClientSession() as session:
@@ -20,8 +24,8 @@ async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
 
     url: str = data["url"]
     if url.endswith(".gif"):
-        await update.message.reply_animation(
+        await message.reply_animation(
             animation=url,
         )
     else:
-        await update.message.reply_photo(photo=url)
+        await message.reply_photo(photo=url)

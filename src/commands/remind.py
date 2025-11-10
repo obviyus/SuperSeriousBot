@@ -9,6 +9,7 @@ import commands
 import utils
 from config.db import get_db
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 def readable_time(time: datetime.datetime) -> str:
@@ -55,7 +56,13 @@ async def reminder_list(user_id: int, chat_id: int) -> str:
 @description("Create a reminder with a trigger time for this group.")
 @example("/remind Japan Trip - 5 months later")
 async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Create a reminder with a trigger time for this group."""
+    if not message.from_user:
+        return
+
     if not context.args:
         async with get_db() as conn:
             async with conn.execute(
@@ -63,26 +70,24 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 SELECT COUNT(*) AS count
                 FROM reminders WHERE user_id = ? AND chat_id = ? AND target_time > STRFTIME('%s', 'now');
                 """,
-                (update.message.from_user.id, update.message.chat_id),
+                (message.from_user.id, message.chat_id),
             ) as cursor:
                 existing_reminders = await cursor.fetchone()
 
-        if existing_reminders["count"] > 0:
-            await update.message.reply_text(
-                text=await reminder_list(
-                    update.message.from_user.id, update.message.chat_id
-                ),
+        if existing_reminders and existing_reminders["count"] > 0:
+            await message.reply_text(
+                text=await reminder_list(message.from_user.id, message.chat_id),
                 parse_mode=ParseMode.HTML,
             )
             return
 
-        await commands.usage_string(update.message, remind)
+        await commands.usage_string(message, remind)
         return
 
     command_args = (" ".join(context.args)).split("-")
 
     if len(command_args) < 2:
-        await commands.usage_string(update.message, remind)
+        await commands.usage_string(message, remind)
         return
 
     title, target_time = command_args[0].strip(), command_args[1].strip()
@@ -92,13 +97,13 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
     if target_time is None:
-        await update.message.reply_text(
+        await message.reply_text(
             "Invalid date/time format. Please provide a valid date and time."
         )
         return
 
     if target_time < datetime.datetime.now(target_time.tzinfo):
-        await update.message.reply_text(
+        await message.reply_text(
             "The specified time is in the past. Please provide a future date and time."
         )
         return
@@ -110,15 +115,15 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             VALUES (?, ?, ?, ?);
             """,
             (
-                update.message.chat_id,
-                update.message.from_user.id,
+                message.chat_id,
+                message.from_user.id,
                 title,
                 target_time.timestamp(),
             ),
         )
         await conn.commit()
 
-    await update.message.reply_text(
+    await message.reply_text(
         text=f"I will remind you about <code>{title}</code> on {target_time.strftime('%B %d, %Y at %I:%M%p %Z')}",
         parse_mode=ParseMode.HTML,
     )

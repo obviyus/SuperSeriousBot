@@ -6,6 +6,7 @@ import commands
 from config.db import get_db
 from utils.admin import is_admin
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 WHITELIST_TYPE = "chat"
 
@@ -31,12 +32,14 @@ def _resolve_chat_id(update: Update, args: list[str]) -> int | None:
 @example("/whitelist tr -1001234567890")
 @description("Allow a chat to use a command (admins only)")
 async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.message
+    message = get_message(update)
     if not message:
         return
+    if not update.effective_user:
+        return
 
-    if not await is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ This command is only available to admins")
+    if not await is_admin(str(update.effective_user.id)):
+        await message.reply_text("❌ This command is only available to admins")
         return
 
     if not context.args:
@@ -45,12 +48,12 @@ async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     command_name = _normalize_command(context.args[0])
     if not command_name:
-        await update.message.reply_text("Please provide a command to whitelist.")
+        await message.reply_text("Please provide a command to whitelist.")
         return
 
     chat_id = _resolve_chat_id(update, context.args)
     if chat_id is None:
-        await update.message.reply_text(
+        await message.reply_text(
             "Could not determine target chat. Provide a chat ID explicitly."
         )
         return
@@ -66,7 +69,7 @@ async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             exists = await cursor.fetchone()
 
         if exists:
-            await update.message.reply_text(
+            await message.reply_text(
                 f"✅ Chat <code>{chat_id}</code> is already whitelisted for /{command_name}",
                 parse_mode=ParseMode.HTML,
             )
@@ -81,7 +84,7 @@ async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         )
         await conn.commit()
 
-    await update.message.reply_text(
+    await message.reply_text(
         f"✅ Added chat <code>{chat_id}</code> to the whitelist for /{command_name}",
         parse_mode=ParseMode.HTML,
     )
@@ -94,12 +97,14 @@ async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 async def unwhitelist_command(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    message = update.message
+    message = get_message(update)
     if not message:
         return
+    if not update.effective_user:
+        return
 
-    if not await is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ This command is only available to admins")
+    if not await is_admin(str(update.effective_user.id)):
+        await message.reply_text("❌ This command is only available to admins")
         return
 
     if not context.args:
@@ -108,12 +113,12 @@ async def unwhitelist_command(
 
     command_name = _normalize_command(context.args[0])
     if not command_name:
-        await update.message.reply_text("Please provide a command to unwhitelist.")
+        await message.reply_text("Please provide a command to unwhitelist.")
         return
 
     chat_id = _resolve_chat_id(update, context.args)
     if chat_id is None:
-        await update.message.reply_text(
+        await message.reply_text(
             "Could not determine target chat. Provide a chat ID explicitly."
         )
         return
@@ -129,12 +134,12 @@ async def unwhitelist_command(
         await conn.commit()
 
     if result.rowcount:
-        await update.message.reply_text(
+        await message.reply_text(
             f"✅ Removed chat <code>{chat_id}</code> from /{command_name}",
             parse_mode=ParseMode.HTML,
         )
     else:
-        await update.message.reply_text(
+        await message.reply_text(
             f"❓ Chat <code>{chat_id}</code> was not whitelisted for /{command_name}",
             parse_mode=ParseMode.HTML,
         )

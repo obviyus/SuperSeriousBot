@@ -35,6 +35,7 @@ from config.logger import logger
 from config.options import config
 from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
+from utils.messages import get_message
 
 
 def ensure_caribou_py314_compat() -> None:
@@ -73,15 +74,20 @@ def ensure_caribou_py314_compat() -> None:
 
     caribou_migrate.execute = patched_execute
     caribou_migrate.Database.update_version = patched_update_version
-    caribou_migrate._py314_param_patch = True
+    caribou_migrate._py314_param_patch = True  # type: ignore[attr-defined]
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = get_message(update)
+
+    if not message or not update.effective_user:
+        return
     """
     Start command handler.
     """
-    await update.message.reply_text(f"👋 @{update.effective_user.username}")
-    logger.info(f"/start command received from @{update.effective_user.username}")
+    username = update.effective_user.username or f"user_{update.effective_user.id}"
+    await message.reply_text(f"👋 @{username}")
+    logger.info(f"/start command received from @{username}")
 
 
 async def post_init(application: Application) -> None:
@@ -144,7 +150,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     # traceback.format_exception returns the usual python message about an exception, but as a
     # list of strings rather than a single string, so we have to join them together.
     tb_list = traceback.format_exception(
-        None, context.error, context.error.__traceback__
+        None, context.error, context.error.__traceback__ if context.error else None
     )
 
     # Build the message with some markup and additional information about what happened.
@@ -237,6 +243,9 @@ async def setup_application() -> Application:
     )
 
     job_queue = application.job_queue
+    if not job_queue:
+        logger.error("Job queue not initialized")
+        return application
 
     # Notification workers
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))

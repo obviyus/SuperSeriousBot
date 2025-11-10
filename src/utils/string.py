@@ -83,7 +83,7 @@ async def get_first_name(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> st
     except BadRequest:
         return f"{user_id}"
 
-    return chat.first_name
+    return chat.first_name or f"{user_id}"
 
 
 @alru_cache(maxsize=128)

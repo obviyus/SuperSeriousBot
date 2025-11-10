@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
+from utils.messages import get_message
 
 GIPHY_API_URL = "https://api.giphy.com/v1/gifs/random"
 
@@ -14,12 +15,15 @@ GIPHY_API_URL = "https://api.giphy.com/v1/gifs/random"
 @api_key("GIPHY_API_KEY")
 @description("Get a random GIF from Giphy.")
 async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Get a random GIF from Giphy"""
     try:
         gif_url = await fetch_random_gif()
-        await update.message.reply_animation(animation=gif_url)
+        await message.reply_animation(animation=gif_url)
     except GiphyAPIError as e:
-        await update.message.reply_text(f"Error fetching GIF: {e!s}")
+        await message.reply_text(f"Error fetching GIF: {e!s}")
 
 
 async def fetch_random_gif() -> str:

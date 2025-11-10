@@ -6,6 +6,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 @usage("/joke")
@@ -13,6 +14,9 @@ from utils.decorators import description, example, triggers, usage
 @triggers(["joke"])
 @description("Get a two part joke.")
 async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Get a random joke"""
     setup = "Here's a joke..."
     punchline = "(joke delivery unavailable)"
@@ -29,16 +33,14 @@ async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception:
         pass
 
-    await update.message.reply_text(text=setup)
+    await message.reply_text(text=setup)
     await asyncio.sleep(2.0)
 
-    await context.bot.send_message(
-        text=punchline[:-1] + " 😆", chat_id=update.message.chat_id
-    )
+    await context.bot.send_message(text=punchline[:-1] + " 😆", chat_id=message.chat_id)
 
     # Say this 1% of the time
     if random.random() < 0.01:
         await asyncio.sleep(2.0)
         await context.bot.send_message(
-            text="Please don't kick me 👉👈", chat_id=update.message.chat_id
+            text="Please don't kick me 👉👈", chat_id=message.chat_id
         )

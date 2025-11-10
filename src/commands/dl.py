@@ -9,6 +9,7 @@ import utils
 from config.logger import logger
 from config.options import config
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 MAX_MEDIA_COUNT = 10
 MAX_DOWNLOAD_SIZE = 47 * (1 << 20)  # ~47 MB cap to stay under Telegram limits
@@ -136,7 +137,9 @@ async def _handle_cobalt_response(message: Message, data: dict) -> None:
     status = data.get("status")
 
     if status in ("redirect", "tunnel"):
-        await _fetch_and_send(message, data.get("url"), data.get("filename"))
+        url = data.get("url")
+        if url:
+            await _fetch_and_send(message, url, data.get("filename"))
         return
 
     if status == "picker":
@@ -170,12 +173,15 @@ async def _handle_cobalt_response(message: Message, data: dict) -> None:
 @example("/dl https://www.instagram.com/reel/A1234567890/")
 @description("Download media via cobalt.tools-compatible instance.")
 async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message:
+    message = get_message(update)
+    if not message:
+        return
+    if not message:
         return
 
-    url = utils.extract_link(update.message)
+    url = utils.extract_link(message)
     if not url:
-        await update.message.reply_text("Please provide a valid URL.")
+        await message.reply_text("Please provide a valid URL.")
         return
 
     target = url.geturl() if hasattr(url, "geturl") else str(url)
@@ -183,7 +189,7 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         data = await _cobalt_request(cobalt_base, target)
-        await _handle_cobalt_response(update.message, data)
+        await _handle_cobalt_response(message, data)
     except Exception as e:
         logger.error(f"Cobalt error: {e}")
-        await update.message.reply_text("Failed to fetch media.")
+        await message.reply_text("Failed to fetch media.")

@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 
 import commands
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
 @triggers(["uwu"])
@@ -11,19 +12,20 @@ from utils.decorators import description, example, triggers, usage
 @example("/uwu Hello")
 @description("Uwuify a message. Reply to a message to uwuify it.")
 async def uwu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """
     Uwuify a message.
     """
-    if update.message.reply_to_message:
-        text = (
-            update.message.reply_to_message.text
-            or update.message.reply_to_message.caption
-        )
-    else:
+    text: str | None = None
+    if message.reply_to_message:
+        text = message.reply_to_message.text or message.reply_to_message.caption
+    elif context.args:
         text = " ".join(context.args)
 
     if not text:
-        await commands.usage_string(update.message, uwu)
+        await commands.usage_string(message, uwu)
         return
 
-    await update.message.reply_text(uwuify.uwu(text, flags=uwuify.SMILEY | uwuify.YU))
+    await message.reply_text(uwuify.uwu(text, flags=uwuify.SMILEY | uwuify.YU))

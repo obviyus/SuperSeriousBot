@@ -11,6 +11,7 @@ import commands
 import utils
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
+from utils.messages import get_message
 
 GOODREADS_API = {
     "SEARCH": "https://www.goodreads.com/search.xml",
@@ -109,20 +110,23 @@ async def _get_book_details(
 @api_key("GOODREADS_API_KEY")
 @description("Search for a book on GoodReads.")
 async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
     """Query GoodReads for a book"""
     if not context.args:
-        await commands.usage_string(update.message, book)
+        await commands.usage_string(message, book)
         return
 
     query: str = " ".join(context.args)
     async with aiohttp.ClientSession() as session:
         if book_id := await _search_book(session, query):
             if book_details := await _get_book_details(session, book_id):
-                await update.message.reply_text(
+                await message.reply_text(
                     text=book_details.format_message(),
                     parse_mode=ParseMode.HTML,
                     disable_web_page_preview=False,
                 )
                 return
 
-        await update.message.reply_text("❌ No book found matching your query.")
+        await message.reply_text("❌ No book found matching your query.")

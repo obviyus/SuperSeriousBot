@@ -9,9 +9,10 @@ import utils
 from config import logger
 from config.db import get_db
 from utils.decorators import description, example, triggers, usage
+from utils.messages import get_message
 
 
-async def fetch_habit_data(habit_id: int):
+async def fetch_habit_data(habit_id: int) -> list:
     async with get_db() as conn:
         async with conn.execute(
             """
@@ -27,7 +28,7 @@ async def fetch_habit_data(habit_id: int):
                 """,
             (habit_id,),
         ) as cursor:
-            return await cursor.fetchall()
+            return list(await cursor.fetchall())
 
 
 async def habit_message_builder(
@@ -66,8 +67,16 @@ async def habit_keyboard(habit_id: int) -> InlineKeyboardMarkup:
 async def habit_button_handler(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
+    message = get_message(update)
+
+    if not message:
+        return
     query = update.callback_query
-    action, habit_id = query.data.replace("hb:", "").split(",")
+    if not query or not query.data:
+        return
+
+    action, habit_id_str = query.data.replace("hb:", "").split(",")
+    habit_id = int(habit_id_str)
 
     async with get_db(write=True) as conn:
         try:
@@ -190,13 +199,21 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
 @description("Create a new habit to track in this group.")
 @example("/habit workout 5")
 async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
+    if not message.from_user:
+        return
+    if not update.effective_chat:
+        return
+
     if not context.args or len(context.args) < 2:
-        await commands.usage_string(update.message, habit)
+        await commands.usage_string(message, habit)
         return
 
     habit_name, days_per_week = context.args[0], int(context.args[1])
     if not 1 <= days_per_week <= 7:
-        await update.message.reply_text("Please enter a number between 1 and 7.")
+        await message.reply_text("Please enter a number between 1 and 7.")
         return
 
     async with get_db(write=True) as conn:
@@ -209,12 +226,13 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if habit_exists:
             await conn.execute(
                 "INSERT OR IGNORE INTO habit_members (habit_id, user_id) VALUES (?, ?)",
-                (habit_exists["id"], update.message.from_user.id),
+                (habit_exists["id"], message.from_user.id),
             )
             await conn.commit()
-            await update.message.reply_text(
+            await message.reply_text(
                 "A habit with this name already exists in this group. Adding you to it..."
             )
+            final_habit_id = int(habit_exists["id"])
         else:
             cursor = await conn.execute(
                 "INSERT INTO habit (chat_id, habit_name, weekly_goal, creator_id) VALUES (?, ?, ?, ?)",
@@ -222,21 +240,21 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     update.effective_chat.id,
                     habit_name,
                     days_per_week,
-                    update.message.from_user.id,
+                    message.from_user.id,
                 ),
             )
             habit_id = cursor.lastrowid
             await conn.execute(
                 "INSERT INTO habit_members (habit_id, user_id) VALUES (?, ?)",
-                (habit_id, update.message.from_user.id),
+                (habit_id, message.from_user.id),
             )
             await conn.commit()
-            await update.message.reply_text(
+            await message.reply_text(
                 f"Created a new habit #{habit_name} with a goal of {days_per_week} days per week."
             )
-            habit_exists = {"id": habit_id}
+            final_habit_id = int(habit_id) if habit_id else 0
 
-    await update.message.reply_text(
-        await habit_message_builder(habit_exists["id"], context),
-        reply_markup=await habit_keyboard(habit_exists["id"]),
+    await message.reply_text(
+        await habit_message_builder(final_habit_id, context),
+        reply_markup=await habit_keyboard(final_habit_id),
     )

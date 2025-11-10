@@ -4,6 +4,7 @@ Common functionality between functions.
 
 from .cleaner import scrub_dict, scrub_html_tags
 from .link import extract_link, grab_links
+from .messages import get_message
 from .string import (
     get_first_name,
     get_user_id_from_username,
@@ -14,6 +15,7 @@ from .string import (
 __all__ = [
     "extract_link",
     "get_first_name",
+    "get_message",
     "get_user_id_from_username",
     "get_username",
     "grab_links",

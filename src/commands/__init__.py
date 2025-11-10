@@ -17,6 +17,7 @@ from config import logger
 from config.db import get_db
 from config.options import config
 from management import blocks, botstats, stats
+from utils.messages import get_message
 
 from . import (
     animals,
@@ -135,8 +136,12 @@ NEGATIVE_EMOJIS = [
 
 
 async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    message = get_message(update)
+
+    if not message:
+        return
     """Disabled command handler."""
-    await update.message.reply_text("❌ This command is disabled.")
+    await message.reply_text("❌ This command is disabled.")
 
 
 def get_random_item_from_list(items: list):
@@ -144,17 +149,17 @@ def get_random_item_from_list(items: list):
 
 
 async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    message = get_message(update)
+
+    if not message:
+        return
     """Every message action handler."""
-    if update.message and update.message.text:
-        text = update.message.text.lower()
+    if message and message.text:
+        text = message.text.lower()
         if "good bot" in text:
-            await update.message.set_reaction(
-                get_random_item_from_list(POSITIVE_EMOJIS)
-            )
+            await message.set_reaction(get_random_item_from_list(POSITIVE_EMOJIS))
         elif "bad bot" in text:
-            await update.message.set_reaction(
-                get_random_item_from_list(NEGATIVE_EMOJIS)
-            )
+            await message.set_reaction(get_random_item_from_list(NEGATIVE_EMOJIS))
 
 
 async def is_user_blocked(user_id: int, command: str) -> bool:
@@ -169,21 +174,22 @@ async def is_user_blocked(user_id: int, command: str) -> bool:
 def command_wrapper(fn: Callable):
     @wraps(fn)
     async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        message = update.message
+        message = get_message(update)
+        if not message:
+            return
+        message = message
         if not message:
             return
 
         try:
             # Check if user is blocked
             sent_command = next(
-                iter(
-                    update.message.parse_entities([MessageEntity.BOT_COMMAND]).values()
-                ),
+                iter(message.parse_entities([MessageEntity.BOT_COMMAND]).values()),
                 None,
             )
-            if sent_command:
+            if sent_command and message.from_user:
                 sent_command = sent_command.split("@")[0][1:]
-                if await is_user_blocked(update.message.from_user.id, sent_command):
+                if await is_user_blocked(message.from_user.id, sent_command):
                     await message.reply_text(
                         "❌ You are blocked from using this command."
                     )
@@ -197,11 +203,11 @@ def command_wrapper(fn: Callable):
 
             await asyncio.gather(*tasks)
 
-            if sent_command and sent_command in command_doc_list:
+            if sent_command and sent_command in command_doc_list and message.from_user:
                 async with get_db(write=True) as conn:
                     await conn.execute(
                         "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
-                        (sent_command, update.message.from_user.id),
+                        (sent_command, message.from_user.id),
                     )
                     await conn.commit()
 
@@ -239,7 +245,14 @@ for command in list_of_commands:
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+
+    if not message:
+        return
     query = update.callback_query
+    if not query or not query.data:
+        return
+
     handlers = {
         "hb": habit.habit_button_handler,
         "hl": highlight_button_handler,

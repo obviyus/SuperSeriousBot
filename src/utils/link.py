@@ -31,7 +31,7 @@ def extract_link(message: Message) -> ParseResult | None:
 
     # Get the actual urls
     for key in results:
-        if key.type == MessageEntity.TEXT_LINK:
+        if key.type == MessageEntity.TEXT_LINK and key.url:
             results[key] = key.url
 
     # Remove exact duplicates and keep the first appearance
