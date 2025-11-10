@@ -14,10 +14,11 @@ from telegram.ext import ContextTypes
 import commands
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
+from utils.messages import get_message
 
 from .ask import check_command_whitelist
 
-OPENROUTER_MODEL = "openai/gpt-4o-audio-preview"
+OPENROUTER_MODEL = "google/gemini-2.5-flash"
 FALLBACK_PROMPT = "Please transcribe this audio file. No wall of text, keep it readable, suitable for a Telegram message. Begin transcript immediately without any commentary."
 
 
@@ -131,8 +132,10 @@ def _extract_text_from_response(data: dict) -> str | None:
 @description("Reply to an audio message to have it transcribed via OpenRouter.")
 @api_key("OPENROUTER_API_KEY")
 async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.message
+    message = get_message(update)
     if not message:
+        return
+    if not message.from_user or not update.effective_user:
         return
 
     is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
