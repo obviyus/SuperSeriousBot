@@ -16,9 +16,8 @@ from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 from utils.messages import get_message
 
-from .ask import check_command_whitelist
+from .ask import check_command_whitelist, get_tr_model
 
-OPENROUTER_MODEL = "google/gemini-2.5-flash"
 FALLBACK_PROMPT = "Please transcribe this audio file. No wall of text, keep it readable, suitable for a Telegram message. Begin transcript immediately without any commentary."
 
 
@@ -182,8 +181,11 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     user_prompt = " ".join(context.args).strip() if context.args else ""
     instruction = user_prompt or FALLBACK_PROMPT
 
+    # Get configured model from database
+    model_name = await get_tr_model()
+
     payload = {
-        "model": OPENROUTER_MODEL,
+        "model": model_name,
         "messages": [
             {
                 "role": "user",

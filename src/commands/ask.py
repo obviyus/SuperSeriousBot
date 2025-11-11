@@ -75,23 +75,60 @@ async def send_response(update: Update, text: str) -> None:
             await message.reply_document(buffer)
 
 
-async def get_ai_model() -> str:
-    """Get the configured AI model from database, fallback to default."""
+async def get_ask_model() -> str:
+    """Get the configured AI model for /ask from database, fallback to default."""
     async with get_db() as conn:
         async with conn.execute(
-            "SELECT ai_model FROM group_settings WHERE chat_id = ?",
+            "SELECT ask_model FROM group_settings WHERE chat_id = ?",
             (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
         ) as cursor:
             result = await cursor.fetchone()
-            return result[0] if result else "openrouter/google/gemini-2.5-flash"
+            return result[0] if result else "openrouter/x-ai/grok-4-fast"
+
+
+async def get_caption_model() -> str:
+    """Get the configured AI model for /caption from database, fallback to default."""
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT caption_model FROM group_settings WHERE chat_id = ?",
+            (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
+        ) as cursor:
+            result = await cursor.fetchone()
+            return result[0] if result else "openrouter/x-ai/grok-4-fast"
+
+
+async def get_edit_model() -> str:
+    """Get the configured AI model for /edit from database, fallback to default."""
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT edit_model FROM group_settings WHERE chat_id = ?",
+            (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
+        ) as cursor:
+            result = await cursor.fetchone()
+            return (
+                result[0]
+                if result
+                else "openrouter/google/gemini-2.5-flash-image-preview"
+            )
+
+
+async def get_tr_model() -> str:
+    """Get the configured AI model for /tr from database, fallback to default."""
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT tr_model FROM group_settings WHERE chat_id = ?",
+            (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
+        ) as cursor:
+            result = await cursor.fetchone()
+            return result[0] if result else "google/gemini-2.5-flash"
 
 
 @triggers(["ask"])
-@usage("/ask [-m] [query]")
+@usage("/ask [query]")
 @api_key("OPENROUTER_API_KEY")
 @example("/ask How long does a train between Tokyo and Hokkaido take?")
 @description(
-    "Ask anything using AI with Grok web search grounding. Use -m for custom model."
+    "Ask anything using AI with web search grounding. Use /model to configure."
 )
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
@@ -121,64 +158,34 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # Check for -m parameter
-    use_custom_model = False
-    args = list(context.args)
-
-    if args and args[0] == "-m":
-        use_custom_model = True
-        args.pop(0)  # Remove -m from args
-
     openrouter_api_key = config["API"].get("OPENROUTER_API_KEY")
     if not openrouter_api_key:
         await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
         return
 
-    query: str = " ".join(args)
-    token_count = len(args)
+    query: str = " ".join(context.args)
+    token_count = len(context.args)
 
     if token_count > 64:
         await message.reply_text("Please keep your query under 64 words.")
         return
 
     try:
-        if use_custom_model:
-            # Use custom model from database with OpenRouter
-            model_name = await get_ai_model()
-            response = await acompletion(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query},
-                ],
-                max_tokens=1000,
-                extra_headers={
-                    "X-Title": "SuperSeriousBot",
-                    "HTTP-Referer": "https://superserio.us",
-                },
-                api_key=openrouter_api_key,
-            )
-        else:
-            # Use Grok with native web search via OpenRouter
-            response = await acompletion(
-                model="openrouter/x-ai/grok-4-fast",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query},
-                ],
-                max_tokens=1000,
-                plugins=[
-                    {
-                        "id": "web",
-                        "engine": "native",
-                    }
-                ],
-                extra_headers={
-                    "X-Title": "SuperSeriousBot",
-                    "HTTP-Referer": "https://superserio.us",
-                },
-                api_key=openrouter_api_key,
-            )
+        # Get configured model from database
+        model_name = await get_ask_model()
+        response = await acompletion(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": query},
+            ],
+            max_tokens=1000,
+            extra_headers={
+                "X-Title": "SuperSeriousBot",
+                "HTTP-Referer": "https://superserio.us",
+            },
+            api_key=openrouter_api_key,
+        )
 
         text = response.choices[0].message.content or ""  # type: ignore[attr-defined]
         await send_response(update, text)
@@ -231,8 +238,11 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     custom_prompt = " ".join(context.args) if context.args else ""
 
     try:
+        # Get configured model from database
+        model_name = await get_caption_model()
+
         response = await acompletion(
-            model="openrouter/x-ai/grok-4-fast",
+            model=model_name,
             messages=[
                 {
                     "role": "user",
@@ -331,9 +341,12 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"Please edit this image according to the following description: {prompt}"
         )
 
+        # Get configured model from database
+        model_name = await get_edit_model()
+
         # Call OpenRouter API for image generation/editing
         response = await acompletion(
-            model="openrouter/google/gemini-2.5-flash-image-preview",
+            model=model_name,
             messages=[
                 {
                     "role": "user",
