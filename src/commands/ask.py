@@ -27,7 +27,7 @@ any baby-ing the user by adding phrases like "However, be mindful of the followi
 
 Remember that you're responding in a Telegram chat where brevity is valued. Be direct and to the point.
 
-IMPORTANT: MAX 2 paragraphs, no longer than 200 words.
+IMPORTANT: MAX 2 paragraphs, no longer than 200 words. Begin immediately with the answer, do not add any preamble. No "Short Version:" or "In summary:". etc.
 """
 
 
