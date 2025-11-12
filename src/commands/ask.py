@@ -166,7 +166,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query: str = " ".join(context.args)
     token_count = len(context.args)
 
-    if token_count > 64:
+    if token_count > 128:
         await message.reply_text("Please keep your query under 64 words.")
         return
 
