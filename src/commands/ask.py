@@ -2,6 +2,7 @@ import base64
 import io
 import mimetypes
 import os
+from typing import Any
 
 from litellm import acompletion
 from telegram import Update
@@ -86,17 +87,6 @@ async def get_ask_model() -> str:
             return result[0] if result else "openrouter/x-ai/grok-4-fast"
 
 
-async def get_caption_model() -> str:
-    """Get the configured AI model for /caption from database, fallback to default."""
-    async with get_db() as conn:
-        async with conn.execute(
-            "SELECT caption_model FROM group_settings WHERE chat_id = ?",
-            (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
-        ) as cursor:
-            result = await cursor.fetchone()
-            return result[0] if result else "openrouter/x-ai/grok-4-fast"
-
-
 async def get_edit_model() -> str:
     """Get the configured AI model for /edit from database, fallback to default."""
     async with get_db() as conn:
@@ -128,15 +118,17 @@ async def get_tr_model() -> str:
 @api_key("OPENROUTER_API_KEY")
 @example("/ask How long does a train between Tokyo and Hokkaido take?")
 @description(
-    "Ask anything using AI with web search grounding. Use /model to configure."
+    "Ask anything using AI. Reply to an image to ask about it. Use /model to configure."
 )
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message or not message.from_user or not update.effective_user:
         return
+
+    is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
     if (
         message.chat.type == ChatType.PRIVATE
-        and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
+        and not is_admin
         and not await check_command_whitelist(
             message.from_user.id, message.from_user.id, "ask"
         )
@@ -144,13 +136,8 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("This command is not available in private chats.")
         return
 
-    if not context.args:
-        await commands.usage_string(message, ask)
-        return
-
-    if (
-        not await check_command_whitelist(message.chat.id, message.from_user.id, "ask")
-        and str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]
+    if not is_admin and not await check_command_whitelist(
+        message.chat.id, message.from_user.id, "ask"
     ):
         await message.reply_text(
             "This command is not available in this chat. "
@@ -163,22 +150,55 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
         return
 
-    query: str = " ".join(context.args)
-    token_count = len(context.args)
+    query: str = " ".join(context.args) if context.args else ""
+    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    user_content: list[dict[str, Any]] = []
 
-    if token_count > 128:
-        await message.reply_text("Please keep your query under 64 words.")
-        return
+    # Image processing
+    if message.reply_to_message and message.reply_to_message.photo:
+        photo = message.reply_to_message.photo[-1]
+        file = await context.bot.getFile(photo.file_id)
+
+        image_data = await file.download_as_bytearray()
+        mime_type, _ = (
+            mimetypes.guess_type(file.file_path) if file.file_path else (None, None)
+        )
+
+        if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
+            mime_type = "image/jpeg"
+
+        image_base64 = base64.b64encode(image_data).decode("utf-8")
+        image_url = f"data:{mime_type};base64,{image_base64}"
+
+        text_prompt = query if query else "Describe this image in detail."
+        user_content.append({"type": "text", "text": text_prompt})
+        user_content.append(
+            {
+                "type": "image_url",
+                "image_url": {"url": image_url},
+            }
+        )
+        messages.append({"role": "user", "content": user_content})
+    else:
+        if not query:
+            await commands.usage_string(message, ask)
+            return
+
+        if not context.args:
+            return
+
+        token_count = len(context.args)
+        if token_count > 128:
+            await message.reply_text("Please keep your query under 64 words.")
+            return
+
+        messages.append({"role": "user", "content": query})
 
     try:
-        # Get configured model from database
         model_name = await get_ask_model()
         response = await acompletion(
             model=model_name,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": query},
-            ],
+            messages=messages,
             max_tokens=1000,
             extra_headers={
                 "X-Title": "SuperSeriousBot",
@@ -189,93 +209,6 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         text = response.choices[0].message.content or ""  # type: ignore[attr-defined]
         await send_response(update, text)
-    except Exception as e:
-        await message.reply_text(
-            f"An error occurred while processing your request: {e!s}"
-        )
-
-
-@triggers(["caption"])
-@usage("/caption")
-@api_key("OPENROUTER_API_KEY")
-@example("/caption")
-@description("Reply to an image to caption it using vision models.")
-async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = get_message(update)
-    if not message or not message.from_user or not update.effective_user:
-        return
-    is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
-    if not is_admin and message.chat.type == ChatType.PRIVATE:
-        await message.reply_text("This command is not available in private chats.")
-        return
-
-    if not message.reply_to_message or not message.reply_to_message.photo:
-        await commands.usage_string(message, caption)
-        return
-
-    if not is_admin and not await check_command_whitelist(
-        message.chat.id, message.from_user.id, "caption"
-    ):
-        await message.reply_text(
-            "This command is not available in this chat. "
-            "Please contact an admin to whitelist this command."
-        )
-        return
-
-    photo = message.reply_to_message.photo[-1]
-    file = await context.bot.getFile(photo.file_id)
-
-    # Download the image and convert it to a data URL that includes a supported MIME type.
-    image_data = await file.download_as_bytearray()
-    mime_type, _ = (
-        mimetypes.guess_type(file.file_path) if file.file_path else (None, None)
-    )
-    if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
-        mime_type = "image/jpeg"
-    image_base64 = base64.b64encode(image_data).decode("utf-8")
-    image_url = f"data:{mime_type};base64,{image_base64}"
-
-    custom_prompt = " ".join(context.args) if context.args else ""
-
-    try:
-        # Get configured model from database
-        model_name = await get_caption_model()
-
-        response = await acompletion(
-            model=model_name,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"You are a Telegram bot and this image was sent to you by a user. Here are custom instructions from the user, follow them to the best of your ability. This is the user's prompt: {custom_prompt}",
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": image_url,
-                            },
-                        },
-                    ],
-                }
-            ],
-            max_tokens=1000,
-            extra_headers={
-                "X-Title": "SuperSeriousBot",
-                "HTTP-Referer": "https://superserio.us",
-            },
-            api_key=config["API"]["OPENROUTER_API_KEY"],
-        )
-
-        text = response.choices[0].message.content or ""  # type: ignore[attr-defined]
-        try:
-            await message.reply_text(
-                text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
-            )
-        except Exception:
-            # Markdown parsing failed, fallback to plain text
-            await message.reply_text(text, disable_web_page_preview=True)
     except Exception as e:
         await message.reply_text(
             f"An error occurred while processing your request: {e!s}"
