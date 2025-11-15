@@ -196,7 +196,6 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         response = await acompletion(
             model=model_name,
             messages=messages,
-            max_tokens=1000,
             extra_headers={
                 "X-Title": "SuperSeriousBot",
                 "HTTP-Referer": "https://superserio.us",
