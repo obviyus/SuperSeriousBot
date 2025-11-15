@@ -135,11 +135,11 @@ def get_valid_bot_commands(command_list: list) -> list[BotCommand]:
     """
     Filter and format valid commands for the bot.
     """
-    valid_commands = []
-    for command in command_list:
-        if hasattr(command, "triggers") and hasattr(command, "description"):
-            valid_commands.append(BotCommand(command.triggers[0], command.description))
-    return valid_commands
+    return [
+        BotCommand(command.triggers[0], command.description)
+        for command in command_list
+        if hasattr(command, "triggers") and hasattr(command, "description")
+    ]
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
