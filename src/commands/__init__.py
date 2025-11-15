@@ -1,12 +1,11 @@
-"""
-Commands for general use.
-"""
+"""Commands for general use."""
 
 import asyncio
 import random
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from functools import wraps
+from typing import Any
 
 from telegram import Message, MessageEntity, Update
 from telegram.constants import ChatAction, ParseMode, ReactionEmoji
@@ -135,6 +134,37 @@ NEGATIVE_EMOJIS = [
 ]
 
 
+def _schedule_background_task(coro: Coroutine[Any, Any, object], label: str) -> None:
+    """Run a coroutine without blocking the caller and surface failures via logs."""
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop (typically only during shutdown); nothing to schedule.
+        return
+
+    task = loop.create_task(coro)
+
+    def _log_task_result(completed: asyncio.Task[Any]) -> None:
+        try:
+            completed.result()
+        except asyncio.CancelledError:
+            logger.debug("Background task '%s' cancelled", label)
+        except Exception as exc:
+            logger.warning("Background task '%s' failed: %s", label, exc, exc_info=exc)
+
+    task.add_done_callback(_log_task_result)
+
+
+async def _record_command_stat(command: str, user_id: int) -> None:
+    async with get_db(write=True) as conn:
+        await conn.execute(
+            "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
+            (command, user_id),
+        )
+        await conn.commit()
+
+
 async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
     message = get_message(update)
 
@@ -177,39 +207,41 @@ def command_wrapper(fn: Callable):
         message = get_message(update)
         if not message:
             return
-        message = message
-        if not message:
-            return
 
         try:
-            # Check if user is blocked
-            sent_command = next(
-                iter(message.parse_entities([MessageEntity.BOT_COMMAND]).values()),
-                None,
-            )
+            sent_command = None
+            if message.from_user:
+                sent_command_entity = next(
+                    iter(message.parse_entities([MessageEntity.BOT_COMMAND]).values()),
+                    None,
+                )
+                if sent_command_entity:
+                    sent_command = sent_command_entity.split("@")[0][1:]
+
+            # Check if user is blocked before doing anything expensive
             if sent_command and message.from_user:
-                sent_command = sent_command.split("@")[0][1:]
                 if await is_user_blocked(message.from_user.id, sent_command):
                     await message.reply_text(
                         "❌ You are blocked from using this command."
                     )
                     return
 
-            tasks = [
+            _schedule_background_task(
                 message.set_reaction(ReactionEmoji.WRITING_HAND),
+                "command-reaction",
+            )
+            _schedule_background_task(
                 message.reply_chat_action(ChatAction.TYPING),
-                fn(update, context),
-            ]
+                "typing-indicator",
+            )
 
-            await asyncio.gather(*tasks)
+            await fn(update, context)
 
             if sent_command and sent_command in command_doc_list and message.from_user:
-                async with get_db(write=True) as conn:
-                    await conn.execute(
-                        "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
-                        (sent_command, message.from_user.id),
-                    )
-                    await conn.commit()
+                _schedule_background_task(
+                    _record_command_stat(sent_command, message.from_user.id),
+                    "command-stats",
+                )
 
         except Exception as e:
             logger.error(f"Error in /{fn.__name__}: {e!s}")
