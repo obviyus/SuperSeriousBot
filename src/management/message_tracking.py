@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 
 from config.db import get_db
+from utils.concurrency import schedule_background_task
 from utils.messages import get_message
 
 
@@ -91,6 +92,18 @@ async def _save_mention(
         await conn.commit()
 
 
+async def _get_user_id_by_username(username: str) -> int | None:
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT user_id FROM user_stats WHERE LOWER(username) = ?",
+            (username.lower(),),
+        ) as cursor:
+            result = await cursor.fetchone()
+            if result:
+                return result["user_id"]
+    return None
+
+
 async def handle_message_stats(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle message stats for non-command messages."""
     message = get_message(update)
@@ -101,7 +114,37 @@ async def handle_message_stats(update: Update, _: ContextTypes.DEFAULT_TYPE) -> 
     if not message.text or message.text.startswith("/"):
         return
 
-    await _save_message_stats(message)
+    schedule_background_task(
+        _save_message_stats(message),
+        "message-stats",
+    )
+
+
+async def _process_mentions(message: Message) -> None:
+    if not message.from_user:
+        return
+
+    mentioning_user_id = message.from_user.id
+
+    if message.entities:
+        for entity in message.entities:
+            if entity.type == MessageEntity.TEXT_MENTION and entity.user:
+                await _save_mention(mentioning_user_id, entity.user.id, message)
+            elif entity.type == MessageEntity.MENTION and message.text:
+                mentioned_username = message.text[
+                    entity.offset + 1 : entity.offset + entity.length
+                ]
+                user_id = await _get_user_id_by_username(mentioned_username)
+                if user_id is not None:
+                    await _save_mention(mentioning_user_id, user_id, message)
+        return
+
+    if message.reply_to_message and message.reply_to_message.from_user:
+        await _save_mention(
+            mentioning_user_id,
+            message.reply_to_message.from_user.id,
+            message,
+        )
 
 
 async def handle_mentions(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -111,35 +154,10 @@ async def handle_mentions(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     if not message or not message.from_user:
         return
 
-    mentioning_user_id = message.from_user.id
-
-    # Handle text mentions and @ mentions
-    if message.entities:
-        for entity in message.entities:
-            if entity.type == MessageEntity.TEXT_MENTION and entity.user:
-                await _save_mention(mentioning_user_id, entity.user.id, message)
-            elif entity.type == MessageEntity.MENTION and message.text:
-                mentioned_username = message.text[
-                    entity.offset + 1 : entity.offset + entity.length
-                ]
-                async with get_db() as conn:
-                    async with conn.execute(
-                        "SELECT user_id FROM user_stats WHERE LOWER(username) = ?",
-                        (mentioned_username.lower(),),
-                    ) as cursor:
-                        result = await cursor.fetchone()
-                        if result:
-                            await _save_mention(
-                                mentioning_user_id, result["user_id"], message
-                            )
-
-    # Handle replies
-    elif message.reply_to_message and message.reply_to_message.from_user:
-        await _save_mention(
-            mentioning_user_id,
-            message.reply_to_message.from_user.id,
-            message,
-        )
+    schedule_background_task(
+        _process_mentions(message),
+        "message-mentions",
+    )
 
 
 # Create handlers with appropriate priorities

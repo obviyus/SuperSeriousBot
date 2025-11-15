@@ -1,11 +1,9 @@
 """Commands for general use."""
 
-import asyncio
 import random
 import traceback
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from functools import wraps
-from typing import Any
 
 from telegram import Message, MessageEntity, Update
 from telegram.constants import ChatAction, ParseMode, ReactionEmoji
@@ -16,6 +14,7 @@ from config import logger
 from config.db import get_db
 from config.options import config
 from management import blocks, botstats, stats
+from utils.concurrency import schedule_background_task
 from utils.messages import get_message
 
 from . import (
@@ -134,28 +133,6 @@ NEGATIVE_EMOJIS = [
 ]
 
 
-def _schedule_background_task(coro: Coroutine[Any, Any, object], label: str) -> None:
-    """Run a coroutine without blocking the caller and surface failures via logs."""
-
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # No running loop (typically only during shutdown); nothing to schedule.
-        return
-
-    task = loop.create_task(coro)
-
-    def _log_task_result(completed: asyncio.Task[Any]) -> None:
-        try:
-            completed.result()
-        except asyncio.CancelledError:
-            logger.debug("Background task '%s' cancelled", label)
-        except Exception as exc:
-            logger.warning("Background task '%s' failed: %s", label, exc, exc_info=exc)
-
-    task.add_done_callback(_log_task_result)
-
-
 async def _record_command_stat(command: str, user_id: int) -> None:
     async with get_db(write=True) as conn:
         await conn.execute(
@@ -226,11 +203,11 @@ def command_wrapper(fn: Callable):
                     )
                     return
 
-            _schedule_background_task(
+            schedule_background_task(
                 message.set_reaction(ReactionEmoji.WRITING_HAND),
                 "command-reaction",
             )
-            _schedule_background_task(
+            schedule_background_task(
                 message.reply_chat_action(ChatAction.TYPING),
                 "typing-indicator",
             )
@@ -238,7 +215,7 @@ def command_wrapper(fn: Callable):
             await fn(update, context)
 
             if sent_command and sent_command in command_doc_list and message.from_user:
-                _schedule_background_task(
+                schedule_background_task(
                     _record_command_stat(sent_command, message.from_user.id),
                     "command-stats",
                 )
