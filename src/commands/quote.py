@@ -94,19 +94,8 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     """Get a quote from QuotesDB."""
     async with get_db(write=True) as conn:
-        # Clean up old history entries (older than 10 quotes)
-        await conn.execute(
-            """
-            DELETE FROM quote_recent_history
-            WHERE chat_id = ? AND id NOT IN (
-                SELECT id FROM quote_recent_history
-                WHERE chat_id = ?
-                ORDER BY shown_time DESC
-                LIMIT 10
-            );
-            """,
-            (message.chat_id, message.chat_id),
-        )
+        params = [message.chat_id]
+        query_conditions = "WHERE chat_id = ?"
 
         if context.args:
             author_username = context.args[0].replace("@", "")
@@ -121,71 +110,68 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 return
 
-            # Get quotes excluding recently shown ones
-            async with conn.execute(
-                """
-                SELECT * FROM quote_db
-                WHERE chat_id = ? AND message_user_id = ?
-                AND id NOT IN (
-                    SELECT quote_id FROM quote_recent_history
-                    WHERE chat_id = ?
+            query_conditions += " AND message_user_id = ?"
+            params.append(author_user_id)
+        else:
+            author_username = None
+
+        # Try to get a quote excluding recent history
+        # We use a nested query to check for exclusion to keep the main query clean
+        exclusion_clause = """
+            AND id NOT IN (
+                SELECT quote_id FROM quote_recent_history
+                WHERE chat_id = ?
+            )
+        """
+
+        # First attempt: with history exclusion
+        async with conn.execute(
+            f"SELECT * FROM quote_db {query_conditions} {exclusion_clause} ORDER BY RANDOM() LIMIT 1;",
+            (*params, message.chat_id),
+        ) as cursor:
+            row = await cursor.fetchone()
+
+        # Second attempt: if no fresh quotes, reshuffle (clear history for this criteria) and try again
+        if not row:
+            if author_username:
+                # Clear history only for this user in this chat
+                await conn.execute(
+                    """
+                    DELETE FROM quote_recent_history
+                    WHERE chat_id = ? AND quote_id IN (
+                        SELECT id FROM quote_db WHERE message_user_id = ?
+                    );
+                    """,
+                    (message.chat_id, author_user_id),
                 )
-                ORDER BY RANDOM() LIMIT 1;
-                """,
-                (message.chat_id, author_user_id, message.chat_id),
+            else:
+                # Clear all history for this chat
+                await conn.execute(
+                    """
+                    DELETE FROM quote_recent_history WHERE chat_id = ?;
+                    """,
+                    (message.chat_id,),
+                )
+
+            # Retry the fetch with the same query (history is now clear for this scope)
+            async with conn.execute(
+                f"SELECT * FROM quote_db {query_conditions} {exclusion_clause} ORDER BY RANDOM() LIMIT 1;",
+                (*params, message.chat_id),
             ) as cursor:
                 row = await cursor.fetchone()
 
-            # If no non-recent quotes available, fall back to any quote
-            if not row:
-                async with conn.execute(
-                    """
-                    SELECT * FROM quote_db
-                    WHERE chat_id = ? AND message_user_id = ?
-                    ORDER BY RANDOM() LIMIT 1;
-                    """,
-                    (message.chat_id, author_user_id),
-                ) as cursor:
-                    row = await cursor.fetchone()
-
-            if not row:
+        if not row:
+            if author_username:
                 await message.reply_text(
                     f"No quotes found by @{escape(author_username)}.",
                     parse_mode=ParseMode.HTML,
                 )
-                return
-        else:
-            # Get quotes excluding recently shown ones
-            async with conn.execute(
-                """
-                SELECT * FROM quote_db
-                WHERE chat_id = ?
-                AND id NOT IN (
-                    SELECT quote_id FROM quote_recent_history
-                    WHERE chat_id = ?
-                )
-                ORDER BY RANDOM() LIMIT 1;
-                """,
-                (message.chat_id, message.chat_id),
-            ) as cursor:
-                row = await cursor.fetchone()
-
-            # If no non-recent quotes available, fall back to any quote
-            if not row:
-                async with conn.execute(
-                    """
-                    SELECT * FROM quote_db WHERE chat_id = ? ORDER BY RANDOM() LIMIT 1;
-                    """,
-                    (message.chat_id,),
-                ) as cursor:
-                    row = await cursor.fetchone()
-
-            if not row:
+            else:
                 await message.reply_text(
                     "No quotes found in this chat.",
                     parse_mode=ParseMode.HTML,
                 )
-                return
+            return
 
         # Record this quote in recent history
         await conn.execute(
