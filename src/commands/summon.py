@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from telegram import ChatMember, InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -26,18 +27,20 @@ async def get_group_members(group_id: int, context: CallbackContext) -> list:
         ) as cursor:
             group_members = [(row[0], row[1]) for row in await cursor.fetchall()]
 
-    members = []
-    for user_id, chat_id in group_members:
+    async def check_member(user_id: int, chat_id: int) -> str | None:
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
             if member.status not in [ChatMember.LEFT, ChatMember.BANNED]:
                 username = await utils.get_username(user_id, context)
                 if username:
-                    members.append(f"@{username}")
+                    return f"@{username}"
         except Exception as e:
             print(f"Error getting member {user_id}: {e}")
+        return None
 
-    return members
+    tasks = [check_member(user_id, chat_id) for user_id, chat_id in group_members]
+    results = await asyncio.gather(*tasks)
+    return [member for member in results if member]
 
 
 async def summon_keyboard(group_id: int) -> InlineKeyboardMarkup:
@@ -63,29 +66,41 @@ async def send_chunked_messages(
     group_id: int,
     group_name: str,
 ):
+    keyboard = await summon_keyboard(group_id)
+
     if not members:
         await context.bot.send_message(
             chat_id,
             f"No users in group '{group_name}'.",
-            reply_markup=await summon_keyboard(group_id),
+            reply_markup=keyboard,
             parse_mode=ParseMode.HTML,
         )
         return
 
-    for idx in range(0, len(members), 5):
-        chunk = members[idx : idx + 5]
+    chunk_size = 5
+    chunks = [members[i : i + chunk_size] for i in range(0, len(members), chunk_size)]
+
+    for i, chunk in enumerate(chunks):
+        is_last_chunk = i == len(chunks) - 1
+        msg_text = f"[{group_name}] ({len(members)} members) {' '.join(chunk)}"
+
         await context.bot.send_message(
             chat_id,
-            f"[{group_name}] ({len(members)} members) {' '.join(chunk)}",
+            msg_text,
             parse_mode=ParseMode.HTML,
+            reply_markup=keyboard if is_last_chunk else None,
         )
 
-    await context.bot.send_message(
-        chat_id,
-        f"Use the buttons below to join or leave group '{group_name}' ({len(members)} members):",
-        reply_markup=await summon_keyboard(group_id),
-        parse_mode=ParseMode.HTML,
-    )
+
+async def perform_summon(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    group_id: int,
+    group_name: str,
+):
+    members = await get_group_members(group_id, context)
+    await send_chunked_messages(chat_id, members, context, group_id, group_name)
+    summon_log[group_id] = datetime.now()
 
 
 async def summon_keyboard_button(update: Update, context: CallbackContext) -> None:
@@ -139,16 +154,13 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
                     result = await cursor.fetchone()
                     group_name = result[0] if result else "Unknown"
 
-            members = await get_group_members(group_id, context)
-
             # query.message is guaranteed to be Message (not InaccessibleMessage) here
             from telegram import Message as TelegramMessage
 
             if isinstance(query.message, TelegramMessage):
-                await send_chunked_messages(
-                    query.message.chat_id, members, context, group_id, group_name
+                await perform_summon(
+                    context, query.message.chat_id, group_id, group_name
                 )
-            summon_log[group_id] = datetime.now()
             return
 
 
@@ -203,8 +215,4 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             conn, group_name, update.effective_chat.id, update.effective_user.id
         )
 
-    members = await get_group_members(group_id, context)
-    await send_chunked_messages(
-        update.effective_chat.id, members, context, group_id, group_name
-    )
-    summon_log[group_id] = datetime.now()
+    await perform_summon(context, update.effective_chat.id, group_id, group_name)
