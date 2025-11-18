@@ -24,6 +24,44 @@ class FileType(enum.Enum):
     UNKNOWN = "UNKNOWN"
 
 
+# Mapping of FileType to the method name used to send it
+MEDIA_SEND_METHODS = {
+    FileType.DOCUMENT: "reply_document",
+    FileType.PHOTO: "reply_photo",
+    FileType.AUDIO: "reply_audio",
+    FileType.VIDEO: "reply_video",
+    FileType.ANIMATION: "reply_animation",
+    FileType.VOICE: "reply_voice",
+    FileType.STICKER: "reply_sticker",
+    FileType.VIDEO_NOTE: "reply_video_note",
+}
+
+
+def extract_media_info(message) -> tuple[str | None, str | None, FileType | None]:
+    """Extract file_id, file_unique_id, and FileType from a message."""
+    # Priority order for checking media types
+    media_types = [
+        ("document", FileType.DOCUMENT),
+        ("photo", FileType.PHOTO),
+        ("audio", FileType.AUDIO),
+        ("video", FileType.VIDEO),
+        ("animation", FileType.ANIMATION),
+        ("voice", FileType.VOICE),
+        ("sticker", FileType.STICKER),
+        ("video_note", FileType.VIDEO_NOTE),
+    ]
+
+    for attr, file_type in media_types:
+        media_obj = getattr(message, attr, None)
+        if media_obj:
+            if attr == "photo":
+                # Photos are a list, take the last (highest quality) one
+                return media_obj[-1].file_id, media_obj[-1].file_unique_id, file_type
+            return media_obj.file_id, media_obj.file_unique_id, file_type
+
+    return None, None, None
+
+
 @triggers(["set"])
 @usage("/set [key]")
 @example("/set rickroll")
@@ -40,58 +78,9 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await commands.usage_string(message, set_object)
         return
 
-    file_id, file_unique_id, file_type = None, None, None
-    reply = message.reply_to_message
+    file_id, file_unique_id, file_type = extract_media_info(message.reply_to_message)
 
-    if reply.document:
-        file_id, file_unique_id, file_type = (
-            reply.document.file_id,
-            reply.document.file_unique_id,
-            FileType.DOCUMENT,
-        )
-    elif reply.photo:
-        file_id, file_unique_id, file_type = (
-            reply.photo[-1].file_id,
-            reply.photo[-1].file_unique_id,
-            FileType.PHOTO,
-        )
-    elif reply.audio:
-        file_id, file_unique_id, file_type = (
-            reply.audio.file_id,
-            reply.audio.file_unique_id,
-            FileType.AUDIO,
-        )
-    elif reply.video:
-        file_id, file_unique_id, file_type = (
-            reply.video.file_id,
-            reply.video.file_unique_id,
-            FileType.VIDEO,
-        )
-    elif reply.animation:
-        file_id, file_unique_id, file_type = (
-            reply.animation.file_id,
-            reply.animation.file_unique_id,
-            FileType.ANIMATION,
-        )
-    elif reply.voice:
-        file_id, file_unique_id, file_type = (
-            reply.voice.file_id,
-            reply.voice.file_unique_id,
-            FileType.VOICE,
-        )
-    elif reply.sticker:
-        file_id, file_unique_id, file_type = (
-            reply.sticker.file_id,
-            reply.sticker.file_unique_id,
-            FileType.STICKER,
-        )
-    elif reply.video_note:
-        file_id, file_unique_id, file_type = (
-            reply.video_note.file_id,
-            reply.video_note.file_unique_id,
-            FileType.VIDEO_NOTE,
-        )
-    else:
+    if not file_id:
         await message.reply_text("Could not find a media object in the message.")
         return
 
@@ -183,32 +172,28 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             )
             return
 
-        file_id, file_type = row["file_id"], row["type"]
+        file_id, file_type_str = row["file_id"], row["type"]
 
-        # Helper function to send media
-        async def send_media(message, file_type, file_id):
-            send_functions = {
-                FileType.DOCUMENT: "reply_document",
-                FileType.PHOTO: "reply_photo",
-                FileType.AUDIO: "reply_audio",
-                FileType.VIDEO: "reply_video",
-                FileType.ANIMATION: "reply_animation",
-                FileType.VOICE: "reply_voice",
-                FileType.STICKER: "reply_sticker",
-                FileType.VIDEO_NOTE: "reply_video_note",
-            }
-            method_name = send_functions.get(FileType(file_type))
+        try:
+            file_type = FileType(file_type_str)
+            method_name = MEDIA_SEND_METHODS.get(file_type)
+
             if method_name:
-                method = getattr(message, method_name)
-                await method(**{FileType(file_type).name.lower(): file_id})
+                target_message = message.reply_to_message or message
+                method = getattr(target_message, method_name)
+                # Construct the kwargs: e.g. reply_photo(photo=file_id)
+                # The argument name is usually the lowercase enum name (photo, audio, etc.)
+                # Exception: video_note is passed as video_note, which matches enum name
+                arg_name = file_type.name.lower()
+                await method(**{arg_name: file_id})
             else:
-                await message.reply_text(
-                    f"Object with key <code>{key}</code> is of unknown type.",
-                    parse_mode=ParseMode.HTML,
-                )
+                raise ValueError("Unknown media type method")
 
-        target_message = message.reply_to_message or message
-        await send_media(target_message, file_type, file_id)
+        except (ValueError, AttributeError):
+            await message.reply_text(
+                f"Object with key <code>{key}</code> has an invalid or unsupported type.",
+                parse_mode=ParseMode.HTML,
+            )
 
     async with get_db(write=True) as conn:
         await conn.execute(
