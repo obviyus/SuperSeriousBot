@@ -27,9 +27,11 @@ from commands.remind import worker_reminder
 from commands.sed import sed
 from config.db import (
     PRIMARY_DB_PATH,
+    close_db,
     close_redis,
     get_redis,
-    rebuild_fts5,
+    init_db,
+    optimize_fts5,
 )
 from config.logger import logger
 from config.options import config
@@ -94,6 +96,7 @@ async def post_init(application: Application) -> None:
     """
     Initialize the bot.
     """
+    await init_db()
     logger.info(f"Started @{application.bot.username} (ID: {application.bot.id})")
 
     try:
@@ -127,6 +130,7 @@ async def post_shutdown(application: Application) -> None:
     Shutdown the bot.
     """
     logger.info(f"Shutting down @{application.bot.username} (ID: {application.bot.id})")
+    await close_db()
     await close_redis()
     logger.info("Cleanup finished.")
 
@@ -250,7 +254,8 @@ async def setup_application() -> Application:
     # Notification workers
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
     job_queue.run_repeating(worker_reminder, interval=60, first=10)
-    job_queue.run_repeating(rebuild_fts5, interval=3600, first=10)
+    # FTS5 optimize: runs every 6 hours instead of hourly rebuild
+    job_queue.run_repeating(optimize_fts5, interval=21600, first=60)
 
     # Reset command usage count every day at 12:00 UTC
     job_queue.run_daily(command_limits.reset_command_limits, time=datetime.time(18, 30))

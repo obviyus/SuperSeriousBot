@@ -44,25 +44,28 @@ async def _save_message_stats(message: Message) -> None:
                 ),
             )
 
-            # Insert message stats
-            await conn.execute(
-                "INSERT OR IGNORE INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)",
-                (chat_id, user.id, message.message_id),
-            )
-
+            # Check if FTS is enabled for this chat
+            # AIDEV-NOTE: We include message_text in the INSERT (not a separate UPDATE)
+            # so the chat_stats_ai trigger fires with the actual text, making it
+            # immediately searchable without needing periodic FTS rebuilds.
+            message_text = None
             if message.text:
                 async with conn.execute(
                     "SELECT fts FROM group_settings WHERE chat_id = ?;",
                     (chat_id,),
                 ) as cursor:
                     result = await cursor.fetchone()
+                if result and result["fts"]:
+                    message_text = message.text
 
-                is_enabled = bool(result["fts"]) if result else False
-                if is_enabled:
-                    await conn.execute(
-                        "UPDATE chat_stats SET message_text = ? WHERE rowid = last_insert_rowid()",
-                        (message.text,),
-                    )
+            # Insert message stats with text if FTS enabled
+            await conn.execute(
+                """
+                INSERT OR IGNORE INTO chat_stats (chat_id, user_id, message_id, message_text)
+                VALUES (?, ?, ?, ?)
+                """,
+                (chat_id, user.id, message.message_id, message_text),
+            )
 
             await conn.commit()
         except Exception as e:
