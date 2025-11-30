@@ -128,26 +128,29 @@ async def _process_mentions(message: Message) -> None:
         return
 
     mentioning_user_id = message.from_user.id
+    # AIDEV-NOTE: Track mentioned users to avoid duplicates within same message
+    mentioned_users: set[int] = set()
 
     if message.entities:
         for entity in message.entities:
             if entity.type == MessageEntity.TEXT_MENTION and entity.user:
-                await _save_mention(mentioning_user_id, entity.user.id, message)
+                if entity.user.id not in mentioned_users:
+                    mentioned_users.add(entity.user.id)
+                    await _save_mention(mentioning_user_id, entity.user.id, message)
             elif entity.type == MessageEntity.MENTION and message.text:
                 mentioned_username = message.text[
                     entity.offset + 1 : entity.offset + entity.length
                 ]
                 user_id = await _get_user_id_by_username(mentioned_username)
-                if user_id is not None:
+                if user_id is not None and user_id not in mentioned_users:
+                    mentioned_users.add(user_id)
                     await _save_mention(mentioning_user_id, user_id, message)
-        return
 
+    # Also track replies as mentions (don't return early after entities)
     if message.reply_to_message and message.reply_to_message.from_user:
-        await _save_mention(
-            mentioning_user_id,
-            message.reply_to_message.from_user.id,
-            message,
-        )
+        replied_user_id = message.reply_to_message.from_user.id
+        if replied_user_id not in mentioned_users:
+            await _save_mention(mentioning_user_id, replied_user_id, message)
 
 
 async def handle_mentions(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
