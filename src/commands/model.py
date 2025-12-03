@@ -13,12 +13,12 @@ GLOBAL_CHAT_ID = -1
 # AIDEV-NOTE: Default models for each command
 DEFAULT_MODELS = {
     "ask": "openrouter/x-ai/grok-4-fast",
-    "caption": "openrouter/x-ai/grok-4-fast",
     "edit": "openrouter/google/gemini-2.5-flash-image-preview",
     "tr": "google/gemini-2.5-flash",
+    "tldr": "openrouter/x-ai/grok-4-fast",
 }
 
-VALID_COMMANDS = {"ask", "caption", "edit", "tr", "all"}
+VALID_COMMANDS = {"ask", "edit", "tr", "tldr", "all"}
 
 
 @triggers(["model"])
@@ -38,28 +38,28 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Show current models for all commands
         async with get_db() as conn:
             async with conn.execute(
-                "SELECT ask_model, caption_model, edit_model, tr_model FROM group_settings WHERE chat_id = ?",
+                "SELECT ask_model, edit_model, tr_model, tldr_model FROM group_settings WHERE chat_id = ?",
                 (GLOBAL_CHAT_ID,),
             ) as cursor:
                 result = await cursor.fetchone()
                 if result:
                     ask_model = result[0] or DEFAULT_MODELS["ask"]
-                    caption_model = result[1] or DEFAULT_MODELS["caption"]
-                    edit_model = result[2] or DEFAULT_MODELS["edit"]
-                    tr_model = result[3] or DEFAULT_MODELS["tr"]
+                    edit_model = result[1] or DEFAULT_MODELS["edit"]
+                    tr_model = result[2] or DEFAULT_MODELS["tr"]
+                    tldr_model = result[3] or DEFAULT_MODELS["tldr"]
                 else:
                     ask_model = DEFAULT_MODELS["ask"]
-                    caption_model = DEFAULT_MODELS["caption"]
                     edit_model = DEFAULT_MODELS["edit"]
                     tr_model = DEFAULT_MODELS["tr"]
+                    tldr_model = DEFAULT_MODELS["tldr"]
 
         text = "📋 <b>Current AI Models:</b>\n\n"
         text += f"• <b>/ask</b>: <code>{ask_model}</code>\n"
-        text += f"• <b>/caption</b>: <code>{caption_model}</code>\n"
         text += f"• <b>/edit</b>: <code>{edit_model}</code>\n"
-        text += f"• <b>/tr</b>: <code>{tr_model}</code>\n\n"
+        text += f"• <b>/tr</b>: <code>{tr_model}</code>\n"
+        text += f"• <b>/tldr</b>: <code>{tldr_model}</code>\n\n"
         text += "<b>Usage:</b> <code>/model &lt;command&gt; &lt;model_name&gt;</code>\n"
-        text += "<b>Commands:</b> ask, caption, edit, tr, all\n\n"
+        text += "<b>Commands:</b> ask, edit, tr, tldr, all\n\n"
         text += "<b>Examples:</b>\n"
         text += "• <code>/model ask openrouter/google/gemini-3.0-flash</code>\n"
         text += "• <code>/model all openrouter/anthropic/claude-3.5-sonnet</code>"
@@ -95,13 +95,13 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # Update all models to the same value
             await conn.execute(
                 """
-                INSERT INTO group_settings (chat_id, ask_model, caption_model, edit_model, tr_model)
+                INSERT INTO group_settings (chat_id, ask_model, edit_model, tr_model, tldr_model)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(chat_id) DO UPDATE SET
                     ask_model = excluded.ask_model,
-                    caption_model = excluded.caption_model,
                     edit_model = excluded.edit_model,
-                    tr_model = excluded.tr_model
+                    tr_model = excluded.tr_model,
+                    tldr_model = excluded.tldr_model
                 """,
                 (GLOBAL_CHAT_ID, new_model, new_model, new_model, new_model),
             )
