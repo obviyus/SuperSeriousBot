@@ -8,7 +8,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
-from config.db import get_redis
+from config.db import get_db
 from utils.decorators import description, example, triggers, usage
 from utils.messages import get_message
 
@@ -140,10 +140,16 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not message.from_user:
         return
 
-    redis = await get_redis()
-    if not context.args and not await redis.exists(f"weather:{message.from_user.id}"):
-        await commands.usage_string(message, weather)
-        return
+    if not context.args:
+        async with get_db() as conn:
+            async with conn.execute(
+                "SELECT 1 FROM weather_cache WHERE user_id = ?",
+                (message.from_user.id,),
+            ) as cursor:
+                has_cache = await cursor.fetchone() is not None
+        if not has_cache:
+            await commands.usage_string(message, weather)
+            return
 
     point = await get_point(message.from_user.id, context.args or [])
     if not point.found:
@@ -158,25 +164,38 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def get_point(user_id: int, args: list[str]) -> Point:
-    redis = await get_redis()
-    if args:
-        point = await Point.from_name(" ".join(args))
-        if point.found:
-            await redis.hset(  # type: ignore
-                f"weather:{user_id}",
-                mapping={
-                    "latitude": str(point.latitude),
-                    "longitude": str(point.longitude),
-                    "address": point.address,
-                },
+    async with get_db(write=bool(args)) as conn:
+        if args:
+            point = await Point.from_name(" ".join(args))
+            if point.found:
+                await conn.execute(
+                    """
+                    INSERT INTO weather_cache (user_id, latitude, longitude, address, update_time)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        latitude = excluded.latitude,
+                        longitude = excluded.longitude,
+                        address = excluded.address,
+                        update_time = CURRENT_TIMESTAMP
+                    """,
+                    (user_id, point.latitude, point.longitude, point.address),
+                )
+        else:
+            async with conn.execute(
+                "SELECT latitude, longitude, address FROM weather_cache WHERE user_id = ?",
+                (user_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            if not row:
+                # Should not happen - caller checks cache exists
+                point = Point(0.0, 0.0, "")
+                point.found = False
+                return point
+            point = Point(
+                float(row["latitude"]),
+                float(row["longitude"]),
+                row["address"],
             )
-    else:
-        cached_point = await redis.hgetall(f"weather:{user_id}")  # type: ignore
-        point = Point(
-            float(cached_point["latitude"]),
-            float(cached_point["longitude"]),
-            cached_point["address"],
-        )
     return point
 
 

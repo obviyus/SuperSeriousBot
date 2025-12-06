@@ -9,13 +9,4 @@ services:
       - ./vis/:/code/vis/
     env_file:
       - ssgbot.env
-    depends_on:
-      - redis
     restart: unless-stopped
-
-  redis:
-    image: redis:latest
-    command: [ "redis-server", "--appendonly", "yes" ]
-    restart: unless-stopped
-    volumes:
-      - ./db:/data

@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from config.db import get_db, get_redis
+from config.db import get_db
 from utils import readable_time
 from utils.decorators import description, example, triggers, usage
 from utils.messages import get_message
@@ -58,15 +58,16 @@ async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     message = get_message(update)
     if not message:
         return
-    redis = await get_redis()
-    uptime = await redis.get("bot_startup_time")
-    if not uptime:
+
+    # Late import to avoid circular dependency
+    from main import bot_startup_time
+
+    if not bot_startup_time:
         await message.reply_text("This bot has not been started yet.")
         return
 
-    uptime = int(float(uptime))
     await message.reply_text(
-        f"@{context.bot.username} has been online for <b>{await readable_time(uptime)}</b>.",
+        f"@{context.bot.username} has been online for <b>{await readable_time(int(bot_startup_time))}</b>.",
         parse_mode=ParseMode.HTML,
     )
 

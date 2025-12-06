@@ -1,12 +1,10 @@
 import asyncio
 import os
-from collections.abc import AsyncGenerator, Awaitable
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import cast
 
 import aiosqlite
-from redis.asyncio import Redis, from_url
 from telegram.ext import ContextTypes
 
 from config import logger
@@ -71,50 +69,6 @@ async def get_db(write: bool = False) -> AsyncGenerator[aiosqlite.Connection]:
     """
     conn = await _get_connection()
     yield conn
-
-
-REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
-
-MAX_REDIS_RETRIES = 5
-REDIS_RETRY_DELAY = 5
-
-redis_client: Redis | None = None
-
-
-async def get_redis() -> Redis:
-    global redis_client
-    if redis_client is None:
-        for attempt in range(MAX_REDIS_RETRIES):
-            try:
-                redis_client = await from_url(
-                    REDIS_URL, encoding="utf-8", decode_responses=True
-                )
-                await cast(Awaitable[bool], redis_client.ping())
-                logger.info("Successfully connected to Redis")
-                return redis_client
-            except Exception as e:
-                logger.warning(
-                    f"Failed to connect to Redis (attempt {attempt + 1}/{MAX_REDIS_RETRIES}): {e!s}"
-                )
-                if attempt == MAX_REDIS_RETRIES - 1:
-                    logger.error(
-                        "Max Redis connection attempts reached. Unable to connect to Redis."
-                    )
-                    raise
-                await asyncio.sleep(REDIS_RETRY_DELAY)
-    if redis_client is None:
-        raise RuntimeError("Failed to establish Redis connection")
-    return redis_client
-
-
-async def close_redis():
-    global redis_client
-    if redis_client:
-        await redis_client.close()
-        redis_client = None
-        logger.info("Redis connection closed")
 
 
 async def optimize_fts5(_: ContextTypes.DEFAULT_TYPE):

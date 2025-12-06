@@ -28,8 +28,6 @@ from commands.sed import sed
 from config.db import (
     PRIMARY_DB_PATH,
     close_db,
-    close_redis,
-    get_redis,
     init_db,
     optimize_fts5,
 )
@@ -38,6 +36,8 @@ from config.options import config
 from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
 from utils.messages import get_message
+
+bot_startup_time: float | None = None
 
 
 def ensure_caribou_py314_compat() -> None:
@@ -96,16 +96,11 @@ async def post_init(application: Application) -> None:
     """
     Initialize the bot.
     """
+    global bot_startup_time
     await init_db()
     logger.info(f"Started @{application.bot.username} (ID: {application.bot.id})")
 
-    try:
-        redis = await get_redis()
-        await redis.set("bot_startup_time", datetime.datetime.now().timestamp())
-    except Exception as e:
-        logger.error(
-            f"Failed to set bot startup time in Redis: {e!s}. Continuing without Redis."
-        )
+    bot_startup_time = datetime.datetime.now().timestamp()
 
     if (
         "LOGGING_CHANNEL_ID" in config["TELEGRAM"]
@@ -131,7 +126,6 @@ async def post_shutdown(application: Application) -> None:
     """
     logger.info(f"Shutting down @{application.bot.username} (ID: {application.bot.id})")
     await close_db()
-    await close_redis()
     logger.info("Cleanup finished.")
 
 
@@ -196,8 +190,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def setup_application() -> Application:
-    await get_redis()
-
     application = (
         ApplicationBuilder()
         .token(config["TELEGRAM"]["TOKEN"])
