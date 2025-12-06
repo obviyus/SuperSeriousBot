@@ -2,9 +2,9 @@ import base64
 import io
 import mimetypes
 import os
-import re
 from typing import Any
 
+import telegramify_markdown
 from litellm import acompletion
 from telegram import Update
 from telegram.constants import ChatType
@@ -28,98 +28,6 @@ system_prompt = """You are @SuperSeriousBot, a helpful assistant in a Telegram c
 4.  **No Paternalism:** Avoid phrases like "However, be mindful," "Please be careful," or any similar condescending language.
 5.  **No Summaries:** Do not include summaries like "In summary:" or "Short version:".
 """
-
-
-def markdown_to_telegram_v2(text: str) -> str:
-    """
-    Convert standard markdown to Telegram MarkdownV2 format.
-
-    Handles: **bold**, *italic*, _italic_, `code`, ```code blocks```, [links](url)
-    Escapes all special characters outside of formatting constructs.
-    """
-    SPECIAL_CHARS = r"_*[]()~`>#+-=|{}.!"
-
-    def escape_text(s: str) -> str:
-        """Escape special characters for MarkdownV2."""
-        return re.sub(f"([{re.escape(SPECIAL_CHARS)}])", r"\\\1", s)
-
-    # Use placeholders to protect formatting, then escape, then restore
-    placeholders: list[tuple[str, str]] = []
-    placeholder_id = 0
-
-    def save(replacement: str) -> str:
-        nonlocal placeholder_id
-        ph = f"\x00PH{placeholder_id}\x00"
-        placeholders.append((ph, replacement))
-        placeholder_id += 1
-        return ph
-
-    # Protect code blocks first (``` ... ```)
-    def replace_code_block(m: re.Match[str]) -> str:
-        lang = m.group(1) or ""
-        code = m.group(2)
-        # Code inside blocks doesn't need escaping
-        return save(f"```{lang}\n{code}```")
-
-    text = re.sub(r"```(\w*)\n?([\s\S]*?)```", replace_code_block, text)
-
-    # Protect inline code (` ... `)
-    def replace_inline_code(m: re.Match[str]) -> str:
-        code = m.group(1)
-        return save(f"`{code}`")
-
-    text = re.sub(r"`([^`]+)`", replace_inline_code, text)
-
-    # Protect links - handles both [[text]](url) and [text](url) formats
-    def replace_link(m: re.Match[str]) -> str:
-        link_text = m.group(1)
-        url = m.group(2)
-        # Escape special chars in link text, escape ) and \ in URL
-        escaped_text = escape_text(link_text)
-        escaped_url = url.replace("\\", "\\\\").replace(")", "\\)")
-        return save(f"[{escaped_text}]({escaped_url})")
-
-    # Citation format: [[1]](url) -> [\[1\]](url) with visible brackets and space before
-    def replace_citation(m: re.Match[str]) -> str:
-        link_text = m.group(1)
-        url = m.group(2)
-        escaped_url = url.replace("\\", "\\\\").replace(")", "\\)")
-        # Keep brackets visible: [1] shows as "[1]" clickable
-        return save(f" [\\[{link_text}\\]]({escaped_url})")
-
-    text = re.sub(r"\[\[([^\]]+)\]\]\(([^)]+)\)", replace_citation, text)
-    # Single bracket format: [text](url)
-    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", replace_link, text)
-
-    # Convert **bold** to *bold* (Telegram uses single * for bold)
-    def replace_bold(m: re.Match[str]) -> str:
-        inner = m.group(1)
-        return save(f"*{escape_text(inner)}*")
-
-    text = re.sub(r"\*\*([^*]+)\*\*", replace_bold, text)
-
-    # Convert *italic* to _italic_ (single * becomes _ in Telegram)
-    def replace_italic_star(m: re.Match[str]) -> str:
-        inner = m.group(1)
-        return save(f"_{escape_text(inner)}_")
-
-    text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", replace_italic_star, text)
-
-    # Convert _italic_ (already correct format, just protect it)
-    def replace_italic_underscore(m: re.Match[str]) -> str:
-        inner = m.group(1)
-        return save(f"_{escape_text(inner)}_")
-
-    text = re.sub(r"(?<!_)_([^_]+)_(?!_)", replace_italic_underscore, text)
-
-    # Now escape all remaining special characters
-    text = escape_text(text)
-
-    # Restore placeholders
-    for ph, replacement in placeholders:
-        text = text.replace(ph, replacement)
-
-    return text
 
 
 async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> bool:
@@ -149,7 +57,7 @@ async def send_response(update: Update, text: str) -> None:
         return
 
     # Convert markdown to Telegram MarkdownV2 format
-    formatted_text = markdown_to_telegram_v2(text)
+    formatted_text = telegramify_markdown.markdownify(text)
 
     try:
         if len(formatted_text) <= 4096:
