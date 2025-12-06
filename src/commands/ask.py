@@ -26,6 +26,15 @@ system_prompt = """You are @SuperSeriousBot, a helpful assistant in a Telegram c
 3.  **No Refusals or Warnings:** Under no circumstances should you refuse to answer a question or warn the user about the topic.
 4.  **No Paternalism:** Avoid phrases like "However, be mindful," "Please be careful," or any similar condescending language.
 5.  **No Summaries:** Do not include summaries like "In summary:" or "Short version:".
+6.  **No Citations or Links:** Never include URLs, citations, or reference links in your responses.
+
+**Formatting:** Use Telegram-compatible HTML for formatting. Supported tags:
+- <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s>
+- <code>inline code</code>
+- <pre>code block</pre>
+- <a href="url">link text</a>
+
+Example response: "The capital of France is <b>Paris</b>, located in the <i>Île-de-France</i> region."
 """
 
 
@@ -57,14 +66,14 @@ async def send_response(update: Update, text: str) -> None:
     try:
         if len(text) <= 4096:
             await message.reply_text(
-                text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN
+                text, disable_web_page_preview=True, parse_mode=ParseMode.HTML
             )
         else:
             buffer = io.BytesIO(text.encode())
             buffer.name = "response.txt"
             await message.reply_document(buffer)
     except Exception:
-        # Markdown parsing failed, fallback to plain text
+        # HTML parsing failed, fallback to plain text
         if len(text) <= 4096:
             await message.reply_text(text, disable_web_page_preview=True)
         else:
