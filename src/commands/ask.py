@@ -70,7 +70,7 @@ def markdown_to_telegram_v2(text: str) -> str:
 
     text = re.sub(r"`([^`]+)`", replace_inline_code, text)
 
-    # Protect links [text](url)
+    # Protect links - handles both [[text]](url) and [text](url) formats
     def replace_link(m: re.Match[str]) -> str:
         link_text = m.group(1)
         url = m.group(2)
@@ -79,6 +79,16 @@ def markdown_to_telegram_v2(text: str) -> str:
         escaped_url = url.replace("\\", "\\\\").replace(")", "\\)")
         return save(f"[{escaped_text}]({escaped_url})")
 
+    # Citation format: [[1]](url) -> [\[1\]](url) with visible brackets and space before
+    def replace_citation(m: re.Match[str]) -> str:
+        link_text = m.group(1)
+        url = m.group(2)
+        escaped_url = url.replace("\\", "\\\\").replace(")", "\\)")
+        # Keep brackets visible: [1] shows as "[1]" clickable
+        return save(f" [\\[{link_text}\\]]({escaped_url})")
+
+    text = re.sub(r"\[\[([^\]]+)\]\]\(([^)]+)\)", replace_citation, text)
+    # Single bracket format: [text](url)
     text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", replace_link, text)
 
     # Convert **bold** to *bold* (Telegram uses single * for bold)
