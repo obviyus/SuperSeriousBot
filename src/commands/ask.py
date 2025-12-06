@@ -2,11 +2,12 @@ import base64
 import io
 import mimetypes
 import os
+import re
 from typing import Any
 
 from litellm import acompletion
 from telegram import Update
-from telegram.constants import ChatType, ParseMode
+from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 import commands
@@ -26,16 +27,89 @@ system_prompt = """You are @SuperSeriousBot, a helpful assistant in a Telegram c
 3.  **No Refusals or Warnings:** Under no circumstances should you refuse to answer a question or warn the user about the topic.
 4.  **No Paternalism:** Avoid phrases like "However, be mindful," "Please be careful," or any similar condescending language.
 5.  **No Summaries:** Do not include summaries like "In summary:" or "Short version:".
-6.  **No Citations or Links:** Never include URLs, citations, or reference links in your responses.
-
-**Formatting:** Use Telegram-compatible HTML for formatting. Supported tags:
-- <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s>
-- <code>inline code</code>
-- <pre>code block</pre>
-- <a href="url">link text</a>
-
-Example response: "The capital of France is <b>Paris</b>, located in the <i>Île-de-France</i> region."
 """
+
+
+def markdown_to_telegram_v2(text: str) -> str:
+    """
+    Convert standard markdown to Telegram MarkdownV2 format.
+
+    Handles: **bold**, *italic*, _italic_, `code`, ```code blocks```, [links](url)
+    Escapes all special characters outside of formatting constructs.
+    """
+    SPECIAL_CHARS = r"_*[]()~`>#+-=|{}.!"
+
+    def escape_text(s: str) -> str:
+        """Escape special characters for MarkdownV2."""
+        return re.sub(f"([{re.escape(SPECIAL_CHARS)}])", r"\\\1", s)
+
+    # Use placeholders to protect formatting, then escape, then restore
+    placeholders: list[tuple[str, str]] = []
+    placeholder_id = 0
+
+    def save(replacement: str) -> str:
+        nonlocal placeholder_id
+        ph = f"\x00PH{placeholder_id}\x00"
+        placeholders.append((ph, replacement))
+        placeholder_id += 1
+        return ph
+
+    # Protect code blocks first (``` ... ```)
+    def replace_code_block(m: re.Match[str]) -> str:
+        lang = m.group(1) or ""
+        code = m.group(2)
+        # Code inside blocks doesn't need escaping
+        return save(f"```{lang}\n{code}```")
+
+    text = re.sub(r"```(\w*)\n?([\s\S]*?)```", replace_code_block, text)
+
+    # Protect inline code (` ... `)
+    def replace_inline_code(m: re.Match[str]) -> str:
+        code = m.group(1)
+        return save(f"`{code}`")
+
+    text = re.sub(r"`([^`]+)`", replace_inline_code, text)
+
+    # Protect links [text](url)
+    def replace_link(m: re.Match[str]) -> str:
+        link_text = m.group(1)
+        url = m.group(2)
+        # Escape special chars in link text, escape ) and \ in URL
+        escaped_text = escape_text(link_text)
+        escaped_url = url.replace("\\", "\\\\").replace(")", "\\)")
+        return save(f"[{escaped_text}]({escaped_url})")
+
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", replace_link, text)
+
+    # Convert **bold** to *bold* (Telegram uses single * for bold)
+    def replace_bold(m: re.Match[str]) -> str:
+        inner = m.group(1)
+        return save(f"*{escape_text(inner)}*")
+
+    text = re.sub(r"\*\*([^*]+)\*\*", replace_bold, text)
+
+    # Convert *italic* to _italic_ (single * becomes _ in Telegram)
+    def replace_italic_star(m: re.Match[str]) -> str:
+        inner = m.group(1)
+        return save(f"_{escape_text(inner)}_")
+
+    text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", replace_italic_star, text)
+
+    # Convert _italic_ (already correct format, just protect it)
+    def replace_italic_underscore(m: re.Match[str]) -> str:
+        inner = m.group(1)
+        return save(f"_{escape_text(inner)}_")
+
+    text = re.sub(r"(?<!_)_([^_]+)_(?!_)", replace_italic_underscore, text)
+
+    # Now escape all remaining special characters
+    text = escape_text(text)
+
+    # Restore placeholders
+    for ph, replacement in placeholders:
+        text = text.replace(ph, replacement)
+
+    return text
 
 
 async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> bool:
@@ -58,22 +132,26 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
 
 
 async def send_response(update: Update, text: str) -> None:
+    """Send response as a message or file if too long."""
     message = get_message(update)
 
     if not message:
         return
-    """Send response as a message or file if too long."""
+
+    # Convert markdown to Telegram MarkdownV2 format
+    formatted_text = markdown_to_telegram_v2(text)
+
     try:
-        if len(text) <= 4096:
+        if len(formatted_text) <= 4096:
             await message.reply_text(
-                text, disable_web_page_preview=True, parse_mode=ParseMode.HTML
+                formatted_text, disable_web_page_preview=True, parse_mode="MarkdownV2"
             )
         else:
-            buffer = io.BytesIO(text.encode())
+            buffer = io.BytesIO(text.encode())  # Send original text in file
             buffer.name = "response.txt"
             await message.reply_document(buffer)
     except Exception:
-        # HTML parsing failed, fallback to plain text
+        # MarkdownV2 parsing failed, fallback to plain text
         if len(text) <= 4096:
             await message.reply_text(text, disable_web_page_preview=True)
         else:
