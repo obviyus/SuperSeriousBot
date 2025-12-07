@@ -1,11 +1,10 @@
 import base64
 import io
 import mimetypes
-import os
 from typing import Any
 
+import aiohttp
 import telegramify_markdown
-from litellm import acompletion
 from telegram import Update
 from telegram.constants import ChatType
 from telegram.ext import ContextTypes
@@ -16,8 +15,7 @@ from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 from utils.messages import get_message
 
-if config["API"]["OPENROUTER_API_KEY"]:
-    os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 system_prompt = """You are @SuperSeriousBot, a helpful assistant in a Telegram chat. Your purpose is to provide direct, concise, and accurate information.
 
@@ -198,17 +196,27 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         model_name = await get_ask_model()
-        response = await acompletion(
-            model=model_name,
-            messages=messages,
-            extra_headers={
-                "X-Title": "SuperSeriousBot",
-                "HTTP-Referer": "https://superserio.us",
-            },
-            api_key=openrouter_api_key,
-        )
 
-        text = response.choices[0].message.content or ""  # type: ignore[attr-defined]
+        # Strip 'openrouter/' prefix if present
+        if model_name.startswith("openrouter/"):
+            model_name = model_name[11:]
+
+        headers = {
+            "Authorization": f"Bearer {openrouter_api_key}",
+            "Content-Type": "application/json",
+            "X-Title": "SuperSeriousBot",
+            "HTTP-Referer": "https://superserio.us",
+        }
+        payload = {"model": model_name, "messages": messages}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                OPENROUTER_API_URL, headers=headers, json=payload
+            ) as resp:
+                resp.raise_for_status()
+                response = await resp.json()
+
+        text = response["choices"][0]["message"]["content"] or ""
         await send_response(update, text)
     except Exception as e:
         await message.reply_text(
@@ -278,10 +286,19 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Get configured model from database
         model_name = await get_edit_model()
 
-        # Call OpenRouter API for image generation/editing
-        response = await acompletion(
-            model=model_name,
-            messages=[
+        # Strip 'openrouter/' prefix if present
+        if model_name.startswith("openrouter/"):
+            model_name = model_name[11:]
+
+        headers = {
+            "Authorization": f"Bearer {config['API']['OPENROUTER_API_KEY']}",
+            "Content-Type": "application/json",
+            "X-Title": "SuperSeriousBot",
+            "HTTP-Referer": "https://superserio.us",
+        }
+        payload = {
+            "model": model_name,
+            "messages": [
                 {
                     "role": "user",
                     "content": [
@@ -290,38 +307,40 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     ],
                 }
             ],
-            modalities=["image", "text"],  # type: ignore[arg-type]
-            extra_headers={
-                "X-Title": "SuperSeriousBot",
-                "HTTP-Referer": "https://superserio.us",
-            },
-            api_key=config["API"]["OPENROUTER_API_KEY"],
-        )
+            "modalities": ["image", "text"],
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                OPENROUTER_API_URL, headers=headers, json=payload
+            ) as resp:
+                resp.raise_for_status()
+                response = await resp.json()
 
         # Validate response structure
-        if not response or not response.choices:  # type: ignore[attr-defined]
+        if not response or not response.get("choices"):
             await message.reply_text("No response received from AI. Please try again.")
             return
 
-        choice = response.choices[0]  # type: ignore[attr-defined]
-        ai_message = choice.message  # type: ignore[attr-defined]
+        choice = response["choices"][0]
+        ai_message = choice["message"]
 
         # Check if there's an error in the response
-        if hasattr(choice, "finish_reason") and choice.finish_reason:
-            if str(choice.finish_reason).upper() in [
-                "CONTENT_FILTER",
-                "SAFETY",
-                "MODERATION",
-            ]:
-                await message.reply_text(
-                    "❌ This request was blocked by the AI due to content policies. Please try a different prompt."
-                )
-                return
+        finish_reason = choice.get("finish_reason", "")
+        if finish_reason and str(finish_reason).upper() in [
+            "CONTENT_FILTER",
+            "SAFETY",
+            "MODERATION",
+        ]:
+            await message.reply_text(
+                "❌ This request was blocked by the AI due to content policies. Please try a different prompt."
+            )
+            return
 
         # Process the response - check for images in the message
-        if hasattr(ai_message, "images") and ai_message.images:
+        if ai_message.get("images"):
             # Extract the first generated image
-            image_info = ai_message.images[0]
+            image_info = ai_message["images"][0]
             if "image_url" in image_info and "url" in image_info["image_url"]:
                 image_url_data = image_info["image_url"]["url"]
 
@@ -345,9 +364,9 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     return
 
         # If no image was generated, check for text response
-        if ai_message.content:
+        if ai_message.get("content"):
             await message.reply_text(
-                f"AI Response: {ai_message.content}\n\n(Note: No edited image was generated)"
+                f"AI Response: {ai_message['content']}\n\n(Note: No edited image was generated)"
             )
             return
 

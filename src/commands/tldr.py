@@ -1,9 +1,7 @@
 import html
-import os
 from urllib.parse import parse_qs, urlparse
 
 import aiohttp
-from litellm import acompletion
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -16,8 +14,7 @@ from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
 from utils.messages import get_message
 
-if config["API"]["OPENROUTER_API_KEY"]:
-    os.environ["OPENROUTER_API_KEY"] = config["API"]["OPENROUTER_API_KEY"]
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # AIDEV-NOTE: Default model for tldr command, can be overridden via /model command
 DEFAULT_TLDR_MODEL = "openrouter/x-ai/grok-4-fast"
@@ -120,6 +117,10 @@ async def summarize_text(text: str, context_hint: str = "") -> str:
     """Summarize text using AI."""
     model_name = await get_tldr_model()
 
+    # Strip 'openrouter/' prefix if present
+    if model_name.startswith("openrouter/"):
+        model_name = model_name[11:]
+
     context = f" (source: {context_hint})" if context_hint else ""
     system_content = f"""Summarize the following content{context} as a short bullet-point list.
 
@@ -130,20 +131,29 @@ Rules:
 - Skip fluff, intros, and filler
 - No headers or extra formatting, just bullets"""
 
-    llm_response = await acompletion(
-        model=model_name,
-        messages=[
+    headers = {
+        "Authorization": f"Bearer {config['API']['OPENROUTER_API_KEY']}",
+        "Content-Type": "application/json",
+        "X-Title": "SuperSeriousBot",
+        "HTTP-Referer": "https://superserio.us",
+    }
+    payload = {
+        "model": model_name,
+        "messages": [
             {"role": "system", "content": system_content},
             {"role": "user", "content": text},
         ],
-        extra_headers={
-            "X-Title": "SuperSeriousBot",
-            "HTTP-Referer": "https://superserio.us",
-        },
-        api_key=config["API"]["OPENROUTER_API_KEY"],
-        max_tokens=500,
-    )
-    content = llm_response.choices[0].message.content  # type: ignore
+        "max_tokens": 500,
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            OPENROUTER_API_URL, headers=headers, json=payload
+        ) as resp:
+            resp.raise_for_status()
+            response = await resp.json()
+
+    content = response["choices"][0]["message"]["content"]
     return str(content) if content else "No summary available"
 
 
