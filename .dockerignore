@@ -1,3 +1,47 @@
-./__pycache__
-./idea
-./venv
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*.pyo
+.venv
+venv
+.env
+.mypy_cache
+.pytest_cache
+.ruff_cache
+
+# IDE
+.idea
+.vscode
+*.swp
+.DS_Store
+
+# Data/DB
+*.db
+*.sqlite
+*.sqlite3
+db/
+
+# Scripts/build artifacts
+scripts/
+build/
+dist/
+stubs/
+vis/
+*.egg-info
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Misc
+*.md
+*.txt
+!requirements.txt
+.claude
+tests/
+LICENSE

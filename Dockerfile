@@ -1,52 +1,51 @@
-FROM python:3.14-slim AS build
+FROM python:3.13-alpine AS build
 
-SHELL ["sh", "-exc"]
-
-RUN apt-get update -qy && apt-get install -qyy \
-    -o APT::Install-Recommends=false \
-    -o APT::Install-Suggests=false \
-    curl \
-    build-essential \
+RUN apk add --no-cache \
+    build-base \
     libxml2-dev \
-    libxslt1-dev \
-    libz-dev \
-    ffmpeg \
-    git
+    libxslt-dev \
+    zlib-dev
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
-    UV_PYTHON=python3.14 \
+    UV_PYTHON=python3.13 \
     UV_PROJECT_ENVIRONMENT=/app
 
-COPY pyproject.toml /_lock/
-COPY uv.lock /_lock/
+COPY pyproject.toml uv.lock /src/
 
 RUN --mount=type=cache,target=/root/.cache \
-    cd /_lock && \
+    cd /src && \
     uv sync --locked --no-dev --no-install-project
 
-COPY . /code
+COPY src/ /src/src/
 RUN --mount=type=cache,target=/root/.cache \
-    uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps /code
+    cd /src && \
+    uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps .
 
-FROM build AS runtime
+FROM mwader/static-ffmpeg:7.1 AS ffmpeg
 
-WORKDIR /code
+FROM python:3.13-alpine AS runtime
 
-RUN groupadd -r app && useradd -r -d /code -g app -N app
+RUN addgroup -S app && adduser -S -h /app -G app app
 
-RUN apt-get update -qy && apt-get install -qyy \
-    -o APT::Install-Recommends=false \
-    -o APT::Install-Suggests=false \
+RUN apk add --no-cache \
     dumb-init \
-    sqlite3
+    sqlite \
+    curl
 
-COPY --from=build --chown=app:app /code /code
+COPY --from=ffmpeg /ffmpeg /usr/local/bin/
+COPY --from=build --chown=app:app /app /app
+COPY --from=build --chown=app:app /src/src /app/src
 
-ENTRYPOINT ["dumb-init", "--", "uv", "run"]
+ENV PATH="/app/bin:$PATH"
+
+WORKDIR /app
+USER app
+
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["python", "src/main.py"]
 
 LABEL org.opencontainers.image.source="https://github.com/obviyus/SuperSeriousBot"
