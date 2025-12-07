@@ -40,7 +40,10 @@ COPY --from=ffmpeg /ffmpeg /usr/local/bin/
 COPY --from=build --chown=app:app /app /app
 COPY --from=build --chown=app:app /src/src /app/src
 
-ENV PATH="/app/bin:$PATH"
+RUN mkdir -p /db && chown app:app /db
+
+ENV PATH="/app/bin:$PATH" \
+    DATABASE_PATH_PREFIX=/db
 
 WORKDIR /app
 USER app
