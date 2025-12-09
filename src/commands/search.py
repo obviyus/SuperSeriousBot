@@ -46,34 +46,33 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             return
 
-        # Fetch all matching message_ids, pick one randomly in Python
-        # AIDEV-NOTE: Single query fetching only message_id is fast with FTS index.
-        # For typical searches with few matches, this beats COUNT+OFFSET approach.
+        # AIDEV-NOTE: chat_id is stored UNINDEXED in FTS5 table for fast filtering.
+        # Filter by chat_id in FTS first, then join only matching rows.
         if message.reply_to_message and message.reply_to_message.from_user:
             sql = """
             SELECT cs.message_id
-                FROM chat_stats cs
-                INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
-            WHERE cs.chat_id = ?
+                FROM chat_stats_fts csf
+                INNER JOIN chat_stats cs ON cs.id = csf.rowid
+            WHERE csf.message_text MATCH ?
+                AND csf.chat_id = ?
                 AND cs.user_id = ?
-                AND csf.message_text MATCH ?
                 AND cs.message_text NOT LIKE '/%';
             """
             params = (
+                query,
                 message.chat_id,
                 message.reply_to_message.from_user.id,
-                query,
             )
         else:
             sql = """
             SELECT cs.message_id
-                FROM chat_stats cs
-                INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
-            WHERE cs.chat_id = ?
-                AND csf.message_text MATCH ?
+                FROM chat_stats_fts csf
+                INNER JOIN chat_stats cs ON cs.id = csf.rowid
+            WHERE csf.message_text MATCH ?
+                AND csf.chat_id = ?
                 AND cs.message_text NOT LIKE '/%';
             """
-            params = (message.chat_id, query)
+            params = (query, message.chat_id)
 
         async with conn.execute(sql, params) as cursor:
             results = list(await cursor.fetchall())
