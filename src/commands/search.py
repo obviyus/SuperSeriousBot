@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 import uuid
 from datetime import datetime
 
@@ -18,26 +19,11 @@ from utils.messages import get_message
 @description("Search for a message in the current chat for a user")
 @example("/search japan")
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = get_message(update)
-    if not message:
-        return
     """
     Search command handler.
     """
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-            SELECT fts FROM group_settings
-            WHERE chat_id = ?;
-            """,
-            (message.chat_id,),
-        ) as cursor:
-            setting = await cursor.fetchone()
-
-    if not setting or not setting["fts"]:
-        await message.reply_text(
-            "Full text search is not enabled in this chat. To enable it, use /enable_fts."
-        )
+    message = get_message(update)
+    if not message:
         return
 
     if not context.args:
@@ -45,48 +31,62 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     query = " ".join(context.args)
-    if message.reply_to_message and message.reply_to_message.from_user:
-        sql = """
-        SELECT cs.id, cs.chat_id, cs.message_id, cs.create_time, cs.user_id, cs.message_text
-            FROM chat_stats cs
-            INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
-        WHERE cs.chat_id = ?
-            AND cs.user_id = ?
-            AND csf.message_text MATCH ?
-            AND cs.message_text NOT LIKE '/%'
-        ORDER BY RANDOM()
-        LIMIT 1;
-        """
-        params = (
-            message.chat_id,
-            message.reply_to_message.from_user.id,
-            query,
-        )
-    else:
-        sql = """
-        SELECT cs.id, cs.chat_id, cs.message_id, cs.create_time, cs.user_id, cs.message_text
-            FROM chat_stats cs
-            INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
-        WHERE cs.chat_id = ?
-            AND csf.message_text MATCH ?
-            AND cs.message_text NOT LIKE '/%'
-        ORDER BY RANDOM()
-        LIMIT 1;
-        """
-        params = (message.chat_id, query)
 
+    # Single connection for both queries
     async with get_db() as conn:
+        async with conn.execute(
+            "SELECT fts FROM group_settings WHERE chat_id = ?;",
+            (message.chat_id,),
+        ) as cursor:
+            setting = await cursor.fetchone()
+
+        if not setting or not setting["fts"]:
+            await message.reply_text(
+                "Full text search is not enabled in this chat. To enable it, use /enable_fts."
+            )
+            return
+
+        # Fetch all matching message_ids, pick one randomly in Python
+        # AIDEV-NOTE: Single query fetching only message_id is fast with FTS index.
+        # For typical searches with few matches, this beats COUNT+OFFSET approach.
+        if message.reply_to_message and message.reply_to_message.from_user:
+            sql = """
+            SELECT cs.message_id
+                FROM chat_stats cs
+                INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
+            WHERE cs.chat_id = ?
+                AND cs.user_id = ?
+                AND csf.message_text MATCH ?
+                AND cs.message_text NOT LIKE '/%';
+            """
+            params = (
+                message.chat_id,
+                message.reply_to_message.from_user.id,
+                query,
+            )
+        else:
+            sql = """
+            SELECT cs.message_id
+                FROM chat_stats cs
+                INNER JOIN chat_stats_fts csf ON cs.id = csf.rowid
+            WHERE cs.chat_id = ?
+                AND csf.message_text MATCH ?
+                AND cs.message_text NOT LIKE '/%';
+            """
+            params = (message.chat_id, query)
+
         async with conn.execute(sql, params) as cursor:
-            results = await cursor.fetchone()
+            results = list(await cursor.fetchall())
 
     if not results:
         await message.reply_text("No results found.")
         return
 
+    result = random.choice(results)
     await context.bot.forward_message(
         chat_id=message.chat_id,
         from_chat_id=message.chat_id,
-        message_id=results["message_id"],
+        message_id=result["message_id"],
     )
 
 
