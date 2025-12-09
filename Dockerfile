@@ -21,6 +21,7 @@ RUN --mount=type=cache,target=/root/.cache \
     uv sync --locked --no-dev --no-install-project
 
 COPY src/ /src/src/
+COPY migrations/ /src/migrations/
 RUN --mount=type=cache,target=/root/.cache \
     cd /src && \
     uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps .
@@ -39,6 +40,7 @@ RUN apk add --no-cache \
 COPY --from=ffmpeg /ffmpeg /usr/local/bin/
 COPY --from=build --chown=app:app /app /app
 COPY --from=build --chown=app:app /src/src /app/src
+COPY --from=build --chown=app:app /src/migrations /app/migrations
 
 RUN mkdir -p /db && chown app:app /db
 
