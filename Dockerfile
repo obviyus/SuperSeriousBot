@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/root/.cache \
     cd /src && \
     uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps .
 
-FROM mwader/static-ffmpeg:7.1 AS ffmpeg
+FROM mwader/static-ffmpeg:latest AS ffmpeg
 
 FROM python:3.13-alpine AS runtime
 
