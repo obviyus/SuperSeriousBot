@@ -207,7 +207,12 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "X-Title": "SuperSeriousBot",
             "HTTP-Referer": "https://superserio.us",
         }
-        payload = {"model": model_name, "messages": messages}
+        # AIDEV-NOTE: Using native engine explicitly enables X Search for xAI models
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "plugins": [{"id": "web", "engine": "native"}],
+        }
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -216,7 +221,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 resp.raise_for_status()
                 response = await resp.json()
 
-        text = response["choices"][0]["message"]["content"] or ""
+        text = response["choices"][0]["message"].get("content") or ""
         await send_response(update, text)
     except Exception as e:
         await message.reply_text(
