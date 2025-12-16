@@ -13,6 +13,8 @@ from utils import readable_time
 from utils.decorators import description, example, triggers, usage
 from utils.messages import get_message
 
+_DOW_NAMES = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+
 
 async def stat_string_builder(
     rows: list,
@@ -123,7 +125,8 @@ async def _resolve_target_user(
 ) -> tuple[int | None, str | None]:
     """Resolve target user_id and display username from args/reply/self."""
     message = get_message(update)
-    # Prefer explicit @username arg
+
+    # Priority 1: explicit @username arg → DB lookup
     if context.args:
         username_input = context.args[0].split("@")
         if len(username_input) > 1:
@@ -137,17 +140,52 @@ async def _resolve_target_user(
             if row:
                 return int(row["user_id"]), row["username"]
 
-    # If replying to a user
-    if message and message.reply_to_message and message.reply_to_message.from_user:
-        replied = message.reply_to_message.from_user
-        return replied.id, replied.username or replied.full_name
-
-    # Fallback to the caller
-    if message and message.from_user:
-        caller = message.from_user
-        return caller.id, caller.username or caller.full_name
+    # Priority 2: reply target, else caller (unified extraction)
+    user = (
+        message.reply_to_message.from_user
+        if message and message.reply_to_message
+        else None
+    ) or (message.from_user if message else None)
+    if user:
+        return user.id, user.username or user.full_name
 
     return None, None
+
+
+async def _fetch_chat_stats(chat_id: int, today_only: bool = False) -> tuple[list, int]:
+    """Fetch top users and total count, optionally filtered to today."""
+    time_clause = (
+        "AND create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')"
+        if today_only
+        else ""
+    )
+
+    async with get_db() as conn:
+        async with conn.execute(
+            f"""
+            SELECT create_time, user_id, COUNT(user_id) AS user_count
+            FROM chat_stats
+            WHERE chat_id = ? {time_clause}
+            GROUP BY user_id
+            ORDER BY COUNT(user_id) DESC
+            LIMIT 10;
+            """,
+            (chat_id,),
+        ) as cursor:
+            users = list(await cursor.fetchall())
+
+        async with conn.execute(
+            f"""
+            SELECT COUNT(id) AS total_count
+            FROM chat_stats
+            WHERE chat_id = ? {time_clause};
+            """,
+            (chat_id,),
+        ) as cursor:
+            result = await cursor.fetchone()
+            total_count: int = result["total_count"] if result else 0
+
+    return users, total_count
 
 
 @usage("/stats")
@@ -158,36 +196,8 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     message = get_message(update)
     if not message:
         return
-    chat_id = message.chat_id
-
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-            SELECT create_time,user_id, COUNT(user_id) AS user_count
-                FROM chat_stats
-            WHERE chat_id = ? AND
-                create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')
-            GROUP BY user_id
-            ORDER BY COUNT(user_id) DESC
-            LIMIT 10;
-            """,
-            (chat_id,),
-        ) as cursor:
-            users = await cursor.fetchall()
-
-        async with conn.execute(
-            """
-            SELECT COUNT(id) AS total_count
-                FROM chat_stats
-            WHERE chat_id = ? AND
-                create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime');
-            """,
-            (chat_id,),
-        ) as cursor:
-            result = await cursor.fetchone()
-            total_count = result["total_count"] if result else 0
-
-    await stat_string_builder(users, message, context, total_count)
+    users, total = await _fetch_chat_stats(message.chat_id, today_only=True)
+    await stat_string_builder(users, message, context, total)
 
 
 @usage("/gstats")
@@ -200,34 +210,8 @@ async def get_total_chat_stats(
     message = get_message(update)
     if not message:
         return
-    chat_id = message.chat_id
-
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-            SELECT create_time, user_id, COUNT(user_id) AS user_count
-                FROM chat_stats
-            WHERE chat_id = ?
-            GROUP BY user_id
-            ORDER BY COUNT(user_id) DESC
-            LIMIT 10;
-            """,
-            (chat_id,),
-        ) as cursor:
-            users = await cursor.fetchall()
-
-        async with conn.execute(
-            """
-            SELECT COUNT(id) AS total_count
-                FROM chat_stats
-            WHERE chat_id = ?;
-            """,
-            (chat_id,),
-        ) as cursor:
-            result = await cursor.fetchone()
-            total_count = result["total_count"] if result else 0
-
-    await stat_string_builder(users, message, context, total_count)
+    users, total = await _fetch_chat_stats(message.chat_id, today_only=False)
+    await stat_string_builder(users, message, context, total)
 
 
 @usage("/ustats [username]")
@@ -376,21 +360,12 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     bars = _format_horizontal_bars(day_labels, week_counts)
 
     # Friendly labels
-    dow_names = {
-        "0": "Sun",
-        "1": "Mon",
-        "2": "Tue",
-        "3": "Wed",
-        "4": "Thu",
-        "5": "Fri",
-        "6": "Sat",
-    }
-    top_dow_name = dow_names.get(top_dow, "-") if top_dow is not None else "-"
-    if top_hour is not None:
-        hour_int = int(top_hour)
-        top_hour_label = f"{hour_int:02d}:00-{(hour_int + 1) % 24:02d}:00"
-    else:
-        top_hour_label = "-"
+    top_dow_name = _DOW_NAMES[int(top_dow)] if top_dow is not None else "-"
+    top_hour_label = (
+        f"{int(top_hour):02d}:00-{(int(top_hour) + 1) % 24:02d}:00"
+        if top_hour is not None
+        else "-"
+    )
 
     share = (
         (user_week_total / group_week_total * 100.0) if group_week_total > 0 else 0.0
