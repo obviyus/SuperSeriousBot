@@ -21,6 +21,18 @@ DEFAULT_MODELS = {
 VALID_COMMANDS = {"ask", "edit", "tr", "tldr", "all"}
 
 
+async def get_model(command: str) -> str:
+    """Get configured model for a command, falling back to default."""
+    column = f"{command}_model"
+    async with get_db() as conn:
+        async with conn.execute(
+            f"SELECT {column} FROM group_settings WHERE chat_id = ?",
+            (GLOBAL_CHAT_ID,),
+        ) as cursor:
+            result = await cursor.fetchone()
+            return result[0] if result and result[0] else DEFAULT_MODELS[command]
+
+
 @triggers(["model"])
 @usage("/model [command] [model_name]")
 @example("/model ask openrouter/google/gemini-2.0-flash-thinking-exp-1219:free")

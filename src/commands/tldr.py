@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 
 import commands
 import utils
+from commands.model import get_model
 from config.db import get_db
 from config.logger import logger
 from config.options import config
@@ -15,20 +16,6 @@ from utils.decorators import api_key, description, example, triggers, usage
 from utils.messages import get_message
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-
-# AIDEV-NOTE: Default model for tldr command, can be overridden via /model command
-DEFAULT_TLDR_MODEL = "openrouter/x-ai/grok-4-fast"
-
-
-async def get_tldr_model() -> str:
-    """Get the configured AI model for /tldr from database, fallback to default."""
-    async with get_db() as conn:
-        async with conn.execute(
-            "SELECT tldr_model FROM group_settings WHERE chat_id = ?",
-            (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
-        ) as cursor:
-            result = await cursor.fetchone()
-            return result[0] if result and result[0] else DEFAULT_TLDR_MODEL
 
 
 def extract_youtube_video_id(url: str) -> str | None:
@@ -115,7 +102,7 @@ async def cache_youtube_summary(conn, video_id: str, summary: str, user_id: int)
 
 async def summarize_text(text: str, context_hint: str = "") -> str:
     """Summarize text using AI."""
-    model_name = await get_tldr_model()
+    model_name = await get_model("tldr")
 
     # Strip 'openrouter/' prefix if present
     if model_name.startswith("openrouter/"):

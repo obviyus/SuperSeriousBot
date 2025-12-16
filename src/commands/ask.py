@@ -10,6 +10,7 @@ from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 import commands
+from commands.model import get_model
 from config.db import get_db
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
@@ -74,43 +75,6 @@ async def send_response(update: Update, text: str) -> None:
             buffer = io.BytesIO(text.encode())
             buffer.name = "response.txt"
             await message.reply_document(buffer)
-
-
-async def get_ask_model() -> str:
-    """Get the configured AI model for /ask from database, fallback to default."""
-    async with get_db() as conn:
-        async with conn.execute(
-            "SELECT ask_model FROM group_settings WHERE chat_id = ?",
-            (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
-        ) as cursor:
-            result = await cursor.fetchone()
-            return result[0] if result else "openrouter/x-ai/grok-4-fast"
-
-
-async def get_edit_model() -> str:
-    """Get the configured AI model for /edit from database, fallback to default."""
-    async with get_db() as conn:
-        async with conn.execute(
-            "SELECT edit_model FROM group_settings WHERE chat_id = ?",
-            (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
-        ) as cursor:
-            result = await cursor.fetchone()
-            return (
-                result[0]
-                if result
-                else "openrouter/google/gemini-2.5-flash-image-preview"
-            )
-
-
-async def get_tr_model() -> str:
-    """Get the configured AI model for /tr from database, fallback to default."""
-    async with get_db() as conn:
-        async with conn.execute(
-            "SELECT tr_model FROM group_settings WHERE chat_id = ?",
-            (-1,),  # AIDEV-NOTE: Global settings use chat_id = -1
-        ) as cursor:
-            result = await cursor.fetchone()
-            return result[0] if result else "google/gemini-2.5-flash"
 
 
 @triggers(["ask"])
@@ -195,7 +159,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         messages.append({"role": "user", "content": query})
 
     try:
-        model_name = await get_ask_model()
+        model_name = await get_model("ask")
 
         # Strip 'openrouter/' prefix if present
         if model_name.startswith("openrouter/"):
@@ -289,7 +253,7 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         # Get configured model from database
-        model_name = await get_edit_model()
+        model_name = await get_model("edit")
 
         # Strip 'openrouter/' prefix if present
         if model_name.startswith("openrouter/"):
