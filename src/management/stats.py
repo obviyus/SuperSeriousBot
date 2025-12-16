@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 
 from telegram import Message, Update
@@ -23,16 +24,20 @@ async def stat_string_builder(
         await message.reply_text("No messages recorded.")
         return
 
-    text = f"Stats for <b>{message.chat.title}:</b>\n\n"
-    for _, user_id, count in rows:
-        percent = round(count / total_count * 100, 2)
-        text += f"""<code>{percent:4.1f}% - {await utils.string.get_first_name(user_id, context)}</code>\n"""
-
-    text += f"\nTotal messages: <b>{total_count}</b>"
-    await message.reply_text(
-        text,
-        parse_mode=ParseMode.HTML,
+    # Parallel fetch all names (cache hits are instant, misses run concurrently)
+    user_ids = [user_id for _, user_id, _ in rows]
+    names = await asyncio.gather(
+        *(utils.string.get_first_name(uid, context) for uid in user_ids)
     )
+
+    # Build output with list join (avoids O(n²) string concat)
+    lines = [f"Stats for <b>{message.chat.title}:</b>", ""]
+    for (_, user_id, count), name in zip(rows, names, strict=True):
+        percent = count / total_count * 100
+        lines.append(f"<code>{percent:4.1f}% - {name}</code>")
+    lines.append(f"\nTotal messages: <b>{total_count}</b>")
+
+    await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
 @triggers(["seen"])
@@ -168,7 +173,7 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             """,
             (chat_id,),
         ) as cursor:
-            users = list(await cursor.fetchall())
+            users = await cursor.fetchall()
 
         async with conn.execute(
             """
@@ -209,7 +214,7 @@ async def get_total_chat_stats(
             """,
             (chat_id,),
         ) as cursor:
-            users = list(await cursor.fetchall())
+            users = await cursor.fetchall()
 
         async with conn.execute(
             """
@@ -233,8 +238,6 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     message = get_message(update)
     if not message:
         return
-    if not message:
-        return
     chat_id = message.chat_id
 
     user_id, username_display = await _resolve_target_user(update, context)
@@ -253,73 +256,97 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         day_keys.append(day.strftime("%Y-%m-%d"))
         day_labels.append(day.strftime("%a"))
 
-    # Fetch per-day counts for the user, last 7 days
+    # AIDEV-NOTE: Single CTE query replaces 6 sequential DB round-trips
     async with get_db() as conn:
         async with conn.execute(
             """
-            SELECT DATE(create_time, 'localtime') AS d, COUNT(*) AS cnt
-            FROM chat_stats
-            WHERE chat_id = ?
-              AND user_id = ?
-              AND create_time >= DATE('now', '-6 days', 'localtime')
-              AND create_time < DATE('now', '+1 day', 'localtime')
-            GROUP BY d
+            WITH user_daily AS (
+                SELECT DATE(create_time, 'localtime') AS d, COUNT(*) AS cnt
+                FROM chat_stats
+                WHERE chat_id = ? AND user_id = ?
+                  AND create_time >= DATE('now', '-6 days', 'localtime')
+                  AND create_time < DATE('now', '+1 day', 'localtime')
+                GROUP BY d
+            ),
+            group_week AS (
+                SELECT COUNT(*) AS total
+                FROM chat_stats
+                WHERE chat_id = ?
+                  AND create_time >= DATE('now', '-6 days', 'localtime')
+                  AND create_time < DATE('now', '+1 day', 'localtime')
+            ),
+            top_hour AS (
+                SELECT strftime('%H', create_time, 'localtime') AS hour
+                FROM chat_stats
+                WHERE chat_id = ? AND user_id = ?
+                  AND create_time >= DATE('now', '-30 days', 'localtime')
+                GROUP BY hour
+                ORDER BY COUNT(*) DESC
+                LIMIT 1
+            ),
+            top_dow AS (
+                SELECT strftime('%w', create_time, 'localtime') AS dow
+                FROM chat_stats
+                WHERE chat_id = ? AND user_id = ?
+                  AND create_time >= DATE('now', '-90 days', 'localtime')
+                GROUP BY dow
+                ORDER BY COUNT(*) DESC
+                LIMIT 1
+            ),
+            lifetime AS (
+                SELECT COUNT(*) AS total
+                FROM chat_stats
+                WHERE chat_id = ? AND user_id = ?
+            )
+            SELECT
+                'daily' AS qtype, d AS val, cnt AS cnt FROM user_daily
+            UNION ALL
+            SELECT 'group_total', NULL, total FROM group_week
+            UNION ALL
+            SELECT 'top_hour', hour, NULL FROM top_hour
+            UNION ALL
+            SELECT 'top_dow', dow, NULL FROM top_dow
+            UNION ALL
+            SELECT 'lifetime', NULL, total FROM lifetime
             """,
-            (chat_id, user_id),
+            (
+                chat_id,
+                user_id,
+                chat_id,
+                chat_id,
+                user_id,
+                chat_id,
+                user_id,
+                chat_id,
+                user_id,
+            ),
         ) as cursor:
-            rows = list(await cursor.fetchall())
+            rows = await cursor.fetchall()
 
-        counts_map = {row["d"]: row["cnt"] for row in rows}
-        week_counts = [int(counts_map.get(k, 0)) for k in day_keys]
+        # Parse unified result set
+        counts_map: dict[str, int] = {}
+        group_week_total = 0
+        top_hour = None
+        top_dow = None
+        lifetime_total = 0
+
+        for row in rows:
+            qtype = row["qtype"]
+            if qtype == "daily":
+                counts_map[row["val"]] = row["cnt"]
+            elif qtype == "group_total":
+                group_week_total = row["cnt"] or 0
+            elif qtype == "top_hour":
+                top_hour = row["val"]
+            elif qtype == "top_dow":
+                top_dow = row["val"]
+            elif qtype == "lifetime":
+                lifetime_total = row["cnt"] or 0
+
+        week_counts = [counts_map.get(k, 0) for k in day_keys]
         user_week_total = sum(week_counts)
 
-        # Group total for the same period
-        async with conn.execute(
-            """
-            SELECT COUNT(*) AS total
-            FROM chat_stats
-            WHERE chat_id = ?
-              AND create_time >= DATE('now', '-6 days', 'localtime')
-              AND create_time < DATE('now', '+1 day', 'localtime')
-            """,
-            (chat_id,),
-        ) as cursor:
-            result = await cursor.fetchone()
-            group_week_total = int(result["total"]) if result and result["total"] else 0
-
-        # Most active hour (last 30 days)
-        async with conn.execute(
-            """
-            SELECT strftime('%H', create_time, 'localtime') AS hour, COUNT(*) AS cnt
-            FROM chat_stats
-            WHERE chat_id = ? AND user_id = ?
-              AND create_time >= DATE('now', '-30 days', 'localtime')
-            GROUP BY hour
-            ORDER BY cnt DESC
-            LIMIT 1;
-            """,
-            (chat_id, user_id),
-        ) as cursor:
-            hour_row = await cursor.fetchone()
-            top_hour = hour_row["hour"] if hour_row else None
-
-        # Most active day of week (0=Sun..6=Sat) across recent history (90d)
-        async with conn.execute(
-            """
-            SELECT strftime('%w', create_time, 'localtime') AS dow, COUNT(*) AS cnt
-            FROM chat_stats
-            WHERE chat_id = ? AND user_id = ?
-              AND create_time >= DATE('now', '-90 days', 'localtime')
-            GROUP BY dow
-            ORDER BY cnt DESC
-            LIMIT 1;
-            """,
-            (chat_id, user_id),
-        ) as cursor:
-            dow_row = await cursor.fetchone()
-            top_dow = dow_row["dow"] if dow_row else None
-
-        # Dates with at least one message (for streak calc, last 60 days)
+        # Streak calculation needs active dates (separate query - still faster than 6)
         async with conn.execute(
             """
             SELECT DATE(create_time, 'localtime') AS d
@@ -330,16 +357,8 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             """,
             (chat_id, user_id),
         ) as cursor:
-            date_rows = list(await cursor.fetchall())
+            date_rows = await cursor.fetchall()
             active_dates = {r["d"] for r in date_rows}
-
-        # Lifetime total for this chat
-        async with conn.execute(
-            "SELECT COUNT(*) AS total FROM chat_stats WHERE chat_id = ? AND user_id = ?",
-            (chat_id, user_id),
-        ) as cursor:
-            result = await cursor.fetchone()
-            lifetime_total = int(result["total"]) if result and result["total"] else 0
 
     # Streak calculation from today backwards
     streak = 0
