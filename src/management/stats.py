@@ -34,7 +34,7 @@ async def stat_string_builder(
 
     # Build output with list join (avoids O(n²) string concat)
     lines = [f"Stats for <b>{message.chat.title}:</b>", ""]
-    for (_, user_id, count), name in zip(rows, names, strict=True):
+    for (_, _user_id, count), name in zip(rows, names, strict=True):
         percent = count / total_count * 100
         lines.append(f"<code>{percent:4.1f}% - {name}</code>")
     lines.append(f"\nTotal messages: <b>{total_count}</b>")

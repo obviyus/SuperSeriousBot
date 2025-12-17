@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 import ijson
 from telegram import Update
@@ -128,8 +128,6 @@ def _parse_export_file(filepath: str, chat_id: int) -> list[tuple]:
     Parse Telegram JSON export file and return list of tuples for bulk insert.
     Runs in a thread pool to avoid blocking the event loop.
     """
-    from datetime import timezone
-
     batch = []
     with open(filepath, "rb") as f:
         messages = ijson.items(f, "messages.item")
@@ -167,7 +165,7 @@ def _parse_export_file(filepath: str, chat_id: int) -> list[tuple]:
                 dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S")
 
             if dt.tzinfo is not None:
-                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+                dt = dt.astimezone(UTC).replace(tzinfo=None)
             create_time = dt.strftime("%Y-%m-%d %H:%M:%S")
 
             batch.append((chat_id, user_id, msg["id"], create_time, text))
