@@ -171,12 +171,14 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "X-Title": "SuperSeriousBot",
             "HTTP-Referer": "https://superserio.us",
         }
-        # AIDEV-NOTE: Using native engine explicitly enables X Search for xAI models
         payload = {
             "model": model_name,
             "messages": messages,
-            "plugins": [{"id": "web", "engine": "native"}],
         }
+
+        # AIDEV-NOTE: plugins field only works for xAI models (enables X Search)
+        if model_name.startswith("x-ai/"):
+            payload["plugins"] = [{"id": "web", "engine": "native"}]
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
