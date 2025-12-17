@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
   "aiohttp~=3.13.2",
-  "aiosqlite>=0.21.0",
+  "aiosqlite~=0.22.0",
   "async-lru>=2.0.5",
   "beautifulsoup4~=4.14.3",
   "caribou>=0.4.1",
@@ -42,3 +42,15 @@ select = [
 ignore = [
   "E501", # line length (handled by formatter/line-length)
 ]
+
+[dependency-groups]
+dev = [
+    "ty>=0.0.2",
+]
+
+[tool.ty.environment]
+python-version = "3.13"
+root = ["src"]
+
+[tool.ty.src]
+include = ["src"]
