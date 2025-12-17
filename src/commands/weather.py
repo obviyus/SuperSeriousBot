@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 
 import aiohttp
 from geopy import Nominatim
@@ -11,13 +10,13 @@ from telegram.ext import ContextTypes
 
 import commands
 from config.db import get_db
+from config.options import config
 from utils.decorators import description, example, triggers, usage
 from utils.messages import get_message
 
 geolocator = Nominatim(user_agent="SuperSeriousBot")
 
-WEATHER_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
-AQI_ENDPOINT = "https://air-quality-api.open-meteo.com/v1/air-quality"
+WAQI_ENDPOINT = "https://api.waqi.info/feed/geo:{lat};{lng}/"
 
 
 class Point:
@@ -53,82 +52,33 @@ class Point:
         except IndexError:
             return address
 
-    async def get_data(self, session: aiohttp.ClientSession) -> tuple[dict, str]:
-        weather_data, aqi = await asyncio.gather(
-            self._fetch_weather(session), self._fetch_aqi(session)
-        )
-        return weather_data, aqi
-
-    async def _fetch_weather(self, session: aiohttp.ClientSession) -> dict:
-        async with session.get(
-            WEATHER_ENDPOINT,
-            params={
-                "latitude": self.latitude,
-                "longitude": self.longitude,
-                "hourly": "temperature_2m,apparent_temperature,windspeed_10m,relativehumidity_1000hPa",
-            },
-        ) as response:
+    async def get_data(self, session: aiohttp.ClientSession) -> dict | None:
+        token = config["API"].get("WAQI_API_KEY")
+        if not token:
+            return None
+        url = WAQI_ENDPOINT.format(lat=self.latitude, lng=self.longitude)
+        async with session.get(url, params={"token": token}) as response:
             data = await response.json()
-            return self._process_weather_data(data)
-
-    async def _fetch_aqi(self, session: aiohttp.ClientSession) -> str:
-        async with session.get(
-            AQI_ENDPOINT,
-            params={
-                "latitude": self.latitude,
-                "longitude": self.longitude,
-                "hourly": "pm2_5",
-            },
-        ) as response:
-            data = await response.json()
-            return self._process_aqi_data(data)
+            if data.get("status") != "ok":
+                return None
+            return self._process_waqi_data(data["data"])
 
     @staticmethod
-    def _process_weather_data(data: dict) -> dict:
-        current_index = Point._get_current_time_index(data["hourly"]["time"])
+    def _process_waqi_data(data: dict) -> dict:
+        iaqi = data.get("iaqi", {})
+
+        def get_val(key: str) -> str:
+            val = iaqi.get(key, {}).get("v")
+            return f"{val:.1f}" if val is not None else "N/A"
+
+        aqi = data.get("aqi")
         return {
-            "temperature": f"{data['hourly']['temperature_2m'][current_index]} {data['hourly_units']['temperature_2m']}",
-            "apparent_temperature": f"{data['hourly']['apparent_temperature'][current_index]} {data['hourly_units']['apparent_temperature']}",
-            "windspeed": f"{data['hourly']['windspeed_10m'][current_index]} {data['hourly_units']['windspeed_10m']}",
-            "relative_humidity": f"{data['hourly']['relativehumidity_1000hPa'][current_index]} {data['hourly_units']['relativehumidity_1000hPa']}",
+            "aqi": str(int(aqi)) if aqi and aqi != "-" else "N/A",
+            "temperature": f"{get_val('t')} °C",
+            "humidity": f"{get_val('h')}%",
+            "pressure": f"{get_val('p')} hPa",
+            "wind": f"{get_val('w')} m/s",
         }
-
-    @staticmethod
-    def _process_aqi_data(data: dict) -> str:
-        current_index = Point._get_current_time_index(data["hourly"]["time"])
-        return (
-            f"{data['hourly']['pm2_5'][current_index]} {data['hourly_units']['pm2_5']}"
-        )
-
-    @staticmethod
-    def _get_current_time_index(time_series: list[str]) -> int:
-        """Return the index of the most recent time <= now using binary search.
-
-        Compares ISO-8601 timestamps as strings at minute precision, avoiding
-        heavy parsing. Assumes ascending order.
-        """
-        if not time_series:
-            return 0
-
-        # Current UTC time formatted to match series precision
-        target = time.strftime("%Y-%m-%dT%H:%M", time.gmtime())
-
-        def norm(ts: str) -> str:
-            # Normalize to 'YYYY-MM-DDTHH:MM', drop trailing 'Z' if present
-            if ts.endswith("Z"):
-                ts = ts[:-1]
-            return ts[:16]
-
-        lo, hi = 0, len(time_series) - 1
-        ans = 0
-        while lo <= hi:
-            mid = (lo + hi) // 2
-            if norm(time_series[mid]) <= target:
-                ans = mid
-                lo = mid + 1
-            else:
-                hi = mid - 1
-        return ans
 
 
 @usage("/w")
@@ -159,9 +109,13 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     async with aiohttp.ClientSession() as session:
-        weather_data, aqi = await point.get_data(session)
+        data = await point.get_data(session)
 
-    text = format_weather_message(point.address, weather_data, aqi)
+    if not data:
+        await message.reply_text("Could not fetch weather data. Check WAQI_API_KEY.")
+        return
+
+    text = format_weather_message(point.address, data)
     await message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
@@ -201,11 +155,10 @@ async def get_point(user_id: int, args: list[str]) -> Point:
     return point
 
 
-def format_weather_message(address: str, weather_data: dict, aqi: str) -> str:
+def format_weather_message(address: str, data: dict) -> str:
     return f"""<b>{address}</b>
 
-🌡️ <b>Temperature:</b> {weather_data["temperature"]}
-☁️️ <b>Feels like:</b> {weather_data["apparent_temperature"]}
-💦 <b>Humidity:</b> {weather_data["relative_humidity"]}
-💨 <b>Wind:</b> {weather_data["windspeed"]}
-🛰 <b>AQI:</b> {aqi}"""
+🌡️ <b>Temperature:</b> {data["temperature"]}
+💦 <b>Humidity:</b> {data["humidity"]}
+💨 <b>Wind:</b> {data["wind"]}
+🛰 <b>AQI:</b> {data["aqi"]}"""

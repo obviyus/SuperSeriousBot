@@ -29,6 +29,7 @@ class APIConfig(BaseModel):
     OPENROUTER_API_KEY: str | None = ""
     GOOGLE_API_KEY: str | None = ""
     COBALT_URL: str | None = ""
+    WAQI_API_KEY: str | None = ""
 
 
 class TelegramConfig(BaseModel):
@@ -89,6 +90,7 @@ try:
             "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY", ""),
             "GOOGLE_API_KEY": os.environ.get("GOOGLE_API_KEY", ""),
             "COBALT_URL": os.environ.get("COBALT_URL", ""),
+            "WAQI_API_KEY": os.environ.get("WAQI_API_KEY", ""),
         },
     )
     logger.info("Valid configuration found.")
