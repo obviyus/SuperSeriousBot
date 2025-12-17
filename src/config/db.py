@@ -55,6 +55,7 @@ async def _get_connection() -> aiosqlite.Connection:
             if _db_connection is None:
                 _db_connection = await _init_connection()
                 logger.info("Database connection initialized (lazy)")
+    assert _db_connection is not None
     return _db_connection
 
 

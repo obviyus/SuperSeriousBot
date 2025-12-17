@@ -74,8 +74,8 @@ def ensure_caribou_py314_compat() -> None:
         with original_transaction(self.conn):
             self.conn.execute(sql, (version,))
 
-    caribou_migrate.execute = patched_execute
-    caribou_migrate.Database.update_version = patched_update_version
+    caribou_migrate.execute = patched_execute  # type: ignore[assignment]
+    caribou_migrate.Database.update_version = patched_update_version  # type: ignore[method-assign]
     caribou_migrate._py314_param_patch = True  # type: ignore[attr-defined]
 
 

@@ -2,7 +2,7 @@
 
 import random
 import traceback
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from functools import wraps
 
 from telegram import Message, MessageEntity, Update
@@ -176,7 +176,10 @@ async def is_user_blocked(user_id: int, command: str) -> bool:
         return bool(await result.fetchone())
 
 
-def command_wrapper(fn: Callable):
+type CommandHandler_T = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[None]]
+
+
+def command_wrapper(fn: CommandHandler_T):
     @wraps(fn)
     async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = get_message(update)
@@ -219,7 +222,7 @@ def command_wrapper(fn: Callable):
                 )
 
         except Exception as e:
-            logger.error(f"Error in /{fn.__name__}: {e!s}")
+            logger.error(f"Error in /{fn.__name__}: {e!s}")  # type: ignore[attr-defined]
             logger.error(traceback.format_exc())
 
     return wrapped_command

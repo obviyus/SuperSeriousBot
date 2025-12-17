@@ -80,7 +80,7 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     file_id, file_unique_id, file_type = extract_media_info(message.reply_to_message)
 
-    if not file_id:
+    if not file_id or not file_type:
         await message.reply_text("Could not find a media object in the message.")
         return
 

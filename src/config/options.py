@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError
@@ -7,6 +8,8 @@ import utils
 from config.logger import logger
 
 load_dotenv()
+
+config: dict[str, Any]
 
 
 class APIConfig(BaseModel):
@@ -60,7 +63,7 @@ try:
         raise RuntimeError("QUOTE_CHANNEL_ID must be set")
     quote_channel_id = int(quote_channel_value)
 
-    config = Config(
+    _config_model = Config(
         TELEGRAM={  # type: ignore[arg-type]
             "ADMINS": admin_data,
             "TOKEN": token,
@@ -89,9 +92,8 @@ try:
         },
     )
     logger.info("Valid configuration found.")
-    config_dict = utils.scrub_dict(config.model_dump())
-    config = config_dict
-    logger.info(config_dict)
+    config = utils.scrub_dict(_config_model.model_dump())
+    logger.info(config)
 except ValidationError as e:
     logger.error("Invalid configuration found.")
     logger.error(e.json())
