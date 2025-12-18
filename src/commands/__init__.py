@@ -110,25 +110,26 @@ list_of_commands.extend(
     ]
 )
 
-POSITIVE_EMOJIS = [
-    ReactionEmoji.HEART_WITH_ARROW,
-    ReactionEmoji.SMILING_FACE_WITH_HEARTS,
-    ReactionEmoji.HEART_ON_FIRE,
-    ReactionEmoji.BANANA,
-    ReactionEmoji.KISS_MARK,
-    ReactionEmoji.MAN_TECHNOLOGIST,
-    ReactionEmoji.NAIL_POLISH,
-    ReactionEmoji.FACE_THROWING_A_KISS,
-    ReactionEmoji.ALIEN_MONSTER,
-]
-
-NEGATIVE_EMOJIS = [
-    ReactionEmoji.FEARFUL_FACE,
-    ReactionEmoji.LOUDLY_CRYING_FACE,
-    ReactionEmoji.BROKEN_HEART,
-    ReactionEmoji.CRYING_FACE,
-    ReactionEmoji.FACE_SCREAMING_IN_FEAR,
-]
+REACTION_MAP = {
+    "good bot": [
+        ReactionEmoji.HEART_WITH_ARROW,
+        ReactionEmoji.SMILING_FACE_WITH_HEARTS,
+        ReactionEmoji.HEART_ON_FIRE,
+        ReactionEmoji.BANANA,
+        ReactionEmoji.KISS_MARK,
+        ReactionEmoji.MAN_TECHNOLOGIST,
+        ReactionEmoji.NAIL_POLISH,
+        ReactionEmoji.FACE_THROWING_A_KISS,
+        ReactionEmoji.ALIEN_MONSTER,
+    ],
+    "bad bot": [
+        ReactionEmoji.FEARFUL_FACE,
+        ReactionEmoji.LOUDLY_CRYING_FACE,
+        ReactionEmoji.BROKEN_HEART,
+        ReactionEmoji.CRYING_FACE,
+        ReactionEmoji.FACE_SCREAMING_IN_FEAR,
+    ],
+}
 
 
 async def _record_command_stat(command: str, user_id: int) -> None:
@@ -149,10 +150,6 @@ async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
     await message.reply_text("❌ This command is disabled.")
 
 
-def get_random_item_from_list(items: list):
-    return random.choice(items)
-
-
 async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
     message = get_message(update)
 
@@ -161,10 +158,10 @@ async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
     """Every message action handler."""
     if message and message.text:
         text = message.text.lower()
-        if "good bot" in text:
-            await message.set_reaction(get_random_item_from_list(POSITIVE_EMOJIS))
-        elif "bad bot" in text:
-            await message.set_reaction(get_random_item_from_list(NEGATIVE_EMOJIS))
+        for trigger, emojis in REACTION_MAP.items():
+            if trigger in text:
+                await message.set_reaction(random.choice(emojis))
+                break
 
 
 async def is_user_blocked(user_id: int, command: str) -> bool:
