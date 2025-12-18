@@ -10,7 +10,7 @@ from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 import commands
-from commands.model import get_model
+from commands.model import get_model, get_thinking
 from config.db import get_db
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
@@ -160,6 +160,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         model_name = await get_model("ask")
+        thinking_level = await get_thinking()
 
         # Strip 'openrouter/' prefix if present
         if model_name.startswith("openrouter/"):
@@ -171,7 +172,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "X-Title": "SuperSeriousBot",
             "HTTP-Referer": "https://superserio.us",
         }
-        payload = {
+        payload: dict[str, Any] = {
             "model": model_name,
             "messages": messages,
         }
@@ -179,6 +180,11 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # AIDEV-NOTE: plugins field only works for xAI models (enables X Search)
         if model_name.startswith("x-ai/"):
             payload["plugins"] = [{"id": "web", "engine": "native"}]
+
+        # AIDEV-NOTE: Add reasoning parameter for OpenRouter thinking tokens
+        # See: https://openrouter.ai/docs/use-cases/reasoning-tokens
+        if thinking_level != "none":
+            payload["reasoning"] = {"effort": thinking_level}
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
