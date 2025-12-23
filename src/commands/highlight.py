@@ -118,12 +118,17 @@ async def highlighter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         await conn.commit()
 
+    keyboard = await highlight_keyboard_builder(message.chat_id, message.from_user.id)
+    keyboard.inline_keyboard.append(
+        [InlineKeyboardButton("Start DM", url=f"https://t.me/{context.bot.username}")]
+    )
+
     await message.reply_text(
-        f"Added highlight: <code>{highlight_string}</code>. \n\nYour highlights in this chat:",
+        f"Added highlight: <code>{highlight_string}</code>.\n\n"
+        "⚠️ Make sure you've messaged me first, otherwise I can't DM you!\n\n"
+        "Your highlights in this chat:",
         parse_mode=ParseMode.HTML,
-        reply_markup=await highlight_keyboard_builder(
-            message.chat_id, message.from_user.id
-        ),
+        reply_markup=keyboard,
     )
 
 
