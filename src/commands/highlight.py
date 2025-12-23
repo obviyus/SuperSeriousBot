@@ -1,5 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
+from telegram.error import Forbidden
 from telegram.ext import ContextTypes
 
 from config.db import get_db
@@ -143,21 +144,39 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     for row in result:
         if row["string"].lower() in message.text.lower():
-            await context.bot.send_message(
-                row["user_id"],
-                f"Your highlight <code>{row['string']}</code> was mentioned "
-                f"in <b>{message.chat.title}</b> by "
-                f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>."
-                f"\n\n🔗 <a href='{message.link}'>Link</a>",
-                parse_mode=ParseMode.HTML,
-                reply_markup=InlineKeyboardMarkup(
-                    [
+            try:
+                await context.bot.send_message(
+                    row["user_id"],
+                    f"Your highlight <code>{row['string']}</code> was mentioned "
+                    f"in <b>{message.chat.title}</b> by "
+                    f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>."
+                    f"\n\n🔗 <a href='{message.link}'>Link</a>",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=InlineKeyboardMarkup(
                         [
-                            InlineKeyboardButton(
-                                "Delete Highlight",
-                                callback_data=f"hl:{row['id']},{row['user_id']}",
-                            )
+                            [
+                                InlineKeyboardButton(
+                                    "Delete Highlight",
+                                    callback_data=f"hl:{row['id']},{row['user_id']}",
+                                )
+                            ]
                         ]
-                    ]
-                ),
-            )
+                    ),
+                )
+            except Forbidden:
+                await message.reply_text(
+                    f"<a href='tg://user?id={row['user_id']}'>Your highlight</a> "
+                    f"<code>{row['string']}</code> was triggered, but I can't DM you. "
+                    "Please start a conversation with me first.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    "Start DM",
+                                    url=f"https://t.me/{context.bot.username}",
+                                )
+                            ]
+                        ]
+                    ),
+                )
