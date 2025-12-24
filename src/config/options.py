@@ -1,8 +1,8 @@
 import os
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, ValidationError
 
 import utils
 from config.logger import logger
@@ -12,26 +12,33 @@ load_dotenv()
 config: dict[str, Any]
 
 
-class APIConfig(BaseModel):
-    COBALT_URL: str | None = ""
-    GIPHY_API_KEY: str | None = ""
-    GOODREADS_API_KEY: str | None = ""
-    NANO_GPT_API_KEY: str | None = ""
-    OPENROUTER_API_KEY: str | None = ""
-    WAQI_API_KEY: str | None = ""
-    WOLFRAM_APP_ID: str | None = ""
+@dataclass
+class APIConfig:
+    COBALT_URL: str = ""
+    GIPHY_API_KEY: str = ""
+    GOODREADS_API_KEY: str = ""
+    NANO_GPT_API_KEY: str = ""
+    OPENROUTER_API_KEY: str = ""
+    WAQI_API_KEY: str = ""
+    WOLFRAM_APP_ID: str = ""
 
 
-class TelegramConfig(BaseModel):
-    ADMINS: list[str] = Field(default_factory=list)
+@dataclass
+class TelegramConfig:
     TOKEN: str
-    UPDATER: str | None = Field(default="polling", pattern="^(webhook|polling)$")
+    QUOTE_CHANNEL_ID: int
+    ADMINS: list[str] = field(default_factory=list)
+    UPDATER: str = "polling"
     WEBHOOK_URL: str | None = None
     LOGGING_CHANNEL_ID: int | None = None
-    QUOTE_CHANNEL_ID: int
+
+    def __post_init__(self):
+        if self.UPDATER not in ("webhook", "polling"):
+            raise ValueError("UPDATER must be 'webhook' or 'polling'")
 
 
-class Config(BaseModel):
+@dataclass
+class Config:
     TELEGRAM: TelegramConfig
     API: APIConfig
 
@@ -55,28 +62,28 @@ try:
     quote_channel_id = int(quote_channel_value)
 
     _config_model = Config(
-        TELEGRAM={  # type: ignore[arg-type]
-            "ADMINS": admin_data,
-            "TOKEN": token,
-            "UPDATER": updater,
-            "WEBHOOK_URL": webhook_url,
-            "LOGGING_CHANNEL_ID": logging_channel_id,
-            "QUOTE_CHANNEL_ID": quote_channel_id,
-        },
-        API={  # type: ignore[arg-type]
-            "COBALT_URL": os.environ.get("COBALT_URL", ""),
-            "GIPHY_API_KEY": os.environ.get("GIPHY_API_KEY", ""),
-            "GOODREADS_API_KEY": os.environ.get("GOODREADS_API_KEY", ""),
-            "NANO_GPT_API_KEY": os.environ.get("NANO_GPT_API_KEY", ""),
-            "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY", ""),
-            "WAQI_API_KEY": os.environ.get("WAQI_API_KEY", ""),
-            "WOLFRAM_APP_ID": os.environ.get("WOLFRAM_APP_ID", ""),
-        },
+        TELEGRAM=TelegramConfig(
+            ADMINS=admin_data,
+            TOKEN=token,
+            UPDATER=updater,
+            WEBHOOK_URL=webhook_url,
+            LOGGING_CHANNEL_ID=logging_channel_id,
+            QUOTE_CHANNEL_ID=quote_channel_id,
+        ),
+        API=APIConfig(
+            COBALT_URL=os.environ.get("COBALT_URL", ""),
+            GIPHY_API_KEY=os.environ.get("GIPHY_API_KEY", ""),
+            GOODREADS_API_KEY=os.environ.get("GOODREADS_API_KEY", ""),
+            NANO_GPT_API_KEY=os.environ.get("NANO_GPT_API_KEY", ""),
+            OPENROUTER_API_KEY=os.environ.get("OPENROUTER_API_KEY", ""),
+            WAQI_API_KEY=os.environ.get("WAQI_API_KEY", ""),
+            WOLFRAM_APP_ID=os.environ.get("WOLFRAM_APP_ID", ""),
+        ),
     )
     logger.info("Valid configuration found.")
-    config = utils.scrub_dict(_config_model.model_dump())
+    config = utils.scrub_dict(asdict(_config_model))
     logger.info(config)
-except ValidationError as e:
+except ValueError as e:
     logger.error("Invalid configuration found.")
-    logger.error(e.json())
+    logger.error(str(e))
     exit(1)
