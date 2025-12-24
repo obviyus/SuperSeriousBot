@@ -2,6 +2,7 @@ import html
 from urllib.parse import parse_qs, urlparse
 
 import aiohttp
+import telegramify_markdown
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -169,9 +170,11 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             async with get_db(write=True) as conn:
                 cached_summary = await get_cached_youtube_summary(conn, video_id)
                 if cached_summary:
-                    await message.reply_text(
-                        cached_summary, parse_mode=ParseMode.MARKDOWN
-                    )
+                    try:
+                        formatted = telegramify_markdown.markdownify(cached_summary)
+                        await message.reply_text(formatted, parse_mode="MarkdownV2")
+                    except Exception:
+                        await message.reply_text(cached_summary)
                     return
 
                 transcript = await get_youtube_transcript(video_id)
@@ -185,7 +188,11 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                     f"YouTube transcript:\n\n{transcript}",
                     context_hint="a YouTube video transcript",
                 )
-                await message.reply_text(summary, parse_mode=ParseMode.MARKDOWN)
+                try:
+                    formatted = telegramify_markdown.markdownify(summary)
+                    await message.reply_text(formatted, parse_mode="MarkdownV2")
+                except Exception:
+                    await message.reply_text(summary)
                 await cache_youtube_summary(
                     conn, video_id, summary, message.from_user.id
                 )
