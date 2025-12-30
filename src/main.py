@@ -10,6 +10,7 @@ import traceback
 import caribou
 from telegram import BotCommand, Update
 from telegram.constants import ParseMode
+from telegram.error import NetworkError
 from telegram.ext import (
     AIORateLimiter,
     Application,
@@ -142,6 +143,11 @@ def get_valid_bot_commands(command_list: list) -> list[BotCommand]:
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
+    # Skip transient network errors (ConnectError, timeouts) - these are normal and auto-retried
+    if isinstance(context.error, NetworkError) and "ConnectError" in str(context.error):
+        logger.debug("Transient network error (ConnectError), skipping: %s", context.error)
+        return
+
     # Log the error before we do anything else, so we can see it even if something breaks.
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
