@@ -78,14 +78,18 @@ async def habit_button_handler(
     action, habit_id_str = query.data.replace("hb:", "").split(",")
     habit_id = int(habit_id_str)
 
+    handlers = {
+        "checkin": handle_check_in,
+        "leave": handle_leave,
+    }
+    handler = handlers.get(action)
+    if not handler:
+        await query.answer("Invalid action.")
+        return
+
     async with get_db(write=True) as conn:
         try:
-            if action == "checkin":
-                await handle_check_in(conn, habit_id, query)
-            elif action == "leave":
-                await handle_leave(conn, habit_id, query)
-            else:
-                await query.answer("Invalid action.")
+            await handler(conn, habit_id, query)
             await conn.commit()
         except Exception as e:
             await conn.rollback()
@@ -103,16 +107,10 @@ async def habit_button_handler(
 
 
 async def handle_check_in(conn, habit_id, query):
-    member_check = await conn.execute(
-        "SELECT 1 FROM habit_members WHERE habit_id = ? AND user_id = ?",
+    await conn.execute(
+        "INSERT OR IGNORE INTO habit_members (habit_id, user_id) VALUES (?, ?)",
         (habit_id, query.from_user.id),
     )
-    is_member = await member_check.fetchone()
-    if not is_member:
-        await conn.execute(
-            "INSERT INTO habit_members (habit_id, user_id) VALUES (?, ?)",
-            (habit_id, query.from_user.id),
-        )
     today_check = await conn.execute(
         """
         SELECT 1 FROM habit_log
@@ -217,6 +215,7 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     async with get_db(write=True) as conn:
+        created = False
         async with conn.execute(
             "SELECT * FROM habit WHERE chat_id = ? AND habit_name = ?",
             (update.effective_chat.id, habit_name),
@@ -224,14 +223,6 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             habit_exists = await cursor.fetchone()
 
         if habit_exists:
-            await conn.execute(
-                "INSERT OR IGNORE INTO habit_members (habit_id, user_id) VALUES (?, ?)",
-                (habit_exists["id"], message.from_user.id),
-            )
-            await conn.commit()
-            await message.reply_text(
-                "A habit with this name already exists in this group. Adding you to it..."
-            )
             final_habit_id = int(habit_exists["id"])
         else:
             cursor = await conn.execute(
@@ -244,15 +235,22 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 ),
             )
             habit_id = cursor.lastrowid
-            await conn.execute(
-                "INSERT INTO habit_members (habit_id, user_id) VALUES (?, ?)",
-                (habit_id, message.from_user.id),
-            )
-            await conn.commit()
-            await message.reply_text(
-                f"Created a new habit #{habit_name} with a goal of {days_per_week} days per week."
-            )
+            created = True
             final_habit_id = int(habit_id) if habit_id else 0
+        await conn.execute(
+            "INSERT OR IGNORE INTO habit_members (habit_id, user_id) VALUES (?, ?)",
+            (final_habit_id, message.from_user.id),
+        )
+        await conn.commit()
+
+    if created:
+        await message.reply_text(
+            f"Created a new habit #{habit_name} with a goal of {days_per_week} days per week."
+        )
+    else:
+        await message.reply_text(
+            "A habit with this name already exists in this group. Adding you to it..."
+        )
 
     await message.reply_text(
         await habit_message_builder(final_habit_id, context),
