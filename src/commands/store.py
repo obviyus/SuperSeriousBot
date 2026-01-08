@@ -41,22 +41,20 @@ def extract_media_info(message) -> tuple[str | None, str | None, FileType | None
     """Extract file_id, file_unique_id, and FileType from a message."""
     # Priority order for checking media types
     media_types = [
-        ("document", FileType.DOCUMENT),
-        ("photo", FileType.PHOTO),
-        ("audio", FileType.AUDIO),
-        ("video", FileType.VIDEO),
-        ("animation", FileType.ANIMATION),
-        ("voice", FileType.VOICE),
-        ("sticker", FileType.STICKER),
-        ("video_note", FileType.VIDEO_NOTE),
+        ("document", FileType.DOCUMENT, lambda media: media),
+        ("photo", FileType.PHOTO, lambda media: media[-1]),
+        ("audio", FileType.AUDIO, lambda media: media),
+        ("video", FileType.VIDEO, lambda media: media),
+        ("animation", FileType.ANIMATION, lambda media: media),
+        ("voice", FileType.VOICE, lambda media: media),
+        ("sticker", FileType.STICKER, lambda media: media),
+        ("video_note", FileType.VIDEO_NOTE, lambda media: media),
     ]
 
-    for attr, file_type in media_types:
+    for attr, file_type, pick_media in media_types:
         media_obj = getattr(message, attr, None)
         if media_obj:
-            if attr == "photo":
-                # Photos are a list, take the last (highest quality) one
-                return media_obj[-1].file_id, media_obj[-1].file_unique_id, file_type
+            media_obj = pick_media(media_obj)
             return media_obj.file_id, media_obj.file_unique_id, file_type
 
     return None, None, None
