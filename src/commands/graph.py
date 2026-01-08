@@ -138,15 +138,16 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             except Exception:
                 names[uid] = str(uid)
 
-        if edges_outgoing:
-            text += "\n\nYou have the strongest connections to:"
-            for uid, weight in edges_outgoing:
-                text += f"\n<code>{weight:6} ⟶ {names.get(uid, str(uid))}</code>"
-
-        if edges_incoming:
-            text += "\n\nYou have the strongest connections from:"
-            for uid, weight in edges_incoming:
-                text += f"\n<code>{weight:6} ← {names.get(uid, str(uid))}</code>"
+        sections = [
+            ("You have the strongest connections to:", "⟶", edges_outgoing),
+            ("You have the strongest connections from:", "←", edges_incoming),
+        ]
+        for header, arrow, edges in sections:
+            if not edges:
+                continue
+            text += f"\n\n{header}"
+            for uid, weight in edges:
+                text += f"\n<code>{weight:6} {arrow} {names.get(uid, str(uid))}</code>"
 
         await message.reply_text(text, parse_mode=ParseMode.HTML)
     except Exception as e:
