@@ -39,9 +39,9 @@ class Point:
             p.found = False
             return p
         return cls(
-            latitude=location.latitude,  # type: ignore
-            longitude=location.longitude,  # type: ignore
-            address=cls._format_address(location.address),  # type: ignore
+            latitude=location.latitude,
+            longitude=location.longitude,
+            address=cls._format_address(location.address),
         )
 
     @staticmethod
