@@ -14,6 +14,7 @@ from commands.model import get_model, get_thinking
 from config.db import get_db
 from config.options import config
 from utils.decorators import api_key, description, example, triggers, usage
+from utils.media import get_sticker_image_bytes
 from utils.messages import get_message
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -82,7 +83,7 @@ async def send_response(update: Update, text: str) -> None:
 @api_key("OPENROUTER_API_KEY")
 @example("/ask How long does a train between Tokyo and Hokkaido take?")
 @description(
-    "Ask anything using AI. Reply to an image to ask about it. Use /model to configure."
+    "Ask anything using AI. Reply to an image or sticker to ask about it. Use /model to configure."
 )
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
@@ -119,15 +120,30 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_content: list[dict[str, Any]] = []
 
     # Image processing
-    if message.reply_to_message and message.reply_to_message.photo:
-        photo = message.reply_to_message.photo[-1]
-        file = await context.bot.getFile(photo.file_id)
+    image_data: bytes | None = None
+    mime_type: str | None = None
+    if message.reply_to_message:
+        if message.reply_to_message.photo:
+            photo = message.reply_to_message.photo[-1]
+            file = await context.bot.getFile(photo.file_id)
 
-        image_data = await file.download_as_bytearray()
-        mime_type, _ = (
-            mimetypes.guess_type(file.file_path) if file.file_path else (None, None)
-        )
+            image_data = bytes(await file.download_as_bytearray())
+            mime_type, _ = (
+                mimetypes.guess_type(file.file_path) if file.file_path else (None, None)
+            )
+        elif message.reply_to_message.sticker:
+            sticker_payload = await get_sticker_image_bytes(
+                message.reply_to_message, context.bot
+            )
+            if not sticker_payload:
+                await message.reply_text(
+                    "Animated/video stickers aren't supported yet. "
+                    "Send a static sticker or image."
+                )
+                return
+            image_data, mime_type = sticker_payload
 
+    if image_data:
         if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
             mime_type = "image/jpeg"
 
