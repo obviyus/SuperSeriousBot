@@ -1,12 +1,15 @@
+import asyncio
 import base64
 import io
+import json
 import mimetypes
-from typing import Any
+from typing import Any, AsyncIterator
 
 import aiohttp
 import telegramify_markdown
 from telegram import Update
 from telegram.constants import ChatType
+from telegram.error import BadRequest, RetryAfter
 from telegram.ext import ContextTypes
 
 import commands
@@ -18,6 +21,7 @@ from utils.media import get_sticker_image_bytes
 from utils.messages import get_message
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+TELEGRAM_MESSAGE_LIMIT = 4096
 
 system_prompt = """You are @SuperSeriousBot in a Telegram chat. Be extremely concise.
 
@@ -47,6 +51,58 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
             result = await cursor.fetchone()
 
     return bool(result)
+
+
+def get_stream_cutoff(is_group: bool, content_length: int) -> int:
+    if is_group:
+        if content_length > 1000:
+            return 180
+        if content_length > 200:
+            return 120
+        if content_length > 50:
+            return 90
+        return 50
+    if content_length > 1000:
+        return 90
+    if content_length > 200:
+        return 45
+    if content_length > 50:
+        return 25
+    return 15
+
+
+async def stream_openrouter_deltas(
+    response: aiohttp.ClientResponse,
+) -> AsyncIterator[str]:
+    buffer = ""
+    async for chunk in response.content.iter_chunked(1024):
+        buffer += chunk.decode("utf-8", errors="ignore")
+        while "\n" in buffer:
+            line, buffer = buffer.split("\n", 1)
+            line = line.strip()
+            if not line or not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                return
+            try:
+                payload = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            delta = payload.get("choices", [{}])[0].get("delta", {})
+            content = delta.get("content")
+            if content:
+                yield content
+
+
+def render_markdown(text: str) -> str | None:
+    try:
+        formatted = telegramify_markdown.markdownify(text)
+    except Exception:
+        return None
+    if len(formatted) > TELEGRAM_MESSAGE_LIMIT:
+        return None
+    return formatted
 
 
 async def send_response(update: Update, text: str) -> None:
@@ -188,10 +244,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "X-Title": "SuperSeriousBot",
             "HTTP-Referer": "https://superserio.us",
         }
-        payload: dict[str, Any] = {
-            "model": model_name,
-            "messages": messages,
-        }
+        payload: dict[str, Any] = {"model": model_name, "messages": messages}
 
         # AIDEV-NOTE: plugins field only works for xAI models (enables X Search)
         if model_name.startswith("x-ai/"):
@@ -203,14 +256,190 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             payload["reasoning"] = {"effort": thinking_level}
 
         async with aiohttp.ClientSession() as session:
+            if image_data:
+                async with session.post(
+                    OPENROUTER_API_URL, headers=headers, json=payload
+                ) as resp:
+                    resp.raise_for_status()
+                    response = await resp.json()
+
+                text = response["choices"][0]["message"].get("content") or ""
+                await send_response(update, text)
+                return
+
+            payload["stream"] = True
             async with session.post(
                 OPENROUTER_API_URL, headers=headers, json=payload
             ) as resp:
                 resp.raise_for_status()
-                response = await resp.json()
+                is_group = message.chat.type in {
+                    ChatType.GROUP,
+                    ChatType.SUPERGROUP,
+                }
+                sent_message = None
+                prev_length = 0
+                content = ""
+                truncated = False
 
-        text = response["choices"][0]["message"].get("content") or ""
-        await send_response(update, text)
+                async for delta in stream_openrouter_deltas(resp):
+                    if not truncated:
+                        content += delta
+                        if len(content) >= TELEGRAM_MESSAGE_LIMIT:
+                            content = content[:TELEGRAM_MESSAGE_LIMIT]
+                            truncated = True
+
+                    if not content:
+                        continue
+
+                    if sent_message is None:
+                        formatted = render_markdown(content)
+                        if formatted:
+                            try:
+                                sent_message = await message.reply_text(
+                                    formatted,
+                                    disable_web_page_preview=True,
+                                    parse_mode="MarkdownV2",
+                                )
+                            except BadRequest as e:
+                                if "parse" not in str(e).lower():
+                                    raise
+                        if sent_message is None:
+                            sent_message = await message.reply_text(
+                                content, disable_web_page_preview=True
+                            )
+                        prev_length = len(content)
+                        continue
+
+                    if len(content) == prev_length:
+                        continue
+
+                    cutoff = get_stream_cutoff(is_group, len(content))
+                    if not truncated and (len(content) - prev_length) < cutoff:
+                        continue
+
+                    formatted = render_markdown(content)
+                    if formatted:
+                        try:
+                            await context.bot.edit_message_text(
+                                chat_id=message.chat.id,
+                                message_id=sent_message.message_id,
+                                text=formatted,
+                                disable_web_page_preview=True,
+                                parse_mode="MarkdownV2",
+                            )
+                            prev_length = len(content)
+                            continue
+                        except RetryAfter as e:
+                            await asyncio.sleep(e.retry_after)
+                            try:
+                                await context.bot.edit_message_text(
+                                    chat_id=message.chat.id,
+                                    message_id=sent_message.message_id,
+                                    text=formatted,
+                                    disable_web_page_preview=True,
+                                    parse_mode="MarkdownV2",
+                                )
+                                prev_length = len(content)
+                                continue
+                            except BadRequest as e:
+                                if "Message is not modified" in str(e):
+                                    continue
+                                if "parse" not in str(e).lower():
+                                    raise
+                        except BadRequest as e:
+                            if "Message is not modified" in str(e):
+                                continue
+                            if "parse" not in str(e).lower():
+                                raise
+
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=message.chat.id,
+                            message_id=sent_message.message_id,
+                            text=content,
+                            disable_web_page_preview=True,
+                        )
+                        prev_length = len(content)
+                    except RetryAfter as e:
+                        await asyncio.sleep(e.retry_after)
+                        try:
+                            await context.bot.edit_message_text(
+                                chat_id=message.chat.id,
+                                message_id=sent_message.message_id,
+                                text=content,
+                                disable_web_page_preview=True,
+                            )
+                            prev_length = len(content)
+                        except BadRequest as e:
+                            if "Message is not modified" not in str(e):
+                                raise
+                    except BadRequest as e:
+                        if "Message is not modified" not in str(e):
+                            raise
+
+                if not content:
+                    return
+
+                if sent_message is None:
+                    await message.reply_text(content, disable_web_page_preview=True)
+                    return
+
+                if len(content) != prev_length:
+                    formatted = render_markdown(content)
+                    if formatted:
+                        try:
+                            await context.bot.edit_message_text(
+                                chat_id=message.chat.id,
+                                message_id=sent_message.message_id,
+                                text=formatted,
+                                disable_web_page_preview=True,
+                                parse_mode="MarkdownV2",
+                            )
+                            return
+                        except RetryAfter as e:
+                            await asyncio.sleep(e.retry_after)
+                            try:
+                                await context.bot.edit_message_text(
+                                    chat_id=message.chat.id,
+                                    message_id=sent_message.message_id,
+                                    text=formatted,
+                                    disable_web_page_preview=True,
+                                    parse_mode="MarkdownV2",
+                                )
+                                return
+                            except BadRequest as e:
+                                if "Message is not modified" in str(e):
+                                    return
+                                if "parse" not in str(e).lower():
+                                    raise
+                        except BadRequest as e:
+                            if "Message is not modified" in str(e):
+                                return
+                            if "parse" not in str(e).lower():
+                                raise
+
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=message.chat.id,
+                            message_id=sent_message.message_id,
+                            text=content,
+                            disable_web_page_preview=True,
+                        )
+                    except RetryAfter as e:
+                        await asyncio.sleep(e.retry_after)
+                        try:
+                            await context.bot.edit_message_text(
+                                chat_id=message.chat.id,
+                                message_id=sent_message.message_id,
+                                text=content,
+                                disable_web_page_preview=True,
+                            )
+                        except BadRequest as e:
+                            if "Message is not modified" not in str(e):
+                                raise
+                    except BadRequest as e:
+                        if "Message is not modified" not in str(e):
+                            raise
     except Exception as e:
         await message.reply_text(
             f"An error occurred while processing your request: {e!s}"
