@@ -244,8 +244,10 @@ def _validate_command_meta(
         missing_fields.append("example")
 
     if missing_fields:
+        module_name = getattr(command, "__module__", command.__class__.__module__)
+        command_name = getattr(command, "__name__", command.__class__.__name__)
         raise RuntimeError(
-            f"Command {command.__module__}.{command.__name__} missing metadata: "
+            f"Command {module_name}.{command_name} missing metadata: "
             f"{', '.join(missing_fields)}"
         )
 
@@ -268,6 +270,10 @@ for command in list_of_commands:
         continue
 
     _validate_command_meta(command, meta)
+    assert meta.triggers is not None
+    assert meta.description is not None
+    assert meta.usage is not None
+    assert meta.example is not None
 
     handler = command if is_command_enabled(command) else disabled
     handler = command_wrapper(handler)
@@ -313,6 +319,9 @@ async def usage_string(message: Message, func) -> None:
             f"{func.__module__}.{func.__name__} is not a decorated command."
         )
     _validate_command_meta(func, meta)
+    assert meta.description is not None
+    assert meta.usage is not None
+    assert meta.example is not None
 
     await message.reply_text(
         f"{meta.description}\n\n<b>Usage:</b>\n<pre>{meta.usage}</pre>\n\n<b>Example:</b>\n<pre>{meta.example}</pre>",

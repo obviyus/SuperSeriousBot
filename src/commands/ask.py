@@ -4,6 +4,7 @@ import io
 import json
 import mimetypes
 from collections.abc import AsyncIterator
+from datetime import timedelta
 from typing import Any
 
 import aiohttp
@@ -70,6 +71,12 @@ def get_stream_cutoff(is_group: bool, content_length: int) -> int:
     if content_length > 50:
         return 25
     return 15
+
+
+def retry_after_seconds(value: int | timedelta) -> float:
+    if isinstance(value, timedelta):
+        return value.total_seconds()
+    return float(value)
 
 
 async def stream_openrouter_deltas(
@@ -331,7 +338,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                             prev_length = len(content)
                             continue
                         except RetryAfter as e:
-                            await asyncio.sleep(e.retry_after)
+                            await asyncio.sleep(retry_after_seconds(e.retry_after))
                             try:
                                 await context.bot.edit_message_text(
                                     chat_id=message.chat.id,
@@ -362,7 +369,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         )
                         prev_length = len(content)
                     except RetryAfter as e:
-                        await asyncio.sleep(e.retry_after)
+                        await asyncio.sleep(retry_after_seconds(e.retry_after))
                         try:
                             await context.bot.edit_message_text(
                                 chat_id=message.chat.id,
@@ -398,7 +405,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                             )
                             return
                         except RetryAfter as e:
-                            await asyncio.sleep(e.retry_after)
+                            await asyncio.sleep(retry_after_seconds(e.retry_after))
                             try:
                                 await context.bot.edit_message_text(
                                     chat_id=message.chat.id,
@@ -427,7 +434,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                             disable_web_page_preview=True,
                         )
                     except RetryAfter as e:
-                        await asyncio.sleep(e.retry_after)
+                        await asyncio.sleep(retry_after_seconds(e.retry_after))
                         try:
                             await context.bot.edit_message_text(
                                 chat_id=message.chat.id,
