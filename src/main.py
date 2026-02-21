@@ -218,7 +218,7 @@ async def setup_application() -> Application:
             # Handle reactions to messages
             0: [
                 MessageHandler(
-                    filters.TEXT,
+                    filters.TEXT & ~filters.COMMAND,
                     commands.every_message_action,
                 ),
             ],

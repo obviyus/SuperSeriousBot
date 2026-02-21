@@ -3,6 +3,7 @@ import base64
 import io
 import json
 import mimetypes
+import time
 from collections.abc import AsyncIterator
 from datetime import timedelta
 from typing import Any
@@ -24,6 +25,7 @@ from utils.messages import get_message
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 TELEGRAM_MESSAGE_LIMIT = 4096
+MIN_STREAM_EDIT_INTERVAL_SECONDS = 0.8
 
 system_prompt = """You are @SuperSeriousBot in a Telegram chat. Be extremely concise.
 
@@ -155,24 +157,21 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
-    if (
-        message.chat.type == ChatType.PRIVATE
-        and not is_admin
-        and not await check_command_whitelist(
-            message.from_user.id, message.from_user.id, "ask"
-        )
-    ):
-        await message.reply_text("This command is not available in private chats.")
-        return
-
-    if not is_admin and not await check_command_whitelist(
-        message.chat.id, message.from_user.id, "ask"
-    ):
-        await message.reply_text(
-            "This command is not available in this chat. "
-            "Please contact an admin to whitelist this command."
-        )
-        return
+    if not is_admin:
+        if message.chat.type == ChatType.PRIVATE:
+            if not await check_command_whitelist(
+                message.from_user.id, message.from_user.id, "ask"
+            ):
+                await message.reply_text("This command is not available in private chats.")
+                return
+        elif not await check_command_whitelist(
+            message.chat.id, message.from_user.id, "ask"
+        ):
+            await message.reply_text(
+                "This command is not available in this chat. "
+                "Please contact an admin to whitelist this command."
+            )
+            return
 
     openrouter_api_key = config["API"].get("OPENROUTER_API_KEY")
     if not openrouter_api_key:
@@ -288,6 +287,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 prev_length = 0
                 content = ""
                 truncated = False
+                last_edit_time = 0.0
 
                 async for delta in stream_openrouter_deltas(resp):
                     if not truncated:
@@ -324,6 +324,12 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     cutoff = get_stream_cutoff(is_group, len(content))
                     if not truncated and (len(content) - prev_length) < cutoff:
                         continue
+                    if (
+                        not truncated
+                        and (time.monotonic() - last_edit_time)
+                        < MIN_STREAM_EDIT_INTERVAL_SECONDS
+                    ):
+                        continue
 
                     formatted = render_markdown(content)
                     if formatted:
@@ -336,6 +342,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                                 parse_mode="MarkdownV2",
                             )
                             prev_length = len(content)
+                            last_edit_time = time.monotonic()
                             continue
                         except RetryAfter as e:
                             await asyncio.sleep(retry_after_seconds(e.retry_after))
@@ -348,6 +355,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                                     parse_mode="MarkdownV2",
                                 )
                                 prev_length = len(content)
+                                last_edit_time = time.monotonic()
                                 continue
                             except BadRequest as e:
                                 if "Message is not modified" in str(e):
@@ -368,6 +376,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                             disable_web_page_preview=True,
                         )
                         prev_length = len(content)
+                        last_edit_time = time.monotonic()
                     except RetryAfter as e:
                         await asyncio.sleep(retry_after_seconds(e.retry_after))
                         try:
@@ -378,6 +387,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                                 disable_web_page_preview=True,
                             )
                             prev_length = len(content)
+                            last_edit_time = time.monotonic()
                         except BadRequest as e:
                             if "Message is not modified" not in str(e):
                                 raise

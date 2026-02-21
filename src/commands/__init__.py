@@ -5,7 +5,7 @@ import traceback
 from collections.abc import Awaitable, Callable
 from functools import wraps
 
-from telegram import Message, MessageEntity, Update
+from telegram import Message, Update
 from telegram.constants import ChatAction, ParseMode, ReactionEmoji
 from telegram.ext import CommandHandler, ContextTypes
 
@@ -177,6 +177,13 @@ async def is_user_blocked(user_id: int, command: str) -> bool:
 type CommandHandler_T = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[None]]
 
 
+def _extract_sent_command(message: Message) -> str | None:
+    text = message.text
+    if not text or not text.startswith("/"):
+        return None
+    return text.split(maxsplit=1)[0].split("@")[0][1:].lower()
+
+
 def command_wrapper(fn: CommandHandler_T):
     @wraps(fn)
     async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -185,14 +192,12 @@ def command_wrapper(fn: CommandHandler_T):
             return
 
         try:
-            sent_command = None
-            if message.from_user:
-                sent_command_entity = next(
-                    iter(message.parse_entities([MessageEntity.BOT_COMMAND]).values()),
-                    None,
-                )
-                if sent_command_entity:
-                    sent_command = sent_command_entity.split("@")[0][1:]
+            schedule_background_task(
+                message.reply_chat_action(ChatAction.TYPING),
+                "typing-indicator",
+            )
+
+            sent_command = _extract_sent_command(message) if message.from_user else None
 
             # Check if user is blocked before doing anything expensive
             if sent_command and message.from_user:
@@ -205,10 +210,6 @@ def command_wrapper(fn: CommandHandler_T):
             schedule_background_task(
                 message.set_reaction(ReactionEmoji.WRITING_HAND),
                 "command-reaction",
-            )
-            schedule_background_task(
-                message.reply_chat_action(ChatAction.TYPING),
-                "typing-indicator",
             )
 
             await fn(update, context)
