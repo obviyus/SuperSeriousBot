@@ -451,7 +451,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @api_key("OPENROUTER_API_KEY")
 @example("/edit Make it look like a painting")
 @description(
-    "Reply to an image to edit it using AI. Provide a prompt describing the desired changes."
+    "Reply to an image or sticker to edit it using AI. Provide a prompt describing the desired changes."
 )
 async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
@@ -464,8 +464,19 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("This command is not available in private chats.")
         return
 
-    # Check if replying to a message with a photo
-    if not message.reply_to_message or not message.reply_to_message.photo:
+    # Check if replying to a message with a photo, sticker, or image document
+    reply = message.reply_to_message
+    if not reply:
+        await commands.usage_string(message, edit)
+        return
+
+    has_photo = bool(reply.photo)
+    has_sticker = bool(reply.sticker)
+    has_image_document = bool(
+        reply.document and (reply.document.mime_type or "").startswith("image/")
+    )
+
+    if not (has_photo or has_sticker or has_image_document):
         await commands.usage_string(message, edit)
         return
 
@@ -489,16 +500,47 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prompt = " ".join(context.args)
 
     try:
-        # Get the photo file
-        photo = message.reply_to_message.photo[-1]
-        file = await context.bot.getFile(photo.file_id)
+        # Get image bytes (photo, sticker, or image document)
+        image_data: bytes | None = None
+        mime_type: str | None = None
 
-        # Download the image using Telegram's built-in method
-        image_data = await file.download_as_bytearray()
+        if reply.photo:
+            photo = reply.photo[-1]
+            file = await context.bot.getFile(photo.file_id)
+            image_data = bytes(await file.download_as_bytearray())
+            mime_type, _ = (
+                mimetypes.guess_type(file.file_path) if file.file_path else (None, None)
+            )
+        elif reply.sticker:
+            sticker_payload = await get_sticker_image_bytes(reply, context.bot)
+            if not sticker_payload:
+                await message.reply_text(
+                    "Animated/video stickers aren't supported yet. "
+                    "Send a static sticker or image."
+                )
+                return
+            image_data, mime_type = sticker_payload
+        elif reply.document and (reply.document.mime_type or "").startswith("image/"):
+            file = await context.bot.getFile(reply.document.file_id)
+            image_data = bytes(await file.download_as_bytearray())
+            mime_type = reply.document.mime_type
+            if not mime_type:
+                mime_type, _ = (
+                    mimetypes.guess_type(file.file_path)
+                    if file.file_path
+                    else (None, None)
+                )
+
+        if not image_data:
+            await commands.usage_string(message, edit)
+            return
+
+        if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
+            mime_type = "image/jpeg"
 
         # Convert image to base64 for OpenRouter API
         image_base64 = base64.b64encode(image_data).decode("utf-8")
-        image_url = f"data:image/jpeg;base64,{image_base64}"
+        image_url = f"data:{mime_type};base64,{image_base64}"
 
         # Create the prompt that includes both the edit request and the image
         full_prompt = (
