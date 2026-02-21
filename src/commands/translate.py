@@ -9,7 +9,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
@@ -51,12 +51,12 @@ async def translate_and_reply(
         await message.reply_text(f"Invalid target language: {target_language}")
 
 
-@triggers(["tl"])
-@example("/tl fr - Good morning!")
-@usage("/tl [language] - [content]")
-@description(
-    "Translate a message or text to the desired language. "
-    "Reply to a message with just the language code to translate it."
+@command(
+    triggers=["tl"],
+    usage="/tl [language] - [content]",
+    example="/tl fr - Good morning!",
+    description="Translate a message or text to the desired language. "
+    "Reply to a message with just the language code to translate it.",
 )
 async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
@@ -73,12 +73,12 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await translate_and_reply(message, result[0], result[1])
 
 
-@triggers(["tts"])
-@example("/tts fr - Good morning!")
-@usage("/tts [language] - [content]")
-@description(
-    "Generate text-to-speech of message in the desired speaker language. "
-    "Reply to a message with just the language code to TTS it."
+@command(
+    triggers=["tts"],
+    usage="/tts [language] - [content]",
+    example="/tts fr - Good morning!",
+    description="Generate text-to-speech of message in the desired speaker language. "
+    "Reply to a message with just the language code to TTS it.",
 )
 async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)

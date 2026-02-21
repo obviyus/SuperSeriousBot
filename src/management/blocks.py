@@ -4,14 +4,16 @@ from telegram.ext import ContextTypes
 
 from config.db import get_db
 from utils.admin import is_admin
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
-@usage("/block <user_id> <command>")
-@example("/block 123456 weather")
-@triggers(["block"])
-@description("Block a user from using specific commands")
+@command(
+    triggers=["block"],
+    usage="/block <user_id> <command>",
+    example="/block 123456 weather",
+    description="Block a user from using specific commands",
+)
 async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -50,10 +52,12 @@ async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await message.reply_text(f"❌ Error: {e!s}")
 
 
-@usage("/unblock <user_id> <command>")
-@example("/unblock 123456 weather")
-@triggers(["unblock"])
-@description("Unblock a user from using specific commands")
+@command(
+    triggers=["unblock"],
+    usage="/unblock <user_id> <command>",
+    example="/unblock 123456 weather",
+    description="Unblock a user from using specific commands",
+)
 async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -94,10 +98,12 @@ async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await message.reply_text(f"❌ Error: {e!s}")
 
 
-@usage("/blocklist")
-@example("/blocklist")
-@triggers(["blocklist"])
-@description("Show all blocked users and their blocked commands")
+@command(
+    triggers=["blocklist"],
+    usage="/blocklist",
+    example="/blocklist",
+    description="Show all blocked users and their blocked commands",
+)
 async def show_blocklist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

@@ -7,16 +7,18 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 DICTIONARY_API_ENDPOINT = "https://api.dictionaryapi.dev/api/v2/entries/en_US/{}"
 
 
-@triggers(["define", "d"])
-@usage("/define [word]")
-@description("Define a word.")
-@example("/define posthumous")
+@command(
+    triggers=["define", "d"],
+    usage="/define [word]",
+    example="/define posthumous",
+    description="Define a word.",
+)
 async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

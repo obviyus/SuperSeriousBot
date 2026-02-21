@@ -2,14 +2,16 @@ import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
-@usage("/insult")
-@example("/insult")
-@triggers(["insult"])
-@description("Send a random insult. Reply to a person to insult them.")
+@command(
+    triggers=["insult"],
+    usage="/insult",
+    example="/insult",
+    description="Send a random insult. Reply to a person to insult them.",
+)
 async def insult(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

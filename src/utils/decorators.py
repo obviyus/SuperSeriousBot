@@ -1,64 +1,74 @@
 from collections.abc import Callable
-from functools import wraps
-from typing import Any, TypeVar, cast
-
-F = TypeVar("F", bound=Callable[..., Any])
+from dataclasses import dataclass
+from typing import Any
 
 
-def triggers(trigger_command: str | list[str]):
-    """Trigger decorator for commands.
+@dataclass(slots=True)
+class CommandMeta:
+    triggers: list[str] | None = None
+    usage: str | None = None
+    example: str | None = None
+    description: str | None = None
+    api_key: str | None = None
+    deprecated: str | None = None
 
-    :param trigger_command: The command trigger(s) for the command.
-    :return: The decorated function.
-    """
+
+def get_command_meta(func: Callable[..., Any]) -> CommandMeta | None:
+    return getattr(func, "command_meta", None)
+
+
+def _ensure_command_meta(func: Callable[..., Any]) -> CommandMeta:
+    meta = get_command_meta(func)
+    if meta is None:
+        meta = CommandMeta()
+        func.command_meta = meta  # type: ignore[attr-defined]
+    return meta
+
+
+def _set_command_attr(
+    func: Callable[..., Any], attr_name: str, attr_value: Any
+) -> None:
+    setattr(func, attr_name, attr_value)
+    meta = _ensure_command_meta(func)
+    if hasattr(meta, attr_name):
+        setattr(meta, attr_name, attr_value)
+
+
+def _normalize_triggers(trigger_command: str | list[str]) -> list[str]:
     if isinstance(trigger_command, str):
-        trigger_command = [trigger_command]
+        return [trigger_command]
 
-    if not isinstance(trigger_command, list):
+    if not isinstance(trigger_command, list) or not all(
+        isinstance(trigger, str) and trigger for trigger in trigger_command
+    ):
         raise TypeError(
-            f"Triggers must be a string or a list of strings, not {type(trigger_command)}"
+            "Triggers must be a non-empty string or list of non-empty strings."
         )
 
-    def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
+    return trigger_command
 
-        wrapper.triggers = trigger_command  # type: ignore
-        return cast(F, wrapper)
+
+def command(
+    *,
+    triggers: str | list[str],
+    usage: str,
+    example: str,
+    description: str,
+    api_key: str | None = None,
+    deprecated: str | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Attach all command metadata in one decorator."""
+    normalized_triggers = _normalize_triggers(triggers)
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        _set_command_attr(func, "triggers", normalized_triggers)
+        _set_command_attr(func, "usage", usage)
+        _set_command_attr(func, "example", example)
+        _set_command_attr(func, "description", description)
+        if api_key:
+            _set_command_attr(func, "api_key", api_key)
+        if deprecated:
+            _set_command_attr(func, "deprecated", deprecated)
+        return func
 
     return decorator
-
-
-def _add_attribute(attr_name: str, attr_value: str):
-    """Generic decorator for adding attributes to functions."""
-
-    def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-
-        setattr(wrapper, attr_name, attr_value)
-        return cast(F, wrapper)
-
-    return decorator
-
-
-def description(desc: str) -> Callable[[F], F]:
-    return _add_attribute("description", desc)
-
-
-def usage(usage_doc: str) -> Callable[[F], F]:
-    return _add_attribute("usage", usage_doc)
-
-
-def example(example_doc: str) -> Callable[[F], F]:
-    return _add_attribute("example", example_doc)
-
-
-def api_key(name: str) -> Callable[[F], F]:
-    return _add_attribute("api_key", name)
-
-
-def deprecated(message: str) -> Callable[[F], F]:
-    return _add_attribute("deprecated", message)

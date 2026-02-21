@@ -15,6 +15,7 @@ from config.db import get_db
 from config.options import config
 from management import blocks, botstats, stats
 from utils.concurrency import schedule_background_task
+from utils.decorators import CommandMeta, get_command_meta
 from utils.messages import get_message
 
 from . import (
@@ -228,27 +229,57 @@ def command_wrapper(fn: CommandHandler_T):
 command_handler_list = []
 command_doc_list: dict[str, dict[str, str]] = {}
 
-for command in list_of_commands:
-    if hasattr(command, "triggers"):
-        handler = (
-            command
-            if not hasattr(command, "api_key")
-            or command.api_key in config["API"]
-            or command.api_key in config["TELEGRAM"]
-            else disabled
+
+def _validate_command_meta(
+    command: Callable[..., Awaitable[None]], meta: CommandMeta
+) -> None:
+    missing_fields: list[str] = []
+    if not meta.triggers:
+        missing_fields.append("triggers")
+    if not meta.description:
+        missing_fields.append("description")
+    if not meta.usage:
+        missing_fields.append("usage")
+    if not meta.example:
+        missing_fields.append("example")
+
+    if missing_fields:
+        raise RuntimeError(
+            f"Command {command.__module__}.{command.__name__} missing metadata: "
+            f"{', '.join(missing_fields)}"
         )
-        handler = command_wrapper(handler)
 
-        command_handler_list.append(CommandHandler(command.triggers, handler))
 
-        for trigger in command.triggers:
-            command_doc_list[trigger] = {
-                "description": getattr(
-                    command, "description", "No description available"
-                ),
-                "usage": getattr(command, "usage", "No usage information available"),
-                "example": getattr(command, "example", "No example available"),
-            }
+def is_command_enabled(command: Callable[..., Awaitable[None]]) -> bool:
+    meta = get_command_meta(command)
+    required_key = meta.api_key if meta else None
+    if not required_key:
+        return True
+
+    return bool(
+        config.get("API", {}).get(required_key)
+        or config.get("TELEGRAM", {}).get(required_key)
+    )
+
+
+for command in list_of_commands:
+    meta = get_command_meta(command)
+    if not meta:
+        continue
+
+    _validate_command_meta(command, meta)
+
+    handler = command if is_command_enabled(command) else disabled
+    handler = command_wrapper(handler)
+
+    command_handler_list.append(CommandHandler(meta.triggers, handler))
+
+    for trigger in meta.triggers:
+        command_doc_list[trigger] = {
+            "description": meta.description,
+            "usage": meta.usage,
+            "example": meta.example,
+        }
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -276,8 +307,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def usage_string(message: Message, func) -> None:
     """Return the usage string for a command."""
+    meta = get_command_meta(func)
+    if not meta:
+        raise RuntimeError(
+            f"{func.__module__}.{func.__name__} is not a decorated command."
+        )
+    _validate_command_meta(func, meta)
+
     await message.reply_text(
-        f"{func.description}\n\n<b>Usage:</b>\n<pre>{func.usage}</pre>\n\n<b>Example:</b>\n<pre>{func.example}</pre>",
+        f"{meta.description}\n\n<b>Usage:</b>\n<pre>{meta.usage}</pre>\n\n<b>Example:</b>\n<pre>{meta.example}</pre>",
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,
     )

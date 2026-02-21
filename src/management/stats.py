@@ -10,7 +10,7 @@ import commands
 import utils.string
 from config.db import get_db
 from utils import readable_time
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 _DOW_NAMES = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
@@ -42,10 +42,12 @@ async def stat_string_builder(
     await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
-@triggers(["seen"])
-@usage("/seen [username]")
-@example("/seen @obviyus")
-@description("Get duration since last message of a user.")
+@command(
+    triggers=["seen"],
+    usage="/seen [username]",
+    example="/seen @obviyus",
+    description="Get duration since last message of a user.",
+)
 async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -188,10 +190,12 @@ async def _fetch_chat_stats(chat_id: int, today_only: bool = False) -> tuple[lis
     return users, total_count
 
 
-@usage("/stats")
-@example("/stats")
-@triggers(["stats"])
-@description("Get message count by user for the last day.")
+@command(
+    triggers=["stats"],
+    usage="/stats",
+    example="/stats",
+    description="Get message count by user for the last day.",
+)
 async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -200,10 +204,12 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await stat_string_builder(users, message, context, total)
 
 
-@usage("/gstats")
-@example("/gstats")
-@triggers(["gstats"])
-@description("Get total message count by user of this group.")
+@command(
+    triggers=["gstats"],
+    usage="/gstats",
+    example="/gstats",
+    description="Get total message count by user of this group.",
+)
 async def get_total_chat_stats(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -214,10 +220,12 @@ async def get_total_chat_stats(
     await stat_string_builder(users, message, context, total)
 
 
-@usage("/ustats [username]")
-@example("/ustats @obviyus")
-@triggers(["ustats", "ustat", "userstats"])
-@description("Show a user's weekly activity and other stats in this group.")
+@command(
+    triggers=["ustats", "ustat", "userstats"],
+    usage="/ustats [username]",
+    example="/ustats @obviyus",
+    description="Show a user's weekly activity and other stats in this group.",
+)
 async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

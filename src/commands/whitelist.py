@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes
 import commands
 from config.db import get_db
 from utils.admin import is_admin
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 WHITELIST_TYPE = "chat"
@@ -27,10 +27,12 @@ def _resolve_chat_id(update: Update, args: list[str]) -> int | None:
     return None
 
 
-@triggers(["whitelist"])
-@usage("/whitelist <command> [chat_id]")
-@example("/whitelist tr -1001234567890")
-@description("Allow a chat to use a command (admins only)")
+@command(
+    triggers=["whitelist"],
+    usage="/whitelist <command> [chat_id]",
+    example="/whitelist tr -1001234567890",
+    description="Allow a chat to use a command (admins only)",
+)
 async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -90,10 +92,12 @@ async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     )
 
 
-@triggers(["unwhitelist"])
-@usage("/unwhitelist <command> [chat_id]")
-@example("/unwhitelist tr -1001234567890")
-@description("Remove a chat from a command whitelist (admins only)")
+@command(
+    triggers=["unwhitelist"],
+    usage="/unwhitelist <command> [chat_id]",
+    example="/unwhitelist tr -1001234567890",
+    description="Remove a chat from a command whitelist (admins only)",
+)
 async def unwhitelist_command(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:

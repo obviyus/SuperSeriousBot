@@ -9,15 +9,17 @@ import commands
 import utils
 from config import config
 from config.db import get_db
-from utils.decorators import api_key, description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
-@api_key("QUOTE_CHANNEL_ID")
-@description("Reply to a message to save it into QuotesDB.")
-@example("/addquote")
-@triggers(["addquote"])
-@usage("/addquote")
+@command(
+    triggers=["addquote"],
+    usage="/addquote",
+    example="/addquote",
+    description="Reply to a message to save it into QuotesDB.",
+    api_key="QUOTE_CHANNEL_ID",
+)
 async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message or not message.from_user:
@@ -84,10 +86,12 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-@usage("/quote [OPTIONAL_USERNAME]")
-@example("/quote @obviyus")
-@triggers(["quote", "q"])
-@description("Return a random message from QuotesDB for this group.")
+@command(
+    triggers=["quote", "q"],
+    usage="/quote [OPTIONAL_USERNAME]",
+    example="/quote @obviyus",
+    description="Return a random message from QuotesDB for this group.",
+)
 async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

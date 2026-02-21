@@ -8,7 +8,7 @@ from telegram.ext import CallbackContext, ContextTypes
 import commands
 import utils
 from config.db import get_db
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 summon_log = {}
@@ -189,10 +189,12 @@ async def get_or_create_group(conn, group_name, chat_id, user_id):
     return group_id
 
 
-@usage("/summon [GROUP_NAME]")
-@example("/summon SwitchPlayers")
-@triggers(["summon"])
-@description("Tag users present in a group of tags. Join by using keyboard buttons.")
+@command(
+    triggers=["summon"],
+    usage="/summon [GROUP_NAME]",
+    example="/summon SwitchPlayers",
+    description="Tag users present in a group of tags. Join by using keyboard buttons.",
+)
 async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

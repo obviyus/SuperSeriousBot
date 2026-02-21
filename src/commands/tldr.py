@@ -13,7 +13,7 @@ from commands.model import get_model
 from config.db import get_db
 from config.logger import logger
 from config.options import config
-from utils.decorators import api_key, description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -145,12 +145,12 @@ Rules:
     return str(content) if content else "No summary available"
 
 
-@usage("/tldr")
-@example("/tldr")
-@triggers(["tldr", "tldw"])
-@api_key("OPENROUTER_API_KEY")
-@description(
-    "Generate a TLDR summary. Works with YouTube videos, URLs, or replied message text."
+@command(
+    triggers=["tldr", "tldw"],
+    usage="/tldr",
+    example="/tldr",
+    description="Generate a TLDR summary. Works with YouTube videos, URLs, or replied message text.",
+    api_key="OPENROUTER_API_KEY",
 )
 async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Generate a TLDR for YouTube videos, URLs, or replied text."""

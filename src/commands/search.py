@@ -10,14 +10,16 @@ from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 from config.db import get_db
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
-@triggers(["search"])
-@usage("/search [SEARCH_QUERY]")
-@description("Search for a message in the current chat for a user")
-@example("/search japan")
+@command(
+    triggers=["search"],
+    usage="/search [SEARCH_QUERY]",
+    example="/search japan",
+    description="Search for a message in the current chat for a user",
+)
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Search command handler.
@@ -89,10 +91,12 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-@triggers(["enable_fts"])
-@usage("/enable_fts")
-@description("Enable full text search in the current chat.")
-@example("/enable_fts")
+@command(
+    triggers=["enable_fts"],
+    usage="/enable_fts",
+    example="/enable_fts",
+    description="Enable full text search in the current chat.",
+)
 async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -173,10 +177,12 @@ def _parse_export_file(filepath: str, chat_id: int) -> list[tuple]:
     return batch
 
 
-@triggers(["import"])
-@usage("/import")
-@description("Import chat stats for a chat given the JSON export.")
-@example("/import")
+@command(
+    triggers=["import"],
+    usage="/import",
+    example="/import",
+    description="Import chat stats for a chat given the JSON export.",
+)
 async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Import chat stats for a chat given the JSON export.

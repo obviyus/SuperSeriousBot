@@ -3,7 +3,8 @@ import base64
 import io
 import json
 import mimetypes
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import aiohttp
 import telegramify_markdown
@@ -16,7 +17,7 @@ import commands
 from commands.model import get_model, get_thinking
 from config.db import get_db
 from config.options import config
-from utils.decorators import api_key, description, example, triggers, usage
+from utils.decorators import command
 from utils.media import get_sticker_image_bytes
 from utils.messages import get_message
 
@@ -134,12 +135,12 @@ async def send_response(update: Update, text: str) -> None:
             await message.reply_document(buffer)
 
 
-@triggers(["ask"])
-@usage("/ask [query]")
-@api_key("OPENROUTER_API_KEY")
-@example("/ask How long does a train between Tokyo and Hokkaido take?")
-@description(
-    "Ask anything using AI. Reply to an image or sticker to ask about it. Use /model to configure."
+@command(
+    triggers=["ask"],
+    usage="/ask [query]",
+    api_key="OPENROUTER_API_KEY",
+    example="/ask How long does a train between Tokyo and Hokkaido take?",
+    description="Ask anything using AI. Reply to an image or sticker to ask about it. Use /model to configure.",
 )
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
@@ -446,12 +447,12 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
-@triggers(["edit"])
-@usage("/edit [prompt]")
-@api_key("OPENROUTER_API_KEY")
-@example("/edit Make it look like a painting")
-@description(
-    "Reply to an image or sticker to edit it using AI. Provide a prompt describing the desired changes."
+@command(
+    triggers=["edit"],
+    usage="/edit [prompt]",
+    api_key="OPENROUTER_API_KEY",
+    example="/edit Make it look like a painting",
+    description="Reply to an image or sticker to edit it using AI. Provide a prompt describing the desired changes.",
 )
 async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)

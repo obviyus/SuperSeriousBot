@@ -3,17 +3,19 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from config.options import config
-from utils.decorators import api_key, description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 GIPHY_API_URL = "https://api.giphy.com/v1/gifs/random"
 
 
-@usage("/gif")
-@example("/gif")
-@triggers(["gif"])
-@api_key("GIPHY_API_KEY")
-@description("Get a random GIF from Giphy.")
+@command(
+    triggers=["gif"],
+    usage="/gif",
+    example="/gif",
+    description="Get a random GIF from Giphy.",
+    api_key="GIPHY_API_KEY",
+)
 async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

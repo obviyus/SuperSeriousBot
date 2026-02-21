@@ -5,14 +5,16 @@ import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
-@usage("/joke")
-@example("/joke")
-@triggers(["joke"])
-@description("Get a two part joke.")
+@command(
+    triggers=["joke"],
+    usage="/joke",
+    example="/joke",
+    description="Get a two part joke.",
+)
 async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

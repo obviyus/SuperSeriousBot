@@ -11,7 +11,7 @@ from telegram.ext import ContextTypes
 import commands
 from config.db import get_db
 from config.options import config
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 geolocator = Nominatim(user_agent="SuperSeriousBot")
@@ -81,10 +81,12 @@ class Point:
         }
 
 
-@usage("/w")
-@example("/w")
-@triggers(["weather", "w"])
-@description("Get the weather for a location. Saves your last location.")
+@command(
+    triggers=["weather", "w"],
+    usage="/w",
+    example="/w",
+    description="Get the weather for a location. Saves your last location.",
+)
 async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

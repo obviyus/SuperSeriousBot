@@ -4,14 +4,16 @@ from telegram.ext import ContextTypes
 
 from config.db import get_db
 from utils import readable_time
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
-@usage("/users")
-@example("/users")
-@triggers(["users"])
-@description("Get number of users that use this bot.")
+@command(
+    triggers=["users"],
+    usage="/users",
+    example="/users",
+    description="Get number of users that use this bot.",
+)
 async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -29,10 +31,12 @@ async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
-@usage("/groups")
-@example("/groups")
-@triggers(["groups"])
-@description("Get number of groups that use bot.")
+@command(
+    triggers=["groups"],
+    usage="/groups",
+    example="/groups",
+    description="Get number of groups that use bot.",
+)
 async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -50,10 +54,12 @@ async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
-@usage("/uptime")
-@example("/uptime")
-@triggers(["uptime"])
-@description("Get duration since the bot instance was started.")
+@command(
+    triggers=["uptime"],
+    usage="/uptime",
+    example="/uptime",
+    description="Get duration since the bot instance was started.",
+)
 async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -72,10 +78,12 @@ async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     )
 
 
-@usage("/botstats")
-@example("/botstats")
-@triggers(["botstats"])
-@description("Get usage stats of all bot commands.")
+@command(
+    triggers=["botstats"],
+    usage="/botstats",
+    example="/botstats",
+    description="Get usage stats of all bot commands.",
+)
 async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -111,10 +119,12 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     )
 
 
-@usage("/objects")
-@example("/objects")
-@triggers(["objects"])
-@description("Get the top 10 most fetched objects from the object store.")
+@command(
+    triggers=["objects"],
+    usage="/objects",
+    example="/objects",
+    description="Get the top 10 most fetched objects from the object store.",
+)
 async def get_object_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

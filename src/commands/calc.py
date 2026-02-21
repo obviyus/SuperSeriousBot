@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 import commands
 from config.options import config
-from utils.decorators import api_key, description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 WOLFRAM_SHORT_QUERY = "https://api.wolframalpha.com/v1/result"
@@ -45,11 +45,13 @@ def sanitize_query(query: str) -> str | None:
     return query
 
 
-@triggers(["calc"])
-@usage("/calc [query]")
-@api_key("WOLFRAM_APP_ID")
-@example("/calc 300th digit of pi")
-@description("Perform a WolframAlpha query.")
+@command(
+    triggers=["calc"],
+    usage="/calc [query]",
+    example="/calc 300th digit of pi",
+    description="Perform a WolframAlpha query.",
+    api_key="WOLFRAM_APP_ID",
+)
 async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

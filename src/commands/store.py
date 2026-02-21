@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 import commands
 from config.db import get_db
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
@@ -60,10 +60,12 @@ def extract_media_info(message) -> tuple[str | None, str | None, FileType | None
     return None, None, None
 
 
-@triggers(["set"])
-@usage("/set [key]")
-@example("/set rickroll")
-@description("Reply to a media object to store it with a key. Get it back with /get.")
+@command(
+    triggers=["set"],
+    usage="/set [key]",
+    example="/set rickroll",
+    description="Reply to a media object to store it with a key. Get it back with /get.",
+)
 async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
@@ -139,10 +141,12 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     )
 
 
-@triggers(["get"])
-@usage("/get [key]")
-@example("/get rickroll")
-@description("Get an object from the store.")
+@command(
+    triggers=["get"],
+    usage="/get [key]",
+    example="/get rickroll",
+    description="Get an object from the store.",
+)
 async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

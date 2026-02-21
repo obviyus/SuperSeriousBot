@@ -10,7 +10,7 @@ from telegram.ext import ContextTypes
 import commands
 import utils
 from config.options import config
-from utils.decorators import api_key, description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 GOODREADS_API = {
@@ -104,11 +104,13 @@ async def _get_book_details(
         return None
 
 
-@usage("/book [BOOK_TITLE]")
-@example("/book The Hitchhiker's Guide to the Galaxy")
-@triggers(["book"])
-@api_key("GOODREADS_API_KEY")
-@description("Search for a book on GoodReads.")
+@command(
+    triggers=["book"],
+    usage="/book [BOOK_TITLE]",
+    example="/book The Hitchhiker's Guide to the Galaxy",
+    description="Search for a book on GoodReads.",
+    api_key="GOODREADS_API_KEY",
+)
 async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

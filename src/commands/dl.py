@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 import utils
 from config.logger import logger
 from config.options import config
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 MAX_MEDIA_COUNT = 10
@@ -168,10 +168,12 @@ async def _handle_cobalt_response(message: Message, data: dict) -> None:
     await message.reply_text("Unsupported response from Cobalt.")
 
 
-@triggers(["dl"])
-@usage("/dl [URL]")
-@example("/dl https://www.instagram.com/reel/A1234567890/")
-@description("Download media via cobalt.tools-compatible instance.")
+@command(
+    triggers=["dl"],
+    usage="/dl [URL]",
+    example="/dl https://www.instagram.com/reel/A1234567890/",
+    description="Download media via cobalt.tools-compatible instance.",
+)
 async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

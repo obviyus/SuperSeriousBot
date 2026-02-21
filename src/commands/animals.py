@@ -4,7 +4,7 @@ import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 
 ANIMAL_APIS: dict[str, tuple[str, Callable]] = {
     "shiba": (
@@ -24,10 +24,12 @@ async def get_animal_url(session: aiohttp.ClientSession, animal: str) -> str:
         return extract_url(data)
 
 
-@usage("/fox, /shiba, /cat")
-@example("/fox, /shiba, /cat")
-@triggers(["fox", "shiba", "cat"])
-@description("Get a random image of the specified animal.")
+@command(
+    triggers=["fox", "shiba", "cat"],
+    usage="/fox, /shiba, /cat",
+    example="/fox, /shiba, /cat",
+    description="Get a random image of the specified animal.",
+)
 async def animal(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle animal image request."""
     message = update.effective_message

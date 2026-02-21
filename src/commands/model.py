@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 
 from config.db import get_db
 from config.options import config
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 # AIDEV-NOTE: Global AI model setting uses chat_id = -1 in group_settings table
@@ -49,10 +49,12 @@ async def get_thinking() -> str:
             return result[0] if result and result[0] else DEFAULT_THINKING_LEVEL
 
 
-@triggers(["model"])
-@usage("/model [command] [model_name]")
-@example("/model ask openrouter/google/gemini-2.0-flash-thinking-exp-1219:free")
-@description("Set AI models for commands: ask, caption, edit, tr, or all (admin only)")
+@command(
+    triggers=["model"],
+    usage="/model [command] [model_name]",
+    example="/model ask openrouter/google/gemini-2.0-flash-thinking-exp-1219:free",
+    description="Set AI models for commands: ask, caption, edit, tr, or all (admin only)",
+)
 async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message or not update.effective_user:
@@ -159,10 +161,12 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-@triggers(["thinking"])
-@usage("/thinking [level]")
-@example("/thinking high")
-@description("Set thinking level for /ask: none, minimal, low, medium, high (admin only)")
+@command(
+    triggers=["thinking"],
+    usage="/thinking [level]",
+    example="/thinking high",
+    description="Set thinking level for /ask: none, minimal, low, medium, high (admin only)",
+)
 async def thinking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message or not update.effective_user:

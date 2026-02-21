@@ -2,14 +2,16 @@ import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
-@usage("/meme")
-@example("/meme")
-@triggers(["meme"])
-@description("Get a random meme.")
+@command(
+    triggers=["meme"],
+    usage="/meme",
+    example="/meme",
+    description="Get a random meme.",
+)
 async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

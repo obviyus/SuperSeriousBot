@@ -4,7 +4,7 @@ from telegram.error import Forbidden
 from telegram.ext import ContextTypes
 
 from config.db import get_db
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
@@ -73,10 +73,12 @@ async def highlight_button_handler(
         )
 
 
-@usage("/highlight Elden Ring")
-@example("/highlight")
-@triggers(["highlight", "hl"])
-@description("Get a DM when a certain text is seen by the bot in this chat.")
+@command(
+    triggers=["highlight", "hl"],
+    usage="/highlight Elden Ring",
+    example="/highlight",
+    description="Get a DM when a certain text is seen by the bot in this chat.",
+)
 async def highlighter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

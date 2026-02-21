@@ -13,7 +13,7 @@ from telegram.ext import ContextTypes
 
 import commands
 from config.options import config
-from utils.decorators import api_key, description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 from .ask import check_command_whitelist
@@ -126,11 +126,13 @@ def _extract_text_from_response(data: dict) -> str | None:
     return None
 
 
-@triggers(["tr"])
-@example("/tr Please summarize with bullet points")
-@usage("/tr [optional instructions]")
-@description("Reply to an audio message to have it transcribed via OpenRouter.")
-@api_key("OPENROUTER_API_KEY")
+@command(
+    triggers=["tr"],
+    usage="/tr [optional instructions]",
+    example="/tr Please summarize with bullet points",
+    description="Reply to an audio message to have it transcribed via OpenRouter.",
+    api_key="OPENROUTER_API_KEY",
+)
 async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

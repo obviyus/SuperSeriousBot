@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes
 import utils
 from config import logger
 from config.db import get_db
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
@@ -89,10 +89,12 @@ async def _chat_has_mentions(chat_id: int) -> bool:
             return await cursor.fetchone() is not None
 
 
-@usage("/friends")
-@example("/friends")
-@triggers(["friends"])
-@description("Get the strongest connected user to your account.")
+@command(
+    triggers=["friends"],
+    usage="/friends",
+    example="/friends",
+    description="Get the strongest connected user to your account.",
+)
 async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

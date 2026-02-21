@@ -3,14 +3,16 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 import commands
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
-@triggers(["uwu"])
-@usage("/uwu [text]")
-@example("/uwu Hello")
-@description("Uwuify a message. Reply to a message to uwuify it.")
+@command(
+    triggers=["uwu"],
+    usage="/uwu [text]",
+    example="/uwu Hello",
+    description="Uwuify a message. Reply to a message to uwuify it.",
+)
 async def uwu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

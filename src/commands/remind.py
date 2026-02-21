@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 import commands
 import utils
 from config.db import get_db
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
@@ -51,10 +51,12 @@ async def reminder_list(user_id: int, chat_id: int) -> str:
     return text
 
 
-@triggers(["remind"])
-@usage("/remind [REMINDER_NAME] [TARGET_TIME]")
-@description("Create a reminder with a trigger time for this group.")
-@example("/remind Japan Trip - 5 months later")
+@command(
+    triggers=["remind"],
+    usage="/remind [REMINDER_NAME] [TARGET_TIME]",
+    example="/remind Japan Trip - 5 months later",
+    description="Create a reminder with a trigger time for this group.",
+)
 async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

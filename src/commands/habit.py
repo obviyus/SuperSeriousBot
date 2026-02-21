@@ -8,7 +8,7 @@ import commands
 import utils
 from config import logger
 from config.db import get_db
-from utils.decorators import description, example, triggers, usage
+from utils.decorators import command
 from utils.messages import get_message
 
 
@@ -192,10 +192,12 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
     await asyncio.gather(*message_tasks)
 
 
-@triggers(["habit", "hb"])
-@usage("/habit [HABIT_NAME] [DAYS_PER_WEEK]")
-@description("Create a new habit to track in this group.")
-@example("/habit workout 5")
+@command(
+    triggers=["habit", "hb"],
+    usage="/habit [HABIT_NAME] [DAYS_PER_WEEK]",
+    example="/habit workout 5",
+    description="Create a new habit to track in this group.",
+)
 async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:

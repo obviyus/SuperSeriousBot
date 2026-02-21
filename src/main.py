@@ -36,6 +36,7 @@ from config.logger import logger
 from config.options import config
 from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
+from utils.decorators import get_command_meta
 from utils.messages import get_message
 
 bot_startup_time: float | None = None
@@ -134,11 +135,15 @@ def get_valid_bot_commands(command_list: list) -> list[BotCommand]:
     """
     Filter and format valid commands for the bot.
     """
-    return [
-        BotCommand(command.triggers[0], command.description)
-        for command in command_list
-        if hasattr(command, "triggers") and hasattr(command, "description")
-    ]
+    valid_commands: list[BotCommand] = []
+    for command in command_list:
+        meta = get_command_meta(command)
+        if not meta or not meta.triggers or not meta.description:
+            continue
+        if not commands.is_command_enabled(command):
+            continue
+        valid_commands.append(BotCommand(meta.triggers[0], meta.description))
+    return valid_commands
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
