@@ -464,10 +464,19 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("This command is not available in private chats.")
         return
 
-    # Check if replying to a message with a photo or sticker
-    if not message.reply_to_message or (
-        not message.reply_to_message.photo and not message.reply_to_message.sticker
-    ):
+    # Check if replying to a message with a photo, sticker, or image document
+    reply = message.reply_to_message
+    if not reply:
+        await commands.usage_string(message, edit)
+        return
+
+    has_photo = bool(reply.photo)
+    has_sticker = bool(reply.sticker)
+    has_image_document = bool(
+        reply.document and (reply.document.mime_type or "").startswith("image/")
+    )
+
+    if not (has_photo or has_sticker or has_image_document):
         await commands.usage_string(message, edit)
         return
 
@@ -491,21 +500,19 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prompt = " ".join(context.args)
 
     try:
-        # Get image bytes (photo or sticker)
+        # Get image bytes (photo, sticker, or image document)
         image_data: bytes | None = None
         mime_type: str | None = None
 
-        if message.reply_to_message.photo:
-            photo = message.reply_to_message.photo[-1]
+        if reply.photo:
+            photo = reply.photo[-1]
             file = await context.bot.getFile(photo.file_id)
             image_data = bytes(await file.download_as_bytearray())
             mime_type, _ = (
                 mimetypes.guess_type(file.file_path) if file.file_path else (None, None)
             )
-        elif message.reply_to_message.sticker:
-            sticker_payload = await get_sticker_image_bytes(
-                message.reply_to_message, context.bot
-            )
+        elif reply.sticker:
+            sticker_payload = await get_sticker_image_bytes(reply, context.bot)
             if not sticker_payload:
                 await message.reply_text(
                     "Animated/video stickers aren't supported yet. "
@@ -513,6 +520,16 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 return
             image_data, mime_type = sticker_payload
+        elif reply.document and (reply.document.mime_type or "").startswith("image/"):
+            file = await context.bot.getFile(reply.document.file_id)
+            image_data = bytes(await file.download_as_bytearray())
+            mime_type = reply.document.mime_type
+            if not mime_type:
+                mime_type, _ = (
+                    mimetypes.guess_type(file.file_path)
+                    if file.file_path
+                    else (None, None)
+                )
 
         if not image_data:
             await commands.usage_string(message, edit)

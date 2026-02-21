@@ -22,11 +22,8 @@ async def get_sticker_image_bytes(
         return None
 
     if sticker.is_animated or sticker.is_video:
-        # AIDEV-NOTE: Animated/video stickers use thumbnail fallback; full conversion not supported.
-        if not sticker.thumbnail:
-            return None
-        return await _download_file_bytes(
-            bot, sticker.thumbnail.file_id, "image/jpeg"
-        )
+        # NOTE: Animated/video stickers aren't supported (we don't currently convert TGS/WEBM).
+        # Keep behavior consistent with user-facing error messages in /ask and /edit.
+        return None
 
     return await _download_file_bytes(bot, sticker.file_id, "image/webp")
