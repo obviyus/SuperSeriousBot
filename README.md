@@ -20,29 +20,25 @@
 
 ## Introduction
 
-A recent rewrite has just wrapped up, making SuperSeriousBot completely asynchronous. The rewrite also included:
-
-- a general clean up of all functions
-- combining the many different database files into a single SQLite file
-- using poetry for dependency management
-- warn and disable functions with missing API keys
-- improved logging to development channel
+SuperSeriousBot is an asynchronous Telegram bot with modular commands, SQLite-backed state, and API-key-gated optional features.
 
 ## ✨ Features
 
-By adding this bot to your group you can use this growing set of functions. Notable ones include:
+Current command set includes:
 
-- [x] An **object-store** to save any image, video, GIF, audio etc. with a key
-- [x] Ask questions with AI and Google search grounding
-- [x] Caption images using vision models
-- [x] Live weather and predictions for any location
-- [x] Generate text-to-speech using Google Text-to-Speech
-- [x] Translate a text from any language to any other
-- [x] Generate a TLDR of any article
-- [x] QuoteDB for adding and retrieving messages
-- [x] A social graph of all members in a chat using [`visjs`](https://visjs.org/)
+- AI features: `/ask`, `/edit`, `/tldr`, `/tr`, `/model`, `/thinking`
+- Object store + media: `/set`, `/get`, `/dl`, `/gif`, `/meme`, `/joke`
+- Language + utility: `/tl`, `/tts`, `/define`, `/ud`, `/calc`, `/book`
+- Group utilities: `/remind`, `/habit`, `/summon`, `/highlight`
+- Stats + moderation: `/stats`, `/gstats`, `/ustats`, `/seen`, `/block`, `/unblock`, `/whitelist`
+- Social graph: `/friends`
+- Weather + quotes: `/weather`, `/addquote`, `/quote`
 
-... and many more! To see a complete list of commands send `/help` to [@SuperSeriousBot](https://t.me/superseriousbot)
+Notes:
+
+- No standalone caption command. Image captioning is done by replying to an image/sticker with `/ask`.
+- Most API-key commands are auto-disabled when keys are missing; some validate at runtime (for example `/weather`).
+- Send `/help` to [@SuperSeriousBot](https://t.me/superseriousbot) for the live command list.
 
 ## 🏗 Usage
 
@@ -57,27 +53,41 @@ $ git clone https://github.com/obviyus/SuperSeriousBot
 $ cp .env.example ssgbot.env
 ```
 
-2. Now fill up the `.env` file with all the API keys you need. The only mandatory key is the Telegram bot token.
+Fill `ssgbot.env`.
+
+Required:
+
+- `TELEGRAM_TOKEN`
+- `QUOTE_CHANNEL_ID`
+
+Optional:
+
+- `OPENROUTER_API_KEY` for `/ask`, `/edit`, `/tldr`, `/tr`
+- `WAQI_API_KEY` for `/weather`
+- `GIPHY_API_KEY` for `/gif`
+- `GOODREADS_API_KEY` for `/book`
+- `WOLFRAM_APP_ID` for `/calc`
+- `COBALT_URL` for `/dl` backend override
+- `ADMINS`, `UPDATER`, `WEBHOOK_URL`, `LOGGING_CHANNEL_ID` for bot ops
 
 ### Running
 
-SuperSeriousBot is run via Docker. The latest image can always be found at: http://ghcr.io/obviyus/SuperSeriousBot.
+SuperSeriousBot is run via Docker. The latest image can always be found at: `ghcr.io/obviyus/SuperSeriousBot`.
 
-To start the bot you only need the `docker-compose.yml` and a valid `ssgbot.env` file.
+To start the bot you only need `docker-compose.yaml` and a valid `ssgbot.env` file.
 
 ```bash
-$ docker-compose up
+$ docker compose up --build
 ```
 
 ## Development
 
-We also use Docker as the preferred development environment:
+Local dev (without Docker):
 
 ```bash
-$ docker-compose up
+$ uv sync
+$ uv run python src/main.py
 ```
-
-Any changes to the code persist through container restarts, no need to rebuild the image for a single change. In the future I may experiment with adding [`nodemon`](https://nodemon.io/) for watching files.
 
 ## Recommended Reading
 
@@ -86,4 +96,4 @@ Any changes to the code persist through container restarts, no need to rebuild t
 
 ## Contributing
 
-This repository uses the automated [`semantic-release`](https://github.com/semantic-release/semantic-release) suite of tools to generate version numbers. All commit messages **must** conform to the [Angular Commit Message conventions](https://github.com/angular/angular/blob/master/CONTRIBUTING.md#-commit-message-format).
+All commit messages **must** conform to the [Angular Commit Message conventions](https://github.com/angular/angular/blob/master/CONTRIBUTING.md#-commit-message-format).
