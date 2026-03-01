@@ -1,4 +1,6 @@
 import datetime
+import html
+import re
 
 import dateparser
 from telegram import Update
@@ -11,24 +13,33 @@ from config.db import get_db
 from utils.decorators import command
 from utils.messages import get_message
 
+IST_ALIAS_PATTERN = re.compile(r"\bIST\b", re.IGNORECASE)
 
-def readable_time(time: datetime.datetime) -> str:
-    now = datetime.datetime.now()
-    time_difference = time - now
 
-    days = time_difference.days
-    hours, remainder = divmod(time_difference.seconds, 3600)
-    minutes, _ = divmod(remainder, 60)
+def tg_time(unix_time: int, fallback_text: str, format_string: str | None = None) -> str:
+    format_attr = f' format="{format_string}"' if format_string else ""
+    return (
+        f'<tg-time unix="{unix_time}"{format_attr}>'
+        f"{html.escape(fallback_text)}"
+        "</tg-time>"
+    )
 
-    time_left = ""
-    if days > 0:
-        time_left += f"{days} days, "
-    if hours > 0:
-        time_left += f"{hours} hours, "
-    if minutes > 0:
-        time_left += f"{minutes} minutes"
 
-    return time_left.rstrip(", ")
+def parse_target_time(time_text: str) -> datetime.datetime | None:
+    normalized_time_text = IST_ALIAS_PATTERN.sub("UTC+0530", time_text)
+    parsed_time = dateparser.parse(
+        normalized_time_text,
+        settings={
+            "RETURN_AS_TIMEZONE_AWARE": True,
+            "TIMEZONE": "UTC",
+            "TO_TIMEZONE": "UTC",
+        },
+    )
+    if parsed_time is None:
+        return None
+    if parsed_time.tzinfo is None:
+        parsed_time = parsed_time.replace(tzinfo=datetime.UTC)
+    return parsed_time.astimezone(datetime.UTC)
 
 
 async def reminder_list(user_id: int, chat_id: int) -> str:
@@ -45,8 +56,14 @@ async def reminder_list(user_id: int, chat_id: int) -> str:
     text = "⏰ Your reminders in this chat:\n"
 
     for index, reminder in enumerate(results):
-        parsed_time = datetime.datetime.fromtimestamp(reminder["target_time"])
-        text += f"\n{index + 1}. <code>{reminder['title']}</code> in {readable_time(parsed_time)}"
+        target_unix = int(reminder["target_time"])
+        fallback_time = datetime.datetime.fromtimestamp(
+            target_unix, datetime.UTC
+        ).strftime("%Y-%m-%d %H:%M UTC")
+        text += (
+            f"\n{index + 1}. <code>{html.escape(reminder['title'])}</code> "
+            f"{tg_time(target_unix, fallback_time, 'r')}"
+        )
 
     return text
 
@@ -86,17 +103,16 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(message, remind)
         return
 
-    command_args = (" ".join(context.args)).split("-")
-
-    if len(command_args) < 2:
+    full_args = " ".join(context.args)
+    if " - " not in full_args:
         await commands.usage_string(message, remind)
         return
 
-    title, target_time = command_args[0].strip(), command_args[1].strip()
+    title, target_time_text = full_args.split(" - ", maxsplit=1)
+    title = title.strip()
+    target_time_text = target_time_text.strip()
 
-    target_time = dateparser.parse(
-        target_time, settings={"RETURN_AS_TIMEZONE_AWARE": True}
-    )
+    target_time = parse_target_time(target_time_text)
 
     if target_time is None:
         await message.reply_text(
@@ -104,11 +120,13 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    if target_time < datetime.datetime.now(target_time.tzinfo):
+    if target_time < datetime.datetime.now(datetime.UTC):
         await message.reply_text(
             "The specified time is in the past. Please provide a future date and time."
         )
         return
+
+    target_unix = int(target_time.timestamp())
 
     async with get_db(write=True) as conn:
         await conn.execute(
@@ -120,13 +138,16 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 message.chat_id,
                 message.from_user.id,
                 title,
-                target_time.timestamp(),
+                target_unix,
             ),
         )
         await conn.commit()
 
     await message.reply_text(
-        text=f"I will remind you about <code>{title}</code> on {target_time.strftime('%B %d, %Y at %I:%M%p %Z')}",
+        text=(
+            f"I will remind you about <code>{html.escape(title)}</code> on "
+            f"{tg_time(target_unix, target_time.strftime('%B %d, %Y at %I:%M%p %Z'), 'wDT')}"
+        ),
         parse_mode=ParseMode.HTML,
     )
 
@@ -144,7 +165,10 @@ async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
             existing_reminders = await cursor.fetchall()
 
     for reminder in existing_reminders:
-        text = f"⏰ <code>{reminder['title']}</code>\n\n@{await utils.get_username(reminder['user_id'], context)}"
+        text = (
+            f"⏰ <code>{html.escape(reminder['title'])}</code>\n\n"
+            f"@{await utils.get_username(reminder['user_id'], context)}"
+        )
         await context.bot.send_message(
             reminder["chat_id"], text, parse_mode=ParseMode.HTML
         )
