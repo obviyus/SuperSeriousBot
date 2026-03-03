@@ -99,7 +99,17 @@ async def stream_openrouter_deltas(
                 payload = json.loads(data)
             except json.JSONDecodeError:
                 continue
-            delta = payload.get("choices", [{}])[0].get("delta", {})
+            choices = payload.get("choices")
+            if not isinstance(choices, list) or not choices:
+                continue
+
+            first_choice = choices[0]
+            if not isinstance(first_choice, dict):
+                continue
+
+            delta = first_choice.get("delta", {})
+            if not isinstance(delta, dict):
+                continue
             content = delta.get("content")
             if content:
                 yield content
@@ -270,7 +280,25 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     resp.raise_for_status()
                     response = await resp.json()
 
-                text = response["choices"][0]["message"].get("content") or ""
+                choices = response.get("choices")
+                if not isinstance(choices, list) or not choices:
+                    await message.reply_text(
+                        "No response received from AI. Please try again."
+                    )
+                    return
+
+                first_choice = choices[0]
+                if not isinstance(first_choice, dict):
+                    await message.reply_text(
+                        "No response received from AI. Please try again."
+                    )
+                    return
+
+                ai_message = first_choice.get("message", {})
+                if not isinstance(ai_message, dict):
+                    ai_message = {}
+
+                text = ai_message.get("content") or ""
                 await send_response(update, text)
                 return
 
