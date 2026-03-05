@@ -2,7 +2,6 @@ import datetime
 import html
 import re
 
-import dateparser
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -26,6 +25,8 @@ def tg_time(unix_time: int, fallback_text: str, format_string: str | None = None
 
 
 def parse_target_time(time_text: str) -> datetime.datetime | None:
+    import dateparser
+
     normalized_time_text = IST_ALIAS_PATTERN.sub("UTC+0530", time_text)
     parsed_time = dateparser.parse(
         normalized_time_text,

@@ -1,7 +1,6 @@
 import asyncio
 import random
 
-import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -16,6 +15,8 @@ from utils.messages import get_message
     description="Get a two part joke.",
 )
 async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    import aiohttp
+
     message = get_message(update)
     if not message:
         return

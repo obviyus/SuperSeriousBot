@@ -1,4 +1,3 @@
-import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -19,6 +18,8 @@ async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get a random meme"""
     if not message:
         return
+
+    import aiohttp
 
     async with aiohttp.ClientSession() as session:
         async with session.get("https://meme-api.com/gimme") as response:

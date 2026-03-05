@@ -1,4 +1,3 @@
-import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -13,6 +12,8 @@ from utils.messages import get_message
     description="Send a random insult. Reply to a person to insult them.",
 )
 async def insult(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+    import aiohttp
+
     message = get_message(update)
     if not message:
         return

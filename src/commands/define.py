@@ -1,7 +1,6 @@
 import html
 from typing import Any
 
-import aiohttp
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -44,6 +43,8 @@ async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def _fetch_definition(word: str) -> dict[str, Any]:
     """Fetch word definition from the API"""
+    import aiohttp
+
     async with aiohttp.ClientSession() as session:
         async with session.get(DICTIONARY_API_ENDPOINT.format(word)) as response:
             if response.status != 200:

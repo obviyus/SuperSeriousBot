@@ -1,4 +1,3 @@
-import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -30,6 +29,8 @@ async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def fetch_random_gif() -> str:
     """Fetch a random GIF URL from the Giphy API"""
+    import aiohttp
+
     params = {"api_key": config["API"]["GIPHY_API_KEY"]}
 
     async with aiohttp.ClientSession() as session:

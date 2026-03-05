@@ -1,9 +1,6 @@
 import difflib
 import io
 
-import gtts.lang
-from googletrans import Translator as GTranslator
-from gtts import gTTS
 from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -41,6 +38,8 @@ async def text_grabber(
 async def translate_and_reply(
     message: Message, text: str, target_language: str
 ) -> None:
+    from googletrans import Translator as GTranslator
+
     try:
         async with GTranslator() as translator:
             translated = await translator.translate(text, dest=target_language)
@@ -81,6 +80,9 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     "Reply to a message with just the language code to TTS it.",
 )
 async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    import gtts.lang
+    from gtts import gTTS
+
     message = get_message(update)
     if not message:
         return

@@ -6,7 +6,6 @@ import subprocess
 import tempfile
 from typing import NamedTuple
 
-import aiohttp
 from telegram import Message, Update
 from telegram.constants import ChatType
 from telegram.ext import ContextTypes
@@ -134,6 +133,8 @@ def _extract_text_from_response(data: dict) -> str | None:
     api_key="OPENROUTER_API_KEY",
 )
 async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    import aiohttp
+
     message = get_message(update)
     if not message:
         return

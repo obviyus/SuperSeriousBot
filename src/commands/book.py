@@ -1,8 +1,8 @@
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import Any
 
-import aiohttp
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -48,8 +48,10 @@ class BookDetails:
 
 
 @lru_cache(maxsize=100)
-async def _search_book(session: aiohttp.ClientSession, query: str) -> str | None:
+async def _search_book(session: Any, query: str) -> str | None:
     """Search for a book and return its ID with caching"""
+    import aiohttp
+
     params = {"q": query, "key": config["API"]["GOODREADS_API_KEY"]}
     try:
         async with session.get(GOODREADS_API["SEARCH"], params=params) as response:
@@ -72,9 +74,11 @@ def _truncate_description(desc: str, limit: int = 200) -> str:
 
 
 async def _get_book_details(
-    session: aiohttp.ClientSession, book_id: str
+    session: Any, book_id: str
 ) -> BookDetails | None:
     """Fetch and parse book details"""
+    import aiohttp
+
     params = {"id": book_id, "key": config["API"]["GOODREADS_API_KEY"]}
     try:
         async with session.get(GOODREADS_API["BOOK"], params=params) as response:
@@ -112,6 +116,8 @@ async def _get_book_details(
     api_key="GOODREADS_API_KEY",
 )
 async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    import aiohttp
+
     message = get_message(update)
     if not message:
         return

@@ -1,4 +1,3 @@
-import aiohttp
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -44,6 +43,8 @@ async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def fetch_ud_definition(word: str) -> dict:
     """Fetch definition from Urban Dictionary API."""
+    import aiohttp
+
     headers = {
         "User-Agent": "SuperSeriousBot",
         "Accept": "application/json",
@@ -62,6 +63,8 @@ async def fetch_ud_definition(word: str) -> dict:
 
 async def fetch_ud_wotd() -> dict:
     """Fetch Word of the Day from Urban Dictionary API."""
+    import aiohttp
+
     headers = {
         "User-Agent": "SuperSeriousBot",
         "Accept": "application/json",

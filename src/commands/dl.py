@@ -1,6 +1,5 @@
 import io
 
-import aiohttp
 from telegram import InputFile, InputMediaPhoto, InputMediaVideo, Message, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
@@ -28,6 +27,8 @@ def _is_video(filename_or_url: str) -> bool:
 async def _download_to_memory(
     url: str,
 ) -> tuple[io.BytesIO, str | None, int | None]:
+    import aiohttp
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             if resp.status != 200:
@@ -112,6 +113,8 @@ async def _send_picker(message: Message, picker_items: list[dict]) -> None:
 
 
 async def _cobalt_request(cobalt_base_url: str, target_url: str) -> dict:
+    import aiohttp
+
     endpoint = cobalt_base_url.rstrip("/") + "/"
     headers = {
         "Accept": "application/json",

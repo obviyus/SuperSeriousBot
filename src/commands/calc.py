@@ -1,6 +1,5 @@
 from functools import lru_cache
 
-import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -15,6 +14,8 @@ WOLFRAM_SHORT_QUERY = "https://api.wolframalpha.com/v1/result"
 @lru_cache(maxsize=100)
 async def fetch_wolfram_result(query: str) -> str:
     """Fetch result from WolframAlpha API with caching"""
+    import aiohttp
+
     params = {"i": query, "appid": config["API"]["WOLFRAM_APP_ID"]}
 
     async with aiohttp.ClientSession() as session:
