@@ -68,9 +68,9 @@ async def _save_message_stats(message: Message) -> None:
             )
 
             await conn.commit()
-        except Exception as e:
+        except Exception:
             await conn.rollback()
-            print(f"Error in save_message_stats: {e}")
+            raise
 
 
 async def _save_mention(

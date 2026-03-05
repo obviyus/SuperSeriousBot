@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 from telegram.helpers import mention_html
 
 import commands
-import utils.string
+import utils
 from config.db import get_db
 from utils import readable_time
 from utils.decorators import command
@@ -29,7 +29,7 @@ async def stat_string_builder(
     # Parallel fetch all names (cache hits are instant, misses run concurrently)
     user_ids = [user_id for _, user_id, _ in rows]
     names = await asyncio.gather(
-        *(utils.string.get_first_name(uid, context) for uid in user_ids)
+        *(utils.get_first_name(uid, context) for uid in user_ids)
     )
 
     # Build output with list join (avoids O(n²) string concat)
