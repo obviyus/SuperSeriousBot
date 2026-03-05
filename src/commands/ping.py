@@ -1,3 +1,5 @@
+from time import perf_counter
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -15,7 +17,7 @@ async def ping(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
+    start_time = perf_counter()
     probe_message = await message.reply_text(text="⏳ Measuring...")
-    time_delta = probe_message.date - message.date
-    latency_ms = max(time_delta.total_seconds() * 1000, 0)
+    latency_ms = max((perf_counter() - start_time) * 1000, 0)
     await probe_message.edit_text(text=f"pong ({latency_ms:.2f}ms)")
