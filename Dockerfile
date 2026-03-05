@@ -1,10 +1,6 @@
 FROM python:3.13-alpine AS build
 
-RUN apk add --no-cache \
-    build-base \
-    libxml2-dev \
-    libxslt-dev \
-    zlib-dev
+WORKDIR /src
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
@@ -14,33 +10,25 @@ ENV UV_LINK_MODE=copy \
     UV_PYTHON=python3.13 \
     UV_PROJECT_ENVIRONMENT=/app
 
-COPY pyproject.toml uv.lock /src/
+COPY pyproject.toml uv.lock ./
 
 RUN --mount=type=cache,target=/root/.cache \
-    cd /src && \
     uv sync --locked --no-dev --no-install-project
 
-COPY src/ /src/src/
-COPY migrations/ /src/migrations/
+COPY src/ ./src/
+COPY migrations/ ./migrations/
 RUN --mount=type=cache,target=/root/.cache \
-    cd /src && \
     uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps .
-
-FROM mwader/static-ffmpeg:latest AS ffmpeg
 
 FROM python:3.13-alpine AS runtime
 
 RUN addgroup -S app && adduser -S -h /app -G app app
 
-RUN apk add --no-cache \
-    dumb-init \
-    sqlite \
-    curl
+RUN apk add --no-cache dumb-init
 
-COPY --from=ffmpeg /ffmpeg /usr/local/bin/
+COPY --from=mwader/static-ffmpeg:latest /ffmpeg /usr/local/bin/
 COPY --from=build --chown=app:app /app /app
-COPY --from=build --chown=app:app /src/src /app/src
-COPY --from=build --chown=app:app /src/migrations /app/migrations
+COPY --from=build --chown=app:app /src/src /src/migrations /app/
 
 RUN mkdir -p /db && chown app:app /db
 
