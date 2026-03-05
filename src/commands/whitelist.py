@@ -40,7 +40,7 @@ async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not update.effective_user:
         return
 
-    if not await is_admin(str(update.effective_user.id)):
+    if not is_admin(update.effective_user.id):
         await message.reply_text("❌ This command is only available to admins")
         return
 
@@ -107,7 +107,7 @@ async def unwhitelist_command(
     if not update.effective_user:
         return
 
-    if not await is_admin(str(update.effective_user.id)):
+    if not is_admin(update.effective_user.id):
         await message.reply_text("❌ This command is only available to admins")
         return
 

@@ -18,7 +18,7 @@ async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     message = get_message(update)
     if not message:
         return
-    if not update.effective_user or not await is_admin(str(update.effective_user.id)):
+    if not update.effective_user or not is_admin(update.effective_user.id):
         await message.reply_text("❌ This command is only available to admins")
         return
 
@@ -62,7 +62,7 @@ async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     message = get_message(update)
     if not message:
         return
-    if not update.effective_user or not await is_admin(str(update.effective_user.id)):
+    if not update.effective_user or not is_admin(update.effective_user.id):
         await message.reply_text("❌ This command is only available to admins")
         return
 
@@ -108,7 +108,7 @@ async def show_blocklist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     message = get_message(update)
     if not message:
         return
-    if not update.effective_user or not await is_admin(str(update.effective_user.id)):
+    if not update.effective_user or not is_admin(update.effective_user.id):
         await message.reply_text("❌ This command is only available to admins")
         return
 
