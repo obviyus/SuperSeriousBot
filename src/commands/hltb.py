@@ -1,4 +1,3 @@
-from howlongtobeatpy import HowLongToBeat
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -14,6 +13,8 @@ from utils.messages import get_message
     description="Find how long a game takes to beat.",
 )
 async def hltb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from howlongtobeatpy import HowLongToBeat
+
     message = get_message(update)
     if not message:
         return

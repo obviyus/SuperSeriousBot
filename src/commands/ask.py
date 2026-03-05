@@ -8,8 +8,6 @@ from collections.abc import AsyncIterator
 from datetime import timedelta
 from typing import Any
 
-import aiohttp
-import telegramify_markdown
 from telegram import Update
 from telegram.constants import ChatType
 from telegram.error import BadRequest, RetryAfter
@@ -82,7 +80,7 @@ def retry_after_seconds(value: int | timedelta) -> float:
 
 
 async def stream_openrouter_deltas(
-    response: aiohttp.ClientResponse,
+    response: Any,
 ) -> AsyncIterator[str]:
     buffer = ""
     async for chunk in response.content.iter_chunked(1024):
@@ -116,6 +114,8 @@ async def stream_openrouter_deltas(
 
 
 def render_markdown(text: str) -> str | None:
+    import telegramify_markdown
+
     try:
         formatted = telegramify_markdown.markdownify(text)
     except Exception:
@@ -127,6 +127,8 @@ def render_markdown(text: str) -> str | None:
 
 async def send_response(update: Update, text: str) -> None:
     """Send response as a message or file if too long."""
+    import telegramify_markdown
+
     message = get_message(update)
 
     if not message:
@@ -248,6 +250,8 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         messages.append({"role": "user", "content": query})
 
     try:
+        import aiohttp
+
         model_name = await get_model("ask")
         thinking_level = await get_thinking()
 
@@ -546,6 +550,8 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prompt = " ".join(context.args)
 
     try:
+        import aiohttp
+
         # Get image bytes (photo, sticker, or image document)
         image_data: bytes | None = None
         mime_type: str | None = None

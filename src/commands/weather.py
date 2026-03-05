@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
-import aiohttp
-from geopy import Nominatim
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -14,9 +13,17 @@ from config.options import config
 from utils.decorators import command
 from utils.messages import get_message
 
-geolocator = Nominatim(user_agent="SuperSeriousBot")
-
 WAQI_ENDPOINT = "https://api.waqi.info/feed/geo:{lat};{lng}/"
+_geolocator: Any | None = None
+
+
+def get_geolocator() -> Any:
+    global _geolocator
+    if _geolocator is None:
+        from geopy import Nominatim
+
+        _geolocator = Nominatim(user_agent="SuperSeriousBot")
+    return _geolocator
 
 
 class Point:
@@ -33,6 +40,7 @@ class Point:
 
     @classmethod
     async def from_name(cls, name: str) -> Point:
+        geolocator = get_geolocator()
         location = await asyncio.to_thread(geolocator.geocode, name, exactly_one=True)
         if not location:
             p = cls(0.0, 0.0, "")
@@ -52,7 +60,7 @@ class Point:
         except IndexError:
             return address
 
-    async def get_data(self, session: aiohttp.ClientSession) -> dict | None:
+    async def get_data(self, session: Any) -> dict | None:
         token = config["API"].get("WAQI_API_KEY")
         if not token:
             return None
@@ -88,6 +96,8 @@ class Point:
     description="Get the weather for a location. Saves your last location.",
 )
 async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    import aiohttp
+
     message = get_message(update)
     if not message:
         return

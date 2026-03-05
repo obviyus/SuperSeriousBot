@@ -1,8 +1,6 @@
 import html
 from urllib.parse import parse_qs, urlparse
 
-import aiohttp
-import telegramify_markdown
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -61,6 +59,8 @@ def extract_youtube_video_id(url: str) -> str | None:
 
 async def get_youtube_transcript(video_id: str) -> str | None:
     """Retrieve transcript from NanoGPT API."""
+    import aiohttp
+
     headers = {"Content-Type": "application/json"}
     nano_api_key = config["API"].get("NANO_GPT_API_KEY")
     if nano_api_key:
@@ -103,6 +103,8 @@ async def cache_youtube_summary(conn, video_id: str, summary: str, user_id: int)
 
 async def summarize_text(text: str, context_hint: str = "") -> str:
     """Summarize text using AI."""
+    import aiohttp
+
     model_name = await get_model("tldr")
 
     # Strip 'openrouter/' prefix if present
@@ -154,6 +156,9 @@ Rules:
 )
 async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Generate a TLDR for YouTube videos, URLs, or replied text."""
+    import aiohttp
+    import telegramify_markdown
+
     message = get_message(update)
     if not message or not message.from_user:
         return
@@ -212,7 +217,6 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                     json={"urls": [url_str]},
                     timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
-                    print(await response.text())
                     if response.status == 402:
                         await message.reply_text(
                             "Insufficient API balance for web scraping."

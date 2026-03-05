@@ -1,6 +1,6 @@
 from collections.abc import Callable
+from typing import Any
 
-import aiohttp
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -16,7 +16,7 @@ ANIMAL_APIS: dict[str, tuple[str, Callable]] = {
 }
 
 
-async def get_animal_url(session: aiohttp.ClientSession, animal: str) -> str:
+async def get_animal_url(session: Any, animal: str) -> str:
     """Fetch animal image URL from the appropriate API."""
     url, extract_url = ANIMAL_APIS[animal]
     async with session.get(url) as response:
@@ -32,6 +32,8 @@ async def get_animal_url(session: aiohttp.ClientSession, animal: str) -> str:
 )
 async def animal(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle animal image request."""
+    import aiohttp
+
     message = update.effective_message
     if not message:
         return
