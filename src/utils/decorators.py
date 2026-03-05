@@ -13,11 +13,16 @@ class CommandMeta:
     deprecated: str | None = None
 
 
-def get_command_meta(func: Callable[..., Any]) -> CommandMeta | None:
+type CommandFunc = Callable[..., Any]
+
+_registered_commands: list[CommandFunc] = []
+
+
+def get_command_meta(func: CommandFunc) -> CommandMeta | None:
     return getattr(func, "command_meta", None)
 
 
-def _ensure_command_meta(func: Callable[..., Any]) -> CommandMeta:
+def _ensure_command_meta(func: CommandFunc) -> CommandMeta:
     meta = get_command_meta(func)
     if meta is None:
         meta = CommandMeta()
@@ -25,13 +30,20 @@ def _ensure_command_meta(func: Callable[..., Any]) -> CommandMeta:
     return meta
 
 
-def _set_command_attr(
-    func: Callable[..., Any], attr_name: str, attr_value: Any
-) -> None:
+def _set_command_attr(func: CommandFunc, attr_name: str, attr_value: Any) -> None:
     setattr(func, attr_name, attr_value)
     meta = _ensure_command_meta(func)
     if hasattr(meta, attr_name):
         setattr(meta, attr_name, attr_value)
+
+
+def _register_command(func: CommandFunc) -> None:
+    if func not in _registered_commands:
+        _registered_commands.append(func)
+
+
+def get_registered_commands() -> list[CommandFunc]:
+    return list(_registered_commands)
 
 
 def _normalize_triggers(trigger_command: str | list[str]) -> list[str]:
@@ -60,7 +72,7 @@ def command(
     """Attach all command metadata in one decorator."""
     normalized_triggers = _normalize_triggers(triggers)
 
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+    def decorator(func: CommandFunc) -> CommandFunc:
         _set_command_attr(func, "triggers", normalized_triggers)
         _set_command_attr(func, "usage", usage)
         _set_command_attr(func, "example", example)
@@ -69,6 +81,7 @@ def command(
             _set_command_attr(func, "api_key", api_key)
         if deprecated:
             _set_command_attr(func, "deprecated", deprecated)
+        _register_command(func)
         return func
 
     return decorator

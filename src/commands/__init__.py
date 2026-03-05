@@ -4,6 +4,7 @@ import random
 import traceback
 from collections.abc import Awaitable, Callable
 from functools import wraps
+from importlib import import_module
 
 from telegram import Message, Update
 from telegram.constants import ChatAction, ParseMode, ReactionEmoji
@@ -13,103 +14,56 @@ import utils
 from config import logger
 from config.db import get_db
 from config.options import config
-from management import blocks, botstats, stats
 from utils.concurrency import schedule_background_task
-from utils.decorators import CommandMeta, get_command_meta
+from utils.decorators import CommandMeta, get_command_meta, get_registered_commands
 from utils.messages import get_message
 
-from . import (
-    animals,
-    ask,
-    book,
-    calc,
-    define,
-    dl,
-    gif,
-    graph,
-    habit,
-    highlight,
-    hltb,
-    insult,
-    joke,
-    meme,
-    model,
-    ping,
-    quote,
-    remind,
-    search,
-    spurdo,
-    store,
-    summon,
-    tldr,
-    transcribe,
-    translate,
-    ud,
-    uwu,
-    weather,
-    whitelist,
+COMMAND_MODULE_NAMES = (
+    "animals",
+    "ask",
+    "book",
+    "calc",
+    "define",
+    "dl",
+    "gif",
+    "graph",
+    "habit",
+    "highlight",
+    "hltb",
+    "insult",
+    "joke",
+    "meme",
+    "model",
+    "ping",
+    "quote",
+    "remind",
+    "search",
+    "spurdo",
+    "store",
+    "summon",
+    "tldr",
+    "transcribe",
+    "translate",
+    "ud",
+    "uwu",
+    "weather",
+    "whitelist",
 )
-from .highlight import highlight_button_handler
+MANAGEMENT_MODULE_NAMES = ("blocks", "botstats", "stats")
 
-# Import all command functions
-COMMAND_MODULES = [
-    animals,
-    ask,
-    book,
-    blocks,
-    calc,
-    define,
-    dl,
-    gif,
-    graph,
-    habit,
-    highlight,
-    hltb,
-    insult,
-    joke,
-    meme,
-    model,
-    ping,
-    quote,
-    remind,
-    search,
-    spurdo,
-    store,
-    summon,
-    tldr,
-    transcribe,
-    translate,
-    ud,
-    uwu,
-    weather,
-    whitelist,
-]
+for module_name in COMMAND_MODULE_NAMES:
+    import_module(f"{__name__}.{module_name}")
+for module_name in MANAGEMENT_MODULE_NAMES:
+    import_module(f"management.{module_name}")
 
-# Collect all command functions
-list_of_commands = []
-for module in COMMAND_MODULES:
-    list_of_commands.extend(
-        [
-            getattr(module, name)
-            for name in dir(module)
-            if callable(getattr(module, name)) and not name.startswith("_")
-        ]
-    )
+habit = import_module(f"{__name__}.habit")
+summon = import_module(f"{__name__}.summon")
+highlight_button_handler = import_module(
+    f"{__name__}.highlight"
+).highlight_button_handler
 
-# Add management and stats functions
-list_of_commands.extend(
-    [
-        botstats.get_command_stats,
-        botstats.get_object_stats,
-        botstats.get_total_chats,
-        botstats.get_total_users,
-        botstats.get_uptime,
-        stats.get_chat_stats,
-        stats.get_last_seen,
-        stats.get_total_chat_stats,
-        stats.get_user_stats,
-    ]
-)
+# Import side effects above register decorated commands.
+list_of_commands = get_registered_commands()
 
 REACTION_MAP = {
     "good bot": [
