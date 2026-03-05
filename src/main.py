@@ -1,4 +1,3 @@
-import asyncio
 import contextlib
 import datetime
 import html
@@ -6,6 +5,7 @@ import json
 import os
 import re
 import traceback
+from collections.abc import Callable
 
 import caribou
 from telegram import BotCommand, Update
@@ -37,7 +37,6 @@ from config.options import config
 from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
 from utils.decorators import get_command_meta
-from utils.messages import get_message
 
 bot_startup_time: float | None = None
 
@@ -81,19 +80,6 @@ def ensure_caribou_py314_compat() -> None:
     caribou_migrate._py314_param_patch = True  # type: ignore[attr-defined]
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = get_message(update)
-
-    if not message or not update.effective_user:
-        return
-    """
-    Start command handler.
-    """
-    username = update.effective_user.username or f"user_{update.effective_user.id}"
-    await message.reply_text(f"👋 @{username}")
-    logger.info(f"/start command received from @{username}")
-
-
 async def post_init(application: Application) -> None:
     """
     Initialize the bot.
@@ -104,16 +90,14 @@ async def post_init(application: Application) -> None:
 
     bot_startup_time = datetime.datetime.now().timestamp()
 
-    if (
-        "LOGGING_CHANNEL_ID" in config["TELEGRAM"]
-        and config["TELEGRAM"]["LOGGING_CHANNEL_ID"]
-    ):
+    logging_channel_id = get_logging_channel_id()
+    if logging_channel_id:
         logger.info(
-            f"Logging to channel ID: {config['TELEGRAM']['LOGGING_CHANNEL_ID']}"
+            f"Logging to channel ID: {logging_channel_id}"
         )
 
         await application.bot.send_message(
-            chat_id=config["TELEGRAM"]["LOGGING_CHANNEL_ID"],
+            chat_id=logging_channel_id,
             text=f"📝 Started @{application.bot.username} (ID: {application.bot.id}) at {datetime.datetime.now()}",
         )
 
@@ -144,6 +128,10 @@ def get_valid_bot_commands(command_list: list) -> list[BotCommand]:
             continue
         valid_commands.append(BotCommand(meta.triggers[0], meta.description))
     return valid_commands
+
+
+def get_logging_channel_id() -> int | None:
+    return config["TELEGRAM"].get("LOGGING_CHANNEL_ID")
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -188,19 +176,17 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         f"<pre>{safe_tb}</pre>"
     )
 
-    if (
-        "LOGGING_CHANNEL_ID" in config["TELEGRAM"]
-        and config["TELEGRAM"]["LOGGING_CHANNEL_ID"]
-    ):
+    logging_channel_id = get_logging_channel_id()
+    if logging_channel_id:
         # Finally, send the message
         await context.bot.send_message(
-            chat_id=config["TELEGRAM"]["LOGGING_CHANNEL_ID"],
+            chat_id=logging_channel_id,
             text=message,
             parse_mode=ParseMode.HTML,
         )
 
 
-async def setup_application() -> Application:
+def setup_application() -> Application:
     application = (
         ApplicationBuilder()
         .token(config["TELEGRAM"]["TOKEN"])
@@ -250,9 +236,10 @@ async def setup_application() -> Application:
     )
 
     job_queue = application.job_queue
-    if not job_queue:
-        logger.error("Job queue not initialized")
-        return application
+    if job_queue is None:
+        raise RuntimeError(
+            "Job queue not initialized. Install python-telegram-bot[job-queue]."
+        )
 
     # Notification workers
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
@@ -266,38 +253,48 @@ async def setup_application() -> Application:
     return application
 
 
+def run_migrations() -> None:
+    # AIDEV-NOTE: Migrations are in the project root, not parent directory
+    # This works for both Docker (/code/migrations) and local development
+    migrations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "migrations")
+    logger.info(f"Running migrations from {migrations_dir} on database {PRIMARY_DB_PATH}")
+    try:
+        caribou.upgrade(str(PRIMARY_DB_PATH), migrations_dir)
+    except Exception:
+        logger.exception("Error running database migrations")
+        raise
+    logger.info("Database migrations completed successfully.")
+
+
+def run_polling(application: Application) -> None:
+    logger.info("Using polling...")
+    application.run_polling(drop_pending_updates=False)
+
+
+def run_webhook(application: Application) -> None:
+    webhook_url = config["TELEGRAM"]["WEBHOOK_URL"]
+    if not webhook_url:
+        raise RuntimeError("WEBHOOK_URL must be set when UPDATER is 'webhook'")
+    port = int(os.environ.get("PORT", "8443"))
+    logger.info(f"Using webhook URL: {webhook_url} with port {port}")
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        webhook_url=webhook_url,
+    )
+
+
+RUNNERS: dict[str, Callable[[Application], None]] = {
+    "polling": run_polling,
+    "webhook": run_webhook,
+}
+
+
 def main():
     ensure_caribou_py314_compat()
-    try:
-        # AIDEV-NOTE: Migrations are in the project root, not parent directory
-        # This works for both Docker (/code/migrations) and local development
-        migrations_dir = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "migrations"
-        )
-        caribou.upgrade(str(PRIMARY_DB_PATH), migrations_dir)
-        logger.info(
-            f"Running migrations from {migrations_dir} on database {PRIMARY_DB_PATH}"
-        )
-        logger.info("Database migrations completed successfully.")
-    except Exception as e:
-        logger.error(f"Error running database migrations: {e}")
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    application = loop.run_until_complete(setup_application())
-
-    if "UPDATER" in config["TELEGRAM"] and config["TELEGRAM"]["UPDATER"] == "webhook":
-        logger.info(
-            f"Using webhook URL: {config['TELEGRAM']['WEBHOOK_URL']} with port {os.environ.get('PORT', '8443')}"
-        )
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=int(os.environ.get("PORT", "8443")),
-            webhook_url=config["TELEGRAM"]["WEBHOOK_URL"],
-        )
-    else:
-        logger.info("Using polling...")
-        application.run_polling(drop_pending_updates=False)
+    run_migrations()
+    application = setup_application()
+    RUNNERS[config["TELEGRAM"]["UPDATER"]](application)
 
 
 if __name__ == "__main__":
