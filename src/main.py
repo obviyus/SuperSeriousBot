@@ -255,7 +255,7 @@ def setup_application() -> Application:
 
 def run_migrations() -> None:
     # AIDEV-NOTE: Migrations are in the project root, not parent directory
-    # This works for both Docker (/code/migrations) and local development
+    # This works for both Docker (/app/migrations) and local development
     migrations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "migrations")
     logger.info(f"Running migrations from {migrations_dir} on database {PRIMARY_DB_PATH}")
     try:

@@ -28,7 +28,8 @@ RUN apk add --no-cache dumb-init
 
 COPY --from=mwader/static-ffmpeg:latest /ffmpeg /usr/local/bin/
 COPY --from=build --chown=app:app /app /app
-COPY --from=build --chown=app:app /src/src /src/migrations /app/
+COPY --from=build --chown=app:app /src/src /app/src
+COPY --from=build --chown=app:app /src/migrations /app/migrations
 
 RUN mkdir -p /db && chown app:app /db
 

@@ -5,8 +5,8 @@ services:
     build: .
     volumes:
       - ./db/:/db/
-      - ./src:/code/src
-      - ./vis/:/code/vis/
+      - ./src:/app/src
+      - ./vis/:/app/vis/
     env_file:
       - ssgbot.env
     restart: unless-stopped
