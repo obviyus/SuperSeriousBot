@@ -8,6 +8,7 @@ from importlib import import_module
 
 from telegram import Message, Update
 from telegram.constants import ChatAction, ParseMode, ReactionEmoji
+from telegram.error import BadRequest
 from telegram.ext import CommandHandler, ContextTypes
 
 import utils
@@ -115,7 +116,10 @@ async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
         text = message.text.lower()
         for trigger, emojis in REACTION_MAP.items():
             if trigger in text:
-                await message.set_reaction(random.choice(emojis))
+                try:
+                    await message.set_reaction(random.choice(emojis))
+                except BadRequest as exc:
+                    logger.debug("Skipping auto reaction: %s", exc)
                 break
 
 
@@ -145,6 +149,12 @@ def command_wrapper(fn: CommandHandler_T):
         if not message:
             return
 
+        async def set_command_reaction() -> None:
+            try:
+                await message.set_reaction(ReactionEmoji.WRITING_HAND)
+            except BadRequest as exc:
+                logger.debug("Skipping command reaction: %s", exc)
+
         try:
             schedule_background_task(
                 message.reply_chat_action(ChatAction.TYPING),
@@ -162,7 +172,7 @@ def command_wrapper(fn: CommandHandler_T):
                     return
 
             schedule_background_task(
-                message.set_reaction(ReactionEmoji.WRITING_HAND),
+                set_command_reaction(),
                 "command-reaction",
             )
 
