@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime
 
 from telegram import ChatMember, InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.constants import ParseMode
+from telegram.constants import KeyboardButtonStyle, ParseMode
 from telegram.ext import CallbackContext, ContextTypes
 
 import commands
@@ -47,12 +47,22 @@ async def summon_keyboard(group_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton("✅ Join", callback_data=f"sg:join,{group_id}"),
-                InlineKeyboardButton("❌ Leave", callback_data=f"sg:leave,{group_id}"),
+                InlineKeyboardButton(
+                    "✅ Join",
+                    callback_data=f"sg:join,{group_id}",
+                    style=KeyboardButtonStyle.SUCCESS,
+                ),
+                InlineKeyboardButton(
+                    "❌ Leave",
+                    callback_data=f"sg:leave,{group_id}",
+                    style=KeyboardButtonStyle.DANGER,
+                ),
             ],
             [
                 InlineKeyboardButton(
-                    "🔁 Resummon", callback_data=f"sg:resummon,{group_id}"
+                    "🔁 Resummon",
+                    callback_data=f"sg:resummon,{group_id}",
+                    style=KeyboardButtonStyle.PRIMARY,
                 )
             ],
         ]

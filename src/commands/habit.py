@@ -1,6 +1,7 @@
 import asyncio
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import KeyboardButtonStyle
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
@@ -47,7 +48,10 @@ async def habit_message_builder(
         status_emoji = (
             "🚀" if user_count > user_goal else "⌛" if user_count < user_goal else "✅"
         )
-        text += f"\n- {status_emoji} {user_count}/{user_goal} @{await utils.string.get_username(row['user_id'], context)}"
+        text += (
+            f"\n- {status_emoji} {user_count}/{user_goal} "
+            f"@{await utils.get_username(row['user_id'], context)}"
+        )
     return text
 
 
@@ -56,10 +60,18 @@ async def habit_keyboard(habit_id: int) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    "📅 Check-in", callback_data=f"hb:checkin,{habit_id}"
+                    "📅 Check-in",
+                    callback_data=f"hb:checkin,{habit_id}",
+                    style=KeyboardButtonStyle.SUCCESS,
                 )
             ],
-            [InlineKeyboardButton("❌ Leave", callback_data=f"hb:leave,{habit_id}")],
+            [
+                InlineKeyboardButton(
+                    "❌ Leave",
+                    callback_data=f"hb:leave,{habit_id}",
+                    style=KeyboardButtonStyle.DANGER,
+                )
+            ],
         ]
     )
 

@@ -103,9 +103,7 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         if context.args:
             author_username = context.args[0].replace("@", "")
-            author_user_id = await utils.string.get_user_id_from_username(
-                author_username
-            )
+            author_user_id = await utils.get_user_id_from_username(author_username)
 
             if not author_user_id:
                 await message.reply_text(

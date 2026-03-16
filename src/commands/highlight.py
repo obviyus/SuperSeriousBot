@@ -1,5 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.constants import ParseMode
+from telegram.constants import KeyboardButtonStyle, ParseMode
 from telegram.error import Forbidden
 from telegram.ext import ContextTypes
 
@@ -24,7 +24,9 @@ async def highlight_keyboard_builder(
     keyboard = [
         [
             InlineKeyboardButton(
-                f"{row['string']} 🗑", callback_data=f"hl:{row['id']},{user_id}"
+                f"{row['string']} 🗑",
+                callback_data=f"hl:{row['id']},{user_id}",
+                style=KeyboardButtonStyle.DANGER,
             )
         ]
         for row in result
@@ -123,7 +125,13 @@ async def highlighter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     keyboard = await highlight_keyboard_builder(message.chat_id, message.from_user.id)
     keyboard_rows = list(keyboard.inline_keyboard)
     keyboard_rows.append(
-        (InlineKeyboardButton("Start DM", url=f"https://t.me/{context.bot.username}"),)
+        (
+            InlineKeyboardButton(
+                "Start DM",
+                url=f"https://t.me/{context.bot.username}",
+                style=KeyboardButtonStyle.PRIMARY,
+            ),
+        )
     )
     keyboard = InlineKeyboardMarkup(keyboard_rows)
 
@@ -167,6 +175,7 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                                 InlineKeyboardButton(
                                     "Delete Highlight",
                                     callback_data=f"hl:{row['id']},{row['user_id']}",
+                                    style=KeyboardButtonStyle.DANGER,
                                 )
                             ]
                         ]
@@ -184,6 +193,7 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                                 InlineKeyboardButton(
                                     "Start DM",
                                     url=f"https://t.me/{context.bot.username}",
+                                    style=KeyboardButtonStyle.PRIMARY,
                                 )
                             ]
                         ]
