@@ -7,7 +7,7 @@ def grab_links(message: Message) -> dict[MessageEntity, str]:
     if not message:
         return {}
 
-    types = [MessageEntity.URL, MessageEntity.TEXT_LINK]
+    types: list[str | None] = [MessageEntity.URL, MessageEntity.TEXT_LINK]
     results = message.parse_entities(types=types)
     results.update(message.parse_caption_entities(types=types))
 
