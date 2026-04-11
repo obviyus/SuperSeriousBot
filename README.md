@@ -63,7 +63,8 @@ Required:
 Optional:
 
 - `OPENROUTER_API_KEY` for `/ask`, `/edit`, `/tldr`, `/tr`
-- `WAQI_API_KEY` for `/weather`
+- `WAQI_API_KEY` for `/weather` AQI
+- `WEATHERAPI_API_KEY` for `/weather`
 - `GIPHY_API_KEY` for `/gif`
 - `GOODREADS_API_KEY` for `/book`
 - `WOLFRAM_APP_ID` for `/calc`

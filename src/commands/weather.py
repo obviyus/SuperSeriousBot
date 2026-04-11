@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import asyncio
-from typing import Any
-
+import aiohttp
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -13,80 +11,8 @@ from config.options import config
 from utils.decorators import command
 from utils.messages import get_message
 
+WEATHER_ENDPOINT = "https://api.weatherapi.com/v1/current.json"
 WAQI_ENDPOINT = "https://api.waqi.info/feed/geo:{lat};{lng}/"
-_geolocator: Any | None = None
-
-
-def get_geolocator() -> Any:
-    global _geolocator
-    if _geolocator is None:
-        from geopy import Nominatim
-
-        _geolocator = Nominatim(user_agent="SuperSeriousBot")
-    return _geolocator
-
-
-class Point:
-    def __init__(
-        self,
-        latitude: float,
-        longitude: float,
-        address: str,
-    ):
-        self.found = True
-        self.latitude = latitude
-        self.longitude = longitude
-        self.address = address
-
-    @classmethod
-    async def from_name(cls, name: str) -> Point:
-        geolocator = get_geolocator()
-        location = await asyncio.to_thread(geolocator.geocode, name, exactly_one=True)
-        if not location:
-            p = cls(0.0, 0.0, "")
-            p.found = False
-            return p
-        return cls(
-            latitude=location.latitude,
-            longitude=location.longitude,
-            address=cls._format_address(location.address),
-        )
-
-    @staticmethod
-    def _format_address(address: str) -> str:
-        parts = address.split(",")
-        try:
-            return f"{parts[0].strip()}, {parts[-3].strip()}\n{parts[-1].strip()}, {parts[-2].strip()}"
-        except IndexError:
-            return address
-
-    async def get_data(self, session: Any) -> dict | None:
-        token = config["API"].get("WAQI_API_KEY")
-        if not token:
-            return None
-        url = WAQI_ENDPOINT.format(lat=self.latitude, lng=self.longitude)
-        async with session.get(url, params={"token": token}) as response:
-            data = await response.json()
-            if data.get("status") != "ok":
-                return None
-            return self._process_waqi_data(data["data"])
-
-    @staticmethod
-    def _process_waqi_data(data: dict) -> dict:
-        iaqi = data.get("iaqi", {})
-
-        def get_val(key: str) -> str:
-            val = iaqi.get(key, {}).get("v")
-            return f"{val:.1f}" if val is not None else "N/A"
-
-        aqi = data.get("aqi")
-        return {
-            "aqi": str(int(aqi)) if aqi and aqi != "-" else "N/A",
-            "temperature": f"{get_val('t')} °C",
-            "humidity": f"{get_val('h')}%",
-            "pressure": f"{get_val('p')} hPa",
-            "wind": f"{get_val('w')} m/s",
-        }
 
 
 @command(
@@ -96,81 +22,151 @@ class Point:
     description="Get the weather for a location. Saves your last location.",
 )
 async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    import aiohttp
-
     message = get_message(update)
     if not message:
         return
     if not message.from_user:
         return
 
-    if not context.args:
-        async with get_db() as conn:
-            async with conn.execute(
-                "SELECT 1 FROM weather_cache WHERE user_id = ?",
-                (message.from_user.id,),
-            ) as cursor:
-                has_cache = await cursor.fetchone() is not None
-        if not has_cache:
-            await commands.usage_string(message, weather)
-            return
-
-    point = await get_point(message.from_user.id, context.args or [])
-    if not point.found:
-        await message.reply_text("Could not find location.")
+    query = await get_query(message.from_user.id, context.args or [])
+    if query is None:
+        await commands.usage_string(message, weather)
         return
 
     async with aiohttp.ClientSession() as session:
-        data = await point.get_data(session)
+        data = await get_data(session, query)
 
     if not data:
-        await message.reply_text("Could not fetch weather data. Check WAQI_API_KEY.")
+        await message.reply_text("Could not fetch weather data. Check WEATHERAPI_API_KEY and WAQI_API_KEY.")
         return
 
-    text = format_weather_message(point.address, data)
+    if context.args:
+        await save_point(message.from_user.id, data)
+
+    text = format_weather_message(data)
     await message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
-async def get_point(user_id: int, args: list[str]) -> Point:
-    async with get_db(write=bool(args)) as conn:
-        if args:
-            point = await Point.from_name(" ".join(args))
-            if point.found:
-                await conn.execute(
-                    """
-                    INSERT INTO weather_cache (user_id, latitude, longitude, address, update_time)
-                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        latitude = excluded.latitude,
-                        longitude = excluded.longitude,
-                        address = excluded.address,
-                        update_time = CURRENT_TIMESTAMP
-                    """,
-                    (user_id, point.latitude, point.longitude, point.address),
-                )
-        else:
-            async with conn.execute(
-                "SELECT latitude, longitude, address FROM weather_cache WHERE user_id = ?",
-                (user_id,),
-            ) as cursor:
-                row = await cursor.fetchone()
-            if not row:
-                # Should not happen - caller checks cache exists
-                point = Point(0.0, 0.0, "")
-                point.found = False
-                return point
-            point = Point(
-                float(row["latitude"]),
-                float(row["longitude"]),
-                row["address"],
-            )
-    return point
+async def get_query(user_id: int, args: list[str]) -> str | None:
+    if args:
+        return " ".join(args)
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT latitude, longitude FROM weather_cache WHERE user_id = ?",
+            (user_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+    if not row:
+        return None
+    return f'{float(row["latitude"])},{float(row["longitude"])}'
 
 
-def format_weather_message(address: str, data: dict) -> str:
-    return f"""<b>{address}</b>
+async def get_data(session: aiohttp.ClientSession, query: str) -> dict | None:
+    weather = await get_weather_data(session, query)
+    if not weather:
+        return None
+    aqi = await get_aqi_data(session, weather["latitude"], weather["longitude"])
+    if not aqi:
+        return None
+    weather["aqi"] = aqi
+    return weather
+
+
+async def get_weather_data(session: aiohttp.ClientSession, query: str) -> dict | None:
+    token = config["API"].get("WEATHERAPI_API_KEY")
+    if not token:
+        return None
+    async with session.get(
+        WEATHER_ENDPOINT,
+        params={"key": token, "q": query, "aqi": "yes"},
+    ) as response:
+        data = await response.json()
+    if "error" in data:
+        return None
+    return process_weather_data(data)
+
+
+def process_weather_data(data: dict) -> dict:
+    location = data["location"]
+    current = data["current"]
+    air_quality = current.get("air_quality", {})
+    return {
+        "address": format_address(location),
+        "latitude": float(location["lat"]),
+        "longitude": float(location["lon"]),
+        "temperature": f'{current["temp_c"]:.1f} °C',
+        "feels_like": f'{current["feelslike_c"]:.1f} °C',
+        "condition": current["condition"]["text"],
+        "humidity": f'{current["humidity"]}%',
+        "wind": f'{current["wind_kph"]:.1f} km/h {current["wind_dir"]}',
+        "pm2_5": format_pollutant(air_quality.get("pm2_5")),
+        "pm10": format_pollutant(air_quality.get("pm10")),
+    }
+
+
+async def get_aqi_data(
+    session: aiohttp.ClientSession,
+    latitude: float,
+    longitude: float,
+) -> str | None:
+    token = config["API"].get("WAQI_API_KEY")
+    if not token:
+        return None
+    async with session.get(
+        WAQI_ENDPOINT.format(lat=latitude, lng=longitude),
+        params={"token": token},
+    ) as response:
+        data = await response.json()
+    if data.get("status") != "ok":
+        return None
+    return format_aqi(data["data"].get("aqi"))
+
+
+def format_address(location: dict) -> str:
+    parts = [location["name"]]
+    if location["region"]:
+        parts.append(location["region"])
+    parts.append(location["country"])
+    return ", ".join(parts)
+
+
+def format_aqi(value: int | str | None) -> str:
+    if value is None or value == "-":
+        return "Unavailable"
+    return str(int(value))
+
+
+def format_pollutant(value: float | None) -> str:
+    if value is None:
+        return "Unavailable"
+    return f"{value:.1f} µg/m³"
+
+
+async def save_point(user_id: int, data: dict) -> None:
+    async with get_db(write=True) as conn:
+        await conn.execute(
+            """
+            INSERT INTO weather_cache (user_id, latitude, longitude, address, update_time)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id) DO UPDATE SET
+                latitude = excluded.latitude,
+                longitude = excluded.longitude,
+                address = excluded.address,
+                update_time = CURRENT_TIMESTAMP
+            """,
+            (user_id, data["latitude"], data["longitude"], data["address"]),
+        )
+
+
+def format_weather_message(data: dict) -> str:
+    return f"""<b>{data["address"]}</b>
+
+{data["condition"]}
 
 🌡️ <b>Temperature:</b> {data["temperature"]}
+🫠 <b>Feels like:</b> {data["feels_like"]}
 💦 <b>Humidity:</b> {data["humidity"]}
 💨 <b>Wind:</b> {data["wind"]}
-🛰 <b>AQI:</b> {data["aqi"]}"""
+🛰 <b>AQI:</b> {data["aqi"]}
+🌫 <b>PM2.5:</b> {data["pm2_5"]}
+🏭 <b>PM10:</b> {data["pm10"]}"""

@@ -20,6 +20,7 @@ class APIConfig:
     NANO_GPT_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
     WAQI_API_KEY: str = ""
+    WEATHERAPI_API_KEY: str = ""
     WOLFRAM_APP_ID: str = ""
 
 
@@ -77,6 +78,7 @@ try:
             NANO_GPT_API_KEY=os.environ.get("NANO_GPT_API_KEY", ""),
             OPENROUTER_API_KEY=os.environ.get("OPENROUTER_API_KEY", ""),
             WAQI_API_KEY=os.environ.get("WAQI_API_KEY", ""),
+            WEATHERAPI_API_KEY=os.environ.get("WEATHERAPI_API_KEY", ""),
             WOLFRAM_APP_ID=os.environ.get("WOLFRAM_APP_ID", ""),
         ),
     )
