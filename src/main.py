@@ -6,6 +6,7 @@ import os
 import re
 import traceback
 from collections.abc import Callable
+from typing import Any, Protocol, cast
 
 import caribou
 from telegram import BotCommand, Update
@@ -41,11 +42,24 @@ from utils.decorators import get_command_meta
 bot_startup_time: float | None = None
 
 
+class CaribouMigrateModule(Protocol):
+    VERSION_TABLE: str
+    _py314_param_patch: bool
+    execute: Callable[..., Any]
+
+
+class CaribouDatabaseType(Protocol):
+    update_version: Callable[..., None]
+
+
 def ensure_caribou_py314_compat() -> None:
     """
     Adjust Caribou's SQLite parameter handling for Python 3.14.
     """
     from caribou import migrate as caribou_migrate
+
+    migrate_module = cast(CaribouMigrateModule, caribou_migrate)
+    migrate_database = cast(CaribouDatabaseType, caribou_migrate.Database)
 
     if getattr(caribou_migrate, "_py314_param_patch", False):
         return
@@ -71,13 +85,13 @@ def ensure_caribou_py314_compat() -> None:
             cursor.close()
 
     def patched_update_version(self, version):
-        sql = f"update {caribou_migrate.VERSION_TABLE} set version = ?"
+        sql = f"update {migrate_module.VERSION_TABLE} set version = ?"
         with original_transaction(self.conn):
             self.conn.execute(sql, (version,))
 
-    caribou_migrate.execute = patched_execute
-    caribou_migrate.Database.update_version = patched_update_version  # type: ignore[method-assign]
-    caribou_migrate._py314_param_patch = True  # type: ignore[attr-defined]
+    migrate_module.execute = patched_execute
+    migrate_database.update_version = patched_update_version
+    migrate_module._py314_param_patch = True
 
 
 async def post_init(application: Application) -> None:

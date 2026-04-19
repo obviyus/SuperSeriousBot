@@ -185,7 +185,7 @@ def command_wrapper(fn: CommandHandler_T):
                 )
 
         except Exception as e:
-            logger.error(f"Error in /{fn.__name__}: {e!s}")  # type: ignore[attr-defined]
+            logger.error(f"Error in /{getattr(fn, '__name__', fn.__class__.__name__)}: {e!s}")
             logger.error(traceback.format_exc())
 
     return wrapped_command

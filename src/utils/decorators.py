@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol, cast
 
 
 @dataclass(slots=True)
@@ -15,6 +15,11 @@ class CommandMeta:
 
 type CommandFunc = Callable[..., Any]
 
+
+class CommandWithMeta(Protocol):
+    command_meta: CommandMeta | None
+
+
 _registered_commands: list[CommandFunc] = []
 
 
@@ -26,7 +31,7 @@ def _ensure_command_meta(func: CommandFunc) -> CommandMeta:
     meta = get_command_meta(func)
     if meta is None:
         meta = CommandMeta()
-        func.command_meta = meta  # type: ignore[attr-defined]
+        cast(CommandWithMeta, func).command_meta = meta
     return meta
 
 
