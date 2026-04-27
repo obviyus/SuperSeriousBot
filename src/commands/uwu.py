@@ -17,9 +17,6 @@ async def uwu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """
-    Uwuify a message.
-    """
     text: str | None = None
     if message.reply_to_message:
         text = message.reply_to_message.text or message.reply_to_message.caption

@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from typing import Any
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -15,13 +14,6 @@ ANIMAL_APIS: dict[str, tuple[str, Callable]] = {
     "cat": ("https://api.thecatapi.com/v1/images/search", lambda data: data[0]["url"]),
 }
 
-
-async def get_animal_url(session: Any, animal: str) -> str:
-    """Fetch animal image URL from the appropriate API."""
-    url, extract_url = ANIMAL_APIS[animal]
-    async with session.get(url) as response:
-        data = await response.json()
-        return extract_url(data)
 
 
 @command(
@@ -51,8 +43,10 @@ async def animal(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     async with aiohttp.ClientSession() as session:
         try:
-            image_url = await get_animal_url(session, animal_choice)
-            await message.reply_photo(image_url)
+            url, extract_url = ANIMAL_APIS[animal_choice]
+            async with session.get(url) as response:
+                data = await response.json()
+            await message.reply_photo(extract_url(data))
         except aiohttp.ClientError:
             await message.reply_text(
                 f"Failed to fetch {animal_choice} image. Please try again later."

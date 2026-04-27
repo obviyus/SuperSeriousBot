@@ -42,27 +42,8 @@ def _set_command_attr(func: CommandFunc, attr_name: str, attr_value: Any) -> Non
         setattr(meta, attr_name, attr_value)
 
 
-def _register_command(func: CommandFunc) -> None:
-    if func not in _registered_commands:
-        _registered_commands.append(func)
-
-
 def get_registered_commands() -> list[CommandFunc]:
     return list(_registered_commands)
-
-
-def _normalize_triggers(trigger_command: str | list[str]) -> list[str]:
-    if isinstance(trigger_command, str):
-        return [trigger_command]
-
-    if not isinstance(trigger_command, list) or not all(
-        isinstance(trigger, str) and trigger for trigger in trigger_command
-    ):
-        raise TypeError(
-            "Triggers must be a non-empty string or list of non-empty strings."
-        )
-
-    return trigger_command
 
 
 def command(
@@ -75,7 +56,16 @@ def command(
     deprecated: str | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Attach all command metadata in one decorator."""
-    normalized_triggers = _normalize_triggers(triggers)
+    if isinstance(triggers, str):
+        normalized_triggers = [triggers]
+    elif isinstance(triggers, list) and all(
+        isinstance(trigger, str) and trigger for trigger in triggers
+    ):
+        normalized_triggers = triggers
+    else:
+        raise TypeError(
+            "Triggers must be a non-empty string or list of non-empty strings."
+        )
 
     def decorator(func: CommandFunc) -> CommandFunc:
         _set_command_attr(func, "triggers", normalized_triggers)
@@ -86,7 +76,8 @@ def command(
             _set_command_attr(func, "api_key", api_key)
         if deprecated:
             _set_command_attr(func, "deprecated", deprecated)
-        _register_command(func)
+        if func not in _registered_commands:
+            _registered_commands.append(func)
         return func
 
     return decorator

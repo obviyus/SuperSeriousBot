@@ -1,5 +1,4 @@
 import html
-from typing import Any
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -22,69 +21,42 @@ async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """Define a word"""
     if not context.args:
         await commands.usage_string(message, define)
         return
 
-    word = " ".join(context.args)
-    definition = await _fetch_definition(word)
-
-    if not definition:
-        await message.reply_text(text="Word not found.")
-        return
-
-    formatted_definition = _format_definition(definition)
-    await message.reply_text(
-        text=formatted_definition,
-        parse_mode=ParseMode.HTML,
-    )
-
-
-async def _fetch_definition(word: str) -> dict[str, Any]:
-    """Fetch word definition from the API"""
     import aiohttp
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(DICTIONARY_API_ENDPOINT.format(word)) as response:
+        async with session.get(
+            DICTIONARY_API_ENDPOINT.format(" ".join(context.args))
+        ) as response:
             if response.status != 200:
-                return {}
+                await message.reply_text(text="Word not found.")
+                return
             data = await response.json()
-            return data[0] if data else {}
+    if not data:
+        await message.reply_text(text="Word not found.")
+        return
 
+    definition = data[0]
+    text = f"<b>{definition['word']}</b>"
+    phonetics = definition.get("phonetics", [])
+    if phonetics and phonetics[0].get("text"):
+        text += f"\n🗣️ {phonetics[0]['text']}"
 
-def _format_definition(response: dict[str, Any]) -> str:
-    """Format the API response into a readable definition"""
-    text = f"<b>{response['word']}</b>"
-
-    phonetics = _get_phonetics(response)
-    if phonetics:
-        text += f"\n🗣️ {phonetics}"
-
-    meanings = response.get("meanings", [])
+    meanings = definition.get("meanings", [])
     if meanings:
         part_of_speech = meanings[0].get("partOfSpeech", "")
         definitions = meanings[0].get("definitions", [])
         if part_of_speech and definitions:
             text += f"\n\n<b>{part_of_speech}</b>"
-            definition = definitions[0]
-            text += f"\n  -  {html.escape(definition.get('definition', ''))}"
-
-            synonyms = _get_synonyms(definition)
+            first_definition = definitions[0]
+            text += f"\n  -  {html.escape(first_definition.get('definition', ''))}"
+            synonyms = first_definition.get("synonyms", [])
             if synonyms:
                 text += "\n\nSynonyms:"
                 for syn in synonyms[:2]:
                     text += f"\n  - {html.escape(syn)}"
 
-    return text
-
-
-def _get_phonetics(response: dict[str, Any]) -> str:
-    """Extract phonetics from the response"""
-    phonetics = response.get("phonetics", [])
-    return phonetics[0].get("text", "") if phonetics else ""
-
-
-def _get_synonyms(definition: dict[str, Any]) -> list[str]:
-    """Extract synonyms from the definition"""
-    return definition.get("synonyms", [])
+    await message.reply_text(text=text, parse_mode=ParseMode.HTML)

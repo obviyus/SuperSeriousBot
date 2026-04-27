@@ -16,41 +16,27 @@ GIPHY_API_URL = "https://api.giphy.com/v1/gifs/random"
     api_key="GIPHY_API_KEY",
 )
 async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+    import aiohttp
+
     message = get_message(update)
     if not message:
         return
-    """Get a random GIF from Giphy"""
-    try:
-        gif_url = await fetch_random_gif()
-        await message.reply_animation(animation=gif_url)
-    except GiphyAPIError as e:
-        await message.reply_text(f"Error fetching GIF: {e!s}")
-
-
-async def fetch_random_gif() -> str:
-    """Fetch a random GIF URL from the Giphy API"""
-    import aiohttp
-
-    params = {"api_key": config["API"]["GIPHY_API_KEY"]}
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(GIPHY_API_URL, params=params) as response:
+        async with session.get(
+            GIPHY_API_URL,
+            params={"api_key": config["API"]["GIPHY_API_KEY"]},
+        ) as response:
             if response.status != 200:
-                raise GiphyAPIError(f"Giphy API returned status code {response.status}")
-
+                await message.reply_text(
+                    f"Error fetching GIF: Giphy API returned status code {response.status}"
+                )
+                return
             data = await response.json()
 
-            if (
-                "data" not in data
-                or "images" not in data["data"]
-                or "original" not in data["data"]["images"]
-            ):
-                raise GiphyAPIError("Unexpected response structure from Giphy API")
-
-            return data["data"]["images"]["original"]["url"]
-
-
-class GiphyAPIError(Exception):
-    """Exception raised for errors in the Giphy API."""
-
-    pass
+    try:
+        await message.reply_animation(animation=data["data"]["images"]["original"]["url"])
+    except KeyError:
+        await message.reply_text(
+            "Error fetching GIF: Unexpected response structure from Giphy"
+        )

@@ -17,7 +17,6 @@ async def insult(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """Get a random insult"""
     insult_response: str = ""
     try:
         async with aiohttp.ClientSession() as session:

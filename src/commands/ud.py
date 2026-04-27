@@ -20,77 +20,52 @@ async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """Search a word on Urban Dictionary or get the Word of the Day."""
     if not context.args:
-        definition = await fetch_ud_wotd()
+        entries = await _fetch_ud_entries(UD_WOTD_URL)
+        definition = entries[0] if entries else {}
         wotd_prefix = f"📅 Word of the Day ({definition.get('date', 'Today')}):\n\n"
     else:
-        query = " ".join(context.args).lower()
-        definition = await fetch_ud_definition(query)
+        entries = await _fetch_ud_entries(
+            UD_API_URL,
+            {"term": " ".join(context.args).lower()},
+        )
+        definition = max(entries, key=lambda entry: entry["thumbs_up"]) if entries else {}
         wotd_prefix = ""
 
     if not definition:
         await message.reply_text("No results found.")
         return
 
-    formatted_definition = format_ud_definition(definition, wotd_prefix)
+    definition_text = truncate_text(definition["definition"])
+    example_text = truncate_text(definition["example"])
     await message.reply_text(
-        formatted_definition,
+        (
+            f"{wotd_prefix}<a href='{definition['permalink']}'><b>{definition['word']}</b></a>\n\n"
+            f"{definition_text}\n\n"
+            f"<i>{example_text}</i>\n\n"
+            f"<pre>👍 x {definition['thumbs_up']}</pre>"
+        ),
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,
     )
 
 
-async def fetch_ud_definition(word: str) -> dict:
-    """Fetch definition from Urban Dictionary API."""
+async def _fetch_ud_entries(url: str, params: dict | None = None) -> list[dict]:
     import aiohttp
 
-    headers = {
-        "User-Agent": "SuperSeriousBot",
-        "Accept": "application/json",
-    }
-    params = {"term": word}
-
     async with aiohttp.ClientSession() as session:
-        async with session.get(UD_API_URL, headers=headers, params=params) as response:
+        async with session.get(
+            url,
+            headers={"User-Agent": "SuperSeriousBot", "Accept": "application/json"},
+            params=params,
+        ) as response:
             if response.status != 200:
-                return {}
+                return []
             data = await response.json()
-            if "error" in data or not data.get("list"):
-                return {}
-            return max(data["list"], key=lambda x: x["thumbs_up"])
+    if "error" in data or not data.get("list"):
+        return []
+    return data["list"]
 
-
-async def fetch_ud_wotd() -> dict:
-    """Fetch Word of the Day from Urban Dictionary API."""
-    import aiohttp
-
-    headers = {
-        "User-Agent": "SuperSeriousBot",
-        "Accept": "application/json",
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(UD_WOTD_URL, headers=headers) as response:
-            if response.status != 200:
-                return {}
-            data = await response.json()
-            if not data or not data.get("list"):
-                return {}
-            return data["list"][0]  # Return the first word of the day from the list
-
-
-def format_ud_definition(result: dict, prefix: str = "") -> str:
-    """Format the Urban Dictionary definition."""
-    definition = truncate_text(result["definition"])
-    ud_example = truncate_text(result["example"])
-
-    return (
-        f"{prefix}<a href='{result['permalink']}'><b>{result['word']}</b></a>\n\n"
-        f"{definition}\n\n"
-        f"<i>{ud_example}</i>\n\n"
-        f"<pre>👍 x {result['thumbs_up']}</pre>"
-    )
 
 
 def truncate_text(text: str, max_length: int = MAX_DEFINITION_LENGTH) -> str:

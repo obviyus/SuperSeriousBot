@@ -3,7 +3,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from config.db import get_db
-from config.options import config
+from utils.admin import is_admin
 from utils.decorators import command
 from utils.messages import get_message
 
@@ -17,13 +17,27 @@ DEFAULT_MODELS = {
     "tr": "google/gemini-2.5-flash",
     "tldr": "openrouter/x-ai/grok-4-fast",
 }
-
-VALID_COMMANDS = {"ask", "edit", "tr", "tldr", "all"}
+MODEL_COMMANDS = tuple(DEFAULT_MODELS)
+MODEL_COMMAND_LIST = ", ".join((*MODEL_COMMANDS, "all"))
+VALID_COMMANDS = {*MODEL_COMMANDS, "all"}
 
 # AIDEV-NOTE: Valid thinking levels for OpenRouter reasoning tokens
 # See: https://openrouter.ai/docs/use-cases/reasoning-tokens
 VALID_THINKING_LEVELS = {"none", "minimal", "low", "medium", "high"}
 DEFAULT_THINKING_LEVEL = "none"
+
+
+def normalize_model_name(model_name: str) -> str:
+    return model_name.removeprefix("openrouter/")
+
+
+def openrouter_headers(api_key: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "X-Title": "SuperSeriousBot",
+        "HTTP-Referer": "https://superserio.us",
+    }
 
 
 async def get_model(command: str) -> str:
@@ -53,58 +67,46 @@ async def get_thinking() -> str:
     triggers=["model"],
     usage="/model [command] [model_name]",
     example="/model ask openrouter/google/gemini-2.0-flash-thinking-exp-1219:free",
-    description="Set AI models for commands: ask, caption, edit, tr, or all (admin only)",
+    description=f"Set AI models for commands: {MODEL_COMMAND_LIST} (admin only)",
 )
 async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
-    if not message or not update.effective_user:
+    if not message:
         return
-    # Check if user is admin
-    if str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]:
+    if not update.effective_user or not is_admin(update.effective_user.id):
         await message.reply_text("❌ This command is only available to admins.")
         return
 
     if not context.args:
-        # Show current models for all commands
+        columns = ", ".join(f"{name}_model" for name in MODEL_COMMANDS)
         async with get_db() as conn:
             async with conn.execute(
-                "SELECT ask_model, edit_model, tr_model, tldr_model FROM group_settings WHERE chat_id = ?",
+                f"SELECT {columns} FROM group_settings WHERE chat_id = ?",
                 (GLOBAL_CHAT_ID,),
             ) as cursor:
                 result = await cursor.fetchone()
-                if result:
-                    ask_model = result[0] or DEFAULT_MODELS["ask"]
-                    edit_model = result[1] or DEFAULT_MODELS["edit"]
-                    tr_model = result[2] or DEFAULT_MODELS["tr"]
-                    tldr_model = result[3] or DEFAULT_MODELS["tldr"]
-                else:
-                    ask_model = DEFAULT_MODELS["ask"]
-                    edit_model = DEFAULT_MODELS["edit"]
-                    tr_model = DEFAULT_MODELS["tr"]
-                    tldr_model = DEFAULT_MODELS["tldr"]
 
+        models = {
+            name: (result[index] if result and result[index] else DEFAULT_MODELS[name])
+            for index, name in enumerate(MODEL_COMMANDS)
+        }
         text = "📋 <b>Current AI Models:</b>\n\n"
-        text += f"• <b>/ask</b>: <code>{ask_model}</code>\n"
-        text += f"• <b>/edit</b>: <code>{edit_model}</code>\n"
-        text += f"• <b>/tr</b>: <code>{tr_model}</code>\n"
-        text += f"• <b>/tldr</b>: <code>{tldr_model}</code>\n\n"
-        text += "<b>Usage:</b> <code>/model &lt;command&gt; &lt;model_name&gt;</code>\n"
-        text += "<b>Commands:</b> ask, edit, tr, tldr, all\n\n"
+        text += "\n".join(
+            f"• <b>/{name}</b>: <code>{models[name]}</code>" for name in MODEL_COMMANDS
+        )
+        text += "\n\n<b>Usage:</b> <code>/model &lt;command&gt; &lt;model_name&gt;</code>\n"
+        text += f"<b>Commands:</b> {MODEL_COMMAND_LIST}\n\n"
         text += "<b>Examples:</b>\n"
         text += "• <code>/model ask openrouter/google/gemini-3.0-flash</code>\n"
         text += "• <code>/model all openrouter/anthropic/claude-3.5-sonnet</code>"
-
-        await message.reply_text(
-            text,
-            parse_mode=ParseMode.HTML,
-        )
+        await message.reply_text(text, parse_mode=ParseMode.HTML)
         return
 
     if len(context.args) < 2:
         await message.reply_text(
             "❌ Please specify both command and model name.\n"
             "Usage: <code>/model &lt;command&gt; &lt;model_name&gt;</code>\n"
-            "Commands: ask, caption, edit, tr, all",
+            f"Commands: {MODEL_COMMAND_LIST}",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -115,7 +117,7 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if command not in VALID_COMMANDS:
         await message.reply_text(
             f"❌ Invalid command: <code>{command}</code>\n"
-            "Valid commands: ask, caption, edit, tr, all",
+            f"Valid commands: {MODEL_COMMAND_LIST}",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -153,7 +155,6 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"✅ Model for <b>/{command}</b> updated to: <code>{new_model}</code>"
             )
 
-        await conn.commit()
 
     await message.reply_text(
         response_text,
@@ -169,11 +170,9 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 )
 async def thinking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
-    if not message or not update.effective_user:
+    if not message:
         return
-
-    # Check if user is admin
-    if str(update.effective_user.id) not in config["TELEGRAM"]["ADMINS"]:
+    if not update.effective_user or not is_admin(update.effective_user.id):
         await message.reply_text("❌ This command is only available to admins.")
         return
 
@@ -212,7 +211,6 @@ async def thinking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             """,
             (GLOBAL_CHAT_ID, new_level),
         )
-        await conn.commit()
 
     await message.reply_text(
         f"✅ Thinking level updated to: <code>{new_level}</code>",

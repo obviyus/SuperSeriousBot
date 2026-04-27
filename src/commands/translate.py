@@ -13,41 +13,17 @@ from utils.messages import get_message
 async def text_grabber(
     message: Message, context: ContextTypes.DEFAULT_TYPE
 ) -> tuple[str, str] | None:
-    text = None
-    target_language = "en"
-
     if message.reply_to_message:
         text = message.reply_to_message.text or message.reply_to_message.caption
-        if context.args:
-            target_language = context.args[0]
-    else:
-        if context.args:
-            if "-" in context.args:
-                separator_index = context.args.index("-")
-                target_language = context.args[0]
-                text = " ".join(context.args[separator_index + 1 :])
-            else:
-                text = " ".join(context.args)
-
-    if not text:
+        return (text, context.args[0] if context.args else "en") if text else None
+    if not context.args:
         return None
+    if "-" not in context.args:
+        return " ".join(context.args), "en"
+    separator_index = context.args.index("-")
+    text = " ".join(context.args[separator_index + 1 :])
+    return (text, context.args[0]) if text else None
 
-    return text, target_language
-
-
-async def translate_and_reply(
-    message: Message, text: str, target_language: str
-) -> None:
-    from googletrans import Translator as GTranslator
-
-    try:
-        async with GTranslator() as translator:
-            translated = await translator.translate(text, dest=target_language)
-        await message.reply_text(
-            translated.text,
-        )
-    except ValueError:
-        await message.reply_text(f"Invalid target language: {target_language}")
 
 
 @command(
@@ -61,15 +37,20 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """
-    Translate a message.
-    """
     result = await text_grabber(message, context)
     if not result:
         await commands.usage_string(message, translate)
         return
 
-    await translate_and_reply(message, result[0], result[1])
+    text, target_language = result
+    from googletrans import Translator as GTranslator
+
+    try:
+        async with GTranslator() as translator:
+            translated = await translator.translate(text, dest=target_language)
+        await message.reply_text(translated.text)
+    except ValueError:
+        await message.reply_text(f"Invalid target language: {target_language}")
 
 
 @command(
@@ -86,9 +67,6 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """
-    Transcribe a message and send it as a voice message.
-    """
     result = await text_grabber(message, context)
     if not result:
         await commands.usage_string(message, tts)

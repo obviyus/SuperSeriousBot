@@ -8,6 +8,27 @@ from utils.decorators import command
 from utils.messages import get_message
 
 
+async def _fetch_scalar(query: str, key: int | str = 0) -> int:
+    async with get_db() as conn:
+        async with conn.execute(query) as cursor:
+            result = await cursor.fetchone()
+    return result[key] if result and result[key] else 0
+
+
+async def _reply_ranked_stats(
+    message,
+    context: ContextTypes.DEFAULT_TYPE,
+    title: str,
+    lines: list[str],
+    total: int,
+) -> None:
+    text = f"{title} for <b>@{context.bot.username}:</b>\n\n"
+    if lines:
+        text += "\n".join(lines)
+    text += f"\n\nTotal: <b>{total}</b>"
+    await message.reply_text(text, parse_mode=ParseMode.HTML)
+
+
 @command(
     triggers=["users"],
     usage="/users",
@@ -18,13 +39,7 @@ async def get_total_users(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     message = get_message(update)
     if not message:
         return
-    async with get_db() as conn:
-        async with conn.execute(
-            "SELECT COUNT(DISTINCT user_id) FROM chat_stats;"
-        ) as cursor:
-            result = await cursor.fetchone()
-            user_count = result[0] if result else 0
-
+    user_count = await _fetch_scalar("SELECT COUNT(DISTINCT user_id) FROM chat_stats;")
     await message.reply_text(
         f"@{context.bot.username} is used by <b>{user_count}</b> users.",
         parse_mode=ParseMode.HTML,
@@ -41,13 +56,7 @@ async def get_total_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     message = get_message(update)
     if not message:
         return
-    async with get_db() as conn:
-        async with conn.execute(
-            "SELECT COUNT(DISTINCT chat_id) FROM chat_stats;"
-        ) as cursor:
-            result = await cursor.fetchone()
-            chat_count = result[0] if result else 0
-
+    chat_count = await _fetch_scalar("SELECT COUNT(DISTINCT chat_id) FROM chat_stats;")
     await message.reply_text(
         f"@{context.bot.username} is used in <b>{chat_count}</b> groups.",
         parse_mode=ParseMode.HTML,
@@ -65,7 +74,6 @@ async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not message:
         return
 
-    # Late import to avoid circular dependency
     from main import bot_startup_time
 
     if not bot_startup_time:
@@ -99,23 +107,16 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             """
         ) as cursor:
             rows = await cursor.fetchall()
-
-        async with conn.execute(
-            """
-            SELECT id FROM main.command_stats ORDER BY id DESC LIMIT 1;
-            """
-        ) as cursor:
-            result = await cursor.fetchone()
-            total_count = result["id"] if result else 0
-
-    text = f"Stats for <b>@{context.bot.username}:</b>\n\n"
-    for row in rows:
-        text += f"""<code>{row["command_count"]:4} - /{row["command"]}</code>\n"""
-
-    text += f"\nTotal: <b>{total_count}</b>"
-    await message.reply_text(
-        text,
-        parse_mode=ParseMode.HTML,
+    total_count = await _fetch_scalar(
+        "SELECT id FROM main.command_stats ORDER BY id DESC LIMIT 1;",
+        "id",
+    )
+    await _reply_ranked_stats(
+        message,
+        context,
+        "Stats",
+        [f"<code>{row['command_count']:4} - /{row['command']}</code>" for row in rows],
+        total_count,
     )
 
 
@@ -139,23 +140,14 @@ async def get_object_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             """
         ) as cursor:
             rows = await cursor.fetchall()
-
-        async with conn.execute(
-            """
-            SELECT SUM(fetch_count) AS fetch_count FROM main.object_store;
-            """
-        ) as cursor:
-            result = await cursor.fetchone()
-            total_fetch_count = (
-                result["fetch_count"] if result and result["fetch_count"] else 0
-            )
-
-    text = f"Object Stats for <b>@{context.bot.username}:</b>\n\n"
-    for row in rows:
-        text += f"""<code>{row["key"]:4} - {row["fetch_count"]}</code>\n"""
-
-    text += f"\nTotal: <b>{total_fetch_count}</b>"
-    await message.reply_text(
-        text,
-        parse_mode=ParseMode.HTML,
+    total_fetch_count = await _fetch_scalar(
+        "SELECT SUM(fetch_count) AS fetch_count FROM main.object_store;",
+        "fetch_count",
+    )
+    await _reply_ranked_stats(
+        message,
+        context,
+        "Object Stats",
+        [f"<code>{row['key']:4} - {row['fetch_count']}</code>" for row in rows],
+        total_fetch_count,
     )

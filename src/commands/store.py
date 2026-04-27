@@ -1,5 +1,3 @@
-import enum
-
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -10,55 +8,6 @@ from utils.decorators import command
 from utils.messages import get_message
 
 
-class FileType(enum.Enum):
-    """File type enum."""
-
-    DOCUMENT = "DOCUMENT"
-    PHOTO = "PHOTO"
-    AUDIO = "AUDIO"
-    VIDEO = "VIDEO"
-    ANIMATION = "ANIMATION"
-    VOICE = "VOICE"
-    STICKER = "STICKER"
-    VIDEO_NOTE = "VIDEO_NOTE"
-    UNKNOWN = "UNKNOWN"
-
-
-# Mapping of FileType to the method name used to send it
-MEDIA_SEND_METHODS = {
-    FileType.DOCUMENT: "reply_document",
-    FileType.PHOTO: "reply_photo",
-    FileType.AUDIO: "reply_audio",
-    FileType.VIDEO: "reply_video",
-    FileType.ANIMATION: "reply_animation",
-    FileType.VOICE: "reply_voice",
-    FileType.STICKER: "reply_sticker",
-    FileType.VIDEO_NOTE: "reply_video_note",
-}
-
-
-def extract_media_info(message) -> tuple[str | None, str | None, FileType | None]:
-    """Extract file_id, file_unique_id, and FileType from a message."""
-    # Priority order for checking media types
-    media_types = [
-        ("document", FileType.DOCUMENT, lambda media: media),
-        ("photo", FileType.PHOTO, lambda media: media[-1]),
-        ("audio", FileType.AUDIO, lambda media: media),
-        ("video", FileType.VIDEO, lambda media: media),
-        ("animation", FileType.ANIMATION, lambda media: media),
-        ("voice", FileType.VOICE, lambda media: media),
-        ("sticker", FileType.STICKER, lambda media: media),
-        ("video_note", FileType.VIDEO_NOTE, lambda media: media),
-    ]
-
-    for attr, file_type, pick_media in media_types:
-        media_obj = getattr(message, attr, None)
-        if media_obj:
-            media_obj = pick_media(media_obj)
-            return media_obj.file_id, media_obj.file_unique_id, file_type
-
-    return None, None, None
-
 
 @command(
     triggers=["set"],
@@ -68,18 +17,31 @@ def extract_media_info(message) -> tuple[str | None, str | None, FileType | None
 )
 async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
-    if not message:
-        return
-    """Save a media object."""
-    if not message.from_user:
+    if not message or not message.from_user:
         return
 
     if not message.reply_to_message:
         await commands.usage_string(message, set_object)
         return
 
-    file_id, file_unique_id, file_type = extract_media_info(message.reply_to_message)
-
+    file_id = file_unique_id = file_type = None
+    for attr in (
+        "document",
+        "photo",
+        "audio",
+        "video",
+        "animation",
+        "voice",
+        "sticker",
+        "video_note",
+    ):
+        media = getattr(message.reply_to_message, attr, None)
+        if media:
+            picked_media = media[-1] if attr == "photo" else media
+            file_id = picked_media.file_id
+            file_unique_id = picked_media.file_unique_id
+            file_type = attr.upper()
+            break
     if not file_id or not file_type:
         await message.reply_text("Could not find a media object in the message.")
         return
@@ -94,9 +56,7 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     async with get_db() as conn:
         async with conn.execute(
-            """
-            SELECT * FROM object_store WHERE key = ?;
-            """,
+            "SELECT * FROM object_store WHERE key = ?;",
             (key,),
         ) as cursor:
             if await cursor.fetchone():
@@ -107,33 +67,23 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 return
 
         async with conn.execute(
-            """
-            SELECT * FROM object_store WHERE file_unique_id = ?;
-            """,
+            "SELECT * FROM object_store WHERE file_unique_id = ?;",
             (file_unique_id,),
         ) as cursor:
             result = await cursor.fetchone()
             if result:
                 await message.reply_text(
-                    f"""This file has already been stored with key <code>{result["key"]}</code>.""",
+                    f"This file has already been stored with key <code>{result['key']}</code>.",
                     parse_mode=ParseMode.HTML,
                 )
                 return
 
-    async with get_db(write=True) as conn:
         await conn.execute(
             """
             INSERT INTO object_store (key, file_id, file_unique_id, user_id, type) VALUES (?, ?, ?, ?, ?);
             """,
-            (
-                key,
-                file_id,
-                file_unique_id,
-                message.from_user.id,
-                file_type.value,
-            ),
+            (key, file_id, file_unique_id, message.from_user.id, file_type),
         )
-        await conn.commit()
 
     await message.reply_text(
         f"Object with key <code>{key}</code> saved. You can get it by using <code>/get {key}</code>.",
@@ -151,7 +101,6 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     message = get_message(update)
     if not message:
         return
-    """Get a media object."""
     if not context.args:
         await commands.usage_string(message, get_object)
         return
@@ -160,9 +109,7 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     async with get_db() as conn:
         async with conn.execute(
-            """
-            SELECT * FROM object_store WHERE key = ? COLLATE NOCASE;
-            """,
+            "SELECT * FROM object_store WHERE key = ? COLLATE NOCASE;",
             (key,),
         ) as cursor:
             row = await cursor.fetchone()
@@ -174,34 +121,19 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             )
             return
 
-        file_id, file_type_str = row["file_id"], row["type"]
+        file_id = row["file_id"]
+        method_name = f"reply_{row['type'].lower()}"
 
         try:
-            file_type = FileType(file_type_str)
-            method_name = MEDIA_SEND_METHODS.get(file_type)
-
-            if method_name:
-                target_message = message.reply_to_message or message
-                method = getattr(target_message, method_name)
-                # Construct the kwargs: e.g. reply_photo(photo=file_id)
-                # The argument name is usually the lowercase enum name (photo, audio, etc.)
-                # Exception: video_note is passed as video_note, which matches enum name
-                arg_name = file_type.name.lower()
-                await method(**{arg_name: file_id})
-            else:
-                raise ValueError("Unknown media type method")
-
-        except (ValueError, AttributeError):
+            target_message = message.reply_to_message or message
+            await getattr(target_message, method_name)(**{row['type'].lower(): file_id})
+        except AttributeError:
             await message.reply_text(
                 f"Object with key <code>{key}</code> has an invalid or unsupported type.",
                 parse_mode=ParseMode.HTML,
             )
 
-    async with get_db(write=True) as conn:
         await conn.execute(
-            """
-            UPDATE object_store SET fetch_count = fetch_count + 1 WHERE key = ?;
-            """,
+            "UPDATE object_store SET fetch_count = fetch_count + 1 WHERE key = ?;",
             (key,),
         )
-        await conn.commit()

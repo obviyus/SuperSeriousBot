@@ -14,6 +14,7 @@ from telegram.ext import (
 from config.db import get_db
 from utils.concurrency import schedule_background_task
 from utils.messages import get_message
+from utils.string import get_user_id_from_username
 
 
 async def _save_message_stats(message: Message) -> None:
@@ -24,53 +25,41 @@ async def _save_message_stats(message: Message) -> None:
     user = message.from_user
     chat_id = message.chat_id
 
-    async with get_db(write=True) as conn:
-        try:
-            # Update user stats
-            await conn.execute(
-                """
-                INSERT INTO user_stats (user_id, username, last_seen, last_message_link)
-                    VALUES (?, ?, ?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET
-                    username = excluded.username,
-                    last_seen = excluded.last_seen,
-                    last_message_link = excluded.last_message_link
-                """,
-                (
-                    user.id,
-                    user.username,
-                    datetime.now(),
-                    message.link if message.link else None,
-                ),
-            )
-
-            # Check if FTS is enabled for this chat
-            # AIDEV-NOTE: We include message_text in the INSERT (not a separate UPDATE)
-            # so the chat_stats_ai trigger fires with the actual text, making it
-            # immediately searchable without needing periodic FTS rebuilds.
-            message_text = None
-            if message.text:
-                async with conn.execute(
-                    "SELECT fts FROM group_settings WHERE chat_id = ?;",
-                    (chat_id,),
-                ) as cursor:
-                    result = await cursor.fetchone()
-                if result and result["fts"]:
-                    message_text = message.text
-
-            # Insert message stats with text if FTS enabled
-            await conn.execute(
-                """
-                INSERT OR IGNORE INTO chat_stats (chat_id, user_id, message_id, message_text)
+    async with get_db() as conn:
+        await conn.execute(
+            """
+            INSERT INTO user_stats (user_id, username, last_seen, last_message_link)
                 VALUES (?, ?, ?, ?)
-                """,
-                (chat_id, user.id, message.message_id, message_text),
-            )
+            ON CONFLICT(user_id) DO UPDATE SET
+                username = excluded.username,
+                last_seen = excluded.last_seen,
+                last_message_link = excluded.last_message_link
+            """,
+            (
+                user.id,
+                user.username,
+                datetime.now(),
+                message.link if message.link else None,
+            ),
+        )
 
-            await conn.commit()
-        except Exception:
-            await conn.rollback()
-            raise
+        message_text = None
+        if message.text:
+            async with conn.execute(
+                "SELECT fts FROM group_settings WHERE chat_id = ?;",
+                (chat_id,),
+            ) as cursor:
+                result = await cursor.fetchone()
+            if result and result["fts"]:
+                message_text = message.text
+
+        await conn.execute(
+            """
+            INSERT OR IGNORE INTO chat_stats (chat_id, user_id, message_id, message_text)
+            VALUES (?, ?, ?, ?)
+            """,
+            (chat_id, user.id, message.message_id, message_text),
+        )
 
 
 async def _save_mention(
@@ -79,7 +68,7 @@ async def _save_mention(
     message: Message,
 ) -> None:
     """Save mention data to database."""
-    async with get_db(write=True) as conn:
+    async with get_db() as conn:
         await conn.execute(
             """
             INSERT INTO chat_mentions (mentioning_user_id, mentioned_user_id, chat_id, message_id)
@@ -92,19 +81,7 @@ async def _save_mention(
                 message.message_id,
             ),
         )
-        await conn.commit()
 
-
-async def _get_user_id_by_username(username: str) -> int | None:
-    async with get_db() as conn:
-        async with conn.execute(
-            "SELECT user_id FROM user_stats WHERE LOWER(username) = ?",
-            (username.lower(),),
-        ) as cursor:
-            result = await cursor.fetchone()
-            if result:
-                return result["user_id"]
-    return None
 
 
 async def handle_message_stats(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -141,7 +118,7 @@ async def _process_mentions(message: Message) -> None:
                 mentioned_username = message.text[
                     entity.offset + 1 : entity.offset + entity.length
                 ]
-                user_id = await _get_user_id_by_username(mentioned_username)
+                user_id = await get_user_id_from_username(mentioned_username)
                 if user_id is not None and user_id not in mentioned_users:
                     mentioned_users.add(user_id)
                     await _save_mention(mentioning_user_id, user_id, message)

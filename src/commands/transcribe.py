@@ -4,10 +4,8 @@ import mimetypes
 import os
 import subprocess
 import tempfile
-from typing import NamedTuple
 
 from telegram import Message, Update
-from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 import commands
@@ -15,28 +13,11 @@ from config.options import config
 from utils.decorators import command
 from utils.messages import get_message
 
-from .ask import check_command_whitelist
-from .model import get_model
+from .ask import ensure_command_available
+from .model import get_model, openrouter_headers
 
 FALLBACK_PROMPT = "Please transcribe this audio file. No wall of text, keep it readable, suitable for a Telegram message. Begin transcript immediately without any commentary."
 
-
-class AudioSource(NamedTuple):
-    file_id: str
-    mime_type: str | None
-    summary: str
-
-
-def _guess_suffix(mime_type: str | None, file_path: str | None) -> str:
-    if file_path:
-        _, ext = os.path.splitext(file_path)
-        if ext:
-            return ext
-    if mime_type:
-        guessed = mimetypes.guess_extension(mime_type)
-        if guessed:
-            return guessed
-    return ".ogg"
 
 
 async def _convert_audio_to_wav(
@@ -83,47 +64,6 @@ async def _convert_audio_to_wav(
     return await asyncio.to_thread(_run)
 
 
-def _extract_audio_source(message: Message) -> AudioSource | None:
-    reply = message.reply_to_message
-    if not reply:
-        return None
-
-    if reply.voice:
-        return AudioSource(reply.voice.file_id, reply.voice.mime_type, "voice message")
-    if reply.audio:
-        return AudioSource(reply.audio.file_id, reply.audio.mime_type, "audio file")
-    if (
-        reply.document
-        and reply.document.mime_type
-        and reply.document.mime_type.startswith("audio/")
-    ):
-        return AudioSource(
-            reply.document.file_id,
-            reply.document.mime_type,
-            "audio document",
-        )
-    return None
-
-
-def _extract_text_from_response(data: dict) -> str | None:
-    choices = data.get("choices") or []
-    if not choices:
-        return None
-
-    content = choices[0].get("message", {}).get("content")
-    if isinstance(content, str):
-        return content.strip() or None
-    if isinstance(content, list):
-        parts: list[str] = []
-        for item in content:
-            if isinstance(item, dict) and item.get("type") == "text":
-                text = item.get("text")
-                if text:
-                    parts.append(text)
-        combined = "\n".join(parts).strip()
-        return combined or None
-    return None
-
 
 @command(
     triggers=["tr"],
@@ -141,24 +81,27 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not message.from_user or not update.effective_user:
         return
 
-    is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
-
-    if not is_admin and message.chat.type == ChatType.PRIVATE:
-        await message.reply_text("This command is not available in private chats.")
+    if not await ensure_command_available(message, message.from_user.id, "tr"):
         return
 
-    audio_source = _extract_audio_source(message)
-    if not audio_source:
+    reply = message.reply_to_message
+    if not reply:
         await commands.usage_string(message, transcribe)
         return
-
-    if not is_admin and not await check_command_whitelist(
-        message.chat.id, message.from_user.id, "tr"
-    ):
-        await message.reply_text(
-            "This command is not available in this chat. "
-            "Please contact an admin to whitelist this command.",
-        )
+    if reply.voice:
+        file_id = reply.voice.file_id
+        mime_type = reply.voice.mime_type
+        source_summary = "voice message"
+    elif reply.audio:
+        file_id = reply.audio.file_id
+        mime_type = reply.audio.mime_type
+        source_summary = "audio file"
+    elif reply.document and reply.document.mime_type and reply.document.mime_type.startswith("audio/"):
+        file_id = reply.document.file_id
+        mime_type = reply.document.mime_type
+        source_summary = "audio document"
+    else:
+        await commands.usage_string(message, transcribe)
         return
 
     api_key_value = config["API"].get("OPENROUTER_API_KEY")
@@ -167,13 +110,17 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
 
     try:
-        telegram_file = await context.bot.getFile(audio_source.file_id)
+        telegram_file = await context.bot.getFile(file_id)
         audio_bytes = bytes(await telegram_file.download_as_bytearray())
     except Exception as exc:  # pragma: no cover - Telegram I/O
         await message.reply_text(f"Failed to download the audio message: {exc!s}")
         return
 
-    suffix = _guess_suffix(audio_source.mime_type, telegram_file.file_path)
+    suffix = (
+        os.path.splitext(telegram_file.file_path)[1]
+        if telegram_file.file_path and os.path.splitext(telegram_file.file_path)[1]
+        else mimetypes.guess_extension(mime_type) or ".ogg"
+    )
 
     try:
         wav_audio = await _convert_audio_to_wav(audio_bytes, suffix)
@@ -197,7 +144,7 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                     {
                         "type": "text",
                         "text": (
-                            f"You are transcribing a {audio_source.summary}. "
+                            f"You are transcribing a {source_summary}. "
                             f"{instruction}"
                         ).strip(),
                     },
@@ -210,12 +157,7 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         ],
     }
 
-    headers = {
-        "Authorization": f"Bearer {api_key_value}",
-        "Content-Type": "application/json",
-        "X-Title": "SuperSeriousBot",
-        "HTTP-Referer": "https://superserio.us",
-    }
+    headers = openrouter_headers(api_key_value)
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
@@ -232,7 +174,18 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
             data = await response.json()
 
-    transcript = _extract_text_from_response(data)
+    choices = data.get("choices") or []
+    content = choices[0].get("message", {}).get("content") if choices else None
+    if isinstance(content, str):
+        transcript = content.strip()
+    elif isinstance(content, list):
+        transcript = "\n".join(
+            item["text"]
+            for item in content
+            if isinstance(item, dict) and item.get("type") == "text" and item.get("text")
+        ).strip()
+    else:
+        transcript = ""
     if not transcript:
         await message.reply_text("Received an empty response from the AI.")
         return

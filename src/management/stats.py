@@ -16,29 +16,52 @@ from utils.messages import get_message
 _DOW_NAMES = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
 
 
-async def stat_string_builder(
-    rows: list,
+async def reply_chat_stats(
     message: Message,
     context: ContextTypes.DEFAULT_TYPE,
-    total_count: int,
+    *,
+    today_only: bool,
 ) -> None:
+    time_clause = (
+        "AND create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')"
+        if today_only
+        else ""
+    )
+    async with get_db() as conn:
+        async with conn.execute(
+            f"""
+            SELECT create_time, user_id, COUNT(user_id) AS user_count
+            FROM chat_stats
+            WHERE chat_id = ? {time_clause}
+            GROUP BY user_id
+            ORDER BY COUNT(user_id) DESC
+            LIMIT 10;
+            """,
+            (message.chat_id,),
+        ) as cursor:
+            rows = list(await cursor.fetchall())
+        async with conn.execute(
+            f"""
+            SELECT COUNT(id) AS total_count
+            FROM chat_stats
+            WHERE chat_id = ? {time_clause};
+            """,
+            (message.chat_id,),
+        ) as cursor:
+            result = await cursor.fetchone()
+            total_count = result["total_count"] if result else 0
+
     if not rows:
         await message.reply_text("No messages recorded.")
         return
 
-    # Parallel fetch all names (cache hits are instant, misses run concurrently)
-    user_ids = [user_id for _, user_id, _ in rows]
     names = await asyncio.gather(
-        *(utils.get_first_name(uid, context) for uid in user_ids)
+        *(utils.get_first_name(user_id, context) for _, user_id, _ in rows)
     )
-
-    # Build output with list join (avoids O(n²) string concat)
     lines = [f"Stats for <b>{message.chat.title}:</b>", ""]
     for (_, _user_id, count), name in zip(rows, names, strict=True):
-        percent = count / total_count * 100
-        lines.append(f"<code>{percent:4.1f}% - {name}</code>")
+        lines.append(f"<code>{count / total_count * 100:4.1f}% - {name}</code>")
     lines.append(f"\nTotal messages: <b>{total_count}</b>")
-
     await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
@@ -122,73 +145,6 @@ def _format_horizontal_bars(
     return "\n".join(lines)
 
 
-async def _resolve_target_user(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> tuple[int | None, str | None]:
-    """Resolve target user_id and display username from args/reply/self."""
-    message = get_message(update)
-
-    # Priority 1: explicit @username arg → DB lookup
-    if context.args:
-        username_input = context.args[0].split("@")
-        if len(username_input) > 1:
-            username_lower = username_input[1].lower()
-            async with get_db() as conn:
-                async with conn.execute(
-                    "SELECT user_id, username FROM user_stats WHERE LOWER(username) = ?",
-                    (username_lower,),
-                ) as cursor:
-                    row = await cursor.fetchone()
-            if row:
-                return int(row["user_id"]), row["username"]
-
-    # Priority 2: reply target, else caller (unified extraction)
-    user = (
-        message.reply_to_message.from_user
-        if message and message.reply_to_message
-        else None
-    ) or (message.from_user if message else None)
-    if user:
-        return user.id, user.username or user.full_name
-
-    return None, None
-
-
-async def _fetch_chat_stats(chat_id: int, today_only: bool = False) -> tuple[list, int]:
-    """Fetch top users and total count, optionally filtered to today."""
-    time_clause = (
-        "AND create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')"
-        if today_only
-        else ""
-    )
-
-    async with get_db() as conn:
-        async with conn.execute(
-            f"""
-            SELECT create_time, user_id, COUNT(user_id) AS user_count
-            FROM chat_stats
-            WHERE chat_id = ? {time_clause}
-            GROUP BY user_id
-            ORDER BY COUNT(user_id) DESC
-            LIMIT 10;
-            """,
-            (chat_id,),
-        ) as cursor:
-            users = list(await cursor.fetchall())
-
-        async with conn.execute(
-            f"""
-            SELECT COUNT(id) AS total_count
-            FROM chat_stats
-            WHERE chat_id = ? {time_clause};
-            """,
-            (chat_id,),
-        ) as cursor:
-            result = await cursor.fetchone()
-            total_count: int = result["total_count"] if result else 0
-
-    return users, total_count
-
 
 @command(
     triggers=["stats"],
@@ -200,8 +156,7 @@ async def get_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     message = get_message(update)
     if not message:
         return
-    users, total = await _fetch_chat_stats(message.chat_id, today_only=True)
-    await stat_string_builder(users, message, context, total)
+    await reply_chat_stats(message, context, today_only=True)
 
 
 @command(
@@ -216,8 +171,7 @@ async def get_total_chat_stats(
     message = get_message(update)
     if not message:
         return
-    users, total = await _fetch_chat_stats(message.chat_id, today_only=False)
-    await stat_string_builder(users, message, context, total)
+    await reply_chat_stats(message, context, today_only=False)
 
 
 @command(
@@ -232,7 +186,23 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     chat_id = message.chat_id
 
-    user_id, username_display = await _resolve_target_user(update, context)
+    if context.args and "@" in context.args[0]:
+        async with get_db() as conn:
+            async with conn.execute(
+                "SELECT user_id, username FROM user_stats WHERE LOWER(username) = ?",
+                (context.args[0].split("@", 1)[1].lower(),),
+            ) as cursor:
+                row = await cursor.fetchone()
+        user_id = int(row["user_id"]) if row else None
+        username_display = row["username"] if row else None
+    else:
+        user = (
+            message.reply_to_message.from_user
+            if message.reply_to_message
+            else None
+        ) or message.from_user
+        user_id = user.id if user else None
+        username_display = (user.username or user.full_name) if user else None
     if not user_id:
         await message.reply_text(
             "Couldn't resolve target user. Usage: /ustats [@username]"

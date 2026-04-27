@@ -24,50 +24,6 @@ def tg_time(unix_time: int, fallback_text: str, format_string: str | None = None
     )
 
 
-def parse_target_time(time_text: str) -> datetime.datetime | None:
-    import dateparser
-
-    normalized_time_text = IST_ALIAS_PATTERN.sub("UTC+0530", time_text)
-    parsed_time = dateparser.parse(
-        normalized_time_text,
-        settings={
-            "RETURN_AS_TIMEZONE_AWARE": True,
-            "TIMEZONE": "UTC",
-            "TO_TIMEZONE": "UTC",
-        },
-    )
-    if parsed_time is None:
-        return None
-    if parsed_time.tzinfo is None:
-        parsed_time = parsed_time.replace(tzinfo=datetime.UTC)
-    return parsed_time.astimezone(datetime.UTC)
-
-
-async def reminder_list(user_id: int, chat_id: int) -> str:
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-            SELECT id, title, target_time
-            FROM reminders WHERE user_id = ? AND chat_id = ? AND target_time > STRFTIME('%s', 'now');
-            """,
-            (user_id, chat_id),
-        ) as cursor:
-            results = await cursor.fetchall()
-
-    text = "⏰ Your reminders in this chat:\n"
-
-    for index, reminder in enumerate(results):
-        target_unix = int(reminder["target_time"])
-        fallback_time = datetime.datetime.fromtimestamp(
-            target_unix, datetime.UTC
-        ).strftime("%Y-%m-%d %H:%M UTC")
-        text += (
-            f"\n{index + 1}. <code>{html.escape(reminder['title'])}</code> "
-            f"{tg_time(target_unix, fallback_time, 'r')}"
-        )
-
-    return text
-
 
 @command(
     triggers=["remind"],
@@ -79,7 +35,6 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """Create a reminder with a trigger time for this group."""
     if not message.from_user:
         return
 
@@ -87,18 +42,27 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         async with get_db() as conn:
             async with conn.execute(
                 """
-                SELECT COUNT(*) AS count
-                FROM reminders WHERE user_id = ? AND chat_id = ? AND target_time > STRFTIME('%s', 'now');
+                SELECT title, target_time
+                FROM reminders
+                WHERE user_id = ? AND chat_id = ? AND target_time > STRFTIME('%s', 'now');
                 """,
                 (message.from_user.id, message.chat_id),
             ) as cursor:
-                existing_reminders = await cursor.fetchone()
+                reminders = await cursor.fetchall()
 
-        if existing_reminders and existing_reminders["count"] > 0:
-            await message.reply_text(
-                text=await reminder_list(message.from_user.id, message.chat_id),
-                parse_mode=ParseMode.HTML,
-            )
+        if reminders:
+            text = "⏰ Your reminders in this chat:\n"
+            for index, reminder in enumerate(reminders, start=1):
+                target_unix = int(reminder["target_time"])
+                fallback_time = datetime.datetime.fromtimestamp(
+                    target_unix,
+                    datetime.UTC,
+                ).strftime("%Y-%m-%d %H:%M UTC")
+                text += (
+                    f"\n{index}. <code>{html.escape(reminder['title'])}</code> "
+                    f"{tg_time(target_unix, fallback_time, 'r')}"
+                )
+            await message.reply_text(text=text, parse_mode=ParseMode.HTML)
             return
 
         await commands.usage_string(message, remind)
@@ -113,7 +77,21 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     title = title.strip()
     target_time_text = target_time_text.strip()
 
-    target_time = parse_target_time(target_time_text)
+    import dateparser
+
+    normalized_time_text = IST_ALIAS_PATTERN.sub("UTC+0530", target_time_text)
+    target_time = dateparser.parse(
+        normalized_time_text,
+        settings={
+            "RETURN_AS_TIMEZONE_AWARE": True,
+            "TIMEZONE": "UTC",
+            "TO_TIMEZONE": "UTC",
+        },
+    )
+    if target_time is not None and target_time.tzinfo is None:
+        target_time = target_time.replace(tzinfo=datetime.UTC)
+    if target_time is not None:
+        target_time = target_time.astimezone(datetime.UTC)
 
     if target_time is None:
         await message.reply_text(
@@ -129,7 +107,7 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     target_unix = int(target_time.timestamp())
 
-    async with get_db(write=True) as conn:
+    async with get_db() as conn:
         await conn.execute(
             """
             INSERT INTO reminders (chat_id, user_id, title, target_time)
@@ -142,7 +120,6 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 target_unix,
             ),
         )
-        await conn.commit()
 
     await message.reply_text(
         text=(

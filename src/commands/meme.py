@@ -15,9 +15,6 @@ async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """Get a random meme"""
-    if not message:
-        return
 
     import aiohttp
 

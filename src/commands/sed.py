@@ -9,7 +9,6 @@ async def sed(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not message:
         return
-    """Replace a string in a message."""
 
     if (
         not message.reply_to_message
