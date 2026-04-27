@@ -25,6 +25,7 @@ from utils.messages import get_message, reply_markdown_or_plain
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 TELEGRAM_MESSAGE_LIMIT = 4096
 MIN_STREAM_EDIT_INTERVAL_SECONDS = 0.8
+ASK_WORD_LIMIT = 1000
 
 system_prompt = """You are @SuperSeriousBot in a Telegram chat. Be extremely concise.
 
@@ -41,6 +42,13 @@ def image_data_url(image_data: bytes, mime_type: str | None) -> str:
     if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
         mime_type = "image/jpeg"
     return f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
+
+
+def get_reply_context(reply: Message | None) -> str | None:
+    if not reply:
+        return None
+    reply_text = reply.text or reply.caption
+    return reply_text.strip() if reply_text else None
 
 
 async def load_reply_image(
@@ -202,7 +210,7 @@ async def edit_stream_reply(bot, chat_id: int, message_id: int, text: str) -> bo
     usage="/ask [query]",
     api_key="OPENROUTER_API_KEY",
     example="/ask How long does a train between Tokyo and Hokkaido take?",
-    description="Ask anything using AI. Reply to an image or sticker to ask about it. Use /model to configure.",
+    description="Ask anything using AI. Reply to a message, image, or sticker to use it as context. Use /model to configure.",
 )
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
@@ -226,19 +234,34 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     user_content: list[dict[str, Any]] = []
 
+    reply = message.reply_to_message
+    reply_context = get_reply_context(reply)
     reply_image = None
-    if message.reply_to_message:
+    if reply:
         try:
-            reply_image = await load_reply_image(message.reply_to_message, context.bot)
+            reply_image = await load_reply_image(reply, context.bot)
         except ValueError as exc:
             await message.reply_text(str(exc))
             return
+
+    if query and len(query.split()) > ASK_WORD_LIMIT:
+        await message.reply_text(
+            f"Please keep your query under {ASK_WORD_LIMIT} words."
+        )
+        return
+    if reply_context and len(reply_context.split()) > ASK_WORD_LIMIT:
+        await message.reply_text(
+            f"Please reply to a message under {ASK_WORD_LIMIT} words."
+        )
+        return
 
     if reply_image:
         image_data, mime_type = reply_image
         image_url = image_data_url(image_data, mime_type)
 
         text_prompt = query if query else "Describe this image in detail."
+        if reply_context:
+            text_prompt = f"Reply context:\n{reply_context}\n\nUser request:\n{text_prompt}"
         user_content.append({"type": "text", "text": text_prompt})
         user_content.append(
             {
@@ -251,9 +274,8 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not query:
             await commands.usage_string(message, ask)
             return
-        if len(context.args) > 128:
-            await message.reply_text("Please keep your query under 64 words.")
-            return
+        if reply_context:
+            query = f"Reply context:\n{reply_context}\n\nUser request:\n{query}"
         messages.append({"role": "user", "content": query})
 
     try:
