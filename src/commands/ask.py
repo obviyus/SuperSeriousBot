@@ -8,18 +8,19 @@ from collections.abc import AsyncIterator
 from datetime import timedelta
 from typing import Any
 
-from telegram import Update
+from telegram import Message, Update
 from telegram.constants import ChatType
 from telegram.error import BadRequest, RetryAfter
 from telegram.ext import ContextTypes
 
 import commands
-from commands.model import get_model, get_thinking
+from commands.model import get_model, get_thinking, normalize_model_name, openrouter_headers
 from config.db import get_db
 from config.options import config
+from utils.admin import is_admin
 from utils.decorators import command
 from utils.media import get_sticker_image_bytes
-from utils.messages import get_message
+from utils.messages import get_message, reply_markdown_or_plain
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -36,7 +37,58 @@ system_prompt = """You are @SuperSeriousBot in a Telegram chat. Be extremely con
 """
 
 
-async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> bool:
+def image_data_url(image_data: bytes, mime_type: str | None) -> str:
+    if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
+        mime_type = "image/jpeg"
+    return f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
+
+
+async def load_reply_image(
+    reply: Message,
+    bot,
+    *,
+    allow_image_document: bool = False,
+) -> tuple[bytes, str | None] | None:
+    if reply.photo:
+        photo = reply.photo[-1]
+        file = await bot.getFile(photo.file_id)
+        return bytes(await file.download_as_bytearray()), mimetypes.guess_type(
+            file.file_path or ""
+        )[0]
+    if reply.sticker:
+        sticker_payload = await get_sticker_image_bytes(reply, bot)
+        if not sticker_payload:
+            raise ValueError(
+                "Animated/video stickers aren't supported yet. Send a static sticker or image."
+            )
+        return sticker_payload
+    if allow_image_document and reply.document and (reply.document.mime_type or "").startswith(
+        "image/"
+    ):
+        file = await bot.getFile(reply.document.file_id)
+        return bytes(await file.download_as_bytearray()), reply.document.mime_type or mimetypes.guess_type(
+            file.file_path or ""
+        )[0]
+    return None
+
+
+async def ensure_command_available(
+    message: Message,
+    user_id: int,
+    command: str,
+    *,
+    allow_private_whitelist: bool = False,
+) -> bool:
+    if is_admin(user_id):
+        return True
+
+    whitelist_chat_id = (
+        user_id if message.chat.type == ChatType.PRIVATE else message.chat.id
+    )
+    if message.chat.type == ChatType.PRIVATE and not allow_private_whitelist:
+        await message.reply_text("This command is not available in private chats.")
+        return False
+
     async with get_db() as conn:
         async with conn.execute(
             """
@@ -48,35 +100,30 @@ async def check_command_whitelist(chat_id: int, user_id: int, command: str) -> b
                     OR (whitelist_type = 'user' AND whitelist_id = ?)
                 );
                 """,
-            (command, chat_id, user_id),
+            (command, whitelist_chat_id, user_id),
         ) as cursor:
-            result = await cursor.fetchone()
+            if await cursor.fetchone():
+                return True
 
-    return bool(result)
+    if message.chat.type == ChatType.PRIVATE:
+        await message.reply_text("This command is not available in private chats.")
+        return False
+    await message.reply_text(
+        "This command is not available in this chat. "
+        "Please contact an admin to whitelist this command."
+    )
+    return False
 
 
 def get_stream_cutoff(is_group: bool, content_length: int) -> int:
-    if is_group:
-        if content_length > 1000:
-            return 180
-        if content_length > 200:
-            return 120
-        if content_length > 50:
-            return 90
-        return 50
-    if content_length > 1000:
-        return 90
-    if content_length > 200:
-        return 45
-    if content_length > 50:
-        return 25
-    return 15
-
-
-def retry_after_seconds(value: int | timedelta) -> float:
-    if isinstance(value, timedelta):
-        return value.total_seconds()
-    return float(value)
+    for min_length, group_cutoff, private_cutoff in (
+        (1000, 180, 90),
+        (200, 120, 45),
+        (50, 90, 25),
+    ):
+        if content_length > min_length:
+            return group_cutoff if is_group else private_cutoff
+    return 50 if is_group else 15
 
 
 async def stream_openrouter_deltas(
@@ -87,73 +134,67 @@ async def stream_openrouter_deltas(
         buffer += chunk.decode("utf-8", errors="ignore")
         while "\n" in buffer:
             line, buffer = buffer.split("\n", 1)
-            line = line.strip()
-            if not line or not line.startswith("data:"):
+            if not (line := line.strip()).startswith("data:"):
                 continue
-            data = line[5:].strip()
-            if data == "[DONE]":
+            if (data := line[5:].strip()) == "[DONE]":
                 return
             try:
                 payload = json.loads(data)
             except json.JSONDecodeError:
                 continue
             choices = payload.get("choices")
-            if not isinstance(choices, list) or not choices:
-                continue
-
-            first_choice = choices[0]
-            if not isinstance(first_choice, dict):
-                continue
-
-            delta = first_choice.get("delta", {})
-            if not isinstance(delta, dict):
-                continue
-            content = delta.get("content")
+            first_choice = choices[0] if isinstance(choices, list) and choices else None
+            delta = first_choice.get("delta") if isinstance(first_choice, dict) else None
+            content = delta.get("content") if isinstance(delta, dict) else None
             if content:
                 yield content
 
 
-def render_markdown(text: str) -> str | None:
+
+async def edit_stream_reply(bot, chat_id: int, message_id: int, text: str) -> bool:
     import telegramify_markdown
 
+    kwargs = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "disable_web_page_preview": True,
+    }
+    attempts = [{"text": text}]
     try:
         formatted = telegramify_markdown.markdownify(text)
     except Exception:
-        return None
-    if len(formatted) > TELEGRAM_MESSAGE_LIMIT:
-        return None
-    return formatted
+        formatted = None
+    if formatted and len(formatted) <= TELEGRAM_MESSAGE_LIMIT:
+        attempts.insert(0, {"text": formatted, "parse_mode": "MarkdownV2"})
 
-
-async def send_response(update: Update, text: str) -> None:
-    """Send response as a message or file if too long."""
-    import telegramify_markdown
-
-    message = get_message(update)
-
-    if not message:
-        return
-
-    # Convert markdown to Telegram MarkdownV2 format
-    formatted_text = telegramify_markdown.markdownify(text)
-
-    try:
-        if len(formatted_text) <= 4096:
-            await message.reply_text(
-                formatted_text, disable_web_page_preview=True, parse_mode="MarkdownV2"
+    for payload in attempts:
+        try:
+            await bot.edit_message_text(**kwargs, **payload)
+            return True
+        except RetryAfter as exc:
+            await asyncio.sleep(
+                exc.retry_after.total_seconds()
+                if isinstance(exc.retry_after, timedelta)
+                else float(exc.retry_after)
             )
-        else:
-            buffer = io.BytesIO(text.encode())  # Send original text in file
-            buffer.name = "response.txt"
-            await message.reply_document(buffer)
-    except Exception:
-        # MarkdownV2 parsing failed, fallback to plain text
-        if len(text) <= 4096:
-            await message.reply_text(text, disable_web_page_preview=True)
-        else:
-            buffer = io.BytesIO(text.encode())
-            buffer.name = "response.txt"
-            await message.reply_document(buffer)
+            try:
+                await bot.edit_message_text(**kwargs, **payload)
+                return True
+            except BadRequest as retry_error:
+                error_text = str(retry_error)
+                if "Message is not modified" in error_text:
+                    return False
+                if payload.get("parse_mode") and "parse" in error_text.lower():
+                    continue
+                raise
+        except BadRequest as exc:
+            error_text = str(exc)
+            if "Message is not modified" in error_text:
+                return False
+            if payload.get("parse_mode") and "parse" in error_text.lower():
+                continue
+            raise
+    return False
 
 
 @command(
@@ -168,22 +209,13 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not message or not message.from_user or not update.effective_user:
         return
 
-    is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
-    if not is_admin:
-        if message.chat.type == ChatType.PRIVATE:
-            if not await check_command_whitelist(
-                message.from_user.id, message.from_user.id, "ask"
-            ):
-                await message.reply_text("This command is not available in private chats.")
-                return
-        elif not await check_command_whitelist(
-            message.chat.id, message.from_user.id, "ask"
-        ):
-            await message.reply_text(
-                "This command is not available in this chat. "
-                "Please contact an admin to whitelist this command."
-            )
-            return
+    if not await ensure_command_available(
+        message,
+        message.from_user.id,
+        "ask",
+        allow_private_whitelist=True,
+    ):
+        return
 
     openrouter_api_key = config["API"].get("OPENROUTER_API_KEY")
     if not openrouter_api_key:
@@ -194,36 +226,17 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     user_content: list[dict[str, Any]] = []
 
-    # Image processing
-    image_data: bytes | None = None
-    mime_type: str | None = None
+    reply_image = None
     if message.reply_to_message:
-        if message.reply_to_message.photo:
-            photo = message.reply_to_message.photo[-1]
-            file = await context.bot.getFile(photo.file_id)
+        try:
+            reply_image = await load_reply_image(message.reply_to_message, context.bot)
+        except ValueError as exc:
+            await message.reply_text(str(exc))
+            return
 
-            image_data = bytes(await file.download_as_bytearray())
-            mime_type, _ = (
-                mimetypes.guess_type(file.file_path) if file.file_path else (None, None)
-            )
-        elif message.reply_to_message.sticker:
-            sticker_payload = await get_sticker_image_bytes(
-                message.reply_to_message, context.bot
-            )
-            if not sticker_payload:
-                await message.reply_text(
-                    "Animated/video stickers aren't supported yet. "
-                    "Send a static sticker or image."
-                )
-                return
-            image_data, mime_type = sticker_payload
-
-    if image_data:
-        if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
-            mime_type = "image/jpeg"
-
-        image_base64 = base64.b64encode(image_data).decode("utf-8")
-        image_url = f"data:{mime_type};base64,{image_base64}"
+    if reply_image:
+        image_data, mime_type = reply_image
+        image_url = image_data_url(image_data, mime_type)
 
         text_prompt = query if query else "Describe this image in detail."
         user_content.append({"type": "text", "text": text_prompt})
@@ -238,33 +251,17 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not query:
             await commands.usage_string(message, ask)
             return
-
-        if not context.args:
-            return
-
-        token_count = len(context.args)
-        if token_count > 128:
+        if len(context.args) > 128:
             await message.reply_text("Please keep your query under 64 words.")
             return
-
         messages.append({"role": "user", "content": query})
 
     try:
         import aiohttp
 
-        model_name = await get_model("ask")
+        model_name = normalize_model_name(await get_model("ask"))
         thinking_level = await get_thinking()
-
-        # Strip 'openrouter/' prefix if present
-        if model_name.startswith("openrouter/"):
-            model_name = model_name[11:]
-
-        headers = {
-            "Authorization": f"Bearer {openrouter_api_key}",
-            "Content-Type": "application/json",
-            "X-Title": "SuperSeriousBot",
-            "HTTP-Referer": "https://superserio.us",
-        }
+        headers = openrouter_headers(openrouter_api_key)
         payload: dict[str, Any] = {"model": model_name, "messages": messages}
 
         # AIDEV-NOTE: plugins field only works for xAI models (enables X Search)
@@ -277,7 +274,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             payload["reasoning"] = {"effort": thinking_level}
 
         async with aiohttp.ClientSession() as session:
-            if image_data:
+            if reply_image:
                 async with session.post(
                     OPENROUTER_API_URL, headers=headers, json=payload
                 ) as resp:
@@ -285,25 +282,21 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     response = await resp.json()
 
                 choices = response.get("choices")
-                if not isinstance(choices, list) or not choices:
+                choice = choices[0] if isinstance(choices, list) and choices else None
+                if not isinstance(choice, dict):
                     await message.reply_text(
                         "No response received from AI. Please try again."
                     )
                     return
 
-                first_choice = choices[0]
-                if not isinstance(first_choice, dict):
-                    await message.reply_text(
-                        "No response received from AI. Please try again."
-                    )
-                    return
-
-                ai_message = first_choice.get("message", {})
-                if not isinstance(ai_message, dict):
-                    ai_message = {}
-
-                text = ai_message.get("content") or ""
-                await send_response(update, text)
+                ai_message = choice.get("message")
+                text = ai_message.get("content") if isinstance(ai_message, dict) else ""
+                await reply_markdown_or_plain(
+                    message,
+                    text,
+                    disable_web_page_preview=True,
+                    document_name="response.txt",
+                )
                 return
 
             payload["stream"] = True
@@ -332,21 +325,11 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         continue
 
                     if sent_message is None:
-                        formatted = render_markdown(content)
-                        if formatted:
-                            try:
-                                sent_message = await message.reply_text(
-                                    formatted,
-                                    disable_web_page_preview=True,
-                                    parse_mode="MarkdownV2",
-                                )
-                            except BadRequest as e:
-                                if "parse" not in str(e).lower():
-                                    raise
-                        if sent_message is None:
-                            sent_message = await message.reply_text(
-                                content, disable_web_page_preview=True
-                            )
+                        sent_message = await reply_markdown_or_plain(
+                            message,
+                            content,
+                            disable_web_page_preview=True,
+                        )
                         prev_length = len(content)
                         continue
 
@@ -363,69 +346,14 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     ):
                         continue
 
-                    formatted = render_markdown(content)
-                    if formatted:
-                        try:
-                            await context.bot.edit_message_text(
-                                chat_id=message.chat.id,
-                                message_id=sent_message.message_id,
-                                text=formatted,
-                                disable_web_page_preview=True,
-                                parse_mode="MarkdownV2",
-                            )
-                            prev_length = len(content)
-                            last_edit_time = time.monotonic()
-                            continue
-                        except RetryAfter as e:
-                            await asyncio.sleep(retry_after_seconds(e.retry_after))
-                            try:
-                                await context.bot.edit_message_text(
-                                    chat_id=message.chat.id,
-                                    message_id=sent_message.message_id,
-                                    text=formatted,
-                                    disable_web_page_preview=True,
-                                    parse_mode="MarkdownV2",
-                                )
-                                prev_length = len(content)
-                                last_edit_time = time.monotonic()
-                                continue
-                            except BadRequest as e:
-                                if "Message is not modified" in str(e):
-                                    continue
-                                if "parse" not in str(e).lower():
-                                    raise
-                        except BadRequest as e:
-                            if "Message is not modified" in str(e):
-                                continue
-                            if "parse" not in str(e).lower():
-                                raise
-
-                    try:
-                        await context.bot.edit_message_text(
-                            chat_id=message.chat.id,
-                            message_id=sent_message.message_id,
-                            text=content,
-                            disable_web_page_preview=True,
-                        )
+                    if await edit_stream_reply(
+                        context.bot,
+                        message.chat.id,
+                        sent_message.message_id,
+                        content,
+                    ):
                         prev_length = len(content)
                         last_edit_time = time.monotonic()
-                    except RetryAfter as e:
-                        await asyncio.sleep(retry_after_seconds(e.retry_after))
-                        try:
-                            await context.bot.edit_message_text(
-                                chat_id=message.chat.id,
-                                message_id=sent_message.message_id,
-                                text=content,
-                                disable_web_page_preview=True,
-                            )
-                            prev_length = len(content)
-                            last_edit_time = time.monotonic()
-                        except BadRequest as e:
-                            if "Message is not modified" not in str(e):
-                                raise
-                    except BadRequest as e:
-                        if "Message is not modified" not in str(e):
-                            raise
 
                 if not content:
                     return
@@ -435,61 +363,12 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     return
 
                 if len(content) != prev_length:
-                    formatted = render_markdown(content)
-                    if formatted:
-                        try:
-                            await context.bot.edit_message_text(
-                                chat_id=message.chat.id,
-                                message_id=sent_message.message_id,
-                                text=formatted,
-                                disable_web_page_preview=True,
-                                parse_mode="MarkdownV2",
-                            )
-                            return
-                        except RetryAfter as e:
-                            await asyncio.sleep(retry_after_seconds(e.retry_after))
-                            try:
-                                await context.bot.edit_message_text(
-                                    chat_id=message.chat.id,
-                                    message_id=sent_message.message_id,
-                                    text=formatted,
-                                    disable_web_page_preview=True,
-                                    parse_mode="MarkdownV2",
-                                )
-                                return
-                            except BadRequest as e:
-                                if "Message is not modified" in str(e):
-                                    return
-                                if "parse" not in str(e).lower():
-                                    raise
-                        except BadRequest as e:
-                            if "Message is not modified" in str(e):
-                                return
-                            if "parse" not in str(e).lower():
-                                raise
-
-                    try:
-                        await context.bot.edit_message_text(
-                            chat_id=message.chat.id,
-                            message_id=sent_message.message_id,
-                            text=content,
-                            disable_web_page_preview=True,
-                        )
-                    except RetryAfter as e:
-                        await asyncio.sleep(retry_after_seconds(e.retry_after))
-                        try:
-                            await context.bot.edit_message_text(
-                                chat_id=message.chat.id,
-                                message_id=sent_message.message_id,
-                                text=content,
-                                disable_web_page_preview=True,
-                            )
-                        except BadRequest as e:
-                            if "Message is not modified" not in str(e):
-                                raise
-                    except BadRequest as e:
-                        if "Message is not modified" not in str(e):
-                            raise
+                    await edit_stream_reply(
+                        context.bot,
+                        message.chat.id,
+                        sent_message.message_id,
+                        content,
+                    )
     except Exception as e:
         await message.reply_text(
             f"An error occurred while processing your request: {e!s}"
@@ -507,37 +386,13 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message or not message.from_user or not update.effective_user:
         return
-    is_admin = str(update.effective_user.id) in config["TELEGRAM"]["ADMINS"]
-
-    # Check if in private chat and not admin
-    if not is_admin and message.chat.type == ChatType.PRIVATE:
-        await message.reply_text("This command is not available in private chats.")
+    if not await ensure_command_available(message, message.from_user.id, "edit"):
         return
 
     # Check if replying to a message with a photo, sticker, or image document
     reply = message.reply_to_message
     if not reply:
         await commands.usage_string(message, edit)
-        return
-
-    has_photo = bool(reply.photo)
-    has_sticker = bool(reply.sticker)
-    has_image_document = bool(
-        reply.document and (reply.document.mime_type or "").startswith("image/")
-    )
-
-    if not (has_photo or has_sticker or has_image_document):
-        await commands.usage_string(message, edit)
-        return
-
-    # Check command whitelist
-    if not is_admin and not await check_command_whitelist(
-        message.chat.id, message.from_user.id, "edit"
-    ):
-        await message.reply_text(
-            "This command is not available in this chat. "
-            "Please contact an admin to whitelist this command."
-        )
         return
 
     # Get the prompt from args
@@ -552,73 +407,34 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         import aiohttp
 
-        # Get image bytes (photo, sticker, or image document)
-        image_data: bytes | None = None
-        mime_type: str | None = None
-
-        if reply.photo:
-            photo = reply.photo[-1]
-            file = await context.bot.getFile(photo.file_id)
-            image_data = bytes(await file.download_as_bytearray())
-            mime_type, _ = (
-                mimetypes.guess_type(file.file_path) if file.file_path else (None, None)
+        try:
+            reply_image = await load_reply_image(
+                reply,
+                context.bot,
+                allow_image_document=True,
             )
-        elif reply.sticker:
-            sticker_payload = await get_sticker_image_bytes(reply, context.bot)
-            if not sticker_payload:
-                await message.reply_text(
-                    "Animated/video stickers aren't supported yet. "
-                    "Send a static sticker or image."
-                )
-                return
-            image_data, mime_type = sticker_payload
-        elif reply.document and (reply.document.mime_type or "").startswith("image/"):
-            file = await context.bot.getFile(reply.document.file_id)
-            image_data = bytes(await file.download_as_bytearray())
-            mime_type = reply.document.mime_type
-            if not mime_type:
-                mime_type, _ = (
-                    mimetypes.guess_type(file.file_path)
-                    if file.file_path
-                    else (None, None)
-                )
+        except ValueError as exc:
+            await message.reply_text(str(exc))
+            return
 
-        if not image_data:
+        if not reply_image:
             await commands.usage_string(message, edit)
             return
 
-        if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
-            mime_type = "image/jpeg"
+        image_url = image_data_url(*reply_image)
 
-        # Convert image to base64 for OpenRouter API
-        image_base64 = base64.b64encode(image_data).decode("utf-8")
-        image_url = f"data:{mime_type};base64,{image_base64}"
-
-        # Create the prompt that includes both the edit request and the image
-        full_prompt = (
-            f"Please edit this image according to the following description: {prompt}"
-        )
-
-        # Get configured model from database
-        model_name = await get_model("edit")
-
-        # Strip 'openrouter/' prefix if present
-        if model_name.startswith("openrouter/"):
-            model_name = model_name[11:]
-
-        headers = {
-            "Authorization": f"Bearer {config['API']['OPENROUTER_API_KEY']}",
-            "Content-Type": "application/json",
-            "X-Title": "SuperSeriousBot",
-            "HTTP-Referer": "https://superserio.us",
-        }
+        model_name = normalize_model_name(await get_model("edit"))
+        headers = openrouter_headers(config["API"]["OPENROUTER_API_KEY"])
         payload = {
             "model": model_name,
             "messages": [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": full_prompt},
+                        {
+                            "type": "text",
+                            "text": f"Please edit this image according to the following description: {prompt}",
+                        },
                         {"type": "image_url", "image_url": {"url": image_url}},
                     ],
                 }
@@ -633,54 +449,47 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 resp.raise_for_status()
                 response = await resp.json()
 
-        # Validate response structure
-        if not response or not response.get("choices"):
+        choices = response.get("choices")
+        choice = choices[0] if isinstance(choices, list) and choices else None
+        if not isinstance(choice, dict):
             await message.reply_text("No response received from AI. Please try again.")
             return
 
-        choice = response["choices"][0]
-        ai_message = choice["message"]
-
-        # Check if there's an error in the response
         finish_reason = choice.get("finish_reason", "")
-        if finish_reason and str(finish_reason).upper() in [
+        if finish_reason and str(finish_reason).upper() in {
             "CONTENT_FILTER",
             "SAFETY",
             "MODERATION",
-        ]:
+        }:
             await message.reply_text(
                 "❌ This request was blocked by the AI due to content policies. Please try a different prompt."
             )
             return
 
-        # Process the response - check for images in the message
-        if ai_message.get("images"):
-            # Extract the first generated image
-            image_info = ai_message["images"][0]
-            if "image_url" in image_info and "url" in image_info["image_url"]:
-                image_url_data = image_info["image_url"]["url"]
-
-                # Parse base64 data URL
-                if image_url_data.startswith("data:image/"):
-                    # Extract base64 data after comma
-                    base64_data = image_url_data.split(",")[1]
-                    image_data = base64.b64decode(base64_data)
-                    buffer = io.BytesIO(image_data)
-
-                    # Create caption with metadata
-                    username = update.effective_user.username
-                    user_mention = (
-                        f"@{username}"
-                        if username
-                        else f"User {update.effective_user.id}"
-                    )
-                    caption = f"📝 Requested by {user_mention}\n🎨 Prompt: {prompt}"
-
-                    await message.reply_photo(buffer, caption=caption)
-                    return
+        ai_message = choice.get("message")
+        if isinstance(ai_message, dict):
+            images = ai_message.get("images")
+            first_image = images[0] if isinstance(images, list) and images else None
+            image_url_data = (
+                first_image.get("image_url", {}).get("url")
+                if isinstance(first_image, dict)
+                else None
+            )
+            if isinstance(image_url_data, str) and image_url_data.startswith("data:image/"):
+                buffer = io.BytesIO(base64.b64decode(image_url_data.split(",", 1)[1]))
+                user_mention = (
+                    f"@{update.effective_user.username}"
+                    if update.effective_user.username
+                    else f"User {update.effective_user.id}"
+                )
+                await message.reply_photo(
+                    buffer,
+                    caption=f"📝 Requested by {user_mention}\n🎨 Prompt: {prompt}",
+                )
+                return
 
         # If no image was generated, check for text response
-        if ai_message.get("content"):
+        if isinstance(ai_message, dict) and ai_message.get("content"):
             await message.reply_text(
                 f"AI Response: {ai_message['content']}\n\n(Note: No edited image was generated)"
             )

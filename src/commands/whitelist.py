@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
@@ -11,20 +11,91 @@ from utils.messages import get_message
 WHITELIST_TYPE = "chat"
 
 
-def _normalize_command(command: str) -> str:
-    command = command.lstrip("/").strip().lower()
-    return command
+async def _update_whitelist(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    handler,
+    *,
+    remove: bool,
+) -> None:
+    message = get_message(update)
+    if not message:
+        return
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        await message.reply_text("❌ This command is only available to admins")
+        return
+    if not context.args:
+        await commands.usage_string(message, handler)
+        return
 
+    command_name = context.args[0].lstrip("/").strip().lower()
+    if not command_name:
+        await message.reply_text(
+            "Please provide a command to unwhitelist."
+            if remove
+            else "Please provide a command to whitelist."
+        )
+        return
 
-def _resolve_chat_id(update: Update, args: list[str]) -> int | None:
-    if len(args) > 1:
+    if len(context.args) > 1:
         try:
-            return int(args[1])
+            chat_id = int(context.args[1])
         except ValueError:
-            return None
-    if update.effective_chat:
-        return update.effective_chat.id
-    return None
+            chat_id = None
+    else:
+        chat_id = update.effective_chat.id if update.effective_chat else None
+    if chat_id is None:
+        await message.reply_text(
+            "Could not determine target chat. Provide a chat ID explicitly."
+        )
+        return
+
+    async with get_db() as conn:
+        if remove:
+            result = await conn.execute(
+                """
+                DELETE FROM command_whitelist
+                WHERE command = ? AND whitelist_type = ? AND whitelist_id = ?
+                """,
+                (command_name, WHITELIST_TYPE, chat_id),
+            )
+        else:
+            async with conn.execute(
+                """
+                SELECT 1 FROM command_whitelist
+                WHERE command = ? AND whitelist_type = ? AND whitelist_id = ?
+                """,
+                (command_name, WHITELIST_TYPE, chat_id),
+            ) as cursor:
+                if await cursor.fetchone():
+                    await message.reply_text(
+                        f"✅ Chat <code>{chat_id}</code> is already whitelisted for /{command_name}",
+                        parse_mode=ParseMode.HTML,
+                    )
+                    return
+            await conn.execute(
+                """
+                INSERT INTO command_whitelist (command, whitelist_type, whitelist_id)
+                VALUES (?, ?, ?)
+                """,
+                (command_name, WHITELIST_TYPE, chat_id),
+            )
+
+    if remove:
+        await message.reply_text(
+            (
+                f"✅ Removed chat <code>{chat_id}</code> from /{command_name}"
+                if result.rowcount
+                else f"❓ Chat <code>{chat_id}</code> was not whitelisted for /{command_name}"
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    await message.reply_text(
+        f"✅ Added chat <code>{chat_id}</code> to the whitelist for /{command_name}",
+        parse_mode=ParseMode.HTML,
+    )
 
 
 @command(
@@ -34,62 +105,7 @@ def _resolve_chat_id(update: Update, args: list[str]) -> int | None:
     description="Allow a chat to use a command (admins only)",
 )
 async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = get_message(update)
-    if not message:
-        return
-    if not update.effective_user:
-        return
-
-    if not is_admin(update.effective_user.id):
-        await message.reply_text("❌ This command is only available to admins")
-        return
-
-    if not context.args:
-        await commands.usage_string(message, whitelist_command)
-        return
-
-    command_name = _normalize_command(context.args[0])
-    if not command_name:
-        await message.reply_text("Please provide a command to whitelist.")
-        return
-
-    chat_id = _resolve_chat_id(update, context.args)
-    if chat_id is None:
-        await message.reply_text(
-            "Could not determine target chat. Provide a chat ID explicitly."
-        )
-        return
-
-    async with get_db(write=True) as conn:
-        async with conn.execute(
-            """
-            SELECT 1 FROM command_whitelist
-            WHERE command = ? AND whitelist_type = ? AND whitelist_id = ?
-            """,
-            (command_name, WHITELIST_TYPE, chat_id),
-        ) as cursor:
-            exists = await cursor.fetchone()
-
-        if exists:
-            await message.reply_text(
-                f"✅ Chat <code>{chat_id}</code> is already whitelisted for /{command_name}",
-                parse_mode=ParseMode.HTML,
-            )
-            return
-
-        await conn.execute(
-            """
-            INSERT INTO command_whitelist (command, whitelist_type, whitelist_id)
-            VALUES (?, ?, ?)
-            """,
-            (command_name, WHITELIST_TYPE, chat_id),
-        )
-        await conn.commit()
-
-    await message.reply_text(
-        f"✅ Added chat <code>{chat_id}</code> to the whitelist for /{command_name}",
-        parse_mode=ParseMode.HTML,
-    )
+    await _update_whitelist(update, context, whitelist_command, remove=False)
 
 
 @command(
@@ -101,49 +117,4 @@ async def whitelist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 async def unwhitelist_command(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    message = get_message(update)
-    if not message:
-        return
-    if not update.effective_user:
-        return
-
-    if not is_admin(update.effective_user.id):
-        await message.reply_text("❌ This command is only available to admins")
-        return
-
-    if not context.args:
-        await commands.usage_string(message, unwhitelist_command)
-        return
-
-    command_name = _normalize_command(context.args[0])
-    if not command_name:
-        await message.reply_text("Please provide a command to unwhitelist.")
-        return
-
-    chat_id = _resolve_chat_id(update, context.args)
-    if chat_id is None:
-        await message.reply_text(
-            "Could not determine target chat. Provide a chat ID explicitly."
-        )
-        return
-
-    async with get_db(write=True) as conn:
-        result = await conn.execute(
-            """
-            DELETE FROM command_whitelist
-            WHERE command = ? AND whitelist_type = ? AND whitelist_id = ?
-            """,
-            (command_name, WHITELIST_TYPE, chat_id),
-        )
-        await conn.commit()
-
-    if result.rowcount:
-        await message.reply_text(
-            f"✅ Removed chat <code>{chat_id}</code> from /{command_name}",
-            parse_mode=ParseMode.HTML,
-        )
-    else:
-        await message.reply_text(
-            f"❓ Chat <code>{chat_id}</code> was not whitelisted for /{command_name}",
-            parse_mode=ParseMode.HTML,
-        )
+    await _update_whitelist(update, context, unwhitelist_command, remove=True)

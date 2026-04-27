@@ -18,7 +18,6 @@ async def hltb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """Find how long a game takes to beat"""
     if not context.args:
         await commands.usage_string(message, hltb)
         return

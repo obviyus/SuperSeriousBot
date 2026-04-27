@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import random
 import uuid
 from datetime import UTC, datetime
@@ -48,33 +49,21 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             return
 
-        # AIDEV-NOTE: chat_id is stored UNINDEXED in FTS5 table for fast filtering.
-        # Filter by chat_id in FTS first, then join only matching rows.
-        if message.reply_to_message and message.reply_to_message.from_user:
-            sql = """
-            SELECT cs.message_id
-                FROM chat_stats_fts csf
-                INNER JOIN chat_stats cs ON cs.id = csf.rowid
-            WHERE csf.message_text MATCH ?
-                AND csf.chat_id = ?
-                AND cs.user_id = ?
-                AND cs.message_text NOT LIKE '/%';
-            """
-            params = (
-                query,
-                message.chat_id,
-                message.reply_to_message.from_user.id,
-            )
-        else:
-            sql = """
-            SELECT cs.message_id
-                FROM chat_stats_fts csf
-                INNER JOIN chat_stats cs ON cs.id = csf.rowid
-            WHERE csf.message_text MATCH ?
-                AND csf.chat_id = ?
-                AND cs.message_text NOT LIKE '/%';
-            """
-            params = (query, message.chat_id)
+        author_id = (
+            message.reply_to_message.from_user.id
+            if message.reply_to_message and message.reply_to_message.from_user
+            else None
+        )
+        sql = """
+        SELECT cs.message_id
+            FROM chat_stats_fts csf
+            INNER JOIN chat_stats cs ON cs.id = csf.rowid
+        WHERE csf.message_text MATCH ?
+            AND csf.chat_id = ?
+            AND (? IS NULL OR cs.user_id = ?)
+            AND cs.message_text NOT LIKE '/%';
+        """
+        params = (query, message.chat_id, author_id, author_id)
 
         async with conn.execute(sql, params) as cursor:
             results = list(await cursor.fetchall())
@@ -101,9 +90,6 @@ async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     message = get_message(update)
     if not message:
         return
-    """
-    Enable full text search in the current chat.
-    """
     if not message.from_user:
         return
 
@@ -114,7 +100,7 @@ async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await message.reply_text("You are not a moderator.")
             return
 
-    async with get_db(write=True) as conn:
+    async with get_db() as conn:
         await conn.execute(
             """
             INSERT INTO group_settings (chat_id, fts) VALUES (?, 1)
@@ -122,44 +108,27 @@ async def enable_fts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             """,
             (message.chat_id,),
         )
-        await conn.commit()
 
     await message.reply_text("Full text search has been enabled in this chat.")
 
 
 def _parse_export_file(filepath: str, chat_id: int) -> list[tuple]:
-    """
-    Parse Telegram JSON export file and return list of tuples for bulk insert.
-    Runs in a thread pool to avoid blocking the event loop.
-    """
     batch = []
     with open(filepath, "rb") as f:
-        messages = ijson.items(f, "messages.item")
-
-        for msg in messages:
-            if msg["type"] != "message" or not msg["text"]:
+        for msg in ijson.items(f, "messages.item"):
+            if msg["type"] != "message" or not msg["text"] or not (from_id := msg.get("from_id")):
                 continue
 
-            # Build message text from parts
-            text_parts = []
-            for part in msg["text"]:
-                if isinstance(part, dict):
-                    if part.get("type") == "bot_command":
-                        text_parts.append(part.get("text", ""))
-                else:
-                    text_parts.append(part)
-
-            text = "".join(text_parts)
+            text = "".join(
+                part.get("text", "")
+                if isinstance(part, dict) and part.get("type") == "bot_command"
+                else part if isinstance(part, str)
+                else ""
+                for part in msg["text"]
+            )
             if not text:
                 continue
 
-            # Parse user_id
-            from_id = msg.get("from_id", "")
-            if not from_id:
-                continue
-            user_id = from_id.replace("user", "")
-
-            # Fast ISO-8601 parse
             raw = msg["date"]
             if raw.endswith("Z"):
                 raw = raw[:-1] + "+00:00"
@@ -167,12 +136,18 @@ def _parse_export_file(filepath: str, chat_id: int) -> list[tuple]:
                 dt = datetime.fromisoformat(raw)
             except ValueError:
                 dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S")
-
             if dt.tzinfo is not None:
                 dt = dt.astimezone(UTC).replace(tzinfo=None)
-            create_time = dt.strftime("%Y-%m-%d %H:%M:%S")
 
-            batch.append((chat_id, user_id, msg["id"], create_time, text))
+            batch.append(
+                (
+                    chat_id,
+                    from_id.replace("user", ""),
+                    msg["id"],
+                    dt.strftime("%Y-%m-%d %H:%M:%S"),
+                    text,
+                )
+            )
 
     return batch
 
@@ -184,15 +159,6 @@ def _parse_export_file(filepath: str, chat_id: int) -> list[tuple]:
     description="Import chat stats for a chat given the JSON export.",
 )
 async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Import chat stats for a chat given the JSON export.
-
-    AIDEV-NOTE: Performance optimizations applied:
-    1. Parse entire file in thread pool (non-blocking)
-    2. Disable FTS trigger during bulk insert
-    3. Use executemany() for batch inserts
-    4. Rebuild FTS index once at end (faster than per-row trigger)
-    """
     message = get_message(update)
     if not message:
         return
@@ -208,18 +174,12 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     status_msg = await message.reply_text("Downloading file...")
 
-    file = await document.get_file()
     filename = f"{uuid.uuid4()}.json"
-    await file.download_to_drive(filename)
+    await (await document.get_file()).download_to_drive(filename)
 
     try:
         await status_msg.edit_text("Parsing JSON export...")
-
-        # Parse file in thread pool to avoid blocking
-        loop = asyncio.get_running_loop()
-        batch = await loop.run_in_executor(
-            None, _parse_export_file, filename, message.chat_id
-        )
+        batch = await asyncio.to_thread(_parse_export_file, filename, message.chat_id)
 
         if not batch:
             await status_msg.edit_text("No valid messages found in export.")
@@ -227,15 +187,10 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
         await status_msg.edit_text(f"Importing {len(batch):,} messages...")
 
-        async with get_db(write=True) as conn:
-            # Optimize SQLite for bulk insert
+        async with get_db() as conn:
             await conn.execute("PRAGMA synchronous = OFF;")
             await conn.execute("PRAGMA journal_mode = MEMORY;")
-
-            # Disable FTS trigger for bulk insert (we'll rebuild index after)
             await conn.execute("DROP TRIGGER IF EXISTS chat_stats_ai;")
-
-            # Bulk insert with executemany
             await conn.executemany(
                 """
                 INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text)
@@ -244,11 +199,8 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 """,
                 batch,
             )
-            await conn.commit()
 
             await status_msg.edit_text("Rebuilding search index...")
-
-            # Recreate FTS trigger
             await conn.execute(
                 """
                 CREATE TRIGGER chat_stats_ai AFTER INSERT ON chat_stats BEGIN
@@ -258,8 +210,6 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 """
             )
 
-            # Rebuild FTS index for newly inserted rows
-            # Only index rows from this chat that aren't already in FTS
             await conn.execute(
                 """
                 INSERT INTO chat_stats_fts (rowid, message_text, chat_id)
@@ -272,9 +222,7 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 """,
                 (message.chat_id,),
             )
-            await conn.commit()
 
-            # Reset pragmas to safe defaults
             await conn.execute("PRAGMA synchronous = FULL;")
             await conn.execute("PRAGMA journal_mode = WAL;")
 
@@ -284,9 +232,6 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         )
 
     finally:
-        # Clean up temp file
-        import os
-
         try:
             os.remove(filename)
         except OSError:

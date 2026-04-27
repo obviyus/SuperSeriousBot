@@ -20,7 +20,6 @@ async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """Get a random joke"""
     setup = "Here's a joke..."
     punchline = "(joke delivery unavailable)"
     try:

@@ -17,7 +17,6 @@ async def spurdo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """Spurdify text"""
     text = ""
     if not context.args:
         if message.reply_to_message:

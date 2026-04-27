@@ -47,8 +47,9 @@ async def close_db() -> None:
             logger.info("Database connection closed")
 
 
-async def _get_connection() -> aiosqlite.Connection:
-    """Get the singleton connection, initializing if needed."""
+@asynccontextmanager
+async def get_db() -> AsyncGenerator[aiosqlite.Connection]:
+    """Get the singleton database connection."""
     global _db_connection
     if _db_connection is None:
         async with _db_lock:
@@ -56,20 +57,7 @@ async def _get_connection() -> aiosqlite.Connection:
                 _db_connection = await _init_connection()
                 logger.info("Database connection initialized (lazy)")
     assert _db_connection is not None
-    return _db_connection
-
-
-@asynccontextmanager
-async def get_db(write: bool = False) -> AsyncGenerator[aiosqlite.Connection]:
-    """
-    Get a database connection. The connection is reused across calls.
-
-    Args:
-        write: Hint that this will be a write operation (currently unused,
-               kept for API compatibility and future read replica support)
-    """
-    conn = await _get_connection()
-    yield conn
+    yield _db_connection
 
 
 async def optimize_fts5(_: ContextTypes.DEFAULT_TYPE):
@@ -80,7 +68,7 @@ async def optimize_fts5(_: ContextTypes.DEFAULT_TYPE):
     content table and regenerates the index (minutes on 100M+ rows). Optimize
     merges b-tree segments incrementally - much cheaper, still improves query perf.
     """
-    async with get_db(write=True) as conn:
+    async with get_db() as conn:
         await conn.execute(
             "INSERT INTO chat_stats_fts(chat_stats_fts) VALUES('optimize');"
         )

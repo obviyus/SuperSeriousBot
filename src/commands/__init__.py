@@ -20,35 +20,10 @@ from utils.decorators import CommandMeta, get_command_meta, get_registered_comma
 from utils.messages import get_message
 
 COMMAND_MODULE_NAMES = (
-    "animals",
-    "ask",
-    "book",
-    "calc",
-    "define",
-    "dl",
-    "gif",
-    "graph",
-    "habit",
-    "highlight",
-    "hltb",
-    "insult",
-    "joke",
-    "meme",
-    "model",
-    "ping",
-    "quote",
-    "remind",
-    "search",
-    "spurdo",
-    "store",
-    "summon",
-    "tldr",
-    "transcribe",
-    "translate",
-    "ud",
-    "uwu",
-    "weather",
-    "whitelist",
+    "animals", "ask", "book", "calc", "define", "dl", "gif", "graph",
+    "habit", "highlight", "hltb", "insult", "joke", "meme", "model", "ping",
+    "quote", "remind", "search", "spurdo", "store", "summon", "tldr",
+    "transcribe", "translate", "ud", "uwu", "weather", "whitelist",
 )
 MANAGEMENT_MODULE_NAMES = ("blocks", "botstats", "stats")
 
@@ -68,33 +43,24 @@ list_of_commands = get_registered_commands()
 
 REACTION_MAP = {
     "good bot": [
-        ReactionEmoji.HEART_WITH_ARROW,
-        ReactionEmoji.SMILING_FACE_WITH_HEARTS,
-        ReactionEmoji.HEART_ON_FIRE,
-        ReactionEmoji.BANANA,
-        ReactionEmoji.KISS_MARK,
-        ReactionEmoji.MAN_TECHNOLOGIST,
-        ReactionEmoji.NAIL_POLISH,
-        ReactionEmoji.FACE_THROWING_A_KISS,
-        ReactionEmoji.ALIEN_MONSTER,
+        ReactionEmoji.HEART_WITH_ARROW, ReactionEmoji.SMILING_FACE_WITH_HEARTS,
+        ReactionEmoji.HEART_ON_FIRE, ReactionEmoji.BANANA, ReactionEmoji.KISS_MARK,
+        ReactionEmoji.MAN_TECHNOLOGIST, ReactionEmoji.NAIL_POLISH,
+        ReactionEmoji.FACE_THROWING_A_KISS, ReactionEmoji.ALIEN_MONSTER,
     ],
     "bad bot": [
-        ReactionEmoji.FEARFUL_FACE,
-        ReactionEmoji.LOUDLY_CRYING_FACE,
-        ReactionEmoji.BROKEN_HEART,
-        ReactionEmoji.CRYING_FACE,
+        ReactionEmoji.FEARFUL_FACE, ReactionEmoji.LOUDLY_CRYING_FACE,
+        ReactionEmoji.BROKEN_HEART, ReactionEmoji.CRYING_FACE,
         ReactionEmoji.FACE_SCREAMING_IN_FEAR,
     ],
 }
 
-
 async def _record_command_stat(command: str, user_id: int) -> None:
-    async with get_db(write=True) as conn:
+    async with get_db() as conn:
         await conn.execute(
             "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
             (command, user_id),
         )
-        await conn.commit()
 
 
 async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
@@ -102,7 +68,6 @@ async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
     if not message:
         return
-    """Disabled command handler."""
     await message.reply_text("❌ This command is disabled.")
 
 
@@ -111,8 +76,7 @@ async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
     if not message:
         return
-    """Every message action handler."""
-    if message and message.text:
+    if message.text:
         text = message.text.lower()
         for trigger, emojis in REACTION_MAP.items():
             if trigger in text:
@@ -123,23 +87,7 @@ async def every_message_action(update: Update, _: ContextTypes.DEFAULT_TYPE):
                 break
 
 
-async def is_user_blocked(user_id: int, command: str) -> bool:
-    async with get_db() as conn:
-        result = await conn.execute(
-            "SELECT 1 FROM command_blocklist WHERE user_id = ? AND command = ?",
-            (user_id, command),
-        )
-        return bool(await result.fetchone())
-
-
 type CommandHandler_T = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[None]]
-
-
-def _extract_sent_command(message: Message) -> str | None:
-    text = message.text
-    if not text or not text.startswith("/"):
-        return None
-    return text.split(maxsplit=1)[0].split("@")[0][1:].lower()
 
 
 def command_wrapper(fn: CommandHandler_T):
@@ -161,15 +109,20 @@ def command_wrapper(fn: CommandHandler_T):
                 "typing-indicator",
             )
 
-            sent_command = _extract_sent_command(message) if message.from_user else None
-
-            # Check if user is blocked before doing anything expensive
-            if sent_command and message.from_user:
-                if await is_user_blocked(message.from_user.id, sent_command):
-                    await message.reply_text(
-                        "❌ You are blocked from using this command."
+            if message.from_user and message.text and message.text.startswith("/"):
+                sent_command = message.text.split(maxsplit=1)[0].split("@")[0][1:].lower()
+                async with get_db() as conn:
+                    result = await conn.execute(
+                        "SELECT 1 FROM command_blocklist WHERE user_id = ? AND command = ?",
+                        (message.from_user.id, sent_command),
                     )
-                    return
+                    if await result.fetchone():
+                        await message.reply_text(
+                            "❌ You are blocked from using this command."
+                        )
+                        return
+            else:
+                sent_command = None
 
             schedule_background_task(
                 set_command_reaction(),
@@ -178,7 +131,7 @@ def command_wrapper(fn: CommandHandler_T):
 
             await fn(update, context)
 
-            if sent_command and sent_command in command_doc_list and message.from_user:
+            if sent_command and sent_command in command_triggers and message.from_user:
                 schedule_background_task(
                     _record_command_stat(sent_command, message.from_user.id),
                     "command-stats",
@@ -192,22 +145,17 @@ def command_wrapper(fn: CommandHandler_T):
 
 
 command_handler_list = []
-command_doc_list: dict[str, dict[str, str]] = {}
+command_triggers: set[str] = set()
 
 
 def _validate_command_meta(
     command: Callable[..., Awaitable[None]], meta: CommandMeta
 ) -> None:
-    missing_fields: list[str] = []
-    if not meta.triggers:
-        missing_fields.append("triggers")
-    if not meta.description:
-        missing_fields.append("description")
-    if not meta.usage:
-        missing_fields.append("usage")
-    if not meta.example:
-        missing_fields.append("example")
-
+    missing_fields = [
+        field
+        for field in ("triggers", "description", "usage", "example")
+        if not getattr(meta, field)
+    ]
     if missing_fields:
         module_name = getattr(command, "__module__", command.__class__.__module__)
         command_name = getattr(command, "__name__", command.__class__.__name__)
@@ -245,12 +193,7 @@ for command in list_of_commands:
 
     command_handler_list.append(CommandHandler(meta.triggers, handler))
 
-    for trigger in meta.triggers:
-        command_doc_list[trigger] = {
-            "description": meta.description,
-            "usage": meta.usage,
-            "example": meta.example,
-        }
+    command_triggers.update(meta.triggers)
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -262,16 +205,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not query or not query.data:
         return
 
-    handlers = {
+    handler = {
         "hb": habit.habit_button_handler,
         "hl": highlight_button_handler,
         "sg": summon.summon_keyboard_button,
-    }
-
-    for prefix, handler in handlers.items():
-        if query.data.startswith(prefix):
-            await handler(update, context)
-            return
+    }.get(query.data.split(":", 1)[0])
+    if handler:
+        await handler(update, context)
+        return
 
     await query.answer("No function found for this button.")
 
@@ -294,24 +235,3 @@ async def usage_string(message: Message, func) -> None:
         disable_web_page_preview=True,
     )
 
-
-async def save_mentions(
-    mentioning_user_id: int, mentioned_users: set[str], message: Message
-) -> None:
-    """Save a mention in the database."""
-    for user in mentioned_users:
-        user_id = (
-            await utils.get_user_id_from_username(user)
-            if isinstance(user, str)
-            else user
-        )
-        if user_id is not None:
-            async with get_db(write=True) as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO chat_mentions (mentioning_user_id, mentioned_user_id, chat_id, message_id)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (mentioning_user_id, user_id, message.chat.id, message.message_id),
-                )
-                await conn.commit()

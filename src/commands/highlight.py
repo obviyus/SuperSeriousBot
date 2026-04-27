@@ -8,15 +8,31 @@ from utils.decorators import command
 from utils.messages import get_message
 
 
+def delete_highlight_button(highlight_id: int, user_id: int) -> InlineKeyboardButton:
+    return InlineKeyboardButton(
+        "Delete Highlight",
+        callback_data=f"hl:{highlight_id},{user_id}",
+        style=KeyboardButtonStyle.DANGER,
+    )
+
+
+def start_dm_button(bot_username: str) -> InlineKeyboardButton:
+    return InlineKeyboardButton(
+        "Start DM",
+        url=f"https://t.me/{bot_username}",
+        style=KeyboardButtonStyle.PRIMARY,
+    )
+
+
 async def highlight_keyboard_builder(
-    chat_id: int, user_id: int
+    chat_id: int,
+    user_id: int,
+    *,
+    bot_username: str | None = None,
 ) -> InlineKeyboardMarkup:
-    """Build the highlight keyboard."""
     async with get_db() as conn:
         async with conn.execute(
-            """
-            SELECT * FROM 'highlights' WHERE chat_id = ? AND user_id = ?
-            """,
+            "SELECT * FROM 'highlights' WHERE chat_id = ? AND user_id = ?",
             (chat_id, user_id),
         ) as cursor:
             result = await cursor.fetchall()
@@ -31,7 +47,8 @@ async def highlight_keyboard_builder(
         ]
         for row in result
     ]
-
+    if bot_username:
+        keyboard.append([start_dm_button(bot_username)])
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -42,7 +59,6 @@ async def highlight_button_handler(
 
     if not message:
         return
-    """Remove a highlight from the database."""
     query = update.callback_query
     if not query or not query.data or not query.from_user or not query.message:
         return
@@ -53,26 +69,19 @@ async def highlight_button_handler(
         await query.answer("You can only delete your own highlights.")
         return
 
-    async with get_db(write=True) as conn:
+    async with get_db() as conn:
         await conn.execute(
             """
             DELETE FROM 'highlights' WHERE id = ?
             """,
             (highlight_id,),
         )
-        await conn.commit()
 
     await query.answer("Deleted highlight.")
 
-    # query.message is guaranteed to be Message (not InaccessibleMessage) here
-    from telegram import Message as TelegramMessage
-
-    if isinstance(query.message, TelegramMessage):
-        await query.edit_message_reply_markup(
-            reply_markup=await highlight_keyboard_builder(
-                query.message.chat_id, query.from_user.id
-            )
-        )
+    await query.edit_message_reply_markup(
+        reply_markup=await highlight_keyboard_builder(message.chat_id, query.from_user.id)
+    )
 
 
 @command(
@@ -83,64 +92,45 @@ async def highlight_button_handler(
 )
 async def highlighter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
-    if not message:
-        return
-    """Get a DM when a certain text is seen by the bot in this chat."""
-    if not message.from_user:
+    if not message or not message.from_user:
         return
 
-    if not context.args:
-        await message.reply_text(
-            "Your highlights in this chat."
-            "\n\nAdd new highlights by: \n\n<pre>/highlight [STRING]</pre>",
-            parse_mode=ParseMode.HTML,
-            reply_markup=await highlight_keyboard_builder(
-                message.chat_id, message.from_user.id
-            ),
-        )
-        return
-
-    highlight_string = " ".join(context.args)
-    if len(highlight_string) > 100:
-        await message.reply_text("Highlight cannot be greater than 100 characters.")
-        return
-
-    async with get_db(write=True) as conn:
-        async with conn.execute(
-            """SELECT * FROM highlights WHERE chat_id = ? AND string = ? COLLATE NOCASE""",
-            (message.chat_id, highlight_string),
-        ) as cursor:
-            result = await cursor.fetchone()
-
-        if result:
-            await message.reply_text("Highlight already exists in this chat.")
+    bot_username = None
+    text = "Your highlights in this chat.\n\nAdd new highlights by: \n\n<pre>/highlight [STRING]</pre>"
+    if context.args:
+        highlight_string = " ".join(context.args)
+        if len(highlight_string) > 100:
+            await message.reply_text("Highlight cannot be greater than 100 characters.")
             return
 
-        await conn.execute(
-            """INSERT INTO highlights (chat_id, string, user_id) VALUES (?, ?, ?)""",
-            (message.chat_id, highlight_string, message.from_user.id),
-        )
-        await conn.commit()
+        async with get_db() as conn:
+            async with conn.execute(
+                "SELECT * FROM highlights WHERE chat_id = ? AND string = ? COLLATE NOCASE",
+                (message.chat_id, highlight_string),
+            ) as cursor:
+                if await cursor.fetchone():
+                    await message.reply_text("Highlight already exists in this chat.")
+                    return
+            await conn.execute(
+                "INSERT INTO highlights (chat_id, string, user_id) VALUES (?, ?, ?)",
+                (message.chat_id, highlight_string, message.from_user.id),
+            )
 
-    keyboard = await highlight_keyboard_builder(message.chat_id, message.from_user.id)
-    keyboard_rows = list(keyboard.inline_keyboard)
-    keyboard_rows.append(
-        (
-            InlineKeyboardButton(
-                "Start DM",
-                url=f"https://t.me/{context.bot.username}",
-                style=KeyboardButtonStyle.PRIMARY,
-            ),
+        bot_username = context.bot.username
+        text = (
+            f"Added highlight: <code>{highlight_string}</code>.\n\n"
+            "⚠️ Make sure you've messaged me first, otherwise I can't DM you!\n\n"
+            "Your highlights in this chat:"
         )
-    )
-    keyboard = InlineKeyboardMarkup(keyboard_rows)
 
     await message.reply_text(
-        f"Added highlight: <code>{highlight_string}</code>.\n\n"
-        "⚠️ Make sure you've messaged me first, otherwise I can't DM you!\n\n"
-        "Your highlights in this chat:",
+        text,
         parse_mode=ParseMode.HTML,
-        reply_markup=keyboard,
+        reply_markup=await highlight_keyboard_builder(
+            message.chat_id,
+            message.from_user.id,
+            bot_username=bot_username,
+        ),
     )
 
 
@@ -149,7 +139,6 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if not message:
         return
-    """Check if a highlight is mentioned."""
     if not message.text or not message.from_user:
         return
 
@@ -170,15 +159,7 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     f"\n\n🔗 <a href='{message.link}'>Link</a>",
                     parse_mode=ParseMode.HTML,
                     reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "Delete Highlight",
-                                    callback_data=f"hl:{row['id']},{row['user_id']}",
-                                    style=KeyboardButtonStyle.DANGER,
-                                )
-                            ]
-                        ]
+                        [[delete_highlight_button(row["id"], row["user_id"])]]
                     ),
                 )
             except Forbidden:
@@ -188,14 +169,6 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     "Please start a conversation with me first.",
                     parse_mode=ParseMode.HTML,
                     reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "Start DM",
-                                    url=f"https://t.me/{context.bot.username}",
-                                    style=KeyboardButtonStyle.PRIMARY,
-                                )
-                            ]
-                        ]
+                        [[start_dm_button(context.bot.username)]]
                     ),
                 )

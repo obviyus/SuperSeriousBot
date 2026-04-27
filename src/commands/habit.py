@@ -13,7 +13,10 @@ from utils.decorators import command
 from utils.messages import get_message
 
 
-async def fetch_habit_data(habit_id: int) -> list:
+
+async def habit_message_builder(
+    habit_id: int, context: ContextTypes.DEFAULT_TYPE
+) -> str:
     async with get_db() as conn:
         async with conn.execute(
             """
@@ -29,13 +32,7 @@ async def fetch_habit_data(habit_id: int) -> list:
                 """,
             (habit_id,),
         ) as cursor:
-            return list(await cursor.fetchall())
-
-
-async def habit_message_builder(
-    habit_id: int, context: ContextTypes.DEFAULT_TYPE
-) -> str:
-    rows = await fetch_habit_data(habit_id)
+            rows = list(await cursor.fetchall())
     if not rows:
         return "Habit not found."
 
@@ -90,21 +87,38 @@ async def habit_button_handler(
     action, habit_id_str = query.data.replace("hb:", "").split(",")
     habit_id = int(habit_id_str)
 
-    handlers = {
-        "checkin": handle_check_in,
-        "leave": handle_leave,
-    }
-    handler = handlers.get(action)
-    if not handler:
-        await query.answer("Invalid action.")
-        return
-
-    async with get_db(write=True) as conn:
+    async with get_db() as conn:
         try:
-            await handler(conn, habit_id, query)
-            await conn.commit()
+            if action == "checkin":
+                await conn.execute(
+                    "INSERT OR IGNORE INTO habit_members (habit_id, user_id) VALUES (?, ?)",
+                    (habit_id, query.from_user.id),
+                )
+                today_check = await conn.execute(
+                    """
+                    SELECT 1 FROM habit_log
+                    WHERE habit_id = ? AND user_id = ? AND create_time > DATETIME('now', 'start of day')
+                    """,
+                    (habit_id, query.from_user.id),
+                )
+                if await today_check.fetchone():
+                    await query.answer("You have already checked in today.")
+                else:
+                    await conn.execute(
+                        "INSERT INTO habit_log (habit_id, user_id) VALUES (?, ?)",
+                        (habit_id, query.from_user.id),
+                    )
+                    await query.answer("Checked in successfully!")
+            elif action == "leave":
+                await conn.execute(
+                    "DELETE FROM habit_members WHERE habit_id = ? AND user_id = ?",
+                    (habit_id, query.from_user.id),
+                )
+                await query.answer("You've left the habit.")
+            else:
+                await query.answer("Invalid action.")
+                return
         except Exception as e:
-            await conn.rollback()
             logger.error(f"Error in habit_button_handler: {e!s}")
             await query.answer("An error occurred. Please try again.")
             return
@@ -117,36 +131,6 @@ async def habit_button_handler(
     except Exception as e:
         logger.error(f"Error updating message in habit_button_handler: {e!s}")
 
-
-async def handle_check_in(conn, habit_id, query):
-    await conn.execute(
-        "INSERT OR IGNORE INTO habit_members (habit_id, user_id) VALUES (?, ?)",
-        (habit_id, query.from_user.id),
-    )
-    today_check = await conn.execute(
-        """
-        SELECT 1 FROM habit_log
-        WHERE habit_id = ? AND user_id = ? AND create_time > DATETIME('now', 'start of day')
-        """,
-        (habit_id, query.from_user.id),
-    )
-    already_checked_in = await today_check.fetchone()
-    if already_checked_in:
-        await query.answer("You have already checked in today.")
-    else:
-        await conn.execute(
-            "INSERT INTO habit_log (habit_id, user_id) VALUES (?, ?)",
-            (habit_id, query.from_user.id),
-        )
-        await query.answer("Checked in successfully!")
-
-
-async def handle_leave(conn, habit_id, query):
-    await conn.execute(
-        "DELETE FROM habit_members WHERE habit_id = ? AND user_id = ?",
-        (habit_id, query.from_user.id),
-    )
-    await query.answer("You've left the habit.")
 
 
 async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -182,7 +166,7 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
                     f"Chat not found for habit {group_habit['id']}, removing habit"
                 )
                 # Manually cascade delete dependents to avoid FK constraint failures
-                async with get_db(write=True) as conn:
+                async with get_db() as conn:
                     await conn.execute(
                         "DELETE FROM habit_log WHERE habit_id = ?",
                         (group_habit["id"],),
@@ -195,7 +179,6 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
                         "DELETE FROM habit WHERE id = ?",
                         (group_habit["id"],),
                     )
-                    await conn.commit()
             else:
                 logger.error(f"BadRequest error for habit {group_habit['id']}: {e!s}")
         except Exception as e:
@@ -228,7 +211,7 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("Please enter a number between 1 and 7.")
         return
 
-    async with get_db(write=True) as conn:
+    async with get_db() as conn:
         created = False
         async with conn.execute(
             "SELECT * FROM habit WHERE chat_id = ? AND habit_name = ?",
@@ -255,7 +238,6 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "INSERT OR IGNORE INTO habit_members (habit_id, user_id) VALUES (?, ?)",
             (final_habit_id, message.from_user.id),
         )
-        await conn.commit()
 
     if created:
         await message.reply_text(

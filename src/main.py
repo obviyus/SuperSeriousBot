@@ -5,8 +5,6 @@ import json
 import os
 import re
 import traceback
-from collections.abc import Callable
-from typing import Any, Protocol, cast
 
 import caribou
 from telegram import BotCommand, Update
@@ -42,24 +40,11 @@ from utils.decorators import get_command_meta
 bot_startup_time: float | None = None
 
 
-class CaribouMigrateModule(Protocol):
-    VERSION_TABLE: str
-    _py314_param_patch: bool
-    execute: Callable[..., Any]
-
-
-class CaribouDatabaseType(Protocol):
-    update_version: Callable[..., None]
-
-
 def ensure_caribou_py314_compat() -> None:
     """
     Adjust Caribou's SQLite parameter handling for Python 3.14.
     """
     from caribou import migrate as caribou_migrate
-
-    migrate_module = cast(CaribouMigrateModule, caribou_migrate)
-    migrate_database = cast(CaribouDatabaseType, caribou_migrate.Database)
 
     if getattr(caribou_migrate, "_py314_param_patch", False):
         return
@@ -85,13 +70,13 @@ def ensure_caribou_py314_compat() -> None:
             cursor.close()
 
     def patched_update_version(self, version):
-        sql = f"update {migrate_module.VERSION_TABLE} set version = ?"
+        sql = f"update {caribou_migrate.VERSION_TABLE} set version = ?"
         with original_transaction(self.conn):
             self.conn.execute(sql, (version,))
 
-    migrate_module.execute = patched_execute
-    migrate_database.update_version = patched_update_version
-    migrate_module._py314_param_patch = True
+    caribou_migrate.execute = patched_execute
+    caribou_migrate.Database.update_version = patched_update_version
+    caribou_migrate._py314_param_patch = True
 
 
 async def post_init(application: Application) -> None:
@@ -104,7 +89,7 @@ async def post_init(application: Application) -> None:
 
     bot_startup_time = datetime.datetime.now().timestamp()
 
-    logging_channel_id = get_logging_channel_id()
+    logging_channel_id = config["TELEGRAM"].get("LOGGING_CHANNEL_ID")
     if logging_channel_id:
         logger.info(
             f"Logging to channel ID: {logging_channel_id}"
@@ -115,9 +100,16 @@ async def post_init(application: Application) -> None:
             text=f"📝 Started @{application.bot.username} (ID: {application.bot.id}) at {datetime.datetime.now()}",
         )
 
-    # Set commands for bot instance
-    bot_commands = get_valid_bot_commands(commands.list_of_commands)
-    await application.bot.set_my_commands(bot_commands)
+    await application.bot.set_my_commands(
+        [
+            BotCommand(meta.triggers[0], meta.description)
+            for bot_command in commands.list_of_commands
+            if (meta := get_command_meta(bot_command))
+            and meta.triggers
+            and meta.description
+            and commands.is_command_enabled(bot_command)
+        ]
+    )
 
 
 async def post_shutdown(application: Application) -> None:
@@ -128,24 +120,6 @@ async def post_shutdown(application: Application) -> None:
     await close_db()
     logger.info("Cleanup finished.")
 
-
-def get_valid_bot_commands(command_list: list) -> list[BotCommand]:
-    """
-    Filter and format valid commands for the bot.
-    """
-    valid_commands: list[BotCommand] = []
-    for command in command_list:
-        meta = get_command_meta(command)
-        if not meta or not meta.triggers or not meta.description:
-            continue
-        if not commands.is_command_enabled(command):
-            continue
-        valid_commands.append(BotCommand(meta.triggers[0], meta.description))
-    return valid_commands
-
-
-def get_logging_channel_id() -> int | None:
-    return config["TELEGRAM"].get("LOGGING_CHANNEL_ID")
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -190,7 +164,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         f"<pre>{safe_tb}</pre>"
     )
 
-    logging_channel_id = get_logging_channel_id()
+    logging_channel_id = config["TELEGRAM"].get("LOGGING_CHANNEL_ID")
     if logging_channel_id:
         # Finally, send the message
         await context.bot.send_message(
@@ -200,7 +174,16 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
 
-def setup_application() -> Application:
+def main():
+    ensure_caribou_py314_compat()
+    migrations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "migrations")
+    logger.info(f"Running migrations from {migrations_dir} on database {PRIMARY_DB_PATH}")
+    try:
+        caribou.upgrade(str(PRIMARY_DB_PATH), migrations_dir)
+    except Exception:
+        logger.exception("Error running database migrations")
+        raise
+    logger.info("Database migrations completed successfully.")
     application = (
         ApplicationBuilder()
         .token(config["TELEGRAM"]["TOKEN"])
@@ -210,82 +193,40 @@ def setup_application() -> Application:
         .post_shutdown(post_shutdown)
         .build()
     )
-
     application.add_error_handler(error_handler)
-
     application.add_handlers(
         handlers={
-            # Handle reactions to messages
             0: [
                 MessageHandler(
                     filters.TEXT & ~filters.COMMAND,
                     commands.every_message_action,
-                ),
+                )
             ],
-            # Handle commands
             1: commands.command_handler_list,
-            # Handle sed and button callbacks
             2: [
                 MessageHandler(
-                    filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"),
-                    sed,
+                    filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"), sed
                 ),
-                CallbackQueryHandler(
-                    commands.button_handler,
-                ),
+                CallbackQueryHandler(commands.button_handler),
             ],
-            # Handle message stats and mentions
-            3: [
-                message_stats_handler,
-                mention_handler,
-            ],
-            # Handle highlights
-            4: [
-                MessageHandler(
-                    ~filters.ChatType.PRIVATE,
-                    highlight_worker,
-                ),
-            ],
+            3: [message_stats_handler, mention_handler],
+            4: [MessageHandler(~filters.ChatType.PRIVATE, highlight_worker)],
         }
     )
-
     job_queue = application.job_queue
     if job_queue is None:
         raise RuntimeError(
             "Job queue not initialized. Install python-telegram-bot[job-queue]."
         )
-
-    # Notification workers
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
     job_queue.run_repeating(worker_reminder, interval=60, first=10)
-    # FTS5 optimize: runs every 6 hours instead of hourly rebuild
     job_queue.run_repeating(optimize_fts5, interval=21600, first=60)
-
-    # Reset command usage count every day at 12:00 UTC
     job_queue.run_daily(command_limits.reset_command_limits, time=datetime.time(18, 30))
+    if config["TELEGRAM"]["UPDATER"] == "polling":
+        logger.info("Using polling...")
+        application.run_polling(drop_pending_updates=False)
+        return
 
-    return application
-
-
-def run_migrations() -> None:
-    # AIDEV-NOTE: Migrations are in the project root, not parent directory
-    # This works for both Docker (/app/migrations) and local development
-    migrations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "migrations")
-    logger.info(f"Running migrations from {migrations_dir} on database {PRIMARY_DB_PATH}")
-    try:
-        caribou.upgrade(str(PRIMARY_DB_PATH), migrations_dir)
-    except Exception:
-        logger.exception("Error running database migrations")
-        raise
-    logger.info("Database migrations completed successfully.")
-
-
-def run_polling(application: Application) -> None:
-    logger.info("Using polling...")
-    application.run_polling(drop_pending_updates=False)
-
-
-def run_webhook(application: Application) -> None:
     webhook_url = config["TELEGRAM"]["WEBHOOK_URL"]
     if not webhook_url:
         raise RuntimeError("WEBHOOK_URL must be set when UPDATER is 'webhook'")
@@ -296,19 +237,6 @@ def run_webhook(application: Application) -> None:
         port=port,
         webhook_url=webhook_url,
     )
-
-
-RUNNERS: dict[str, Callable[[Application], None]] = {
-    "polling": run_polling,
-    "webhook": run_webhook,
-}
-
-
-def main():
-    ensure_caribou_py314_compat()
-    run_migrations()
-    application = setup_application()
-    RUNNERS[config["TELEGRAM"]["UPDATER"]](application)
 
 
 if __name__ == "__main__":

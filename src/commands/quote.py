@@ -13,6 +13,14 @@ from utils.decorators import command
 from utils.messages import get_message
 
 
+async def _fetch_random_quote(conn, query_conditions: str, params: list[int], chat_id: int):
+    async with conn.execute(
+        f"SELECT * FROM quote_db {query_conditions} AND id NOT IN (SELECT quote_id FROM quote_recent_history WHERE chat_id = ?) ORDER BY RANDOM() LIMIT 1;",
+        (*params, chat_id),
+    ) as cursor:
+        return await cursor.fetchone()
+
+
 @command(
     triggers=["addquote"],
     usage="/addquote",
@@ -24,9 +32,8 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message or not message.from_user:
         return
-    """Save chat message to QuotesDB."""
     if not message.reply_to_message or not message.reply_to_message.from_user:
-        await commands.usage_string(message, add_quote) if message else None
+        await commands.usage_string(message, add_quote)
         return
 
     if message.has_protected_content:
@@ -36,7 +43,6 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     quote_message = message.reply_to_message
-    # quote_message.from_user is guaranteed to be non-None due to check on line 26
     assert quote_message.from_user is not None
 
     async with get_db() as conn:
@@ -53,17 +59,14 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 return
 
-    try:
-        forwarded_message = await quote_message.forward(
-            chat_id=config["TELEGRAM"]["QUOTE_CHANNEL_ID"],
-        )
-    except BadRequest:
-        await message.reply_text(
-            "This message cannot be stored.",
-        )
-        return
+        try:
+            forwarded_message = await quote_message.forward(
+                chat_id=config["TELEGRAM"]["QUOTE_CHANNEL_ID"],
+            )
+        except BadRequest:
+            await message.reply_text("This message cannot be stored.")
+            return
 
-    async with get_db(write=True) as conn:
         await conn.execute(
             """
             INSERT INTO quote_db
@@ -78,7 +81,6 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 forwarded_message.message_id,
             ),
         )
-        await conn.commit()
 
     await message.reply_text(
         f"Quote added by @{await utils.get_username(message.from_user.id, context)}.",
@@ -96,83 +98,40 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message:
         return
-    """Get a quote from QuotesDB."""
-    async with get_db(write=True) as conn:
+    async with get_db() as conn:
         params = [message.chat_id]
         query_conditions = "WHERE chat_id = ?"
+        clear_history_sql = "DELETE FROM quote_recent_history WHERE chat_id = ?;"
+        clear_history_params = (message.chat_id,)
+        no_quote_text = "No quotes found in this chat."
 
         if context.args:
             author_username = context.args[0].replace("@", "")
             author_user_id = await utils.get_user_id_from_username(author_username)
-
             if not author_user_id:
                 await message.reply_text(
                     f"@{escape(author_username)} not found.",
                     parse_mode=ParseMode.HTML,
                 )
                 return
-
             query_conditions += " AND message_user_id = ?"
             params.append(author_user_id)
-        else:
-            author_username = None
+            clear_history_sql = """
+                DELETE FROM quote_recent_history
+                WHERE chat_id = ? AND quote_id IN (
+                    SELECT id FROM quote_db WHERE message_user_id = ?
+                );
+                """
+            clear_history_params = (message.chat_id, author_user_id)
+            no_quote_text = f"No quotes found by @{escape(author_username)}."
 
-        # Try to get a quote excluding recent history
-        # We use a nested query to check for exclusion to keep the main query clean
-        exclusion_clause = """
-            AND id NOT IN (
-                SELECT quote_id FROM quote_recent_history
-                WHERE chat_id = ?
-            )
-        """
-
-        # First attempt: with history exclusion
-        async with conn.execute(
-            f"SELECT * FROM quote_db {query_conditions} {exclusion_clause} ORDER BY RANDOM() LIMIT 1;",
-            (*params, message.chat_id),
-        ) as cursor:
-            row = await cursor.fetchone()
-
-        # Second attempt: if no fresh quotes, reshuffle (clear history for this criteria) and try again
+        row = await _fetch_random_quote(conn, query_conditions, params, message.chat_id)
         if not row:
-            if author_username:
-                # Clear history only for this user in this chat
-                await conn.execute(
-                    """
-                    DELETE FROM quote_recent_history
-                    WHERE chat_id = ? AND quote_id IN (
-                        SELECT id FROM quote_db WHERE message_user_id = ?
-                    );
-                    """,
-                    (message.chat_id, author_user_id),
-                )
-            else:
-                # Clear all history for this chat
-                await conn.execute(
-                    """
-                    DELETE FROM quote_recent_history WHERE chat_id = ?;
-                    """,
-                    (message.chat_id,),
-                )
-
-            # Retry the fetch with the same query (history is now clear for this scope)
-            async with conn.execute(
-                f"SELECT * FROM quote_db {query_conditions} {exclusion_clause} ORDER BY RANDOM() LIMIT 1;",
-                (*params, message.chat_id),
-            ) as cursor:
-                row = await cursor.fetchone()
+            await conn.execute(clear_history_sql, clear_history_params)
+            row = await _fetch_random_quote(conn, query_conditions, params, message.chat_id)
 
         if not row:
-            if author_username:
-                await message.reply_text(
-                    f"No quotes found by @{escape(author_username)}.",
-                    parse_mode=ParseMode.HTML,
-                )
-            else:
-                await message.reply_text(
-                    "No quotes found in this chat.",
-                    parse_mode=ParseMode.HTML,
-                )
+            await message.reply_text(no_quote_text, parse_mode=ParseMode.HTML)
             return
 
         # Record this quote in recent history
@@ -182,7 +141,6 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             """,
             (message.chat_id, row["id"]),
         )
-        await conn.commit()
 
         try:
             await message.chat.forward_from(
@@ -206,4 +164,3 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 """,
                 (row["id"],),
             )
-            await conn.commit()

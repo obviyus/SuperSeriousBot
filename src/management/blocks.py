@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
@@ -8,6 +8,71 @@ from utils.decorators import command
 from utils.messages import get_message
 
 
+async def _update_blocklist(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    remove: bool,
+) -> None:
+    message = get_message(update)
+    if not message:
+        return
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        await message.reply_text("❌ This command is only available to admins")
+        return
+    if len(context.args) < 2:
+        await message.reply_text(
+            "Usage: /unblock <user_id> <command>"
+            if remove
+            else "Usage: /block <user_id> <command>"
+        )
+        return
+
+    try:
+        user_id = int(context.args[0])
+    except ValueError:
+        await message.reply_text("❌ Invalid user ID")
+        return
+
+    command = context.args[1].lower()
+
+    try:
+        async with get_db() as conn:
+            if remove:
+                result = await conn.execute(
+                    "DELETE FROM command_blocklist WHERE user_id = ? AND command = ?",
+                    (user_id, command),
+                )
+            else:
+                await conn.execute(
+                    """
+                    INSERT INTO command_blocklist (user_id, command, blocked_by)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(user_id, command) DO NOTHING
+                    """,
+                    (user_id, command, update.effective_user.id),
+                )
+    except Exception as e:
+        await message.reply_text(f"❌ Error: {e!s}")
+        return
+
+    if remove:
+        await message.reply_text(
+            (
+                f"✅ User <code>{user_id}</code> unblocked from /{command}"
+                if result.rowcount > 0
+                else f"❓ User <code>{user_id}</code> was not blocked from /{command}"
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    await message.reply_text(
+        f"✅ User <code>{user_id}</code> blocked from using /{command}",
+        parse_mode=ParseMode.HTML,
+    )
+
+
 @command(
     triggers=["block"],
     usage="/block <user_id> <command>",
@@ -15,41 +80,7 @@ from utils.messages import get_message
     description="Block a user from using specific commands",
 )
 async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = get_message(update)
-    if not message:
-        return
-    if not update.effective_user or not is_admin(update.effective_user.id):
-        await message.reply_text("❌ This command is only available to admins")
-        return
-
-    if not context.args or len(context.args) < 2:
-        await message.reply_text("Usage: /block <user_id> <command>")
-        return
-
-    try:
-        user_id = int(context.args[0])
-        command = context.args[1].lower()
-
-        async with get_db(write=True) as conn:
-            await conn.execute(
-                """
-                INSERT INTO command_blocklist (user_id, command, blocked_by)
-                VALUES (?, ?, ?)
-                ON CONFLICT(user_id, command) DO NOTHING
-                """,
-                (user_id, command, update.effective_user.id),
-            )
-            await conn.commit()
-
-        await message.reply_text(
-            f"✅ User <code>{user_id}</code> blocked from using /{command}",
-            parse_mode=ParseMode.HTML,
-        )
-
-    except ValueError:
-        await message.reply_text("❌ Invalid user ID")
-    except Exception as e:
-        await message.reply_text(f"❌ Error: {e!s}")
+    await _update_blocklist(update, context, remove=False)
 
 
 @command(
@@ -59,43 +90,7 @@ async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     description="Unblock a user from using specific commands",
 )
 async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = get_message(update)
-    if not message:
-        return
-    if not update.effective_user or not is_admin(update.effective_user.id):
-        await message.reply_text("❌ This command is only available to admins")
-        return
-
-    if not context.args or len(context.args) < 2:
-        await message.reply_text("Usage: /unblock <user_id> <command>")
-        return
-
-    try:
-        user_id = int(context.args[0])
-        command = context.args[1].lower()
-
-        async with get_db(write=True) as conn:
-            result = await conn.execute(
-                "DELETE FROM command_blocklist WHERE user_id = ? AND command = ?",
-                (user_id, command),
-            )
-            await conn.commit()
-
-            if result.rowcount > 0:
-                await message.reply_text(
-                    f"✅ User <code>{user_id}</code> unblocked from /{command}",
-                    parse_mode=ParseMode.HTML,
-                )
-            else:
-                await message.reply_text(
-                    f"❓ User <code>{user_id}</code> was not blocked from /{command}",
-                    parse_mode=ParseMode.HTML,
-                )
-
-    except ValueError:
-        await message.reply_text("❌ Invalid user ID")
-    except Exception as e:
-        await message.reply_text(f"❌ Error: {e!s}")
+    await _update_blocklist(update, context, remove=True)
 
 
 @command(

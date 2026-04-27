@@ -45,7 +45,7 @@ class Config:
 
 
 try:
-    admin_data = [admin for admin in os.environ.get("ADMINS", "").split(" ") if admin]
+    admin_data = os.environ.get("ADMINS", "").split()
     token = os.environ.get("TELEGRAM_TOKEN")
     if not token:
         raise RuntimeError("TELEGRAM_TOKEN must be set")
@@ -53,14 +53,13 @@ try:
     updater = os.environ.get("UPDATER") or "polling"
     webhook_base = os.environ.get("WEBHOOK_URL")
     webhook_url = f"{webhook_base}/{token}" if webhook_base else None
-
-    logging_channel_value = os.environ.get("LOGGING_CHANNEL_ID")
-    logging_channel_id = int(logging_channel_value) if logging_channel_value else None
+    logging_channel_id = (
+        int(value) if (value := os.environ.get("LOGGING_CHANNEL_ID")) else None
+    )
 
     quote_channel_value = os.environ.get("QUOTE_CHANNEL_ID")
     if not quote_channel_value:
         raise RuntimeError("QUOTE_CHANNEL_ID must be set")
-    quote_channel_id = int(quote_channel_value)
 
     _config_model = Config(
         TELEGRAM=TelegramConfig(
@@ -69,17 +68,10 @@ try:
             UPDATER=updater,
             WEBHOOK_URL=webhook_url,
             LOGGING_CHANNEL_ID=logging_channel_id,
-            QUOTE_CHANNEL_ID=quote_channel_id,
+            QUOTE_CHANNEL_ID=int(quote_channel_value),
         ),
         API=APIConfig(
-            COBALT_URL=os.environ.get("COBALT_URL", ""),
-            GIPHY_API_KEY=os.environ.get("GIPHY_API_KEY", ""),
-            GOODREADS_API_KEY=os.environ.get("GOODREADS_API_KEY", ""),
-            NANO_GPT_API_KEY=os.environ.get("NANO_GPT_API_KEY", ""),
-            OPENROUTER_API_KEY=os.environ.get("OPENROUTER_API_KEY", ""),
-            WAQI_API_KEY=os.environ.get("WAQI_API_KEY", ""),
-            WEATHERAPI_API_KEY=os.environ.get("WEATHERAPI_API_KEY", ""),
-            WOLFRAM_APP_ID=os.environ.get("WOLFRAM_APP_ID", ""),
+            **{name: os.environ.get(name, "") for name in APIConfig.__annotations__}
         ),
     )
     logger.info("Valid configuration found.")

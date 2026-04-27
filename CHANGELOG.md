@@ -4,6 +4,7 @@
 ### Bug Fixes
 
 * reformat with ruff ([ff03937](https://github.com/obviyus/SuperSeriousBot/commit/ff03937f4d2bf717210b45bae6eca6b5a2628d26))
+* simplify Python command paths and fix quote saving regressions (#323) Thanks @obviyus
 
 
 ### Features
