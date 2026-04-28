@@ -161,8 +161,8 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ):
         return
 
-    openrouter_api_key = config["API"].get("OPENROUTER_API_KEY")
-    if not openrouter_api_key:
+    api_key = config["API"].get("OPENROUTER_API_KEY")
+    if not api_key:
         await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
         return
 
