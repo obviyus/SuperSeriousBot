@@ -88,7 +88,7 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     target = url.geturl() if hasattr(url, "geturl") else str(url)
-    endpoint = (config["API"].get("COBALT_URL") or "http://100.69.132.40:9000").rstrip("/") + "/"
+    endpoint = (config.API.COBALT_URL or "http://100.69.132.40:9000").rstrip("/") + "/"
 
     try:
         async with aiohttp.ClientSession() as session:

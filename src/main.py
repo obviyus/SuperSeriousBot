@@ -89,7 +89,7 @@ async def post_init(application: Application) -> None:
 
     bot_startup_time = datetime.datetime.now().timestamp()
 
-    logging_channel_id = config["TELEGRAM"].get("LOGGING_CHANNEL_ID")
+    logging_channel_id = config.TELEGRAM.LOGGING_CHANNEL_ID
     if logging_channel_id:
         logger.info(
             f"Logging to channel ID: {logging_channel_id}"
@@ -164,7 +164,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         f"<pre>{safe_tb}</pre>"
     )
 
-    logging_channel_id = config["TELEGRAM"].get("LOGGING_CHANNEL_ID")
+    logging_channel_id = config.TELEGRAM.LOGGING_CHANNEL_ID
     if logging_channel_id:
         # Finally, send the message
         await context.bot.send_message(
@@ -186,7 +186,7 @@ def main():
     logger.info("Database migrations completed successfully.")
     application = (
         ApplicationBuilder()
-        .token(config["TELEGRAM"]["TOKEN"])
+        .token(config.TELEGRAM.TOKEN)
         .rate_limiter(AIORateLimiter(max_retries=10))
         .concurrent_updates(True)
         .post_init(post_init)
@@ -222,12 +222,12 @@ def main():
     job_queue.run_repeating(worker_reminder, interval=60, first=10)
     job_queue.run_repeating(optimize_fts5, interval=21600, first=60)
     job_queue.run_daily(command_limits.reset_command_limits, time=datetime.time(18, 30))
-    if config["TELEGRAM"]["UPDATER"] == "polling":
+    if config.TELEGRAM.UPDATER == "polling":
         logger.info("Using polling...")
         application.run_polling(drop_pending_updates=False)
         return
 
-    webhook_url = config["TELEGRAM"]["WEBHOOK_URL"]
+    webhook_url = config.TELEGRAM.WEBHOOK_URL
     if not webhook_url:
         raise RuntimeError("WEBHOOK_URL must be set when UPDATER is 'webhook'")
     port = int(os.environ.get("PORT", "8443"))

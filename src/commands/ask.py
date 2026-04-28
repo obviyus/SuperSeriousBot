@@ -4,7 +4,6 @@ import io
 import mimetypes
 import time
 from datetime import timedelta
-from typing import Any
 
 from telegram import Message, Update
 from telegram.constants import ChatType
@@ -14,6 +13,7 @@ from telegram.ext import ContextTypes
 import commands
 from commands.ai import (
     OPENROUTER_API_URL,
+    JsonObject,
     first_message_content,
     openrouter_api_key,
     openrouter_headers,
@@ -161,14 +161,14 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ):
         return
 
-    api_key = config["API"].get("OPENROUTER_API_KEY")
+    api_key = config.API.OPENROUTER_API_KEY
     if not api_key:
         await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
         return
 
     query: str = " ".join(context.args) if context.args else ""
-    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
-    user_content: list[dict[str, Any]] = []
+    messages: list[JsonObject] = [{"role": "system", "content": system_prompt}]
+    user_content: list[JsonObject] = []
 
     reply = message.reply_to_message
     reply_context = get_reply_context(reply)

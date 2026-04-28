@@ -1,6 +1,5 @@
 import json
 from collections.abc import AsyncIterator
-from typing import Any
 
 import aiohttp
 
@@ -8,6 +7,7 @@ from commands.model import get_model, get_thinking, normalize_model_name
 from config.options import config
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+type JsonObject = dict[str, object]
 
 
 def openrouter_headers(api_key: str) -> dict[str, str]:
@@ -20,19 +20,19 @@ def openrouter_headers(api_key: str) -> dict[str, str]:
 
 
 def openrouter_api_key() -> str:
-    return config["API"]["OPENROUTER_API_KEY"]
+    return config.API.OPENROUTER_API_KEY
 
 
 async def openrouter_payload(
     command: str,
-    messages: list[dict[str, Any]],
+    messages: list[JsonObject],
     *,
     max_tokens: int | None = None,
     stream: bool = False,
     modalities: list[str] | None = None,
-) -> dict[str, Any]:
+) -> JsonObject:
     model_name = normalize_model_name(await get_model(command))
-    payload: dict[str, Any] = {"model": model_name, "messages": messages}
+    payload: JsonObject = {"model": model_name, "messages": messages}
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
     if stream:
@@ -48,15 +48,16 @@ async def openrouter_payload(
 
 async def openrouter_json(
     session: aiohttp.ClientSession,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
+    payload: JsonObject,
+) -> JsonObject:
     async with session.post(
         OPENROUTER_API_URL,
         headers=openrouter_headers(openrouter_api_key()),
         json=payload,
     ) as response:
         response.raise_for_status()
-        return await response.json()
+        data = await response.json()
+    return data if isinstance(data, dict) else {}
 
 
 async def stream_openrouter_deltas(response: aiohttp.ClientResponse) -> AsyncIterator[str]:
@@ -81,10 +82,10 @@ async def stream_openrouter_deltas(response: aiohttp.ClientResponse) -> AsyncIte
                 yield content
 
 
-def first_message_content(response: dict[str, Any]) -> Any:
+def first_message_content(response: JsonObject) -> object:
     choices = response.get("choices")
     choice = choices[0] if isinstance(choices, list) and choices else None
-    if not isinstance(choice, dict):
-        return None
-    message = choice.get("message")
-    return message.get("content") if isinstance(message, dict) else None
+    match choice:
+        case {"message": {"content": content}}:
+            return content
+    return None

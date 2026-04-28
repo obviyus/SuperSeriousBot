@@ -40,8 +40,8 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
         query = f'{float(row["latitude"])},{float(row["longitude"])}'
 
-    weatherapi_token = config["API"].get("WEATHERAPI_API_KEY")
-    waqi_token = config["API"].get("WAQI_API_KEY")
+    weatherapi_token = config.API.WEATHERAPI_API_KEY
+    waqi_token = config.API.WAQI_API_KEY
     if not weatherapi_token or not waqi_token:
         await message.reply_text(
             "Could not fetch weather data. Check WEATHERAPI_API_KEY and WAQI_API_KEY."

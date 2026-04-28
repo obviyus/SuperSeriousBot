@@ -34,7 +34,7 @@ async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(message, book)
         return
 
-    params = {"q": " ".join(context.args), "key": config["API"]["GOODREADS_API_KEY"]}
+    params = {"q": " ".join(context.args), "key": config.API.GOODREADS_API_KEY}
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(GOODREADS_API["SEARCH"], params=params) as response:
@@ -49,7 +49,7 @@ async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
             async with session.get(
                 GOODREADS_API["BOOK"],
-                params={"id": book_id, "key": config["API"]["GOODREADS_API_KEY"]},
+                params={"id": book_id, "key": config.API.GOODREADS_API_KEY},
             ) as response:
                 if response.status != 200:
                     await message.reply_text("❌ No book found matching your query.")

@@ -1,6 +1,6 @@
 import random
 import traceback
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Callable, Coroutine
 from functools import wraps
 
 from telegram import Message, Update
@@ -13,7 +13,7 @@ from config.db import get_db
 from config.options import config
 from utils.admin import is_admin
 from utils.concurrency import schedule_background_task
-from utils.decorators import CommandMeta, get_command_meta
+from utils.decorators import CommandFunc, CommandMeta, get_command_meta
 from utils.messages import get_message
 
 REACTION_MAP = {
@@ -179,9 +179,7 @@ def command_wrapper(
     return wrapped_command
 
 
-def validate_command_meta(
-    command: Callable[..., Awaitable[None]], meta: CommandMeta
-) -> None:
+def validate_command_meta(command: CommandFunc, meta: CommandMeta) -> None:
     missing_fields = [
         field
         for field in ("triggers", "description", "usage", "example")
@@ -196,19 +194,19 @@ def validate_command_meta(
         )
 
 
-def is_command_enabled(command: Callable[..., Awaitable[None]]) -> bool:
+def is_command_enabled(command: CommandFunc) -> bool:
     meta = get_command_meta(command)
     required_key = meta.api_key if meta else None
     if not required_key:
         return True
 
     return bool(
-        config.get("API", {}).get(required_key)
-        or config.get("TELEGRAM", {}).get(required_key)
+        getattr(config.API, required_key, "")
+        or getattr(config.TELEGRAM, required_key, "")
     )
 
 
-async def usage_string(message: Message, func: Callable[..., Awaitable[None]]) -> None:
+async def usage_string(message: Message, func: CommandFunc) -> None:
     meta = get_command_meta(func)
     if not meta:
         module_name = getattr(func, "__module__", func.__class__.__module__)

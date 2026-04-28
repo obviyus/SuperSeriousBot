@@ -107,7 +107,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                     return
 
                 headers = {"Content-Type": "application/json"}
-                nano_api_key = config["API"].get("NANO_GPT_API_KEY")
+                nano_api_key = config.API.NANO_GPT_API_KEY
                 if nano_api_key:
                     headers["x-api-key"] = nano_api_key
 
@@ -143,7 +143,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
         try:
             headers = {"Content-Type": "application/json"}
-            nano_api_key = config["API"].get("NANO_GPT_API_KEY")
+            nano_api_key = config.API.NANO_GPT_API_KEY
             if nano_api_key:
                 headers["x-api-key"] = nano_api_key
 

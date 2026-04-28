@@ -1,6 +1,6 @@
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any, Protocol, cast
+from typing import Protocol, cast
 
 
 @dataclass(slots=True)
@@ -13,7 +13,7 @@ class CommandMeta:
     deprecated: str | None = None
 
 
-type CommandFunc = Callable[..., Any]
+type CommandFunc = Callable[..., Coroutine[object, object, None]]
 
 
 class CommandWithMeta(Protocol):
@@ -35,7 +35,7 @@ def _ensure_command_meta(func: CommandFunc) -> CommandMeta:
     return meta
 
 
-def _set_command_attr(func: CommandFunc, attr_name: str, attr_value: Any) -> None:
+def _set_command_attr(func: CommandFunc, attr_name: str, attr_value: object) -> None:
     setattr(func, attr_name, attr_value)
     meta = _ensure_command_meta(func)
     if hasattr(meta, attr_name):
@@ -54,7 +54,7 @@ def command(
     description: str,
     api_key: str | None = None,
     deprecated: str | None = None,
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+) -> Callable[[CommandFunc], CommandFunc]:
     """Attach all command metadata in one decorator."""
     if isinstance(triggers, str):
         normalized_triggers = [triggers]

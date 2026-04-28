@@ -61,7 +61,7 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         try:
             forwarded_message = await quote_message.forward(
-                chat_id=config["TELEGRAM"]["QUOTE_CHANNEL_ID"],
+                chat_id=config.TELEGRAM.QUOTE_CHANNEL_ID,
             )
         except BadRequest:
             await message.reply_text("This message cannot be stored.")
@@ -144,7 +144,7 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         try:
             await message.chat.forward_from(
-                config["TELEGRAM"]["QUOTE_CHANNEL_ID"], row["forwarded_message_id"]
+                config.TELEGRAM.QUOTE_CHANNEL_ID, row["forwarded_message_id"]
             )
         except BadRequest:
             await message.reply_text(

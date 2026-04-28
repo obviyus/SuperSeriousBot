@@ -13,4 +13,4 @@ def is_admin(user_id: int | str) -> bool:
         bool: True if user is admin, False otherwise
     """
     logger.debug("Admin check for user_id=%s", user_id)
-    return str(user_id) in config["TELEGRAM"]["ADMINS"]
+    return str(user_id) in config.TELEGRAM.ADMINS

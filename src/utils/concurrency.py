@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Coroutine
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from config.logger import logger
 
@@ -12,7 +12,7 @@ _T = TypeVar("_T")
 
 
 def schedule_background_task[T](
-    coro: Coroutine[Any, Any, T],
+    coro: Coroutine[object, object, T],
     label: str,
 ) -> None:
     """Fire-and-forget a coroutine while bubbling failures to the logs."""

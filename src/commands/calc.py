@@ -35,7 +35,7 @@ async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 WOLFRAM_SHORT_QUERY,
-                params={"i": query, "appid": config["API"]["WOLFRAM_APP_ID"]},
+                params={"i": query, "appid": config.API.WOLFRAM_APP_ID},
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status == 200:

@@ -1,15 +1,11 @@
 import os
-from dataclasses import asdict, dataclass, field
-from typing import Any
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
-import utils
 from config.logger import logger
 
 load_dotenv()
-
-config: dict[str, Any]
 
 
 @dataclass
@@ -75,13 +71,13 @@ try:
         ),
     )
     logger.info("Valid configuration found.")
-    config = utils.scrub_dict(asdict(_config_model))
+    config = _config_model
     logger.info(
         "Config summary: updater=%s admins=%d quote_channel_id=%s logging_channel=%s",
-        _config_model.TELEGRAM.UPDATER,
-        len(_config_model.TELEGRAM.ADMINS),
-        bool(_config_model.TELEGRAM.QUOTE_CHANNEL_ID),
-        bool(_config_model.TELEGRAM.LOGGING_CHANNEL_ID),
+        config.TELEGRAM.UPDATER,
+        len(config.TELEGRAM.ADMINS),
+        bool(config.TELEGRAM.QUOTE_CHANNEL_ID),
+        bool(config.TELEGRAM.LOGGING_CHANNEL_ID),
     )
 except ValueError as e:
     logger.error("Invalid configuration found.")

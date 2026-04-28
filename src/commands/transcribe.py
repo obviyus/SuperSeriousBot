@@ -107,7 +107,7 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await commands.usage_string(message, transcribe)
         return
 
-    api_key_value = config["API"].get("OPENROUTER_API_KEY")
+    api_key_value = config.API.OPENROUTER_API_KEY
     if not api_key_value:
         await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
         return

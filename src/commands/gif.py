@@ -25,7 +25,7 @@ async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     async with aiohttp.ClientSession() as session:
         async with session.get(
             GIPHY_API_URL,
-            params={"api_key": config["API"]["GIPHY_API_KEY"]},
+            params={"api_key": config.API.GIPHY_API_KEY},
         ) as response:
             if response.status != 200:
                 await message.reply_text(
