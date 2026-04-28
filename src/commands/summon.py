@@ -186,6 +186,8 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 (group_name, update.effective_chat.id, update.effective_user.id),
             )
             group_id = cursor.lastrowid
+            if group_id is None:
+                raise RuntimeError("Failed to create summon group.")
             await conn.execute(
                 "INSERT INTO summon_group_members (group_id, user_id) VALUES (?, ?)",
                 (group_id, update.effective_user.id),

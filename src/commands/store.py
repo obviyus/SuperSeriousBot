@@ -8,7 +8,6 @@ from utils.decorators import command
 from utils.messages import get_message
 
 
-
 @command(
     triggers=["set"],
     usage="/set [key]",

@@ -1,10 +1,8 @@
 import asyncio
 import base64
 import io
-import json
 import mimetypes
 import time
-from collections.abc import AsyncIterator
 from datetime import timedelta
 from typing import Any
 
@@ -14,15 +12,21 @@ from telegram.error import BadRequest, RetryAfter
 from telegram.ext import ContextTypes
 
 import commands
-from commands.model import get_model, get_thinking, normalize_model_name, openrouter_headers
-from config.db import get_db
+from commands.ai import (
+    OPENROUTER_API_URL,
+    first_message_content,
+    openrouter_api_key,
+    openrouter_headers,
+    openrouter_json,
+    openrouter_payload,
+    stream_openrouter_deltas,
+)
+from commands.runtime import ensure_command_available
 from config.options import config
-from utils.admin import is_admin
 from utils.decorators import command
 from utils.media import get_sticker_image_bytes
 from utils.messages import get_message, reply_markdown_or_plain
 
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 TELEGRAM_MESSAGE_LIMIT = 4096
 MIN_STREAM_EDIT_INTERVAL_SECONDS = 0.8
 ASK_WORD_LIMIT = 1000
@@ -80,49 +84,6 @@ async def load_reply_image(
     return None
 
 
-async def ensure_command_available(
-    message: Message,
-    user_id: int,
-    command: str,
-    *,
-    allow_private_whitelist: bool = False,
-) -> bool:
-    if is_admin(user_id):
-        return True
-
-    whitelist_chat_id = (
-        user_id if message.chat.type == ChatType.PRIVATE else message.chat.id
-    )
-    if message.chat.type == ChatType.PRIVATE and not allow_private_whitelist:
-        await message.reply_text("This command is not available in private chats.")
-        return False
-
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-                SELECT 1
-                FROM command_whitelist
-                WHERE command = ?
-                AND (
-                    (whitelist_type = 'chat' AND whitelist_id = ?)
-                    OR (whitelist_type = 'user' AND whitelist_id = ?)
-                );
-                """,
-            (command, whitelist_chat_id, user_id),
-        ) as cursor:
-            if await cursor.fetchone():
-                return True
-
-    if message.chat.type == ChatType.PRIVATE:
-        await message.reply_text("This command is not available in private chats.")
-        return False
-    await message.reply_text(
-        "This command is not available in this chat. "
-        "Please contact an admin to whitelist this command."
-    )
-    return False
-
-
 def get_stream_cutoff(is_group: bool, content_length: int) -> int:
     for min_length, group_cutoff, private_cutoff in (
         (1000, 180, 90),
@@ -132,31 +93,6 @@ def get_stream_cutoff(is_group: bool, content_length: int) -> int:
         if content_length > min_length:
             return group_cutoff if is_group else private_cutoff
     return 50 if is_group else 15
-
-
-async def stream_openrouter_deltas(
-    response: Any,
-) -> AsyncIterator[str]:
-    buffer = ""
-    async for chunk in response.content.iter_chunked(1024):
-        buffer += chunk.decode("utf-8", errors="ignore")
-        while "\n" in buffer:
-            line, buffer = buffer.split("\n", 1)
-            if not (line := line.strip()).startswith("data:"):
-                continue
-            if (data := line[5:].strip()) == "[DONE]":
-                return
-            try:
-                payload = json.loads(data)
-            except json.JSONDecodeError:
-                continue
-            choices = payload.get("choices")
-            first_choice = choices[0] if isinstance(choices, list) and choices else None
-            delta = first_choice.get("delta") if isinstance(first_choice, dict) else None
-            content = delta.get("content") if isinstance(delta, dict) else None
-            if content:
-                yield content
-
 
 
 async def edit_stream_reply(bot, chat_id: int, message_id: int, text: str) -> bool:
@@ -281,38 +217,19 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         import aiohttp
 
-        model_name = normalize_model_name(await get_model("ask"))
-        thinking_level = await get_thinking()
-        headers = openrouter_headers(openrouter_api_key)
-        payload: dict[str, Any] = {"model": model_name, "messages": messages}
-
-        # AIDEV-NOTE: plugins field only works for xAI models (enables X Search)
-        if model_name.startswith("x-ai/"):
-            payload["plugins"] = [{"id": "web", "engine": "native"}]
-
-        # AIDEV-NOTE: Add reasoning parameter for OpenRouter thinking tokens
-        # See: https://openrouter.ai/docs/use-cases/reasoning-tokens
-        if thinking_level != "none":
-            payload["reasoning"] = {"effort": thinking_level}
+        headers = openrouter_headers(openrouter_api_key())
+        payload = await openrouter_payload("ask", messages)
 
         async with aiohttp.ClientSession() as session:
             if reply_image:
-                async with session.post(
-                    OPENROUTER_API_URL, headers=headers, json=payload
-                ) as resp:
-                    resp.raise_for_status()
-                    response = await resp.json()
-
-                choices = response.get("choices")
-                choice = choices[0] if isinstance(choices, list) and choices else None
-                if not isinstance(choice, dict):
+                response = await openrouter_json(session, payload)
+                text = first_message_content(response)
+                if not isinstance(text, str):
                     await message.reply_text(
                         "No response received from AI. Please try again."
                     )
                     return
 
-                ai_message = choice.get("message")
-                text = ai_message.get("content") if isinstance(ai_message, dict) else ""
                 await reply_markdown_or_plain(
                     message,
                     text,
@@ -321,7 +238,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 return
 
-            payload["stream"] = True
+            payload = await openrouter_payload("ask", messages, stream=True)
             async with session.post(
                 OPENROUTER_API_URL, headers=headers, json=payload
             ) as resp:
@@ -445,11 +362,10 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         image_url = image_data_url(*reply_image)
 
-        model_name = normalize_model_name(await get_model("edit"))
-        headers = openrouter_headers(config["API"]["OPENROUTER_API_KEY"])
-        payload = {
-            "model": model_name,
-            "messages": [
+        headers = openrouter_headers(openrouter_api_key())
+        payload = await openrouter_payload(
+            "edit",
+            [
                 {
                     "role": "user",
                     "content": [
@@ -461,8 +377,8 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     ],
                 }
             ],
-            "modalities": ["image", "text"],
-        }
+            modalities=["image", "text"],
+        )
 
         async with aiohttp.ClientSession() as session:
             async with session.post(

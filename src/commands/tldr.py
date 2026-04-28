@@ -7,14 +7,12 @@ from telegram.ext import ContextTypes
 
 import commands
 import utils
-from commands.model import get_model, normalize_model_name, openrouter_headers
+from commands.ai import first_message_content, openrouter_json, openrouter_payload
 from config.db import get_db
 from config.logger import logger
 from config.options import config
 from utils.decorators import command
 from utils.messages import get_message, reply_markdown_or_plain
-
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 def extract_youtube_video_id(url: str) -> str | None:
@@ -49,8 +47,6 @@ async def summarize_text(text: str, context_hint: str = "") -> str:
     """Summarize text using AI."""
     import aiohttp
 
-    model_name = normalize_model_name(await get_model("tldr"))
-
     context = f" (source: {context_hint})" if context_hint else ""
     system_content = f"""Summarize the following content{context} as a short bullet-point list.
 
@@ -61,24 +57,19 @@ Rules:
 - Skip fluff, intros, and filler
 - No headers or extra formatting, just bullets"""
 
-    headers = openrouter_headers(config["API"]["OPENROUTER_API_KEY"])
-    payload = {
-        "model": model_name,
-        "messages": [
+    payload = await openrouter_payload(
+        "tldr",
+        [
             {"role": "system", "content": system_content},
             {"role": "user", "content": text},
         ],
-        "max_tokens": 500,
-    }
+        max_tokens=500,
+    )
 
     async with aiohttp.ClientSession() as session:
-        async with session.post(
-            OPENROUTER_API_URL, headers=headers, json=payload
-        ) as resp:
-            resp.raise_for_status()
-            response = await resp.json()
+        response = await openrouter_json(session, payload)
 
-    content = response["choices"][0]["message"]["content"]
+    content = first_message_content(response)
     return str(content) if content else "No summary available"
 
 

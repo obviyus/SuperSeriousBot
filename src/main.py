@@ -74,9 +74,9 @@ def ensure_caribou_py314_compat() -> None:
         with original_transaction(self.conn):
             self.conn.execute(sql, (version,))
 
-    caribou_migrate.execute = patched_execute
-    caribou_migrate.Database.update_version = patched_update_version
-    caribou_migrate._py314_param_patch = True
+    setattr(caribou_migrate, "execute", patched_execute)  # noqa: B010
+    setattr(caribou_migrate.Database, "update_version", patched_update_version)  # noqa: B010
+    setattr(caribou_migrate, "_py314_param_patch", True)  # noqa: B010
 
 
 async def post_init(application: Application) -> None:

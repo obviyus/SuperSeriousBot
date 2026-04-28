@@ -5,16 +5,19 @@ import os
 import subprocess
 import tempfile
 
-from telegram import Message, Update
+from telegram import Update
 from telegram.ext import ContextTypes
 
 import commands
+from commands.ai import (
+    OPENROUTER_API_URL,
+    openrouter_headers,
+    openrouter_payload,
+)
+from commands.runtime import ensure_command_available
 from config.options import config
 from utils.decorators import command
 from utils.messages import get_message
-
-from .ask import ensure_command_available
-from .model import get_model, openrouter_headers
 
 FALLBACK_PROMPT = "Please transcribe this audio file. No wall of text, keep it readable, suitable for a Telegram message. Begin transcript immediately without any commentary."
 
@@ -119,7 +122,7 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     suffix = (
         os.path.splitext(telegram_file.file_path)[1]
         if telegram_file.file_path and os.path.splitext(telegram_file.file_path)[1]
-        else mimetypes.guess_extension(mime_type) or ".ogg"
+        else mimetypes.guess_extension(mime_type or "audio/ogg") or ".ogg"
     )
 
     try:
@@ -132,12 +135,9 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     user_prompt = " ".join(context.args).strip() if context.args else ""
     instruction = user_prompt or FALLBACK_PROMPT
 
-    # Get configured model from database
-    model_name = await get_model("tr")
-
-    payload = {
-        "model": model_name,
-        "messages": [
+    payload = await openrouter_payload(
+        "tr",
+        [
             {
                 "role": "user",
                 "content": [
@@ -155,13 +155,13 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 ],
             }
         ],
-    }
+    )
 
     headers = openrouter_headers(api_key_value)
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            "https://openrouter.ai/api/v1/chat/completions",
+            OPENROUTER_API_URL,
             headers=headers,
             json=payload,
         ) as response:

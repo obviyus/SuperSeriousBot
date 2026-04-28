@@ -1,4 +1,4 @@
-from telegram import Message, Update
+from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
@@ -20,7 +20,8 @@ async def _update_blocklist(
     if not update.effective_user or not is_admin(update.effective_user.id):
         await message.reply_text("❌ This command is only available to admins")
         return
-    if len(context.args) < 2:
+    args = context.args or []
+    if len(args) < 2:
         await message.reply_text(
             "Usage: /unblock <user_id> <command>"
             if remove
@@ -29,12 +30,12 @@ async def _update_blocklist(
         return
 
     try:
-        user_id = int(context.args[0])
+        user_id = int(args[0])
     except ValueError:
         await message.reply_text("❌ Invalid user ID")
         return
 
-    command = context.args[1].lower()
+    command = args[1].lower()
 
     try:
         async with get_db() as conn:

@@ -31,15 +31,6 @@ def normalize_model_name(model_name: str) -> str:
     return model_name.removeprefix("openrouter/")
 
 
-def openrouter_headers(api_key: str) -> dict[str, str]:
-    return {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "X-Title": "SuperSeriousBot",
-        "HTTP-Referer": "https://superserio.us",
-    }
-
-
 async def get_model(command: str) -> str:
     """Get configured model for a command, falling back to default."""
     column = f"{command}_model"

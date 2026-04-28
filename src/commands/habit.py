@@ -13,7 +13,6 @@ from utils.decorators import command
 from utils.messages import get_message
 
 
-
 async def habit_message_builder(
     habit_id: int, context: ContextTypes.DEFAULT_TYPE
 ) -> str:

@@ -9,6 +9,7 @@ from telegram.helpers import mention_html
 import commands
 import utils
 from config.db import get_db
+from management.chat_memory import chat_stats_summary, last_seen_by_username
 from utils import readable_time
 from utils.decorators import command
 from utils.messages import get_message
@@ -22,34 +23,7 @@ async def reply_chat_stats(
     *,
     today_only: bool,
 ) -> None:
-    time_clause = (
-        "AND create_time >= DATE('now', 'localtime') AND create_time < DATE('now', '+1 day', 'localtime')"
-        if today_only
-        else ""
-    )
-    async with get_db() as conn:
-        async with conn.execute(
-            f"""
-            SELECT create_time, user_id, COUNT(user_id) AS user_count
-            FROM chat_stats
-            WHERE chat_id = ? {time_clause}
-            GROUP BY user_id
-            ORDER BY COUNT(user_id) DESC
-            LIMIT 10;
-            """,
-            (message.chat_id,),
-        ) as cursor:
-            rows = list(await cursor.fetchall())
-        async with conn.execute(
-            f"""
-            SELECT COUNT(id) AS total_count
-            FROM chat_stats
-            WHERE chat_id = ? {time_clause};
-            """,
-            (message.chat_id,),
-        ) as cursor:
-            result = await cursor.fetchone()
-            total_count = result["total_count"] if result else 0
+    rows, total_count = await chat_stats_summary(message.chat_id, today_only=today_only)
 
     if not rows:
         await message.reply_text("No messages recorded.")
@@ -86,12 +60,7 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     username_lower = username_input[1].lower()
 
-    async with get_db() as conn:
-        async with conn.execute(
-            "SELECT username, last_seen, last_message_link FROM user_stats WHERE LOWER(username) = ?",
-            (username_lower,),
-        ) as cursor:
-            user_stats = await cursor.fetchone()
+    user_stats = await last_seen_by_username(username_lower)
 
     if not user_stats:
         await message.reply_text(f"@{username_input[1]} has never been seen.")
