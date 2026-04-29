@@ -21,6 +21,7 @@ from telegram.ext import (
 )
 
 import commands
+from commands.cron_service import register_enabled_cron_tasks
 from commands.habit import worker_habit_tracker
 from commands.highlight import highlight_worker
 from commands.remind import worker_reminder
@@ -110,6 +111,8 @@ async def post_init(application: Application) -> None:
             and commands.is_command_enabled(bot_command)
         ]
     )
+
+    await register_enabled_cron_tasks(application.job_queue)
 
 
 async def post_shutdown(application: Application) -> None:

@@ -21,7 +21,7 @@ from utils.decorators import get_command_meta, get_registered_commands
 from utils.messages import get_message
 
 COMMAND_MODULE_NAMES = (
-    "animals", "ask", "book", "calc", "define", "dl", "gif", "graph",
+    "animals", "ask", "book", "calc", "cron", "define", "dl", "gif", "graph",
     "habit", "highlight", "hltb", "insult", "joke", "meme", "model", "ping",
     "quote", "remind", "search", "spurdo", "store", "summon", "tldr",
     "transcribe", "translate", "ud", "uwu", "weather", "whitelist",
@@ -34,6 +34,7 @@ for module_name in MANAGEMENT_MODULE_NAMES:
     import_module(f"management.{module_name}")
 
 habit = import_module(f"{__name__}.habit")
+cron_module = import_module(f"{__name__}.cron")
 summon = import_module(f"{__name__}.summon")
 highlight_button_handler = import_module(
     f"{__name__}.highlight"
@@ -75,6 +76,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     handler = {
+        "cr": cron_module.cron_button_handler,
         "hb": habit.habit_button_handler,
         "hl": highlight_button_handler,
         "sg": summon.summon_keyboard_button,
