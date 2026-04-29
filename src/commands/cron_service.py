@@ -1,5 +1,4 @@
 import datetime
-import html
 import json
 from dataclasses import dataclass
 from typing import Literal
@@ -20,6 +19,7 @@ from commands.ai import (
 )
 from config.db import get_db
 from config.logger import logger
+from utils.messages import send_markdown_or_plain
 
 DEFAULT_TIMEZONE = "Asia/Kolkata"
 CRON_JOB_PREFIX = "cron:"
@@ -447,14 +447,14 @@ async def run_cron_task(context: ContextTypes.DEFAULT_TYPE, task_id: int) -> Non
         runs = await load_recent_cron_runs(task.id)
         result_text = await execute_cron_task(task, runs)
         username = await utils.get_username(task.user_id, context)
-        await context.bot.send_message(
-            chat_id=task.chat_id,
+        await send_markdown_or_plain(
+            context.bot,
+            task.chat_id,
             text=(
-                f"⏰ <b>{html.escape(task.title)}</b>\n\n"
-                f"{html.escape(result_text)}\n\n"
-                f"@{html.escape(username)}"
+                f"⏰ **{task.title}**\n\n"
+                f"{result_text}\n\n"
+                f"@{username}"
             ),
-            parse_mode="HTML",
             disable_web_page_preview=True,
             reply_markup=cron_delete_keyboard(task.id),
         )
@@ -465,7 +465,6 @@ async def run_cron_task(context: ContextTypes.DEFAULT_TYPE, task_id: int) -> Non
         await record_cron_run(task.id, "error", None, error_text, start_time)
         await context.bot.send_message(
             chat_id=task.chat_id,
-            text=f"❌ Cron task failed: <code>{html.escape(task.title)}</code>",
-            parse_mode="HTML",
+            text=f"❌ Cron task failed: {task.title}",
             disable_web_page_preview=True,
         )
