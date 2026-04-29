@@ -35,7 +35,12 @@ The title must be short and specific. The task must be a complete instruction fo
 RUNNER_SYSTEM_PROMPT = """You are @SuperSeriousBot running a scheduled task.
 
 Use the saved title, task, and previous run history. Complete the task now.
-Be concise. Return the Telegram message to send. No scheduling metadata."""
+Be concise but complete. If the task asks for multiple entities, periods, checks,
+or fields, include every requested item. Do not stop after the first successful
+lookup.
+Previous runs are context only, not a template. If a previous run is incomplete,
+correct it in this run.
+Return the Telegram message to send. No scheduling metadata."""
 
 CRON_RESPONSE_FORMAT: JsonObject = {
     "type": "json_schema",
