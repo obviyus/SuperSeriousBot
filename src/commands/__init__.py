@@ -9,7 +9,6 @@ from commands.runtime import (
     command_wrapper,
     disabled,
     is_command_enabled,
-    validate_command_meta,
 )
 from commands.runtime import (
     every_message_action as every_message_action,
@@ -49,14 +48,6 @@ command_triggers: set[str] = set()
 
 for command in list_of_commands:
     meta = get_command_meta(command)
-    if not meta:
-        continue
-
-    validate_command_meta(command, meta)
-    assert meta.triggers is not None
-    assert meta.description is not None
-    assert meta.usage is not None
-    assert meta.example is not None
 
     handler = command if is_command_enabled(command) else disabled
     handler = command_wrapper(handler, command_triggers)

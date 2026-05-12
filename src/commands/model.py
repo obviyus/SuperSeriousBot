@@ -7,10 +7,8 @@ from utils.admin import is_admin
 from utils.decorators import command
 from utils.messages import get_message
 
-# AIDEV-NOTE: Global AI model setting uses chat_id = -1 in group_settings table
 GLOBAL_CHAT_ID = -1
 
-# AIDEV-NOTE: Default models for each command
 DEFAULT_MODELS = {
     "ask": "openrouter/x-ai/grok-4-fast",
     "edit": "openrouter/google/gemini-2.5-flash-image-preview",
@@ -21,8 +19,6 @@ MODEL_COMMANDS = tuple(DEFAULT_MODELS)
 MODEL_COMMAND_LIST = ", ".join((*MODEL_COMMANDS, "all"))
 VALID_COMMANDS = {*MODEL_COMMANDS, "all"}
 
-# AIDEV-NOTE: Valid thinking levels for OpenRouter reasoning tokens
-# See: https://openrouter.ai/docs/use-cases/reasoning-tokens
 VALID_THINKING_LEVELS = {"none", "minimal", "low", "medium", "high"}
 DEFAULT_THINKING_LEVEL = "none"
 
@@ -32,7 +28,6 @@ def normalize_model_name(model_name: str) -> str:
 
 
 async def get_model(command: str) -> str:
-    """Get configured model for a command, falling back to default."""
     column = f"{command}_model"
     async with get_db() as conn:
         async with conn.execute(
@@ -44,7 +39,6 @@ async def get_model(command: str) -> str:
 
 
 async def get_thinking() -> str:
-    """Get configured thinking level for ask command, falling back to default."""
     async with get_db() as conn:
         async with conn.execute(
             "SELECT ask_thinking FROM group_settings WHERE chat_id = ?",
@@ -113,39 +107,26 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    updated_commands = MODEL_COMMANDS if command == "all" else (command,)
+    columns = [f"{name}_model" for name in updated_commands]
+    column_sql = ", ".join(columns)
+    value_sql = ", ".join("?" for _ in columns)
+    update_sql = ", ".join(f"{column} = excluded.{column}" for column in columns)
     async with get_db() as conn:
-        if command == "all":
-            # Update all models to the same value
-            await conn.execute(
-                """
-                INSERT INTO group_settings (chat_id, ask_model, edit_model, tr_model, tldr_model)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(chat_id) DO UPDATE SET
-                    ask_model = excluded.ask_model,
-                    edit_model = excluded.edit_model,
-                    tr_model = excluded.tr_model,
-                    tldr_model = excluded.tldr_model
-                """,
-                (GLOBAL_CHAT_ID, new_model, new_model, new_model, new_model),
-            )
-            response_text = (
-                f"✅ All command models updated to: <code>{new_model}</code>"
-            )
-        else:
-            # Update specific command model
-            column_name = f"{command}_model"
-            await conn.execute(
-                f"""
-                INSERT INTO group_settings (chat_id, {column_name})
-                VALUES (?, ?)
-                ON CONFLICT(chat_id) DO UPDATE SET {column_name} = excluded.{column_name}
-                """,
-                (GLOBAL_CHAT_ID, new_model),
-            )
-            response_text = (
-                f"✅ Model for <b>/{command}</b> updated to: <code>{new_model}</code>"
-            )
+        await conn.execute(
+            f"""
+            INSERT INTO group_settings (chat_id, {column_sql})
+            VALUES (?, {value_sql})
+            ON CONFLICT(chat_id) DO UPDATE SET {update_sql}
+            """,
+            (GLOBAL_CHAT_ID, *(new_model for _ in columns)),
+        )
 
+    response_text = (
+        f"✅ All command models updated to: <code>{new_model}</code>"
+        if command == "all"
+        else f"✅ Model for <b>/{command}</b> updated to: <code>{new_model}</code>"
+    )
 
     await message.reply_text(
         response_text,
@@ -168,7 +149,6 @@ async def thinking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if not context.args:
-        # Show current thinking level
         current_level = await get_thinking()
         text = "🧠 <b>OpenRouter Thinking Level</b>\n\n"
         text += f"Current level: <code>{current_level}</code>\n\n"

@@ -13,7 +13,7 @@ from config.db import get_db
 from config.options import config
 from utils.admin import is_admin
 from utils.concurrency import schedule_background_task
-from utils.decorators import CommandFunc, CommandMeta, get_command_meta
+from utils.decorators import CommandFunc, get_command_meta
 from utils.messages import get_message
 
 REACTION_MAP = {
@@ -179,24 +179,8 @@ def command_wrapper(
     return wrapped_command
 
 
-def validate_command_meta(command: CommandFunc, meta: CommandMeta) -> None:
-    missing_fields = [
-        field
-        for field in ("triggers", "description", "usage", "example")
-        if not getattr(meta, field)
-    ]
-    if missing_fields:
-        module_name = getattr(command, "__module__", command.__class__.__module__)
-        command_name = getattr(command, "__name__", command.__class__.__name__)
-        raise RuntimeError(
-            f"Command {module_name}.{command_name} missing metadata: "
-            f"{', '.join(missing_fields)}"
-        )
-
-
 def is_command_enabled(command: CommandFunc) -> bool:
-    meta = get_command_meta(command)
-    required_key = meta.api_key if meta else None
+    required_key = get_command_meta(command).api_key
     if not required_key:
         return True
 
@@ -208,16 +192,6 @@ def is_command_enabled(command: CommandFunc) -> bool:
 
 async def usage_string(message: Message, func: CommandFunc) -> None:
     meta = get_command_meta(func)
-    if not meta:
-        module_name = getattr(func, "__module__", func.__class__.__module__)
-        command_name = getattr(func, "__name__", func.__class__.__name__)
-        raise RuntimeError(
-            f"{module_name}.{command_name} is not a decorated command."
-        )
-    validate_command_meta(func, meta)
-    assert meta.description is not None
-    assert meta.usage is not None
-    assert meta.example is not None
 
     await message.reply_text(
         f"{meta.description}\n\n<b>Usage:</b>\n<pre>{meta.usage}</pre>\n\n<b>Example:</b>\n<pre>{meta.example}</pre>",

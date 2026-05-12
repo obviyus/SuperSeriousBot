@@ -23,6 +23,7 @@ from utils.messages import send_markdown_or_plain
 
 DEFAULT_TIMEZONE = "Asia/Kolkata"
 CRON_JOB_PREFIX = "cron:"
+CRON_TASK_COLUMNS = "id, chat_id, user_id, title, task, cron_expr, timezone"
 
 SCHEDULER_SYSTEM_PROMPT = f"""Convert a Telegram user's natural-language request into one durable cron task.
 
@@ -224,19 +225,31 @@ async def create_cron_task(chat_id: int, user_id: int, draft: CronDraft) -> Cron
     return _task_from_row(row)
 
 
-async def list_user_cron_tasks(chat_id: int, user_id: int) -> list[CronTask]:
+async def load_cron_tasks(where_sql: str, params: tuple[object, ...]) -> list[CronTask]:
     async with get_db() as conn:
         async with conn.execute(
-            """
-            SELECT id, chat_id, user_id, title, task, cron_expr, timezone
+            f"""
+            SELECT {CRON_TASK_COLUMNS}
             FROM cron_tasks
-            WHERE chat_id = ? AND user_id = ? AND enabled = 1
+            WHERE {where_sql}
             ORDER BY id;
             """,
-            (chat_id, user_id),
+            params,
         ) as cursor:
             rows = await cursor.fetchall()
     return [_task_from_row(row) for row in rows]
+
+
+async def load_cron_task(where_sql: str, params: tuple[object, ...]) -> CronTask | None:
+    rows = await load_cron_tasks(where_sql, params)
+    return rows[0] if rows else None
+
+
+async def list_user_cron_tasks(chat_id: int, user_id: int) -> list[CronTask]:
+    return await load_cron_tasks(
+        "chat_id = ? AND user_id = ? AND enabled = 1",
+        (chat_id, user_id),
+    )
 
 
 async def load_owned_cron_task(
@@ -244,45 +257,18 @@ async def load_owned_cron_task(
     chat_id: int,
     user_id: int,
 ) -> CronTask | None:
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-            SELECT id, chat_id, user_id, title, task, cron_expr, timezone
-            FROM cron_tasks
-            WHERE id = ? AND chat_id = ? AND user_id = ? AND enabled = 1;
-            """,
-            (task_id, chat_id, user_id),
-        ) as cursor:
-            row = await cursor.fetchone()
-    return _task_from_row(row) if row else None
+    return await load_cron_task(
+        "id = ? AND chat_id = ? AND user_id = ? AND enabled = 1",
+        (task_id, chat_id, user_id),
+    )
 
 
 async def load_enabled_cron_task(task_id: int) -> CronTask | None:
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-            SELECT id, chat_id, user_id, title, task, cron_expr, timezone
-            FROM cron_tasks
-            WHERE id = ? AND enabled = 1;
-            """,
-            (task_id,),
-        ) as cursor:
-            row = await cursor.fetchone()
-    return _task_from_row(row) if row else None
+    return await load_cron_task("id = ? AND enabled = 1", (task_id,))
 
 
 async def load_enabled_cron_tasks() -> list[CronTask]:
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-            SELECT id, chat_id, user_id, title, task, cron_expr, timezone
-            FROM cron_tasks
-            WHERE enabled = 1
-            ORDER BY id;
-            """
-        ) as cursor:
-            rows = await cursor.fetchall()
-    return [_task_from_row(row) for row in rows]
+    return await load_cron_tasks("enabled = 1", ())
 
 
 async def disable_owned_cron_task(task_id: int, chat_id: int, user_id: int) -> bool:
