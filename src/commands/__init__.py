@@ -22,7 +22,7 @@ from utils.messages import get_message
 COMMAND_MODULE_NAMES = (
     "animals", "ask", "book", "calc", "cron", "define", "dl", "gif", "graph",
     "habit", "highlight", "hltb", "insult", "joke", "meme", "model", "ping",
-    "quote", "remind", "search", "spurdo", "store", "summon", "tldr",
+    "quote", "remind", "search", "settings", "spurdo", "store", "summon", "tldr",
     "transcribe", "translate", "ud", "uwu", "weather", "whitelist",
 )
 MANAGEMENT_MODULE_NAMES = ("blocks", "botstats", "stats")
@@ -38,6 +38,9 @@ summon = import_module(f"{__name__}.summon")
 highlight_button_handler = import_module(
     f"{__name__}.highlight"
 ).highlight_button_handler
+settings_button_handler = import_module(
+    f"{__name__}.settings"
+).settings_button_handler
 
 # Import side effects above register decorated commands.
 list_of_commands = get_registered_commands()
@@ -70,6 +73,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "cr": cron_module.cron_button_handler,
         "hb": habit.habit_button_handler,
         "hl": highlight_button_handler,
+        "st": settings_button_handler,
         "sg": summon.summon_keyboard_button,
     }.get(query.data.split(":", 1)[0])
     if handler:
