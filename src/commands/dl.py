@@ -120,55 +120,59 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 if resp.status != 200 and data.get("status") != "error":
                     raise RuntimeError(f"Cobalt HTTP {resp.status}: {data}")
 
-        status = data.get("status")
-        if status in {"redirect", "tunnel"}:
-            media_url = data.get("url")
-            if not media_url:
-                await message.reply_text("No media found.")
-                return
-            await _fetch_and_send(message, session, media_url, data.get("filename"))
-            return
-
-        if status == "picker":
-            media_group = []
-            for item in (data.get("picker") or [])[:MAX_MEDIA_COUNT]:
-                media_url = item.get("url")
-                media_type = (item.get("type") or "").lower()
+            status = data.get("status")
+            if status in {"redirect", "tunnel"}:
+                media_url = data.get("url")
                 if not media_url:
-                    continue
-                if media_type == "photo" or media_url.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".gif")):
-                    media_group.append(InputMediaPhoto(media_url))
-                else:
-                    media_group.append(InputMediaVideo(media_url))
-            if not media_group:
-                await message.reply_text("No media found.")
+                    await message.reply_text("No media found.")
+                    return
+                await _fetch_and_send(message, session, media_url, data.get("filename"))
                 return
-            try:
-                await message.reply_media_group(media_group)
-            except BadRequest as e:
-                logger.error(f"Failed to send media group: {e}")
-                await message.reply_text("Media unavailable or too large.")
-            return
 
-        if status == "local-processing":
-            tunnels = data.get("tunnel") or []
-            output = data.get("output") or {}
-            if len(tunnels) == 1 and not bool(data.get("isHLS")):
-                await _fetch_and_send(message, session, tunnels[0], output.get("filename"))
+            if status == "picker":
+                media_group = []
+                for item in (data.get("picker") or [])[:MAX_MEDIA_COUNT]:
+                    media_url = item.get("url")
+                    media_type = (item.get("type") or "").lower()
+                    if not media_url:
+                        continue
+                    if media_type == "photo" or media_url.lower().endswith(
+                        (".jpg", ".jpeg", ".png", ".webp", ".gif")
+                    ):
+                        media_group.append(InputMediaPhoto(media_url))
+                    else:
+                        media_group.append(InputMediaVideo(media_url))
+                if not media_group:
+                    await message.reply_text("No media found.")
+                    return
+                try:
+                    await message.reply_media_group(media_group)
+                except BadRequest as e:
+                    logger.error(f"Failed to send media group: {e}")
+                    await message.reply_text("Media unavailable or too large.")
                 return
-            await message.reply_text(
-                "This media requires local processing, which isn't supported yet."
-            )
-            return
 
-        if status == "error":
-            err = data.get("error", {})
-            await message.reply_text(
-                f"Failed to fetch media: {err.get('code') or 'unknown'}"
-            )
-            return
+            if status == "local-processing":
+                tunnels = data.get("tunnel") or []
+                output = data.get("output") or {}
+                if len(tunnels) == 1 and not bool(data.get("isHLS")):
+                    await _fetch_and_send(
+                        message, session, tunnels[0], output.get("filename")
+                    )
+                    return
+                await message.reply_text(
+                    "This media requires local processing, which isn't supported yet."
+                )
+                return
 
-        await message.reply_text("Unsupported response from Cobalt.")
+            if status == "error":
+                err = data.get("error", {})
+                await message.reply_text(
+                    f"Failed to fetch media: {err.get('code') or 'unknown'}"
+                )
+                return
+
+            await message.reply_text("Unsupported response from Cobalt.")
     except Exception as e:
         logger.error(f"Cobalt error: {e}")
         await message.reply_text("Failed to fetch media.")
