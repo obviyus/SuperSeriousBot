@@ -23,6 +23,7 @@ class SettingToggle:
 
 TOGGLES = (
     SettingToggle("fts", "Message search", "group_settings", "fts"),
+    SettingToggle("auto_dl", "Auto download", "group_settings", "auto_dl"),
     SettingToggle("ask", "/ask", "command_whitelist", "ask"),
     SettingToggle("edit", "/edit", "command_whitelist", "edit"),
     SettingToggle("tr", "/tr", "command_whitelist", "tr"),
@@ -56,11 +57,12 @@ async def _setting_states(chat_id: int) -> dict[str, bool]:
 
     async with get_db() as conn:
         async with conn.execute(
-            "SELECT fts FROM group_settings WHERE chat_id = ?",
+            "SELECT fts, auto_dl FROM group_settings WHERE chat_id = ?",
             (chat_id,),
         ) as cursor:
             row = await cursor.fetchone()
             states["fts"] = bool(row and row["fts"])
+            states["auto_dl"] = bool(row and row["auto_dl"])
 
         async with conn.execute(
             f"""
@@ -116,10 +118,10 @@ async def _set_toggle(chat_id: int, toggle: SettingToggle, enabled: bool) -> Non
     async with get_db() as conn:
         if toggle.table == "group_settings":
             await conn.execute(
-                """
-                INSERT INTO group_settings (chat_id, fts)
+                f"""
+                INSERT INTO group_settings (chat_id, {toggle.value})
                 VALUES (?, ?)
-                ON CONFLICT(chat_id) DO UPDATE SET fts = excluded.fts
+                ON CONFLICT(chat_id) DO UPDATE SET {toggle.value} = excluded.{toggle.value}
                 """,
                 (chat_id, int(enabled)),
             )

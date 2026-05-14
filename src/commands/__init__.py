@@ -33,6 +33,7 @@ for module_name in MANAGEMENT_MODULE_NAMES:
     import_module(f"management.{module_name}")
 
 habit = import_module(f"{__name__}.habit")
+dl = import_module(f"{__name__}.dl")
 cron_module = import_module(f"{__name__}.cron")
 summon = import_module(f"{__name__}.summon")
 highlight_button_handler = import_module(
@@ -41,6 +42,7 @@ highlight_button_handler = import_module(
 settings_button_handler = import_module(
     f"{__name__}.settings"
 ).settings_button_handler
+auto_dl_message_handler = dl.auto_dl_message_handler
 
 # Import side effects above register decorated commands.
 list_of_commands = get_registered_commands()

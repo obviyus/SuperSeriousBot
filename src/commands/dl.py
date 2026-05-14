@@ -1,11 +1,14 @@
 import io
+from urllib.parse import ParseResult, urlparse
 
 import aiohttp
 from telegram import InputFile, InputMediaPhoto, InputMediaVideo, Message, Update
+from telegram.constants import ChatType
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 import utils
+from config.db import get_db
 from config.logger import logger
 from config.options import config
 from utils.decorators import command
@@ -21,6 +24,27 @@ MEDIA_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=10, sock_connect=10, so
 def _cobalt_endpoint() -> str | None:
     url = config.API.COBALT_URL.strip()
     return f"{url.rstrip('/')}/" if url else None
+
+
+def _target_url(url: ParseResult) -> str:
+    return url.geturl()
+
+
+def _is_instagram_reel(url: ParseResult) -> bool:
+    host = url.hostname or ""
+    return host in {"instagram.com", "www.instagram.com"} and url.path.startswith(
+        "/reel/"
+    )
+
+
+async def _is_auto_dl_enabled(chat_id: int) -> bool:
+    async with get_db() as conn:
+        async with conn.execute(
+            "SELECT auto_dl FROM group_settings WHERE chat_id = ?",
+            (chat_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+    return bool(row and row["auto_dl"])
 
 
 async def _fetch_and_send(
@@ -80,23 +104,7 @@ async def _fetch_and_send(
         await message.reply_text("Failed to download media.")
 
 
-@command(
-    triggers=["dl"],
-    usage="/dl [URL]",
-    example="/dl https://www.instagram.com/reel/A1234567890/",
-    description="Download media via cobalt.tools-compatible instance.",
-)
-async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    message = get_message(update)
-    if not message:
-        return
-
-    url = utils.extract_link(message)
-    if not url:
-        await message.reply_text("Please provide a valid URL.")
-        return
-
-    target = url.geturl() if hasattr(url, "geturl") else str(url)
+async def _download_media(message: Message, target: str) -> None:
     endpoint = _cobalt_endpoint()
     if not endpoint:
         logger.error("COBALT_URL is not configured.")
@@ -176,3 +184,42 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Cobalt error: {e}")
         await message.reply_text("Failed to fetch media.")
+
+
+@command(
+    triggers=["dl"],
+    usage="/dl [URL]",
+    example="/dl https://www.instagram.com/reel/A1234567890/",
+    description="Download media via cobalt.tools-compatible instance.",
+)
+async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
+
+    url = utils.extract_link(message)
+    if not url:
+        await message.reply_text("Please provide a valid URL.")
+        return
+
+    await _download_media(message, _target_url(url))
+
+
+async def auto_dl_message_handler(
+    update: Update, _: ContextTypes.DEFAULT_TYPE
+) -> None:
+    message = get_message(update)
+    if not message or not message.from_user or message.from_user.is_bot:
+        return
+    if message.chat.type == ChatType.PRIVATE:
+        return
+    if not await _is_auto_dl_enabled(message.chat_id):
+        return
+
+    for _entity, link in sorted(
+        utils.grab_links(message).items(), key=lambda item: item[0].offset
+    ):
+        url = urlparse(link)
+        if _is_instagram_reel(url):
+            await _download_media(message, _target_url(url))
+            return

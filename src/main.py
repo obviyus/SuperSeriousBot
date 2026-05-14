@@ -196,6 +196,12 @@ def main():
             ],
             3: [message_stats_handler, mention_handler],
             4: [MessageHandler(~filters.ChatType.PRIVATE, highlight_worker)],
+            5: [
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND & ~filters.ChatType.PRIVATE,
+                    commands.auto_dl_message_handler,
+                )
+            ],
         }
     )
     job_queue = application.job_queue
