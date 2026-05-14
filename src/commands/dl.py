@@ -3,7 +3,7 @@ from urllib.parse import ParseResult, urlparse
 
 import aiohttp
 from telegram import InputFile, InputMediaPhoto, InputMediaVideo, Message, Update
-from telegram.constants import ChatType
+from telegram.constants import ChatType, ReactionEmoji
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
@@ -221,5 +221,9 @@ async def auto_dl_message_handler(
     ):
         url = urlparse(link)
         if _is_instagram_reel(url):
+            try:
+                await message.set_reaction(ReactionEmoji.HIGH_VOLTAGE_SIGN)
+            except BadRequest as e:
+                logger.debug("Skipping auto-dl reaction: %s", e)
             await _download_media(message, _target_url(url))
             return
