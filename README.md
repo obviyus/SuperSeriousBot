@@ -59,6 +59,7 @@ Required:
 
 - `TELEGRAM_TOKEN`
 - `QUOTE_CHANNEL_ID`
+- `COBALT_URL` for `/dl`
 
 Optional:
 
@@ -68,7 +69,6 @@ Optional:
 - `GIPHY_API_KEY` for `/gif`
 - `GOODREADS_API_KEY` for `/book`
 - `WOLFRAM_APP_ID` for `/calc`
-- `COBALT_URL` for `/dl` backend override
 - `ADMINS`, `UPDATER`, `WEBHOOK_URL`, `LOGGING_CHANNEL_ID` for bot ops
 
 ### Running

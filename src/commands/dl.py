@@ -1,5 +1,6 @@
 import io
 
+import aiohttp
 from telegram import InputFile, InputMediaPhoto, InputMediaVideo, Message, Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
@@ -11,40 +12,50 @@ from utils.decorators import command
 from utils.messages import get_message
 
 MAX_MEDIA_COUNT = 10
-MAX_DOWNLOAD_SIZE = 47 * (1 << 20)  # ~47 MB cap to stay under Telegram limits
+MAX_DOWNLOAD_SIZE = 47 * (1 << 20)
+DOWNLOAD_CHUNK_SIZE = 256 * 1024
+COBALT_TIMEOUT = aiohttp.ClientTimeout(total=45, connect=10, sock_connect=10, sock_read=30)
+MEDIA_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=10, sock_connect=10, sock_read=45)
 
 
-async def _fetch_and_send(message: Message, url: str, filename: str | None) -> None:
+def _cobalt_endpoint() -> str | None:
+    url = config.API.COBALT_URL.strip()
+    return f"{url.rstrip('/')}/" if url else None
+
+
+async def _fetch_and_send(
+    message: Message,
+    session: aiohttp.ClientSession,
+    url: str,
+    filename: str | None,
+) -> None:
     try:
-        import aiohttp
+        async with session.get(url, timeout=MEDIA_TIMEOUT) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise RuntimeError(f"Download failed: {resp.status} {text[:120]}")
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    raise RuntimeError(f"Download failed: {resp.status} {text[:120]}")
+            content_length_header = resp.headers.get("Content-Length")
+            expected_size = (
+                int(content_length_header)
+                if content_length_header and content_length_header.isdigit()
+                else None
+            )
+            if expected_size and expected_size > MAX_DOWNLOAD_SIZE:
+                raise RuntimeError("File too large to download in memory.")
 
-                content_length_header = resp.headers.get("Content-Length")
-                expected_size = (
-                    int(content_length_header)
-                    if content_length_header and content_length_header.isdigit()
-                    else None
-                )
-                if expected_size and expected_size > MAX_DOWNLOAD_SIZE:
+            buffer = io.BytesIO()
+            downloaded = 0
+            async for chunk in resp.content.iter_chunked(DOWNLOAD_CHUNK_SIZE):
+                if not chunk:
+                    continue
+                downloaded += len(chunk)
+                if downloaded > MAX_DOWNLOAD_SIZE:
                     raise RuntimeError("File too large to download in memory.")
+                buffer.write(chunk)
 
-                buffer = io.BytesIO()
-                downloaded = 0
-                async for chunk in resp.content.iter_chunked(262144):
-                    if not chunk:
-                        continue
-                    downloaded += len(chunk)
-                    if downloaded > MAX_DOWNLOAD_SIZE:
-                        raise RuntimeError("File too large to download in memory.")
-                    buffer.write(chunk)
-
-                buffer.seek(0)
-                content_type = resp.headers.get("Content-Type")
+            buffer.seek(0)
+            content_type = resp.headers.get("Content-Type")
         safe_name = filename or "file"
         file = InputFile(buffer, filename=safe_name)
         target_name = safe_name.lower()
@@ -76,8 +87,6 @@ async def _fetch_and_send(message: Message, url: str, filename: str | None) -> N
     description="Download media via cobalt.tools-compatible instance.",
 )
 async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    import aiohttp
-
     message = get_message(update)
     if not message:
         return
@@ -88,10 +97,14 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     target = url.geturl() if hasattr(url, "geturl") else str(url)
-    endpoint = (config.API.COBALT_URL or "http://100.69.132.40:9000").rstrip("/") + "/"
+    endpoint = _cobalt_endpoint()
+    if not endpoint:
+        logger.error("COBALT_URL is not configured.")
+        await message.reply_text("Download service is not configured.")
+        return
 
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=COBALT_TIMEOUT) as session:
             async with session.post(
                 endpoint,
                 headers={"Accept": "application/json", "Content-Type": "application/json"},
@@ -110,8 +123,10 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         status = data.get("status")
         if status in {"redirect", "tunnel"}:
             media_url = data.get("url")
-            if media_url:
-                await _fetch_and_send(message, media_url, data.get("filename"))
+            if not media_url:
+                await message.reply_text("No media found.")
+                return
+            await _fetch_and_send(message, session, media_url, data.get("filename"))
             return
 
         if status == "picker":
@@ -139,7 +154,7 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             tunnels = data.get("tunnel") or []
             output = data.get("output") or {}
             if len(tunnels) == 1 and not bool(data.get("isHLS")):
-                await _fetch_and_send(message, tunnels[0], output.get("filename"))
+                await _fetch_and_send(message, session, tunnels[0], output.get("filename"))
                 return
             await message.reply_text(
                 "This media requires local processing, which isn't supported yet."
