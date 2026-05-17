@@ -14,6 +14,7 @@ from utils.decorators import command
 from utils.messages import get_message
 
 IST_ALIAS_PATTERN = re.compile(r"\bIST\b", re.IGNORECASE)
+REMINDER_DELIVERY_GRACE_SECONDS = 10 * 60
 
 
 def tg_time(unix_time: int, fallback_text: str, format_string: str | None = None) -> str:
@@ -132,13 +133,25 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
+    now = int(datetime.datetime.now(datetime.UTC).timestamp())
+    stale_before = now - REMINDER_DELIVERY_GRACE_SECONDS
+
     async with get_db() as conn:
+        await conn.execute(
+            """
+            DELETE FROM reminders
+            WHERE target_time < ?;
+            """,
+            (stale_before,),
+        )
         async with conn.execute(
             """
             SELECT id, title, target_time, user_id, chat_id
             FROM reminders
-            WHERE target_time <= STRFTIME('%s', 'now');
-            """
+            WHERE target_time <= ?
+            AND target_time >= ?;
+            """,
+            (now, stale_before),
         ) as cursor:
             existing_reminders = await cursor.fetchall()
 
