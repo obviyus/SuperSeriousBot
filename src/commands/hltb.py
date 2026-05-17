@@ -1,3 +1,5 @@
+from html import escape
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -34,16 +36,16 @@ async def hltb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Check if non-zero value exists for main gameplay
         if best_guess.main_story != -1:
             text = (
-                f"<b>{best_guess.game_name}</b>: "
+                f"<b>{escape(best_guess.game_name)}</b>: "
                 f"{best_guess.main_story} hours"
-                f"<a href='{best_guess.game_image_url}'>&#8205;</a>"
+                f"<a href='{escape(best_guess.game_image_url, quote=True)}'>&#8205;</a>"
             )
         # Check if non-zero value exists for main+extra gameplay
         elif best_guess.main_extra != -1:
             text = (
-                f"<b>{best_guess.game_name}</b>: "
-                f"{best_guess.main_story} hours"
-                f"<a href='{best_guess.game_image_url}'>&#8205;</a>"
+                f"<b>{escape(best_guess.game_name)}</b>: "
+                f"{best_guess.main_extra} hours"
+                f"<a href='{escape(best_guess.game_image_url, quote=True)}'>&#8205;</a>"
             )
         else:
             text = "No hours recorded."

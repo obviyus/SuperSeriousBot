@@ -1,4 +1,5 @@
 import asyncio
+import html
 from datetime import datetime
 
 from telegram import ChatMember, InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -77,7 +78,7 @@ async def perform_summon(
     if not members:
         await context.bot.send_message(
             chat_id,
-            f"No users in group '{group_name}'.",
+            f"No users in group '{html.escape(group_name)}'.",
             reply_markup=keyboard,
             parse_mode=ParseMode.HTML,
         )
@@ -88,7 +89,7 @@ async def perform_summon(
         chunk = members[index : index + 5]
         await context.bot.send_message(
             chat_id,
-            f"[{group_name}] ({len(members)} members) {' '.join(chunk)}",
+            f"[{html.escape(group_name)}] ({len(members)} members) {' '.join(chunk)}",
             parse_mode=ParseMode.HTML,
             reply_markup=keyboard if index + 5 >= len(members) else None,
         )
@@ -108,8 +109,8 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
     action, group_id_str = query.data.replace("sg:", "").split(",")
     group_id = int(group_id_str)
 
-    async with get_db() as conn:
-        if action == "join":
+    if action == "join":
+        async with get_db() as conn:
             await conn.execute(
                 """
                 INSERT INTO summon_group_members (group_id, user_id)
@@ -118,34 +119,35 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
                 """,
                 (group_id, query.from_user.id),
             )
-            await query.answer("Joined group.")
-            return
-        elif action == "leave":
+        await query.answer("Joined group.")
+        return
+    elif action == "leave":
+        async with get_db() as conn:
             await conn.execute(
                 "DELETE FROM summon_group_members WHERE group_id = ? AND user_id = ?",
                 (group_id, query.from_user.id),
             )
-            await query.answer("Left group.")
+        await query.answer("Left group.")
+        return
+    elif action == "resummon":
+        last_tag_time = summon_log.get(group_id)
+        if last_tag_time and (datetime.now() - last_tag_time).seconds < 60:
+            remaining_seconds = 60 - (datetime.now() - last_tag_time).seconds
+            await query.answer(
+                f"You can only resummon once every 60 seconds. Wait {remaining_seconds}s."
+            )
             return
-        elif action == "resummon":
-            last_tag_time = summon_log.get(group_id)
-            if last_tag_time and (datetime.now() - last_tag_time).seconds < 60:
-                remaining_seconds = 60 - (datetime.now() - last_tag_time).seconds
-                await query.answer(
-                    f"You can only resummon once every 60 seconds. Wait {remaining_seconds}s."
-                )
-                return
 
-            await query.answer("Resummoning...")
-            async with get_db() as conn:
-                async with conn.execute(
-                    "SELECT group_name FROM summon_groups WHERE id = ?", (group_id,)
-                ) as cursor:
-                    result = await cursor.fetchone()
-                    group_name = result[0] if result else "Unknown"
+        await query.answer("Resummoning...")
+        async with get_db() as conn:
+            async with conn.execute(
+                "SELECT group_name FROM summon_groups WHERE id = ?", (group_id,)
+            ) as cursor:
+                result = await cursor.fetchone()
+                group_name = result[0] if result else "Unknown"
 
-            await perform_summon(context, message.chat_id, group_id, group_name)
-            return
+        await perform_summon(context, message.chat_id, group_id, group_name)
+        return
 
 
 @command(
@@ -172,6 +174,14 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     group_name = context.args[0].lower()
 
     async with get_db() as conn:
+        cursor = await conn.execute(
+            """
+            INSERT OR IGNORE INTO summon_groups (group_name, chat_id, creator_id)
+            VALUES (?, ?, ?)
+            """,
+            (group_name, update.effective_chat.id, update.effective_user.id),
+        )
+        created_group_id = cursor.lastrowid if cursor.rowcount else None
         async with conn.execute(
             "SELECT id FROM summon_groups WHERE group_name = ? COLLATE NOCASE AND chat_id = ?",
             (group_name, update.effective_chat.id),
@@ -181,15 +191,15 @@ async def summon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if result:
             group_id = result[0]
         else:
-            cursor = await conn.execute(
-                "INSERT INTO summon_groups (group_name, chat_id, creator_id) VALUES (?, ?, ?)",
-                (group_name, update.effective_chat.id, update.effective_user.id),
-            )
-            group_id = cursor.lastrowid
-            if group_id is None:
-                raise RuntimeError("Failed to create summon group.")
+            raise RuntimeError("Failed to create summon group.")
+
+        if created_group_id:
             await conn.execute(
-                "INSERT INTO summon_group_members (group_id, user_id) VALUES (?, ?)",
+                """
+                INSERT INTO summon_group_members (group_id, user_id)
+                VALUES (?, ?)
+                ON CONFLICT (group_id, user_id) DO NOTHING
+                """,
                 (group_id, update.effective_user.id),
             )
 

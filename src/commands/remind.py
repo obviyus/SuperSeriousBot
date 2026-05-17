@@ -136,8 +136,7 @@ async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
             """
             SELECT id, title, target_time, user_id, chat_id
             FROM reminders
-            WHERE target_time > STRFTIME('%s', 'now')
-            AND target_time <= STRFTIME('%s', 'now', '+1 minutes');
+            WHERE target_time <= STRFTIME('%s', 'now');
             """
         ) as cursor:
             existing_reminders = await cursor.fetchall()
@@ -150,3 +149,5 @@ async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             reminder["chat_id"], text, parse_mode=ParseMode.HTML
         )
+        async with get_db() as conn:
+            await conn.execute("DELETE FROM reminders WHERE id = ?", (reminder["id"],))

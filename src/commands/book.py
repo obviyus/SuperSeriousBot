@@ -1,4 +1,6 @@
+import html
 import xml.etree.ElementTree as ET
+from urllib.parse import urlparse
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -77,15 +79,18 @@ async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if sentence_end != -1
             else description[:200] + "..."
         )
+    book_url = book_data.findtext("url", "")
+    if urlparse(book_url).scheme not in {"http", "https"}:
+        book_url = ""
     await message.reply_text(
         text=(
-            f"<b>{title}</b> - ({book_data.findtext('publication_year', 'Unknown')})\n\n"
-            f"<a href='{cover_url}'>&#8205;</a>"
-            f"✏️ {book_data.findtext('.//authors/author/name', 'Unknown Author')}\n"
-            f"⭐ {book_data.findtext('average_rating', '0')}\n"
-            f"📖 {book_data.findtext('num_pages', 'Unknown')} pages\n"
-            f"🔗 <a href='{book_data.findtext('url', '')}'>Goodreads</a>\n\n"
-            f"{description}"
+            f"<b>{html.escape(title)}</b> - ({html.escape(book_data.findtext('publication_year', 'Unknown'))})\n\n"
+            f"<a href='{html.escape(cover_url, quote=True)}'>&#8205;</a>"
+            f"✏️ {html.escape(book_data.findtext('.//authors/author/name', 'Unknown Author'))}\n"
+            f"⭐ {html.escape(book_data.findtext('average_rating', '0'))}\n"
+            f"📖 {html.escape(book_data.findtext('num_pages', 'Unknown'))} pages\n"
+            f"🔗 <a href='{html.escape(book_url, quote=True)}'>Goodreads</a>\n\n"
+            f"{html.escape(description)}"
         ),
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=False,

@@ -1,3 +1,5 @@
+import html
+
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -60,40 +62,33 @@ async def _update_whitelist(
                 (command_name, WHITELIST_TYPE, chat_id),
             )
         else:
-            async with conn.execute(
+            result = await conn.execute(
                 """
-                SELECT 1 FROM command_whitelist
-                WHERE command = ? AND whitelist_type = ? AND whitelist_id = ?
-                """,
-                (command_name, WHITELIST_TYPE, chat_id),
-            ) as cursor:
-                if await cursor.fetchone():
-                    await message.reply_text(
-                        f"✅ Chat <code>{chat_id}</code> is already whitelisted for /{command_name}",
-                        parse_mode=ParseMode.HTML,
-                    )
-                    return
-            await conn.execute(
-                """
-                INSERT INTO command_whitelist (command, whitelist_type, whitelist_id)
+                INSERT OR IGNORE INTO command_whitelist (command, whitelist_type, whitelist_id)
                 VALUES (?, ?, ?)
                 """,
                 (command_name, WHITELIST_TYPE, chat_id),
             )
+            if not result.rowcount:
+                await message.reply_text(
+                    f"✅ Chat <code>{chat_id}</code> is already whitelisted for /{html.escape(command_name)}",
+                    parse_mode=ParseMode.HTML,
+                )
+                return
 
     if remove:
         await message.reply_text(
             (
-                f"✅ Removed chat <code>{chat_id}</code> from /{command_name}"
+                f"✅ Removed chat <code>{chat_id}</code> from /{html.escape(command_name)}"
                 if result.rowcount
-                else f"❓ Chat <code>{chat_id}</code> was not whitelisted for /{command_name}"
+                else f"❓ Chat <code>{chat_id}</code> was not whitelisted for /{html.escape(command_name)}"
             ),
             parse_mode=ParseMode.HTML,
         )
         return
 
     await message.reply_text(
-        f"✅ Added chat <code>{chat_id}</code> to the whitelist for /{command_name}",
+        f"✅ Added chat <code>{chat_id}</code> to the whitelist for /{html.escape(command_name)}",
         parse_mode=ParseMode.HTML,
     )
 

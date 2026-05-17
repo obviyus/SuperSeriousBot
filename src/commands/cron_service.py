@@ -447,6 +447,7 @@ async def run_cron_task(context: ContextTypes.DEFAULT_TYPE, task_id: int) -> Non
                 f"@{username}"
             ),
             disable_web_page_preview=True,
+            document_name="cron-result.txt",
             reply_markup=cron_delete_keyboard(task.id),
         )
         await record_cron_run(task.id, "success", result_text, None, start_time)

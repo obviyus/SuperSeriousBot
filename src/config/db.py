@@ -15,6 +15,9 @@ PRIMARY_DB_PATH = Path(os.getenv("DATABASE_PATH_PREFIX", ".")) / "SuperSeriousBo
 # This eliminates 60+ connection open/close cycles per message flow.
 _db_connection: aiosqlite.Connection | None = None
 _db_lock = asyncio.Lock()
+_db_scope_lock = asyncio.Lock()
+_db_scope_owner: asyncio.Task | None = None
+_db_scope_depth = 0
 
 
 async def _init_connection() -> aiosqlite.Connection:
@@ -50,14 +53,36 @@ async def close_db() -> None:
 @asynccontextmanager
 async def get_db() -> AsyncGenerator[aiosqlite.Connection]:
     """Get the singleton database connection."""
-    global _db_connection
+    global _db_connection, _db_scope_depth, _db_scope_owner
     if _db_connection is None:
         async with _db_lock:
             if _db_connection is None:
                 _db_connection = await _init_connection()
                 logger.info("Database connection initialized (lazy)")
     assert _db_connection is not None
-    yield _db_connection
+    task = asyncio.current_task()
+    if task is not None and task is _db_scope_owner:
+        _db_scope_depth += 1
+        try:
+            yield _db_connection
+        finally:
+            _db_scope_depth -= 1
+            if _db_scope_depth == 0:
+                _db_scope_owner = None
+        return
+
+    if task is None:
+        yield _db_connection
+        return
+
+    async with _db_scope_lock:
+        _db_scope_owner = task
+        _db_scope_depth = 1
+        try:
+            yield _db_connection
+        finally:
+            _db_scope_depth = 0
+            _db_scope_owner = None
 
 
 async def optimize_fts5(_: ContextTypes.DEFAULT_TYPE):

@@ -1,3 +1,5 @@
+import html
+
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -51,41 +53,37 @@ async def set_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         )
         return
 
-    key = context.args[0]
+    key = context.args[0].lower()
 
     async with get_db() as conn:
-        async with conn.execute(
-            "SELECT * FROM object_store WHERE key = ?;",
-            (key,),
-        ) as cursor:
-            if await cursor.fetchone():
-                await message.reply_text(
-                    f"Object with key <code>{key}</code> already exists.",
-                    parse_mode=ParseMode.HTML,
-                )
-                return
-
-        async with conn.execute(
-            "SELECT * FROM object_store WHERE file_unique_id = ?;",
-            (file_unique_id,),
-        ) as cursor:
-            result = await cursor.fetchone()
-            if result:
-                await message.reply_text(
-                    f"This file has already been stored with key <code>{result['key']}</code>.",
-                    parse_mode=ParseMode.HTML,
-                )
-                return
-
-        await conn.execute(
+        result = await conn.execute(
             """
-            INSERT INTO object_store (key, file_id, file_unique_id, user_id, type) VALUES (?, ?, ?, ?, ?);
+            INSERT OR IGNORE INTO object_store (key, file_id, file_unique_id, user_id, type)
+            VALUES (?, ?, ?, ?, ?);
             """,
             (key, file_id, file_unique_id, message.from_user.id, file_type),
         )
+        if not result.rowcount:
+            async with conn.execute(
+                "SELECT key FROM object_store WHERE file_unique_id = ?;",
+                (file_unique_id,),
+            ) as cursor:
+                existing_file = await cursor.fetchone()
+            if existing_file:
+                await message.reply_text(
+                    f"This file has already been stored with key <code>{html.escape(existing_file['key'])}</code>.",
+                    parse_mode=ParseMode.HTML,
+                )
+                return
+
+            await message.reply_text(
+                f"Object with key <code>{html.escape(key)}</code> already exists.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
 
     await message.reply_text(
-        f"Object with key <code>{key}</code> saved. You can get it by using <code>/get {key}</code>.",
+        f"Object with key <code>{html.escape(key)}</code> saved. You can get it by using <code>/get {html.escape(key)}</code>.",
         parse_mode=ParseMode.HTML,
     )
 
@@ -104,7 +102,7 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await commands.usage_string(message, get_object)
         return
 
-    key = context.args[0]
+    key = context.args[0].lower()
 
     async with get_db() as conn:
         async with conn.execute(
@@ -115,7 +113,7 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
         if not row:
             await message.reply_text(
-                f"Object with key <code>{key}</code> does not exist.",
+                f"Object with key <code>{html.escape(key)}</code> does not exist.",
                 parse_mode=ParseMode.HTML,
             )
             return
@@ -128,11 +126,11 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await getattr(target_message, method_name)(**{row['type'].lower(): file_id})
         except AttributeError:
             await message.reply_text(
-                f"Object with key <code>{key}</code> has an invalid or unsupported type.",
+                f"Object with key <code>{html.escape(key)}</code> has an invalid or unsupported type.",
                 parse_mode=ParseMode.HTML,
             )
 
         await conn.execute(
-            "UPDATE object_store SET fetch_count = fetch_count + 1 WHERE key = ?;",
-            (key,),
+            "UPDATE object_store SET fetch_count = fetch_count + 1 WHERE id = ?;",
+            (row["id"],),
         )

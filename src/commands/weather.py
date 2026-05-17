@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+
 import aiohttp
 from telegram import Update
 from telegram.constants import ParseMode
@@ -108,17 +110,17 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
 
     await message.reply_text(
-        f"""<b>{data["address"]}</b>
+        f"""<b>{html.escape(str(data["address"]))}</b>
 
-{data["condition"]}
+{html.escape(str(data["condition"]))}
 
-🌡️ <b>Temperature:</b> {data["temperature"]}
-🫠 <b>Feels like:</b> {data["feels_like"]}
-💦 <b>Humidity:</b> {data["humidity"]}
-💨 <b>Wind:</b> {data["wind"]}
-🛰 <b>AQI:</b> {data["aqi"]}
-🌫 <b>PM2.5:</b> {data["pm2_5"]}
-🏭 <b>PM10:</b> {data["pm10"]}""",
+🌡️ <b>Temperature:</b> {html.escape(str(data["temperature"]))}
+🫠 <b>Feels like:</b> {html.escape(str(data["feels_like"]))}
+💦 <b>Humidity:</b> {html.escape(str(data["humidity"]))}
+💨 <b>Wind:</b> {html.escape(str(data["wind"]))}
+🛰 <b>AQI:</b> {html.escape(str(data["aqi"]))}
+🌫 <b>PM2.5:</b> {html.escape(str(data["pm2_5"]))}
+🏭 <b>PM10:</b> {html.escape(str(data["pm10"]))}""",
         parse_mode=ParseMode.HTML,
     )
 
@@ -128,4 +130,3 @@ def format_pollutant(value: float | None) -> str:
     if value is None:
         return "Unavailable"
     return f"{value:.1f} µg/m³"
-

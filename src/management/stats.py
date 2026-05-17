@@ -1,4 +1,5 @@
 import asyncio
+import html
 from datetime import datetime, timedelta
 
 from telegram import Message, Update
@@ -32,9 +33,9 @@ async def reply_chat_stats(
     names = await asyncio.gather(
         *(utils.get_first_name(user_id, context) for _, user_id, _ in rows)
     )
-    lines = [f"Stats for <b>{message.chat.title}:</b>", ""]
+    lines = [f"Stats for <b>{html.escape(message.chat.title or str(message.chat_id))}:</b>", ""]
     for (_, _user_id, count), name in zip(rows, names, strict=True):
-        lines.append(f"<code>{count / total_count * 100:4.1f}% - {name}</code>")
+        lines.append(f"<code>{count / total_count * 100:4.1f}% - {html.escape(name)}</code>")
     lines.append(f"\nTotal messages: <b>{total_count}</b>")
     await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
@@ -321,7 +322,10 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Header name
     target_name = username_display or str(user_id)
-    header = f"User stats for <b>{target_name}</b> in <b>{message.chat.title}</b>\n"
+    header = (
+        f"User stats for <b>{html.escape(target_name)}</b> "
+        f"in <b>{html.escape(message.chat.title or str(message.chat_id))}</b>\n"
+    )
 
     if user_week_total == 0:
         await message.reply_text(

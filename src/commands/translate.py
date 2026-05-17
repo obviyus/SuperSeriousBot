@@ -1,4 +1,5 @@
 import difflib
+import html
 import io
 
 from telegram import Message, Update
@@ -81,12 +82,15 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if closest:
             sim = difflib.SequenceMatcher(None, lang.lower(), closest[0]).ratio() * 100
             await message.reply_text(
-                f"Couldn't recognize the given language: <b>{lang}</b>. "
-                f"Did you mean: {closest[0]} ({langs[closest[0]]})? <b>Similarity: {sim:.2f}%</b>",
+                f"Couldn't recognize the given language: <b>{html.escape(lang)}</b>. "
+                f"Did you mean: {html.escape(closest[0])} ({html.escape(langs[closest[0]])})? <b>Similarity: {sim:.2f}%</b>",
                 parse_mode=ParseMode.HTML,
             )
         else:
-            await message.reply_text(f"Invalid language: <b>{lang}</b>")
+            await message.reply_text(
+                f"Invalid language: <b>{html.escape(lang)}</b>",
+                parse_mode=ParseMode.HTML,
+            )
         return
 
     try:

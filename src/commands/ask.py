@@ -22,6 +22,7 @@ from commands.ai import (
     stream_openrouter_deltas,
 )
 from commands.runtime import ensure_command_available
+from config.logger import logger
 from config.options import config
 from utils.decorators import command
 from utils.media import get_sticker_image_bytes
@@ -308,10 +309,9 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         sent_message.message_id,
                         content,
                     )
-    except Exception as e:
-        await message.reply_text(
-            f"An error occurred while processing your request: {e!s}"
-        )
+    except Exception:
+        logger.exception("Ask command failed")
+        await message.reply_text("AI request failed. Please try again.")
 
 
 @command(
@@ -436,7 +436,6 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # If no image was generated and no text response
         await message.reply_text("Could not generate edited image. Please try again.")
 
-    except Exception as e:
-        await message.reply_text(
-            f"An error occurred while processing your request: {e!s}"
-        )
+    except Exception:
+        logger.exception("Edit command failed")
+        await message.reply_text("AI request failed. Please try again.")

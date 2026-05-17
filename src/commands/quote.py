@@ -48,9 +48,9 @@ async def add_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     async with get_db() as conn:
         async with conn.execute(
             """
-            SELECT * FROM quote_db WHERE message_id = ?;
+            SELECT * FROM quote_db WHERE chat_id = ? AND message_id = ?;
             """,
-            (quote_message.message_id,),
+            (quote_message.chat_id, quote_message.message_id),
         ) as cursor:
             if await cursor.fetchone():
                 await message.reply_text(

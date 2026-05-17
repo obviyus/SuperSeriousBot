@@ -10,29 +10,30 @@ type ChatImportRow = tuple[int, str, int, str, str]
 
 
 async def save_message_stats(message: Message) -> None:
-    if not message.from_user or not message.from_user.username:
+    if not message.from_user:
         return
 
     user = message.from_user
     chat_id = message.chat_id
 
     async with get_db() as conn:
-        await conn.execute(
-            """
-            INSERT INTO user_stats (user_id, username, last_seen, last_message_link)
-                VALUES (?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                username = excluded.username,
-                last_seen = excluded.last_seen,
-                last_message_link = excluded.last_message_link
-            """,
-            (
-                user.id,
-                user.username,
-                datetime.now(),
-                message.link if message.link else None,
-            ),
-        )
+        if user.username:
+            await conn.execute(
+                """
+                INSERT INTO user_stats (user_id, username, last_seen, last_message_link)
+                    VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    username = excluded.username,
+                    last_seen = excluded.last_seen,
+                    last_message_link = excluded.last_message_link
+                """,
+                (
+                    user.id,
+                    user.username,
+                    datetime.now(),
+                    message.link if message.link else None,
+                ),
+            )
 
         message_text = None
         if message.text:
@@ -87,9 +88,7 @@ async def process_mentions(message: Message) -> None:
                     mentioned_users.add(entity.user.id)
                     await save_mention(mentioning_user_id, entity.user.id, message)
             elif entity.type == MessageEntity.MENTION and message.text:
-                mentioned_username = message.text[
-                    entity.offset + 1 : entity.offset + entity.length
-                ]
+                mentioned_username = message.parse_entity(entity).lstrip("@")
                 user_id = await get_user_id_from_username(mentioned_username)
                 if user_id is not None and user_id not in mentioned_users:
                     mentioned_users.add(user_id)
@@ -235,9 +234,6 @@ def parse_export_file(filepath: str, chat_id: int) -> list[ChatImportRow]:
 
 async def import_chat_stats_rows(chat_id: int, batch: list[ChatImportRow]) -> None:
     async with get_db() as conn:
-        await conn.execute("PRAGMA synchronous = OFF;")
-        await conn.execute("PRAGMA journal_mode = MEMORY;")
-        await conn.execute("DROP TRIGGER IF EXISTS chat_stats_ai;")
         await conn.executemany(
             """
             INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text)
@@ -245,15 +241,6 @@ async def import_chat_stats_rows(chat_id: int, batch: list[ChatImportRow]) -> No
             ON CONFLICT(chat_id, user_id, message_id) DO NOTHING;
             """,
             batch,
-        )
-
-        await conn.execute(
-            """
-            CREATE TRIGGER chat_stats_ai AFTER INSERT ON chat_stats BEGIN
-                INSERT INTO chat_stats_fts (rowid, message_text, chat_id)
-                VALUES (new.id, new.message_text, new.chat_id);
-            END
-            """
         )
 
         await conn.execute(

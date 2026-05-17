@@ -55,6 +55,7 @@ async def send_markdown_or_plain(
     text: str,
     *,
     disable_web_page_preview: bool = False,
+    document_name: str | None = None,
     reply_markup: InlineKeyboardMarkup | None = None,
 ):
     import telegramify_markdown
@@ -72,9 +73,21 @@ async def send_markdown_or_plain(
     except Exception:
         pass
 
-    return await bot.send_message(
+    if len(text) <= 4096:
+        return await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            disable_web_page_preview=disable_web_page_preview,
+            reply_markup=reply_markup,
+        )
+
+    if not document_name:
+        raise ValueError("Message is too long for Telegram.")
+
+    buffer = io.BytesIO(text.encode())
+    buffer.name = document_name
+    return await bot.send_document(
         chat_id=chat_id,
-        text=text,
-        disable_web_page_preview=disable_web_page_preview,
+        document=buffer,
         reply_markup=reply_markup,
     )

@@ -1,3 +1,6 @@
+import html
+from urllib.parse import urlparse
+
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -36,14 +39,17 @@ async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("No results found.")
         return
 
-    definition_text = truncate_text(definition["definition"])
-    example_text = truncate_text(definition["example"])
+    permalink = str(definition["permalink"])
+    if urlparse(permalink).scheme not in {"http", "https"}:
+        permalink = ""
+    definition_text = truncate_text(str(definition["definition"]))
+    example_text = truncate_text(str(definition["example"]))
     await message.reply_text(
         (
-            f"{wotd_prefix}<a href='{definition['permalink']}'><b>{definition['word']}</b></a>\n\n"
-            f"{definition_text}\n\n"
-            f"<i>{example_text}</i>\n\n"
-            f"<pre>👍 x {definition['thumbs_up']}</pre>"
+            f"{html.escape(wotd_prefix)}<a href='{html.escape(permalink, quote=True)}'><b>{html.escape(str(definition['word']))}</b></a>\n\n"
+            f"{html.escape(definition_text)}\n\n"
+            f"<i>{html.escape(example_text)}</i>\n\n"
+            f"<pre>👍 x {html.escape(str(definition['thumbs_up']))}</pre>"
         ),
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,

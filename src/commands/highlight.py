@@ -1,3 +1,5 @@
+import html
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import KeyboardButtonStyle, ParseMode
 from telegram.error import Forbidden
@@ -104,21 +106,20 @@ async def highlighter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             return
 
         async with get_db() as conn:
-            async with conn.execute(
-                "SELECT * FROM highlights WHERE chat_id = ? AND string = ? COLLATE NOCASE",
-                (message.chat_id, highlight_string),
-            ) as cursor:
-                if await cursor.fetchone():
-                    await message.reply_text("Highlight already exists in this chat.")
-                    return
-            await conn.execute(
-                "INSERT INTO highlights (chat_id, string, user_id) VALUES (?, ?, ?)",
+            result = await conn.execute(
+                """
+                INSERT OR IGNORE INTO highlights (chat_id, string, user_id)
+                VALUES (?, ?, ?)
+                """,
                 (message.chat_id, highlight_string, message.from_user.id),
             )
+            if not result.rowcount:
+                await message.reply_text("Highlight already exists.")
+                return
 
         bot_username = context.bot.username
         text = (
-            f"Added highlight: <code>{highlight_string}</code>.\n\n"
+            f"Added highlight: <code>{html.escape(highlight_string)}</code>.\n\n"
             "⚠️ Make sure you've messaged me first, otherwise I can't DM you!\n\n"
             "Your highlights in this chat:"
         )
@@ -153,10 +154,10 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             try:
                 await context.bot.send_message(
                     row["user_id"],
-                    f"Your highlight <code>{row['string']}</code> was mentioned "
-                    f"in <b>{message.chat.title}</b> by "
-                    f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>."
-                    f"\n\n🔗 <a href='{message.link}'>Link</a>",
+                    f"Your highlight <code>{html.escape(row['string'])}</code> was mentioned "
+                    f"in <b>{html.escape(message.chat.title or str(message.chat_id))}</b> by "
+                    f"<a href='tg://user?id={message.from_user.id}'>{html.escape(message.from_user.first_name)}</a>."
+                    f"\n\n🔗 <a href='{html.escape(message.link or '', quote=True)}'>Link</a>",
                     parse_mode=ParseMode.HTML,
                     reply_markup=InlineKeyboardMarkup(
                         [[delete_highlight_button(row["id"], row["user_id"])]]
@@ -165,7 +166,7 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             except Forbidden:
                 await message.reply_text(
                     f"<a href='tg://user?id={row['user_id']}'>Your highlight</a> "
-                    f"<code>{row['string']}</code> was triggered, but I can't DM you. "
+                    f"<code>{html.escape(row['string'])}</code> was triggered, but I can't DM you. "
                     "Please start a conversation with me first.",
                     parse_mode=ParseMode.HTML,
                     reply_markup=InlineKeyboardMarkup(

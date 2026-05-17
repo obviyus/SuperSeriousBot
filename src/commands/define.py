@@ -35,28 +35,43 @@ async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await message.reply_text(text="Word not found.")
                 return
             data = await response.json()
-    if not data:
+    if not isinstance(data, list) or not data or not isinstance(data[0], dict):
         await message.reply_text(text="Word not found.")
         return
 
     definition = data[0]
-    text = f"<b>{definition['word']}</b>"
+    word = definition.get("word")
+    if not isinstance(word, str):
+        await message.reply_text(text="Word not found.")
+        return
+
+    text = f"<b>{html.escape(word)}</b>"
     phonetics = definition.get("phonetics", [])
-    if phonetics and phonetics[0].get("text"):
-        text += f"\n🗣️ {phonetics[0]['text']}"
+    first_phonetic = phonetics[0] if isinstance(phonetics, list) and phonetics else None
+    if isinstance(first_phonetic, dict) and isinstance(first_phonetic.get("text"), str):
+        text += f"\n🗣️ {html.escape(first_phonetic['text'])}"
 
     meanings = definition.get("meanings", [])
-    if meanings:
-        part_of_speech = meanings[0].get("partOfSpeech", "")
-        definitions = meanings[0].get("definitions", [])
-        if part_of_speech and definitions:
-            text += f"\n\n<b>{part_of_speech}</b>"
+    first_meaning = meanings[0] if isinstance(meanings, list) and meanings else None
+    if isinstance(first_meaning, dict):
+        part_of_speech = first_meaning.get("partOfSpeech", "")
+        definitions = first_meaning.get("definitions", [])
+        if isinstance(part_of_speech, str) and isinstance(definitions, list) and definitions:
+            text += f"\n\n<b>{html.escape(part_of_speech)}</b>"
             first_definition = definitions[0]
-            text += f"\n  -  {html.escape(first_definition.get('definition', ''))}"
+            if not isinstance(first_definition, dict):
+                await message.reply_text(text="Word not found.")
+                return
+            first_definition_text = first_definition.get("definition", "")
+            if not isinstance(first_definition_text, str):
+                await message.reply_text(text="Word not found.")
+                return
+            text += f"\n  -  {html.escape(first_definition_text)}"
             synonyms = first_definition.get("synonyms", [])
-            if synonyms:
+            if isinstance(synonyms, list) and synonyms:
                 text += "\n\nSynonyms:"
                 for syn in synonyms[:2]:
-                    text += f"\n  - {html.escape(syn)}"
+                    if isinstance(syn, str):
+                        text += f"\n  - {html.escape(syn)}"
 
     await message.reply_text(text=text, parse_mode=ParseMode.HTML)

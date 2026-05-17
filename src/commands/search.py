@@ -100,6 +100,14 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     message = get_message(update)
     if not message:
         return
+    if not message.from_user:
+        return
+
+    if message.chat.type != ChatType.PRIVATE:
+        chat_admins = await context.bot.get_chat_administrators(message.chat_id)
+        if message.from_user.id not in [admin.user.id for admin in chat_admins]:
+            await message.reply_text("You are not a moderator.")
+            return
 
     if not message.reply_to_message or not message.reply_to_message.document:
         await message.reply_text("Please reply to a JSON file.")

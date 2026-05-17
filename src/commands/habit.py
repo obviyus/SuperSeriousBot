@@ -1,5 +1,3 @@
-import asyncio
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import KeyboardButtonStyle
 from telegram.error import BadRequest
@@ -142,7 +140,6 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
         ) as cursor:
             group_habits = await cursor.fetchall()
 
-    message_tasks = []
     for group_habit in group_habits:
         # Build message and keyboard first; if this fails, skip sending
         try:
@@ -153,12 +150,11 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
             continue
 
         try:
-            task = context.bot.send_message(
+            await context.bot.send_message(
                 chat_id=group_habit["chat_id"],
                 text=text,
                 reply_markup=keyboard,
             )
-            message_tasks.append(task)
         except BadRequest as e:
             if "Chat not found" in str(e):
                 logger.warning(
@@ -182,8 +178,6 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
                 logger.error(f"BadRequest error for habit {group_habit['id']}: {e!s}")
         except Exception as e:
             logger.error(f"Error sending message for habit {group_habit['id']}: {e!s}")
-
-    await asyncio.gather(*message_tasks)
 
 
 @command(
