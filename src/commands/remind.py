@@ -4,6 +4,7 @@ import re
 
 from telegram import Update
 from telegram.constants import ParseMode
+from telegram.error import ChatMigrated
 from telegram.ext import ContextTypes
 
 import commands
@@ -146,8 +147,18 @@ async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
             f"⏰ <code>{html.escape(reminder['title'])}</code>\n\n"
             f"@{await utils.get_username(reminder['user_id'], context)}"
         )
-        await context.bot.send_message(
-            reminder["chat_id"], text, parse_mode=ParseMode.HTML
-        )
+        try:
+            await context.bot.send_message(
+                reminder["chat_id"], text, parse_mode=ParseMode.HTML
+            )
+        except ChatMigrated as exc:
+            await context.bot.send_message(
+                exc.new_chat_id, text, parse_mode=ParseMode.HTML
+            )
+            async with get_db() as conn:
+                await conn.execute(
+                    "UPDATE reminders SET chat_id = ? WHERE chat_id = ?",
+                    (exc.new_chat_id, reminder["chat_id"]),
+                )
         async with get_db() as conn:
             await conn.execute("DELETE FROM reminders WHERE id = ?", (reminder["id"],))
