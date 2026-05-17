@@ -4,6 +4,40 @@
 def upgrade(connection):
     connection.execute(
         """
+        DELETE FROM quote_recent_history
+        WHERE quote_id IN (
+            SELECT id
+            FROM quote_db
+            WHERE id NOT IN (
+                SELECT MIN(id)
+                FROM quote_db
+                GROUP BY chat_id, message_id
+            )
+        )
+        """
+    )
+    connection.execute(
+        """
+        DELETE FROM quote_db
+        WHERE id NOT IN (
+            SELECT MIN(id)
+            FROM quote_db
+            GROUP BY chat_id, message_id
+        )
+        """
+    )
+    connection.execute(
+        """
+        DELETE FROM object_store
+        WHERE id NOT IN (
+            SELECT MIN(id)
+            FROM object_store
+            GROUP BY lower(key)
+        )
+        """
+    )
+    connection.execute(
+        """
         CREATE UNIQUE INDEX IF NOT EXISTS quote_db_chat_message_unique
         ON quote_db (chat_id, message_id)
         """
