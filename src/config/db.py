@@ -14,9 +14,8 @@ PRIMARY_DB_PATH = Path(os.getenv("DATABASE_PATH_PREFIX", ".")) / "SuperSeriousBo
 _init_lock = asyncio.Lock()
 
 
-async def _init_connection() -> aiosqlite.Connection:
+async def _open_connection() -> aiosqlite.Connection:
     conn = await aiosqlite.connect(PRIMARY_DB_PATH, isolation_level=None)
-    await conn.execute("PRAGMA journal_mode = WAL;")
     await conn.execute("PRAGMA foreign_keys = ON;")
     await conn.execute("PRAGMA busy_timeout = 5000;")  # 5s wait on lock contention
     await conn.execute("PRAGMA cache_size = -64000;")  # 64MB cache
@@ -26,8 +25,11 @@ async def _init_connection() -> aiosqlite.Connection:
 
 async def init_db() -> None:
     async with _init_lock:
-        conn = await _init_connection()
-        await conn.close()
+        conn = await _open_connection()
+        try:
+            await conn.execute("PRAGMA journal_mode = WAL;")
+        finally:
+            await conn.close()
         logger.info("Database connection initialized")
 
 
@@ -37,7 +39,7 @@ async def close_db() -> None:
 
 @asynccontextmanager
 async def get_db() -> AsyncGenerator[aiosqlite.Connection]:
-    conn = await _init_connection()
+    conn = await _open_connection()
     try:
         yield conn
     finally:
