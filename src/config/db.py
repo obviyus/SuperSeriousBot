@@ -11,17 +11,10 @@ from config import logger
 
 PRIMARY_DB_PATH = Path(os.getenv("DATABASE_PATH_PREFIX", ".")) / "SuperSeriousBot.db"
 
-# AIDEV-NOTE: Singleton connection - SQLite is single-writer, WAL handles concurrent reads.
-# This eliminates 60+ connection open/close cycles per message flow.
-_db_connection: aiosqlite.Connection | None = None
-_db_lock = asyncio.Lock()
-_db_scope_lock = asyncio.Lock()
-_db_scope_owner: asyncio.Task | None = None
-_db_scope_depth = 0
+_init_lock = asyncio.Lock()
 
 
 async def _init_connection() -> aiosqlite.Connection:
-    """Initialize the database connection with optimal settings."""
     conn = await aiosqlite.connect(PRIMARY_DB_PATH, isolation_level=None)
     await conn.execute("PRAGMA journal_mode = WAL;")
     await conn.execute("PRAGMA foreign_keys = ON;")
@@ -32,57 +25,23 @@ async def _init_connection() -> aiosqlite.Connection:
 
 
 async def init_db() -> None:
-    """Initialize the database connection pool. Call once at startup."""
-    global _db_connection
-    async with _db_lock:
-        if _db_connection is None:
-            _db_connection = await _init_connection()
-            logger.info("Database connection initialized")
+    async with _init_lock:
+        conn = await _init_connection()
+        await conn.close()
+        logger.info("Database connection initialized")
 
 
 async def close_db() -> None:
-    """Close the database connection. Call once at shutdown."""
-    global _db_connection
-    async with _db_lock:
-        if _db_connection is not None:
-            await _db_connection.close()
-            _db_connection = None
-            logger.info("Database connection closed")
+    logger.info("Database connection closed")
 
 
 @asynccontextmanager
 async def get_db() -> AsyncGenerator[aiosqlite.Connection]:
-    """Get the singleton database connection."""
-    global _db_connection, _db_scope_depth, _db_scope_owner
-    if _db_connection is None:
-        async with _db_lock:
-            if _db_connection is None:
-                _db_connection = await _init_connection()
-                logger.info("Database connection initialized (lazy)")
-    assert _db_connection is not None
-    task = asyncio.current_task()
-    if task is not None and task is _db_scope_owner:
-        _db_scope_depth += 1
-        try:
-            yield _db_connection
-        finally:
-            _db_scope_depth -= 1
-            if _db_scope_depth == 0:
-                _db_scope_owner = None
-        return
-
-    if task is None:
-        yield _db_connection
-        return
-
-    async with _db_scope_lock:
-        _db_scope_owner = task
-        _db_scope_depth = 1
-        try:
-            yield _db_connection
-        finally:
-            _db_scope_depth = 0
-            _db_scope_owner = None
+    conn = await _init_connection()
+    try:
+        yield conn
+    finally:
+        await conn.close()
 
 
 async def optimize_fts5(_: ContextTypes.DEFAULT_TYPE):
