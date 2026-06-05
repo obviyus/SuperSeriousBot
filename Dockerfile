@@ -22,7 +22,7 @@ ENV UV_LINK_MODE=copy \
 COPY pyproject.toml uv.lock ./
 
 RUN --mount=type=cache,target=/root/.cache \
-    uv sync --locked --no-dev --no-install-project
+    sh -c 'uv sync --locked --no-dev --no-install-project & pid=$!; while kill -0 "$pid" 2>/dev/null; do sleep 10; echo "uv sync still running"; done; wait "$pid"'
 
 COPY src/ ./src/
 COPY migrations/ ./migrations/
