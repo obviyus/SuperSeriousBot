@@ -4,6 +4,7 @@ import os
 from collections.abc import AsyncGenerator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Self
 
 from config import logger
@@ -19,6 +20,18 @@ def open_sync_connection():
         autocommit=True,
         _check_same_thread=False,
     )
+
+
+def bind_params(params: object) -> object:
+    if isinstance(params, datetime):
+        return str(params)
+    if isinstance(params, tuple):
+        return tuple(bind_params(value) for value in params)
+    if isinstance(params, list):
+        return [bind_params(value) for value in params]
+    if isinstance(params, dict):
+        return {key: bind_params(value) for key, value in params.items()}
+    return params
 
 
 @dataclass(frozen=True)
@@ -103,7 +116,7 @@ class TursoOperation:
             cursor = await asyncio.to_thread(
                 self._connection.executemany,
                 self._sql,
-                self._params or [],
+                bind_params(self._params or []),
             )
         elif self._params is None:
             cursor = await asyncio.to_thread(self._connection.execute, self._sql)
@@ -111,7 +124,7 @@ class TursoOperation:
             cursor = await asyncio.to_thread(
                 self._connection.execute,
                 self._sql,
-                self._params,
+                bind_params(self._params),
             )
         return TursoCursor(cursor)
 

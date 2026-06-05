@@ -4,6 +4,7 @@ import importlib
 import io
 import os
 import unittest
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -95,6 +96,18 @@ class ClawpatchRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(row["id"], 1)
         self.assertEqual(row[1], "one")
+
+    async def test_turso_adapter_binds_datetimes_as_sqlite_text(self):
+        conn = db.TursoConnection(libsql.connect(":memory:", autocommit=True))
+        seen_at = datetime(2026, 6, 5, 7, 58, 2, 221759)
+
+        await conn.execute("CREATE TABLE sightings (seen_at TEXT NOT NULL)")
+        await conn.execute("INSERT INTO sightings (seen_at) VALUES (?)", (seen_at,))
+
+        async with conn.execute("SELECT seen_at FROM sightings") as rows:
+            row = await rows.fetchone()
+
+        self.assertEqual(row["seen_at"], "2026-06-05 07:58:02.221759")
 
 
 if __name__ == "__main__":
