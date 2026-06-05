@@ -28,6 +28,7 @@ TOGGLES = (
     SettingToggle("edit", "/edit", "command_whitelist", "edit"),
     SettingToggle("tr", "/tr", "command_whitelist", "tr"),
     SettingToggle("cron", "/cron", "command_whitelist", "cron"),
+    SettingToggle("song", "/song", "command_whitelist", "song"),
 )
 TOGGLE_BY_KEY = {toggle.key: toggle for toggle in TOGGLES}
 

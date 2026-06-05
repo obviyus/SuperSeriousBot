@@ -1,11 +1,18 @@
 import asyncio
+import json
 from typing import Any
 
 import aiohttp
-from telegram import Update
+from telegram import InputMediaAudio, Update
 from telegram.ext import ContextTypes
 
 import commands
+from commands.ai import (
+    OPENROUTER_API_URL,
+    first_message_content,
+    openrouter_api_key,
+    openrouter_headers,
+)
 from commands.runtime import ensure_command_available
 from config.options import config
 from utils.decorators import command
@@ -13,17 +20,35 @@ from utils.messages import get_message
 
 KIE_API_URL = "https://api.kie.ai/api/v1"
 KIE_CALLBACK_URL = "https://localhost/kie-callback"
-SONG_PROMPT_CHAR_LIMIT = 200
+LYRICS_PROMPT_CHAR_LIMIT = 200
+SONG_STYLE_CHAR_LIMIT = 1000
 LYRICS_POLL_ATTEMPTS = 36
 MUSIC_POLL_ATTEMPTS = 96
 POLL_INTERVAL_SECONDS = 5
-SONG_STYLE = (
-    "bright dance-pop, playful, catchy, big chorus, clean vocal, polished banger"
-)
+SONG_PLANNER_MODEL = "x-ai/grok-4.3"
 SONG_NEGATIVE_TAGS = "rap, spoken word, mumble rap, long dense verses"
 SONG_MODEL = "V5"
 
 type JsonObject = dict[str, Any]
+
+
+SONG_PLANNER_SYSTEM_PROMPT = f"""Turn a user's song idea into KIE Suno inputs.
+
+Return JSON only:
+{{"lyricsPrompt":"...","style":"..."}}
+
+lyricsPrompt rules:
+- {LYRICS_PROMPT_CHAR_LIMIT} characters max.
+- Ask for fun, singable lyrics based on the user's idea.
+- Prefer short sung lines, 4-7 syllables, simple words, clean AABB or ABAB rhymes.
+- Include verse, pre-chorus or lift, chorus, and a repeatable hook.
+- Avoid rap, spoken word, dense bars, artist names, and copyrighted song titles.
+
+style rules:
+- {SONG_STYLE_CHAR_LIMIT} characters max.
+- Concise Suno style tags and vocal/production direction.
+- Make it catchy and high-energy unless the user asks otherwise.
+- Avoid artist names and copyrighted song titles."""
 
 
 def kie_headers() -> dict[str, str]:
@@ -49,6 +74,46 @@ async def kie_json(
         if response.status != 200 or data.get("code") != 200:
             raise RuntimeError(str(data.get("msg") or "KIE request failed"))
         return data
+
+
+async def plan_song(session: aiohttp.ClientSession, user_prompt: str) -> tuple[str, str]:
+    payload: JsonObject = {
+        "model": SONG_PLANNER_MODEL,
+        "messages": [
+            {"role": "system", "content": SONG_PLANNER_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        "max_tokens": 320,
+        "response_format": {"type": "json_object"},
+    }
+    async with session.post(
+        OPENROUTER_API_URL,
+        headers=openrouter_headers(openrouter_api_key()),
+        json=payload,
+    ) as response:
+        response.raise_for_status()
+        data = await response.json()
+
+    content = first_message_content(data if isinstance(data, dict) else {})
+    if not isinstance(content, str):
+        raise RuntimeError("OpenRouter did not return a song plan.")
+
+    try:
+        plan = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("OpenRouter returned an invalid song plan.") from exc
+
+    lyrics_prompt = plan.get("lyricsPrompt") if isinstance(plan, dict) else None
+    style = plan.get("style") if isinstance(plan, dict) else None
+    if not isinstance(lyrics_prompt, str) or not isinstance(style, str):
+        raise RuntimeError("OpenRouter returned an incomplete song plan.")
+    if not lyrics_prompt.strip() or not style.strip():
+        raise RuntimeError("OpenRouter returned an empty song plan.")
+    if len(lyrics_prompt) > LYRICS_PROMPT_CHAR_LIMIT:
+        raise RuntimeError("OpenRouter returned a lyrics prompt that was too long.")
+    if len(style) > SONG_STYLE_CHAR_LIMIT:
+        raise RuntimeError("OpenRouter returned a style that was too long.")
+    return lyrics_prompt.strip(), style.strip()
 
 
 async def create_task(
@@ -123,6 +188,20 @@ def audio_url(track: JsonObject) -> str:
     return url
 
 
+def song_media_group(tracks: list[JsonObject], fallback_title: str) -> list[InputMediaAudio]:
+    selected_tracks = tracks[:2]
+    if len(selected_tracks) != 2:
+        raise RuntimeError("KIE generated fewer than two songs.")
+    return [
+        InputMediaAudio(
+            media=audio_url(track),
+            title=str(track.get("title") or fallback_title),
+            caption=str(track.get("title") or fallback_title),
+        )
+        for track in selected_tracks
+    ]
+
+
 @command(
     triggers=["song"],
     usage="/song <prompt>",
@@ -142,20 +221,22 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not user_prompt:
         await commands.usage_string(message, song)
         return
-    if len(user_prompt) > SONG_PROMPT_CHAR_LIMIT:
-        await message.reply_text(
-            f"Please keep your song prompt under {SONG_PROMPT_CHAR_LIMIT} characters."
-        )
+
+    if not config.API.OPENROUTER_API_KEY:
+        await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
         return
 
-    progress = await message.reply_text("Writing banger lyrics...")
+    progress = await message.reply_text("Planning the song...")
 
     try:
         async with aiohttp.ClientSession() as session:
+            lyrics_prompt, style = await plan_song(session, user_prompt)
+
+            await progress.edit_text("Writing banger lyrics...")
             lyrics_task_id = await create_task(
                 session,
                 "/lyrics",
-                {"prompt": user_prompt, "callBackUrl": KIE_CALLBACK_URL},
+                {"prompt": lyrics_prompt, "callBackUrl": KIE_CALLBACK_URL},
             )
             lyrics_task = await poll_task(
                 session,
@@ -172,13 +253,13 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             title, lyrics = first_lyrics(lyrics_task)
 
-            await progress.edit_text("Turning lyrics into a song...")
+            await progress.edit_text("Turning lyrics into songs...")
             music_task_id = await create_task(
                 session,
                 "/generate",
                 {
                     "prompt": lyrics,
-                    "style": SONG_STYLE,
+                    "style": style,
                     "title": title,
                     "customMode": True,
                     "instrumental": False,
@@ -202,11 +283,6 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
 
         await progress.delete()
-        for track in song_tracks(music_task)[:2]:
-            await message.reply_audio(
-                audio=audio_url(track),
-                title=str(track.get("title") or title),
-                caption=f"{track.get('title') or title}",
-            )
+        await message.reply_media_group(song_media_group(song_tracks(music_task), title))
     except RuntimeError as exc:
         await progress.edit_text(f"Song generation failed: {exc!s}")
