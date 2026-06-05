@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Self
 
 from config import logger
@@ -13,9 +14,12 @@ _init_lock = asyncio.Lock()
 
 
 def open_sync_connection():
+    replica_path = Path(os.environ["TURSO_REPLICA_PATH"])
+    replica_path.parent.mkdir(parents=True, exist_ok=True)
     libsql_connect: Any = vars(importlib.import_module("libsql"))["connect"]
     return libsql_connect(
-        os.environ["TURSO_DATABASE_URL"],
+        str(replica_path),
+        sync_url=os.environ["TURSO_DATABASE_URL"],
         auth_token=os.environ["TURSO_AUTH_TOKEN"],
         autocommit=True,
         _check_same_thread=False,
@@ -150,6 +154,9 @@ class TursoConnection:
     async def close(self) -> None:
         await asyncio.to_thread(self._connection.close)
 
+    async def sync(self) -> None:
+        await asyncio.to_thread(self._connection.sync)
+
 
 async def _open_connection() -> TursoConnection:
     conn = open_sync_connection()
@@ -161,6 +168,7 @@ async def _open_connection() -> TursoConnection:
 async def init_db() -> None:
     async with _init_lock:
         async with get_db() as conn:
+            await conn.sync()
             await conn.execute("SELECT 1;")
         logger.info("Turso connection initialized")
 
