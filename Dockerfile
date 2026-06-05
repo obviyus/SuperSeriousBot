@@ -44,10 +44,7 @@ COPY --from=build --chown=app:app /app /app
 COPY --from=build --chown=app:app /src/src /app/src
 COPY --from=build --chown=app:app /src/migrations /app/migrations
 
-RUN mkdir -p /db && chown app:app /db
-
-ENV PATH="/app/bin:$PATH" \
-    TURSO_REPLICA_PATH=/db/SuperSeriousBot-replica.db
+ENV PATH="/app/bin:$PATH"
 
 WORKDIR /app
 USER app

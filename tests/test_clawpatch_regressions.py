@@ -12,9 +12,8 @@ from telegram import MessageEntity
 
 os.environ.setdefault("TELEGRAM_TOKEN", "test-token")
 os.environ.setdefault("QUOTE_CHANNEL_ID", "1")
-os.environ.setdefault("TURSO_DATABASE_URL", "libsql://test")
+os.environ.setdefault("TURSO_DATABASE_URL", ":memory:")
 os.environ.setdefault("TURSO_AUTH_TOKEN", "test-token")
-os.environ.setdefault("TURSO_REPLICA_PATH", ":memory:")
 
 chat_memory = importlib.import_module("management.chat_memory")
 db = importlib.import_module("config.db")
