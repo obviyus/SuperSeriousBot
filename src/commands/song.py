@@ -84,7 +84,29 @@ async def plan_song(session: aiohttp.ClientSession, user_prompt: str) -> tuple[s
             {"role": "user", "content": user_prompt},
         ],
         "max_tokens": 320,
-        "response_format": {"type": "json_object"},
+        "provider": {"require_parameters": True},
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "song_plan",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "lyricsPrompt": {
+                            "type": "string",
+                            "maxLength": LYRICS_PROMPT_CHAR_LIMIT,
+                        },
+                        "style": {
+                            "type": "string",
+                            "maxLength": SONG_STYLE_CHAR_LIMIT,
+                        },
+                    },
+                    "required": ["lyricsPrompt", "style"],
+                    "additionalProperties": False,
+                },
+            },
+        },
     }
     async with session.post(
         OPENROUTER_API_URL,
