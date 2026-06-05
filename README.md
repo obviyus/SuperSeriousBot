@@ -62,7 +62,6 @@ Required:
 - `COBALT_URL` for `/dl`
 - `TURSO_DATABASE_URL`
 - `TURSO_AUTH_TOKEN`
-- `TURSO_REPLICA_PATH`
 
 Optional:
 
