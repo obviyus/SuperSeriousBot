@@ -1,5 +1,6 @@
 import asyncio
 import json
+from dataclasses import dataclass
 from typing import Any
 
 import aiohttp
@@ -20,9 +21,9 @@ from utils.messages import get_message
 
 KIE_API_URL = "https://api.kie.ai/api/v1"
 KIE_CALLBACK_URL = "https://localhost/kie-callback"
-LYRICS_PROMPT_CHAR_LIMIT = 200
+SONG_LYRICS_CHAR_LIMIT = 5000
 SONG_STYLE_CHAR_LIMIT = 1000
-LYRICS_POLL_ATTEMPTS = 36
+SONG_TITLE_CHAR_LIMIT = 80
 MUSIC_POLL_ATTEMPTS = 96
 POLL_INTERVAL_SECONDS = 5
 SONG_PLANNER_MODEL = "x-ai/grok-4.3"
@@ -32,17 +33,33 @@ SONG_MODEL = "V5"
 type JsonObject = dict[str, Any]
 
 
-SONG_PLANNER_SYSTEM_PROMPT = f"""Turn a user's song idea into KIE Suno inputs.
+@dataclass(frozen=True)
+class SongPlan:
+    title: str
+    lyrics: str
+    style: str
+
+
+SONG_PLANNER_SYSTEM_PROMPT = f"""Write finished custom song inputs for KIE Suno.
 
 Return JSON only:
-{{"lyricsPrompt":"...","style":"..."}}
+{{"title":"...","lyricsLines":["..."],"style":"..."}}
 
-lyricsPrompt rules:
-- {LYRICS_PROMPT_CHAR_LIMIT} characters max.
-- Ask for fun, singable lyrics based on the user's idea.
-- Prefer short sung lines, 4-7 syllables, simple words, clean AABB or ABAB rhymes.
+lyrics rules:
+- {SONG_LYRICS_CHAR_LIMIT} characters max.
+- Write the final lyrics directly, not instructions for another model.
+- Put every section tag or sung lyric line in its own lyricsLines item.
+- Use Suno custom lyric section tags where useful, like [Verse 1], [Pre-Chorus], [Chorus], [Bridge].
+- Verses default to short sung lines, about 4-7 syllables, simple words, clean AABB or ABAB rhymes.
 - Include verse, pre-chorus or lift, chorus, and a repeatable hook.
 - Avoid rap, spoken word, dense bars, artist names, and copyrighted song titles.
+- Preserve requested language. If the user asks for Urdu, write Urdu lyrics in Urdu script unless they ask for Roman Urdu.
+- Do not translate a requested non-English song into English.
+- Keep section tags in English even when lyric lines use another language.
+
+title rules:
+- {SONG_TITLE_CHAR_LIMIT} characters max.
+- Match the lyric language when natural.
 
 style rules:
 - {SONG_STYLE_CHAR_LIMIT} characters max.
@@ -76,14 +93,14 @@ async def kie_json(
         return data
 
 
-async def plan_song(session: aiohttp.ClientSession, user_prompt: str) -> tuple[str, str]:
-    payload: JsonObject = {
+def song_plan_payload(user_prompt: str) -> JsonObject:
+    return {
         "model": SONG_PLANNER_MODEL,
         "messages": [
             {"role": "system", "content": SONG_PLANNER_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        "max_tokens": 320,
+        "max_tokens": 1800,
         "provider": {"require_parameters": True},
         "response_format": {
             "type": "json_schema",
@@ -93,30 +110,36 @@ async def plan_song(session: aiohttp.ClientSession, user_prompt: str) -> tuple[s
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "lyricsPrompt": {
+                        "title": {
                             "type": "string",
-                            "maxLength": LYRICS_PROMPT_CHAR_LIMIT,
+                            "maxLength": SONG_TITLE_CHAR_LIMIT,
+                        },
+                        "lyricsLines": {
+                            "type": "array",
+                            "items": {"type": "string", "maxLength": 120},
+                            "minItems": 1,
+                            "maxItems": 80,
                         },
                         "style": {
                             "type": "string",
                             "maxLength": SONG_STYLE_CHAR_LIMIT,
                         },
                     },
-                    "required": ["lyricsPrompt", "style"],
+                    "required": ["title", "lyricsLines", "style"],
                     "additionalProperties": False,
                 },
             },
         },
     }
-    async with session.post(
-        OPENROUTER_API_URL,
-        headers=openrouter_headers(openrouter_api_key()),
-        json=payload,
-    ) as response:
-        response.raise_for_status()
-        data = await response.json()
 
-    content = first_message_content(data if isinstance(data, dict) else {})
+
+def parse_song_plan_response(data: object) -> SongPlan:
+    response: JsonObject = {}
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if isinstance(key, str):
+                response[key] = value
+    content = first_message_content(response)
     if not isinstance(content, str):
         raise RuntimeError("OpenRouter did not return a song plan.")
 
@@ -125,17 +148,41 @@ async def plan_song(session: aiohttp.ClientSession, user_prompt: str) -> tuple[s
     except json.JSONDecodeError as exc:
         raise RuntimeError("OpenRouter returned an invalid song plan.") from exc
 
-    lyrics_prompt = plan.get("lyricsPrompt") if isinstance(plan, dict) else None
+    title = plan.get("title") if isinstance(plan, dict) else None
+    lyrics_lines = plan.get("lyricsLines") if isinstance(plan, dict) else None
     style = plan.get("style") if isinstance(plan, dict) else None
-    if not isinstance(lyrics_prompt, str) or not isinstance(style, str):
+    if (
+        not isinstance(title, str)
+        or not isinstance(lyrics_lines, list)
+        or not isinstance(style, str)
+    ):
         raise RuntimeError("OpenRouter returned an incomplete song plan.")
-    if not lyrics_prompt.strip() or not style.strip():
+    if not all(isinstance(line, str) for line in lyrics_lines):
+        raise RuntimeError("OpenRouter returned invalid lyrics.")
+
+    lyrics = "\n".join(line.strip() for line in lyrics_lines if line.strip())
+    if not title.strip() or not lyrics or not style.strip():
         raise RuntimeError("OpenRouter returned an empty song plan.")
-    if len(lyrics_prompt) > LYRICS_PROMPT_CHAR_LIMIT:
-        raise RuntimeError("OpenRouter returned a lyrics prompt that was too long.")
+    if len(title) > SONG_TITLE_CHAR_LIMIT:
+        raise RuntimeError("OpenRouter returned a title that was too long.")
+    if len(lyrics) > SONG_LYRICS_CHAR_LIMIT:
+        raise RuntimeError("OpenRouter returned lyrics that were too long.")
     if len(style) > SONG_STYLE_CHAR_LIMIT:
         raise RuntimeError("OpenRouter returned a style that was too long.")
-    return lyrics_prompt.strip(), style.strip()
+    return SongPlan(title.strip(), lyrics.strip(), style.strip())
+
+
+async def plan_song(session: aiohttp.ClientSession, user_prompt: str) -> SongPlan:
+    payload = song_plan_payload(user_prompt)
+    async with session.post(
+        OPENROUTER_API_URL,
+        headers=openrouter_headers(openrouter_api_key()),
+        json=payload,
+    ) as response:
+        response.raise_for_status()
+        data = await response.json()
+
+    return parse_song_plan_response(data)
 
 
 async def create_task(
@@ -171,25 +218,6 @@ async def poll_task(
             raise RuntimeError(str(message or "KIE generation failed"))
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
     raise RuntimeError("KIE generation timed out.")
-
-
-def first_lyrics(task: JsonObject) -> tuple[str, str]:
-    response = task.get("response")
-    variants = response.get("data") if isinstance(response, dict) else None
-    if not isinstance(variants, list):
-        raise RuntimeError("No lyrics were generated.")
-
-    for variant in variants:
-        if not isinstance(variant, dict):
-            continue
-        if variant.get("status") != "complete":
-            continue
-        lyrics = variant.get("text")
-        title = variant.get("title")
-        if isinstance(lyrics, str) and isinstance(title, str) and len(lyrics) <= 5000:
-            return title[:80], lyrics
-
-    raise RuntimeError("No usable lyrics were generated.")
 
 
 def song_tracks(task: JsonObject) -> list[JsonObject]:
@@ -248,41 +276,20 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
         return
 
-    progress = await message.reply_text("Planning the song...")
+    progress = await message.reply_text("Writing banger lyrics...")
 
     try:
         async with aiohttp.ClientSession() as session:
-            lyrics_prompt, style = await plan_song(session, user_prompt)
-
-            await progress.edit_text("Writing banger lyrics...")
-            lyrics_task_id = await create_task(
-                session,
-                "/lyrics",
-                {"prompt": lyrics_prompt, "callBackUrl": KIE_CALLBACK_URL},
-            )
-            lyrics_task = await poll_task(
-                session,
-                "/lyrics/record-info",
-                lyrics_task_id,
-                "SUCCESS",
-                {
-                    "CREATE_TASK_FAILED",
-                    "GENERATE_LYRICS_FAILED",
-                    "CALLBACK_EXCEPTION",
-                    "SENSITIVE_WORD_ERROR",
-                },
-                LYRICS_POLL_ATTEMPTS,
-            )
-            title, lyrics = first_lyrics(lyrics_task)
+            song_plan = await plan_song(session, user_prompt)
 
             await progress.edit_text("Turning lyrics into songs...")
             music_task_id = await create_task(
                 session,
                 "/generate",
                 {
-                    "prompt": lyrics,
-                    "style": style,
-                    "title": title,
+                    "prompt": song_plan.lyrics,
+                    "style": song_plan.style,
+                    "title": song_plan.title,
                     "customMode": True,
                     "instrumental": False,
                     "model": SONG_MODEL,
@@ -305,6 +312,8 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
 
         await progress.delete()
-        await message.reply_media_group(song_media_group(song_tracks(music_task), title))
+        await message.reply_media_group(
+            song_media_group(song_tracks(music_task), song_plan.title)
+        )
     except RuntimeError as exc:
         await progress.edit_text(f"Song generation failed: {exc!s}")
