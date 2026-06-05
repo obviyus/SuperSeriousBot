@@ -22,8 +22,8 @@ from utils.messages import get_message
 COMMAND_MODULE_NAMES = (
     "animals", "ask", "book", "calc", "cron", "define", "dl", "gif", "graph",
     "habit", "highlight", "hltb", "insult", "joke", "meme", "model", "ping",
-    "quote", "remind", "search", "settings", "spurdo", "store", "summon", "tldr",
-    "transcribe", "translate", "ud", "uwu", "weather", "whitelist",
+    "quote", "remind", "search", "settings", "song", "spurdo", "store", "summon",
+    "tldr", "transcribe", "translate", "ud", "uwu", "weather", "whitelist",
 )
 MANAGEMENT_MODULE_NAMES = ("blocks", "botstats", "stats")
 

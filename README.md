@@ -26,7 +26,7 @@ SuperSeriousBot is an asynchronous Telegram bot with modular commands, Turso-bac
 
 Current command set includes:
 
-- AI features: `/ask`, `/edit`, `/tldr`, `/tr`, `/model`, `/thinking`
+- AI features: `/ask`, `/edit`, `/tldr`, `/tr`, `/song`, `/model`, `/thinking`
 - Object store + media: `/set`, `/get`, `/dl`, `/gif`, `/meme`, `/joke`
 - Language + utility: `/tl`, `/tts`, `/define`, `/ud`, `/calc`, `/book`
 - Group utilities: `/remind`, `/habit`, `/summon`, `/highlight`
@@ -70,6 +70,7 @@ Optional:
 - `WEATHERAPI_API_KEY` for `/weather`
 - `GIPHY_API_KEY` for `/gif`
 - `GOODREADS_API_KEY` for `/book`
+- `KIE_API_KEY` for `/song`
 - `WOLFRAM_APP_ID` for `/calc`
 - `ADMINS`, `UPDATER`, `WEBHOOK_URL`, `LOGGING_CHANNEL_ID` for bot ops
 
