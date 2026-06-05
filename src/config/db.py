@@ -150,9 +150,6 @@ class TursoConnection:
     async def close(self) -> None:
         await asyncio.to_thread(self._connection.close)
 
-    async def sync(self) -> None:
-        await asyncio.to_thread(self._connection.sync)
-
 
 async def _open_connection() -> TursoConnection:
     conn = open_sync_connection()
@@ -164,7 +161,6 @@ async def _open_connection() -> TursoConnection:
 async def init_db() -> None:
     async with _init_lock:
         async with get_db() as conn:
-            await conn.sync()
             await conn.execute("SELECT 1;")
         logger.info("Turso connection initialized")
 
