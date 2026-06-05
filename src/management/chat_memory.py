@@ -255,6 +255,3 @@ async def import_chat_stats_rows(chat_id: int, batch: list[ChatImportRow]) -> No
             """,
             (chat_id,),
         )
-
-        await conn.execute("PRAGMA synchronous = FULL;")
-        await conn.execute("PRAGMA journal_mode = WAL;")

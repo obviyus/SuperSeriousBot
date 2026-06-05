@@ -1,12 +1,9 @@
-import contextlib
 import datetime
 import html
 import json
 import os
-import re
 import traceback
 
-import caribou
 from telegram import BotCommand, Update
 from telegram.constants import ParseMode
 from telegram.error import NetworkError
@@ -27,10 +24,8 @@ from commands.highlight import highlight_worker
 from commands.remind import worker_reminder
 from commands.sed import sed
 from config.db import (
-    PRIMARY_DB_PATH,
     close_db,
     init_db,
-    optimize_fts5,
 )
 from config.logger import logger
 from config.options import config
@@ -39,45 +34,6 @@ from utils import command_limits
 from utils.decorators import get_command_meta
 
 bot_startup_time: float | None = None
-
-
-def ensure_caribou_py314_compat() -> None:
-    """
-    Adjust Caribou's SQLite parameter handling for Python 3.14.
-    """
-    from caribou import migrate as caribou_migrate
-
-    if getattr(caribou_migrate, "_py314_param_patch", False):
-        return
-
-    placeholder_pattern = re.compile(r":([0-9]+)")
-    original_transaction = caribou_migrate.transaction
-
-    @contextlib.contextmanager
-    def patched_execute(conn, sql, params=None):
-        params = [] if params is None else params
-        if isinstance(params, (list, tuple)):
-            placeholders = placeholder_pattern.findall(sql)
-            if placeholders:
-                params = {
-                    name: params[idx]
-                    for idx, name in enumerate(placeholders)
-                    if idx < len(params)
-                }
-        cursor = conn.execute(sql, params)
-        try:
-            yield cursor
-        finally:
-            cursor.close()
-
-    def patched_update_version(self, version):
-        sql = f"update {caribou_migrate.VERSION_TABLE} set version = ?"
-        with original_transaction(self.conn):
-            self.conn.execute(sql, (version,))
-
-    setattr(caribou_migrate, "execute", patched_execute)  # noqa: B010
-    setattr(caribou_migrate.Database, "update_version", patched_update_version)  # noqa: B010
-    setattr(caribou_migrate, "_py314_param_patch", True)  # noqa: B010
 
 
 async def post_init(application: Application) -> None:
@@ -160,15 +116,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 def main():
-    ensure_caribou_py314_compat()
-    migrations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "migrations")
-    logger.info(f"Running migrations from {migrations_dir} on database {PRIMARY_DB_PATH}")
-    try:
-        caribou.upgrade(str(PRIMARY_DB_PATH), migrations_dir)
-    except Exception:
-        logger.exception("Error running database migrations")
-        raise
-    logger.info("Database migrations completed successfully.")
     application = (
         ApplicationBuilder()
         .token(config.TELEGRAM.TOKEN)
@@ -211,7 +158,6 @@ def main():
         )
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
     job_queue.run_repeating(worker_reminder, interval=60, first=10)
-    job_queue.run_repeating(optimize_fts5, interval=21600, first=60)
     job_queue.run_daily(command_limits.reset_command_limits, time=datetime.time(18, 30))
     if config.TELEGRAM.UPDATER == "polling":
         logger.info("Using polling...")

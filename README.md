@@ -20,7 +20,7 @@
 
 ## Introduction
 
-SuperSeriousBot is an asynchronous Telegram bot with modular commands, SQLite-backed state, and API-key-gated optional features.
+SuperSeriousBot is an asynchronous Telegram bot with modular commands, Turso-backed state, and API-key-gated optional features.
 
 ## ✨ Features
 
@@ -60,6 +60,9 @@ Required:
 - `TELEGRAM_TOKEN`
 - `QUOTE_CHANNEL_ID`
 - `COBALT_URL` for `/dl`
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
+- `TURSO_REPLICA_PATH` for the embedded replica file
 
 Optional:
 

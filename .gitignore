@@ -2,6 +2,7 @@
 config.yaml
 ssgbot.env
 .vscode
+.tmp/
 SuperSeriousBot.db
 
 # Byte-compiled / optimized / DLL files

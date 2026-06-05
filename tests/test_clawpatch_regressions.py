@@ -1,18 +1,23 @@
 from __future__ import annotations
 
-import io
 import importlib
+import io
 import os
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import libsql
 from telegram import MessageEntity
 
 os.environ.setdefault("TELEGRAM_TOKEN", "test-token")
 os.environ.setdefault("QUOTE_CHANNEL_ID", "1")
+os.environ.setdefault("TURSO_DATABASE_URL", "libsql://test")
+os.environ.setdefault("TURSO_AUTH_TOKEN", "test-token")
+os.environ.setdefault("TURSO_REPLICA_PATH", ":memory:")
 
 chat_memory = importlib.import_module("management.chat_memory")
+db = importlib.import_module("config.db")
 send_markdown_or_plain = importlib.import_module(
     "utils.messages"
 ).send_markdown_or_plain
@@ -74,6 +79,23 @@ class ClawpatchRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         get_user_id.assert_awaited_once_with("knownuser")
         save_mention.assert_awaited_once_with(1, 2, message)
+
+    async def test_turso_adapter_matches_aiosqlite_call_shape(self):
+        conn = db.TursoConnection(libsql.connect(":memory:", autocommit=True))
+
+        await conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)")
+        cursor = await conn.execute(
+            "INSERT INTO items (name) VALUES (?)",
+            ("one",),
+        )
+        self.assertEqual(cursor.lastrowid, 1)
+        self.assertEqual(cursor.rowcount, 1)
+
+        async with conn.execute("SELECT id, name FROM items") as rows:
+            row = await rows.fetchone()
+
+        self.assertEqual(row["id"], 1)
+        self.assertEqual(row[1], "one")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,17 @@
-FROM python:3.13-alpine AS build
+FROM python:3.13-slim AS build
 
 WORKDIR /src
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cargo \
+    ca-certificates \
+    cmake \
+    pkg-config \
+    rustc \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -20,11 +29,15 @@ COPY migrations/ ./migrations/
 RUN --mount=type=cache,target=/root/.cache \
     uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps .
 
-FROM python:3.13-alpine AS runtime
+FROM python:3.13-slim AS runtime
 
-RUN addgroup -S app && adduser -S -h /app -G app app
-
-RUN apk add --no-cache dumb-init
+RUN groupadd --system app \
+    && useradd --system --home /app --gid app app \
+    && DEBIAN_FRONTEND=noninteractive apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        dumb-init \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=mwader/static-ffmpeg:latest /ffmpeg /usr/local/bin/
 COPY --from=build --chown=app:app /app /app
@@ -34,7 +47,7 @@ COPY --from=build --chown=app:app /src/migrations /app/migrations
 RUN mkdir -p /db && chown app:app /db
 
 ENV PATH="/app/bin:$PATH" \
-    DATABASE_PATH_PREFIX=/db
+    TURSO_REPLICA_PATH=/db/SuperSeriousBot-replica.db
 
 WORKDIR /app
 USER app

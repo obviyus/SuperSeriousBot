@@ -1,61 +1,172 @@
 import asyncio
+import importlib
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
-
-import aiosqlite
-from telegram.ext import ContextTypes
+from typing import Any, Self
 
 from config import logger
-
-PRIMARY_DB_PATH = Path(os.getenv("DATABASE_PATH_PREFIX", ".")) / "SuperSeriousBot.db"
 
 _init_lock = asyncio.Lock()
 
 
-async def _open_connection() -> aiosqlite.Connection:
-    conn = await aiosqlite.connect(PRIMARY_DB_PATH, isolation_level=None)
-    await conn.execute("PRAGMA foreign_keys = ON;")
-    await conn.execute("PRAGMA busy_timeout = 5000;")  # 5s wait on lock contention
-    await conn.execute("PRAGMA cache_size = -64000;")  # 64MB cache
-    conn.row_factory = aiosqlite.Row
-    return conn
+def open_sync_connection():
+    replica_path = Path(os.environ["TURSO_REPLICA_PATH"])
+    replica_path.parent.mkdir(parents=True, exist_ok=True)
+    libsql_connect: Any = vars(importlib.import_module("libsql"))["connect"]
+    return libsql_connect(
+        str(replica_path),
+        sync_url=os.environ["TURSO_DATABASE_URL"],
+        auth_token=os.environ["TURSO_AUTH_TOKEN"],
+        autocommit=True,
+        _check_same_thread=False,
+    )
+
+
+@dataclass(frozen=True)
+class TursoRow:
+    values: tuple[Any, ...]
+    columns: dict[str, int]
+
+    def __getitem__(self, key: int | str) -> Any:
+        if isinstance(key, str):
+            return self.values[self.columns[key]]
+        return self.values[key]
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.values)
+
+    def __len__(self) -> int:
+        return len(self.values)
+
+
+class TursoCursor:
+    def __init__(self, cursor):
+        self._cursor = cursor
+        self._columns = {
+            column[0]: index
+            for index, column in enumerate(cursor.description or ())
+        }
+
+    @property
+    def lastrowid(self) -> int:
+        return self._cursor.lastrowid
+
+    @property
+    def rowcount(self) -> int:
+        return self._cursor.rowcount
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        await asyncio.to_thread(self._cursor.close)
+
+    async def fetchone(self) -> TursoRow | None:
+        row = await asyncio.to_thread(self._cursor.fetchone)
+        return self._row(row) if row is not None else None
+
+    async def fetchall(self) -> list[TursoRow]:
+        rows = await asyncio.to_thread(self._cursor.fetchall)
+        return [self._row(row) for row in rows]
+
+    def _row(self, row: tuple[Any, ...]) -> TursoRow:
+        return TursoRow(row, self._columns)
+
+
+class TursoOperation:
+    def __init__(
+        self,
+        connection,
+        sql: str,
+        params: object,
+        *,
+        many: bool,
+    ):
+        self._connection = connection
+        self._sql = sql
+        self._params = params
+        self._many = many
+        self._cursor: TursoCursor | None = None
+
+    def __await__(self):
+        return self._execute().__await__()
+
+    async def __aenter__(self) -> TursoCursor:
+        self._cursor = await self._execute()
+        return self._cursor
+
+    async def __aexit__(self, *_: object) -> None:
+        if self._cursor:
+            await self._cursor.__aexit__()
+
+    async def _execute(self) -> TursoCursor:
+        if self._many:
+            cursor = await asyncio.to_thread(
+                self._connection.executemany,
+                self._sql,
+                self._params or [],
+            )
+        elif self._params is None:
+            cursor = await asyncio.to_thread(self._connection.execute, self._sql)
+        else:
+            cursor = await asyncio.to_thread(
+                self._connection.execute,
+                self._sql,
+                self._params,
+            )
+        return TursoCursor(cursor)
+
+
+class TursoConnection:
+    def __init__(self, connection):
+        self._connection = connection
+
+    def execute(
+        self,
+        sql: str,
+        params: object = None,
+    ) -> TursoOperation:
+        return TursoOperation(self._connection, sql, params, many=False)
+
+    def executemany(
+        self,
+        sql: str,
+        params: object,
+    ) -> TursoOperation:
+        return TursoOperation(self._connection, sql, params, many=True)
+
+    async def sync(self) -> None:
+        await asyncio.to_thread(self._connection.sync)
+
+    async def close(self) -> None:
+        await asyncio.to_thread(self._connection.close)
+
+
+async def _open_connection() -> TursoConnection:
+    conn = open_sync_connection()
+    wrapper = TursoConnection(conn)
+    await wrapper.execute("PRAGMA foreign_keys = ON;")
+    return wrapper
 
 
 async def init_db() -> None:
     async with _init_lock:
-        conn = await _open_connection()
-        try:
-            await conn.execute("PRAGMA journal_mode = WAL;")
-        finally:
-            await conn.close()
-        logger.info("Database connection initialized")
+        async with get_db() as conn:
+            await conn.sync()
+        logger.info("Turso connection initialized")
 
 
 async def close_db() -> None:
-    logger.info("Database connection closed")
+    logger.info("Turso connection closed")
 
 
 @asynccontextmanager
-async def get_db() -> AsyncGenerator[aiosqlite.Connection]:
+async def get_db() -> AsyncGenerator[TursoConnection]:
     conn = await _open_connection()
     try:
         yield conn
     finally:
         await conn.close()
-
-
-async def optimize_fts5(_: ContextTypes.DEFAULT_TYPE):
-    """
-    Optimize the FTS5 index by merging segments.
-
-    AIDEV-NOTE: Using 'optimize' instead of 'rebuild'. Rebuild scans the entire
-    content table and regenerates the index (minutes on 100M+ rows). Optimize
-    merges b-tree segments incrementally - much cheaper, still improves query perf.
-    """
-    async with get_db() as conn:
-        await conn.execute(
-            "INSERT INTO chat_stats_fts(chat_stats_fts) VALUES('optimize');"
-        )
-        logger.info("FTS5 index optimization completed")
