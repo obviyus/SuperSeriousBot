@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import random
 import uuid
 
 from telegram import Update
@@ -9,28 +8,26 @@ from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 from management.chat_memory import (
-    chat_search,
+    enable_fts as enable_chat_fts,
+)
+from management.chat_memory import (
     import_chat_stats_rows,
     is_fts_enabled,
     parse_export_file,
 )
-from management.chat_memory import (
-    enable_fts as enable_chat_fts,
-)
+from management.chat_semantic_search import semantic_search_answer
 from utils.decorators import command
-from utils.messages import get_message
+from utils.messages import get_message, reply_markdown_or_plain
 
 
 @command(
     triggers=["search"],
     usage="/search [SEARCH_QUERY]",
-    example="/search japan",
-    description="Search for a message in the current chat for a user",
+    example="/search what job does Nathu do",
+    description="Answer a question using this chat's search history.",
+    api_key="OPENROUTER_API_KEY",
 )
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Search command handler.
-    """
     message = get_message(update)
     if not message:
         return
@@ -40,15 +37,14 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     query = " ".join(context.args)
-
     author_id = (
         message.reply_to_message.from_user.id
         if message.reply_to_message and message.reply_to_message.from_user
         else None
     )
-    results = await chat_search(message.chat_id, query, author_id)
 
-    if not results:
+    answer = await semantic_search_answer(message.chat_id, query, author_id)
+    if not answer:
         if not await is_fts_enabled(message.chat_id):
             await message.reply_text(
                 "Full text search is not enabled in this chat. To enable it, use /enable_fts."
@@ -57,11 +53,10 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("No results found.")
         return
 
-    result = random.choice(results)
-    await context.bot.forward_message(
-        chat_id=message.chat_id,
-        from_chat_id=message.chat_id,
-        message_id=result["message_id"],
+    await reply_markdown_or_plain(
+        message,
+        answer,
+        disable_web_page_preview=True,
     )
 
 
