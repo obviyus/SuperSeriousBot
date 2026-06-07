@@ -21,7 +21,7 @@ from openrouter_embeddings import openrouter_embeddings, vector32_json
 class SourceMessage:
     message_id: int
     create_time: str
-    user_id: int
+    author: str
     text: str
 
 
@@ -41,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chat-id", type=int, action="append")
     parser.add_argument("--limit-windows", type=int)
     parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--refresh", action="store_true")
     return parser.parse_args()
 
 
@@ -74,14 +75,19 @@ def chat_ids(conn, requested_chat_ids: list[int] | None) -> list[int]:
 def source_messages(conn, chat_id: int) -> list[SourceMessage]:
     rows = conn.execute(
         """
-        SELECT message_id, create_time, user_id, message_text
-        FROM chat_stats
-        WHERE chat_id = ?
-        AND message_id IS NOT NULL
-        AND message_text IS NOT NULL
-        AND message_text <> ''
-        AND message_text NOT LIKE '/%'
-        ORDER BY message_id
+        SELECT
+            cs.message_id,
+            cs.create_time,
+            COALESCE(us.username, 'user:' || cs.user_id) AS author,
+            cs.message_text
+        FROM chat_stats cs
+        LEFT JOIN user_stats us ON us.user_id = cs.user_id
+        WHERE cs.chat_id = ?
+        AND cs.message_id IS NOT NULL
+        AND cs.message_text IS NOT NULL
+        AND cs.message_text <> ''
+        AND cs.message_text NOT LIKE '/%'
+        ORDER BY cs.message_id
         """,
         (chat_id,),
     ).fetchall()
@@ -89,11 +95,16 @@ def source_messages(conn, chat_id: int) -> list[SourceMessage]:
         SourceMessage(
             message_id=row[0],
             create_time=row[1],
-            user_id=row[2],
+            author=format_author(row[2]),
             text=row[3],
         )
         for row in rows
     ]
+
+
+def format_author(author: object) -> str:
+    author_text = str(author)
+    return author_text if author_text.startswith("user:") else f"@{author_text}"
 
 
 def existing_windows(conn, chat_id: int) -> set[tuple[int, int]]:
@@ -125,7 +136,7 @@ def build_windows(
         if (start_message_id, end_message_id) in indexed:
             continue
         text = "\n".join(
-            f"{message.message_id} {message.create_time} user:{message.user_id}: {message.text}"
+            f"{message.message_id} {message.create_time} {message.author}: {message.text}"
             for message in window_messages
         )
         windows.append(
@@ -205,7 +216,7 @@ async def backfill() -> None:
     async with aiohttp.ClientSession() as session:
         for chat_id in chat_ids(conn, args.chat_id):
             messages = source_messages(conn, chat_id)
-            indexed = existing_windows(conn, chat_id)
+            indexed = set() if args.refresh else existing_windows(conn, chat_id)
             windows = build_windows(chat_id, messages, indexed)
             if args.limit_windows is not None:
                 remaining = args.limit_windows - total_inserted

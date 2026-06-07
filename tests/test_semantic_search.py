@@ -29,7 +29,7 @@ class SemanticSearchTests(unittest.TestCase):
 
     def test_build_windows_uses_overlapping_chat_windows(self):
         messages = [
-            backfill.SourceMessage(i, f"2026-06-07 00:00:{i:02d}", 100 + i, f"m{i}")
+            backfill.SourceMessage(i, f"2026-06-07 00:00:{i:02d}", f"@u{i}", f"m{i}")
             for i in range(1, 30)
         ]
 
@@ -37,12 +37,13 @@ class SemanticSearchTests(unittest.TestCase):
 
         self.assertEqual(windows[0].start_message_id, 1)
         self.assertEqual(windows[0].end_message_id, 24)
+        self.assertIn("1 2026-06-07 00:00:01 @u1: m1", windows[0].text)
         self.assertEqual(windows[1].start_message_id, 9)
         self.assertEqual(windows[1].end_message_id, 29)
 
     def test_build_windows_skips_indexed_ranges(self):
         messages = [
-            backfill.SourceMessage(i, f"2026-06-07 00:00:{i:02d}", 100 + i, f"m{i}")
+            backfill.SourceMessage(i, f"2026-06-07 00:00:{i:02d}", f"@u{i}", f"m{i}")
             for i in range(1, 30)
         ]
 
