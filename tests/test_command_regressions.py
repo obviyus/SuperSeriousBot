@@ -127,7 +127,7 @@ class FailingSession:
         raise aiohttp.ClientError("network unavailable")
 
 
-class ClawpatchRegressionTests(unittest.IsolatedAsyncioTestCase):
+class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
     def test_registered_commands_have_user_facing_help_metadata(self):
         for command in commands_module.list_of_commands:
             meta = decorators.get_command_meta(command)
