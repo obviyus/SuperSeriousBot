@@ -2,7 +2,7 @@ import asyncio
 import importlib
 import os
 from collections.abc import AsyncGenerator, Iterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Self
@@ -10,6 +10,13 @@ from typing import Any, Self
 from config import logger
 
 _init_lock = asyncio.Lock()
+DB_OPEN_ATTEMPTS = 3
+DB_OPEN_RETRY_DELAY_SECONDS = 0.2
+HRANA_CLOSED_MESSAGE = "connection closed before message completed"
+
+
+def is_retryable_open_error(exc: Exception) -> bool:
+    return isinstance(exc, ValueError) and "Hrana:" in str(exc) and HRANA_CLOSED_MESSAGE in str(exc)
 
 
 def open_sync_connection():
@@ -152,10 +159,25 @@ class TursoConnection:
 
 
 async def _open_connection() -> TursoConnection:
-    conn = open_sync_connection()
-    wrapper = TursoConnection(conn)
-    await wrapper.execute("PRAGMA foreign_keys = ON;")
-    return wrapper
+    for attempt in range(DB_OPEN_ATTEMPTS):
+        conn = open_sync_connection()
+        wrapper = TursoConnection(conn)
+        try:
+            await wrapper.execute("PRAGMA foreign_keys = ON;")
+            return wrapper
+        except Exception as exc:
+            with suppress(Exception):
+                await wrapper.close()
+            if not is_retryable_open_error(exc) or attempt == DB_OPEN_ATTEMPTS - 1:
+                raise
+            logger.warning(
+                "Turso connection initialization failed; retrying (%d/%d): %s",
+                attempt + 1,
+                DB_OPEN_ATTEMPTS,
+                exc,
+            )
+            await asyncio.sleep(DB_OPEN_RETRY_DELAY_SECONDS * (attempt + 1))
+    raise RuntimeError("Turso connection initialization failed")
 
 
 async def init_db() -> None:

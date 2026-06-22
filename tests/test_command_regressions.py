@@ -127,6 +127,31 @@ class FailingSession:
         raise aiohttp.ClientError("network unavailable")
 
 
+class FakeCursorForOpen:
+    description = ()
+    lastrowid = None
+    rowcount = -1
+
+    def close(self):
+        return None
+
+
+class FakeSyncConnection:
+    def __init__(self, failure: Exception | None = None) -> None:
+        self.failure = failure
+        self.closed = False
+        self.queries: list[str] = []
+
+    def execute(self, sql: str):
+        self.queries.append(sql)
+        if self.failure:
+            raise self.failure
+        return FakeCursorForOpen()
+
+    def close(self):
+        self.closed = True
+
+
 class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
     def test_registered_commands_have_user_facing_help_metadata(self):
         for command in commands_module.list_of_commands:
@@ -407,6 +432,39 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             row = await rows.fetchone()
 
         self.assertEqual(row["seen_at"], "2026-06-05 07:58:02.221759")
+
+    async def test_turso_open_retries_hrana_closed_stream(self):
+        failed = FakeSyncConnection(
+            ValueError("Hrana: `http error: `connection closed before message completed``")
+        )
+        recovered = FakeSyncConnection()
+
+        with (
+            patch.object(db, "open_sync_connection", side_effect=[failed, recovered]),
+            patch.object(db.asyncio, "sleep", AsyncMock()) as sleep,
+        ):
+            conn = await db._open_connection()
+
+        self.assertTrue(failed.closed)
+        self.assertEqual(failed.queries, ["PRAGMA foreign_keys = ON;"])
+        self.assertEqual(recovered.queries, ["PRAGMA foreign_keys = ON;"])
+        sleep.assert_awaited_once_with(db.DB_OPEN_RETRY_DELAY_SECONDS)
+        await conn.close()
+        self.assertTrue(recovered.closed)
+
+    async def test_turso_open_does_not_retry_unrelated_errors(self):
+        failed = FakeSyncConnection(ValueError("syntax error"))
+
+        with (
+            patch.object(db, "open_sync_connection", return_value=failed) as connect,
+            patch.object(db.asyncio, "sleep", AsyncMock()) as sleep,
+        ):
+            with self.assertRaisesRegex(ValueError, "syntax error"):
+                await db._open_connection()
+
+        self.assertEqual(connect.call_count, 1)
+        self.assertTrue(failed.closed)
+        sleep.assert_not_awaited()
 
 
 if __name__ == "__main__":
