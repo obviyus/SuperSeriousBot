@@ -28,6 +28,8 @@ logging_config = {
             "level": "DEBUG",
             "propagate": True,
         },
+        "httpx": {"level": "WARNING"},
+        "httpcore": {"level": "WARNING"},
     },
 }
 

@@ -281,8 +281,10 @@ class ClawpatchRegressionTests(unittest.IsolatedAsyncioTestCase):
             "data": {
                 "data": [
                     {
-                        "files": {
-                            "gif": {"url": "https://cdn.example.com/hype.gif"},
+                        "file": {
+                            "md": {
+                                "gif": {"url": "https://cdn.example.com/hype.gif"},
+                            },
                         }
                     }
                 ]

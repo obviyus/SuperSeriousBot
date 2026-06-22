@@ -9,7 +9,7 @@ from utils.decorators import command
 from utils.messages import get_message
 
 KLIPY_API_URL = "https://api.klipy.com/api/v1/{api_key}/gifs/trending"
-KLIPY_MEDIA_FORMATS = ("gif", "mediumgif", "tinygif", "nanogif", "preview")
+KLIPY_FILE_GROUPS = ("md", "sm", "xs", "hd")
 
 
 def is_json_object(value: object) -> TypeGuard[Mapping[str, object]]:
@@ -34,16 +34,20 @@ def klipy_gif_url(data: object) -> str | None:
     if not is_json_object(item):
         return None
 
-    files = item.get("files")
-    if not is_json_object(files):
+    file = item.get("file")
+    if not is_json_object(file):
         return None
 
-    for media_format in KLIPY_MEDIA_FORMATS:
-        rendition = files.get(media_format)
-        if is_json_object(rendition):
-            url = rendition.get("url")
-            if isinstance(url, str):
-                return url
+    for file_group in KLIPY_FILE_GROUPS:
+        group = file.get(file_group)
+        if not is_json_object(group):
+            continue
+        gif = group.get("gif")
+        if not is_json_object(gif):
+            continue
+        url = gif.get("url")
+        if isinstance(url, str):
+            return url
 
     return None
 
@@ -71,6 +75,7 @@ async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
             async with session.get(
                 KLIPY_API_URL.format(api_key=config.API.KLIPY_API_KEY),
                 params={"per_page": 24, "rating": "g", "locale": "en_US"},
+                headers={"User-Agent": "SuperSeriousBot/1.0"},
             ) as response:
                 if response.status != 200:
                     await message.reply_text("Could not fetch a GIF right now.")
