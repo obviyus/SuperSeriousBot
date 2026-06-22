@@ -15,6 +15,7 @@ from utils.messages import get_message
 
 WEATHER_ENDPOINT = "https://api.weatherapi.com/v1/current.json"
 WAQI_ENDPOINT = "https://api.waqi.info/feed/geo:{lat};{lng}/"
+WEATHER_ERROR_TEXT = "Could not fetch weather data right now."
 
 
 @command(
@@ -45,54 +46,52 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     weatherapi_token = config.API.WEATHERAPI_API_KEY
     waqi_token = config.API.WAQI_API_KEY
     if not weatherapi_token or not waqi_token:
-        await message.reply_text(
-            "Could not fetch weather data. Check WEATHERAPI_API_KEY and WAQI_API_KEY."
-        )
+        await message.reply_text(WEATHER_ERROR_TEXT)
         return
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            WEATHER_ENDPOINT,
-            params={"key": weatherapi_token, "q": query, "aqi": "yes"},
-        ) as response:
-            raw_weather = await response.json()
-        if "error" in raw_weather:
-            await message.reply_text(
-                "Could not fetch weather data. Check WEATHERAPI_API_KEY and WAQI_API_KEY."
-            )
-            return
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                WEATHER_ENDPOINT,
+                params={"key": weatherapi_token, "q": query, "aqi": "yes"},
+            ) as response:
+                raw_weather = await response.json()
+            if "error" in raw_weather:
+                await message.reply_text(WEATHER_ERROR_TEXT)
+                return
 
-        location = raw_weather["location"]
-        current = raw_weather["current"]
-        air_quality = current.get("air_quality", {})
-        data = {
-            "address": ", ".join(
-                part
-                for part in (location["name"], location["region"], location["country"])
-                if part
-            ),
-            "latitude": float(location["lat"]),
-            "longitude": float(location["lon"]),
-            "temperature": f'{current["temp_c"]:.1f} °C',
-            "feels_like": f'{current["feelslike_c"]:.1f} °C',
-            "condition": current["condition"]["text"],
-            "humidity": f'{current["humidity"]}%',
-            "wind": f'{current["wind_kph"]:.1f} km/h {current["wind_dir"]}',
-            "pm2_5": format_pollutant(air_quality.get("pm2_5")),
-            "pm10": format_pollutant(air_quality.get("pm10")),
-        }
-        async with session.get(
-            WAQI_ENDPOINT.format(lat=data["latitude"], lng=data["longitude"]),
-            params={"token": waqi_token},
-        ) as response:
-            raw_aqi = await response.json()
-        if raw_aqi.get("status") != "ok":
-            await message.reply_text(
-                "Could not fetch weather data. Check WEATHERAPI_API_KEY and WAQI_API_KEY."
-            )
-            return
-        aqi_value = raw_aqi["data"].get("aqi")
-        data["aqi"] = "Unavailable" if aqi_value is None or aqi_value == "-" else str(int(aqi_value))
+            location = raw_weather["location"]
+            current = raw_weather["current"]
+            air_quality = current.get("air_quality", {})
+            data = {
+                "address": ", ".join(
+                    part
+                    for part in (location["name"], location["region"], location["country"])
+                    if part
+                ),
+                "latitude": float(location["lat"]),
+                "longitude": float(location["lon"]),
+                "temperature": f'{current["temp_c"]:.1f} °C',
+                "feels_like": f'{current["feelslike_c"]:.1f} °C',
+                "condition": current["condition"]["text"],
+                "humidity": f'{current["humidity"]}%',
+                "wind": f'{current["wind_kph"]:.1f} km/h {current["wind_dir"]}',
+                "pm2_5": format_pollutant(air_quality.get("pm2_5")),
+                "pm10": format_pollutant(air_quality.get("pm10")),
+            }
+            async with session.get(
+                WAQI_ENDPOINT.format(lat=data["latitude"], lng=data["longitude"]),
+                params={"token": waqi_token},
+            ) as response:
+                raw_aqi = await response.json()
+            if raw_aqi.get("status") != "ok":
+                await message.reply_text(WEATHER_ERROR_TEXT)
+                return
+            aqi_value = raw_aqi["data"].get("aqi")
+            data["aqi"] = "Unavailable" if aqi_value is None or aqi_value == "-" else str(int(aqi_value))
+    except (aiohttp.ClientError, KeyError, TypeError, ValueError):
+        await message.reply_text(WEATHER_ERROR_TEXT)
+        return
 
     if context.args:
         async with get_db() as conn:

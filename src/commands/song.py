@@ -15,6 +15,7 @@ from commands.ai import (
     openrouter_headers,
 )
 from commands.runtime import ensure_command_available
+from config.logger import logger
 from config.options import config
 from utils.decorators import command
 from utils.messages import get_message
@@ -273,7 +274,7 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if not config.API.OPENROUTER_API_KEY:
-        await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
+        await message.reply_text("Song generation is not fully configured.")
         return
 
     progress = await message.reply_text("Writing banger lyrics...")
@@ -316,4 +317,5 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             song_media_group(song_tracks(music_task), song_plan.title)
         )
     except RuntimeError as exc:
-        await progress.edit_text(f"Song generation failed: {exc!s}")
+        logger.exception("Song generation failed: %s", exc)
+        await progress.edit_text("Song generation failed. Please try again.")

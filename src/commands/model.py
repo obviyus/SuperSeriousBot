@@ -10,10 +10,10 @@ from utils.messages import get_message
 GLOBAL_CHAT_ID = -1
 
 DEFAULT_MODELS = {
-    "ask": "openrouter/x-ai/grok-4-fast",
-    "edit": "openrouter/google/gemini-2.5-flash-image-preview",
+    "ask": "openrouter/x-ai/grok-4.3",
+    "edit": "openrouter/google/gemini-3.1-flash-image-preview",
     "tr": "google/gemini-2.5-flash",
-    "tldr": "openrouter/x-ai/grok-4-fast",
+    "tldr": "openrouter/google/gemini-3-flash-preview",
 }
 MODEL_COMMANDS = tuple(DEFAULT_MODELS)
 MODEL_COMMAND_LIST = ", ".join((*MODEL_COMMANDS, "all"))
@@ -150,7 +150,7 @@ async def thinking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not context.args:
         current_level = await get_thinking()
-        text = "🧠 <b>OpenRouter Thinking Level</b>\n\n"
+        text = "🧠 <b>AI Thinking Level</b>\n\n"
         text += f"Current level: <code>{current_level}</code>\n\n"
         text += "<b>Available levels:</b>\n"
         text += "• <code>none</code> - No reasoning tokens\n"

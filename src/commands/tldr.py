@@ -155,9 +155,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                     timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 402:
-                        await message.reply_text(
-                            "Insufficient API balance for web scraping."
-                        )
+                        await message.reply_text("I couldn't read that URL right now.")
                         return
                     response.raise_for_status()
                     data = await response.json()
@@ -169,7 +167,8 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                     if results
                     else "No results"
                 )
-                await message.reply_text(f"Failed to scrape URL: {error_msg}")
+                logger.error("URL scrape failed for %s: %s", url_str, error_msg)
+                await message.reply_text("I couldn't read that URL.")
                 return
 
             raw_text = results[0].get("markdown") or results[0].get("content", "")
@@ -212,6 +211,4 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except Exception as e:
         logger.error(f"Error generating TLDR for {error_subject}: {e}")
-        await message.reply_text(
-            f"An error occurred while generating the summary: {e!s}"
-        )
+        await message.reply_text("I couldn't generate a summary for that.")

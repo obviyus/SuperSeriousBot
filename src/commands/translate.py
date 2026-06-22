@@ -99,5 +99,5 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         tts_obj.write_to_fp(fp)
         fp.seek(0)
         await message.reply_voice(fp)
-    except Exception as e:
-        await message.reply_text(f"Error: {e!s}")
+    except Exception:
+        await message.reply_text("Could not generate speech for that text.")

@@ -164,7 +164,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     api_key = config.API.OPENROUTER_API_KEY
     if not api_key:
-        await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
+        await message.reply_text("AI is not configured for this command.")
         return
 
     query: str = " ".join(context.args) if context.args else ""
@@ -328,13 +328,11 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await ensure_command_available(message, message.from_user.id, "edit"):
         return
 
-    # Check if replying to a message with a photo, sticker, or image document
     reply = message.reply_to_message
     if not reply:
         await commands.usage_string(message, edit)
         return
 
-    # Get the prompt from args
     if not context.args:
         await message.reply_text(
             "Please provide a prompt describing how to edit the image."
@@ -426,14 +424,12 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 return
 
-        # If no image was generated, check for text response
         if isinstance(ai_message, dict) and ai_message.get("content"):
             await message.reply_text(
-                f"AI Response: {ai_message['content']}\n\n(Note: No edited image was generated)"
+                f"{ai_message['content']}\n\nNo edited image was generated."
             )
             return
 
-        # If no image was generated and no text response
         await message.reply_text("Could not generate edited image. Please try again.")
 
     except Exception:

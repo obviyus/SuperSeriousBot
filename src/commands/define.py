@@ -27,14 +27,18 @@ async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     import aiohttp
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            DICTIONARY_API_ENDPOINT.format(" ".join(context.args))
-        ) as response:
-            if response.status != 200:
-                await message.reply_text(text="Word not found.")
-                return
-            data = await response.json()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                DICTIONARY_API_ENDPOINT.format(" ".join(context.args))
+            ) as response:
+                if response.status != 200:
+                    await message.reply_text(text="Word not found.")
+                    return
+                data = await response.json()
+    except aiohttp.ClientError:
+        await message.reply_text(text="Could not fetch a definition right now.")
+        return
     if not isinstance(data, list) or not data or not isinstance(data[0], dict):
         await message.reply_text(text="Word not found.")
         return

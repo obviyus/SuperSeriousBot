@@ -11,9 +11,9 @@ load_dotenv()
 @dataclass
 class APIConfig:
     COBALT_URL: str = ""
-    GIPHY_API_KEY: str = ""
     GOODREADS_API_KEY: str = ""
     KIE_API_KEY: str = ""
+    KLIPY_API_KEY: str = ""
     NANO_GPT_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
     WAQI_API_KEY: str = ""

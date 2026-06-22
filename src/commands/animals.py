@@ -7,8 +7,8 @@ from utils.decorators import command
 
 ANIMAL_APIS: dict[str, tuple[str, Callable]] = {
     "shiba": (
-        "https://shibe.online/api/shibes?count=1&urls=true&httpsUrls=true",
-        lambda data: data[0],
+        "https://dog.ceo/api/breed/shiba/images/random",
+        lambda data: data["message"],
     ),
     "fox": ("https://randomfox.ca/floof/", lambda data: data["image"]),
     "cat": ("https://api.thecatapi.com/v1/images/search", lambda data: data[0]["url"]),
@@ -47,7 +47,7 @@ async def animal(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             async with session.get(url) as response:
                 data = await response.json()
             await message.reply_photo(extract_url(data))
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, KeyError, IndexError, TypeError):
             await message.reply_text(
                 f"Failed to fetch {animal_choice} image. Please try again later."
             )

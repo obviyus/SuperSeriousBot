@@ -68,7 +68,7 @@ Optional:
 - `OPENROUTER_API_KEY` for `/ask`, `/edit`, `/tldr`, `/tr`, `/song`
 - `WAQI_API_KEY` for `/weather` AQI
 - `WEATHERAPI_API_KEY` for `/weather`
-- `GIPHY_API_KEY` for `/gif`
+- `KLIPY_API_KEY` for `/gif`
 - `GOODREADS_API_KEY` for `/book`
 - `KIE_API_KEY` for `/song`
 - `WOLFRAM_APP_ID` for `/calc`

@@ -199,7 +199,12 @@ async def habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(message, habit)
         return
 
-    habit_name, days_per_week = context.args[0], int(context.args[1])
+    habit_name = context.args[0]
+    try:
+        days_per_week = int(context.args[1])
+    except ValueError:
+        await message.reply_text("Please enter a number between 1 and 7.")
+        return
     if not 1 <= days_per_week <= 7:
         await message.reply_text("Please enter a number between 1 and 7.")
         return

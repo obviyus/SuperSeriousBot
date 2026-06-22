@@ -180,7 +180,7 @@ async def _download_media(message: Message, target: str) -> None:
                 )
                 return
 
-            await message.reply_text("Unsupported response from Cobalt.")
+            await message.reply_text("Download service returned an unsupported response.")
     except Exception as e:
         logger.error(f"Cobalt error: {e}")
         await message.reply_text("Failed to fetch media.")

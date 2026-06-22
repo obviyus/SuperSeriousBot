@@ -15,6 +15,7 @@ from commands.ai import (
     openrouter_payload,
 )
 from commands.runtime import ensure_command_available
+from config.logger import logger
 from config.options import config
 from utils.decorators import command
 from utils.messages import get_message
@@ -72,7 +73,7 @@ async def _convert_audio_to_wav(
     triggers=["tr"],
     usage="/tr [optional instructions]",
     example="/tr Please summarize with bullet points",
-    description="Reply to an audio message to have it transcribed via OpenRouter.",
+    description="Reply to an audio message to have it transcribed using AI.",
     api_key="OPENROUTER_API_KEY",
 )
 async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -109,14 +110,15 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     api_key_value = config.API.OPENROUTER_API_KEY
     if not api_key_value:
-        await message.reply_text("OPENROUTER_API_KEY is required to use this command.")
+        await message.reply_text("Transcription is not configured.")
         return
 
     try:
         telegram_file = await context.bot.getFile(file_id)
         audio_bytes = bytes(await telegram_file.download_as_bytearray())
     except Exception as exc:  # pragma: no cover - Telegram I/O
-        await message.reply_text(f"Failed to download the audio message: {exc!s}")
+        logger.exception("Failed to download audio for transcription: %s", exc)
+        await message.reply_text("I couldn't download that audio.")
         return
 
     suffix = (
@@ -128,7 +130,8 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     try:
         wav_audio = await _convert_audio_to_wav(audio_bytes, suffix)
     except RuntimeError as exc:
-        await message.reply_text(str(exc))
+        logger.exception("Failed to convert audio for transcription: %s", exc)
+        await message.reply_text("I couldn't process that audio.")
         return
 
     base64_audio = base64.b64encode(wav_audio).decode("utf-8")
@@ -167,9 +170,12 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         ) as response:
             if response.status != 200:
                 error_text = await response.text()
-                await message.reply_text(
-                    f"OpenRouter request failed ({response.status}): {error_text}"
+                logger.error(
+                    "Transcription request failed (%s): %s",
+                    response.status,
+                    error_text,
                 )
+                await message.reply_text("Transcription failed. Please try again.")
                 return
 
             data = await response.json()
@@ -187,7 +193,7 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     else:
         transcript = ""
     if not transcript:
-        await message.reply_text("Received an empty response from the AI.")
+        await message.reply_text("No transcript was returned. Please try again.")
         return
 
     await message.reply_text(transcript, disable_web_page_preview=True)

@@ -3,6 +3,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from config.db import get_db
+from config.logger import logger
 from utils.admin import is_admin
 from utils.decorators import command
 from utils.messages import get_message
@@ -54,7 +55,8 @@ async def _update_blocklist(
                     (user_id, command, update.effective_user.id),
                 )
     except Exception as e:
-        await message.reply_text(f"❌ Error: {e!s}")
+        logger.exception("Failed to update command blocklist: %s", e)
+        await message.reply_text("❌ Could not update the blocklist.")
         return
 
     if remove:

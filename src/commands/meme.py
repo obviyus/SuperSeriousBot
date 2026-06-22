@@ -18,11 +18,18 @@ async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
 
     import aiohttp
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get("https://meme-api.com/gimme") as response:
-            data = await response.json()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://meme-api.com/gimme") as response:
+                if response.status != 200:
+                    await message.reply_text("Could not fetch a meme right now.")
+                    return
+                data = await response.json()
+        url = data["url"]
+    except (aiohttp.ClientError, KeyError, TypeError):
+        await message.reply_text("Could not fetch a meme right now.")
+        return
 
-    url: str = data["url"]
     if url.endswith(".gif"):
         await message.reply_animation(
             animation=url,

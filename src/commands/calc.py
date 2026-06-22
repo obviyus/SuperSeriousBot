@@ -13,7 +13,7 @@ WOLFRAM_SHORT_QUERY = "https://api.wolframalpha.com/v1/result"
     triggers=["calc"],
     usage="/calc [query]",
     example="/calc 300th digit of pi",
-    description="Perform a WolframAlpha query.",
+    description="Answer a calculation or facts query.",
     api_key="WOLFRAM_APP_ID",
 )
 async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -41,11 +41,11 @@ async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 if response.status == 200:
                     result = await response.text()
                 elif response.status == 501:
-                    result = "❌ WolframAlpha couldn't understand your query"
+                    result = "❌ I couldn't understand that query."
                 elif response.status == 403:
-                    result = "❌ API key error"
+                    result = "❌ Calculation service is not configured."
                 else:
-                    result = f"❌ Error {response.status}: {await response.text()}"
+                    result = "❌ Calculation service is unavailable."
     except TimeoutError:
         result = "❌ Request timed out"
     except aiohttp.ClientError as e:
