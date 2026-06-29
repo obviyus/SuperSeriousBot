@@ -1,11 +1,13 @@
 import asyncio
 import importlib
+import json
 import os
 from collections.abc import AsyncGenerator, Iterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Self
+from urllib import error, parse, request
 
 from config import logger
 
@@ -20,9 +22,13 @@ def is_retryable_open_error(exc: Exception) -> bool:
 
 
 def open_sync_connection():
+    database_url = os.environ["TURSO_DATABASE_URL"]
+    if database_url.startswith("libsql://"):
+        return TursoHttpConnection(database_url, os.environ["TURSO_AUTH_TOKEN"])
+
     libsql_connect: Any = vars(importlib.import_module("libsql"))["connect"]
     return libsql_connect(
-        os.environ["TURSO_DATABASE_URL"],
+        database_url,
         auth_token=os.environ["TURSO_AUTH_TOKEN"],
         autocommit=True,
         _check_same_thread=False,
@@ -90,6 +96,167 @@ class TursoCursor:
 
     def _row(self, row: tuple[Any, ...]) -> TursoRow:
         return TursoRow(row, self._columns)
+
+
+class TursoHttpCursor:
+    def __init__(
+        self,
+        rows: list[tuple[Any, ...]],
+        columns: list[str],
+        rowcount: int,
+        lastrowid: int | None,
+    ):
+        self._rows = rows
+        self._offset = 0
+        self.description = [(column,) for column in columns]
+        self.rowcount = rowcount
+        self.lastrowid = lastrowid
+
+    def fetchone(self) -> tuple[Any, ...] | None:
+        if self._offset >= len(self._rows):
+            return None
+        row = self._rows[self._offset]
+        self._offset += 1
+        return row
+
+    def fetchall(self) -> list[tuple[Any, ...]]:
+        rows = self._rows[self._offset:]
+        self._offset = len(self._rows)
+        return rows
+
+    def close(self) -> None:
+        return None
+
+
+class TursoHttpConnection:
+    def __init__(self, database_url: str, auth_token: str):
+        hostname = parse.urlparse(database_url).hostname
+        if not hostname:
+            raise ValueError("TURSO_DATABASE_URL must include a host")
+        self._endpoint = f"https://{hostname}/v2/pipeline"
+        self._headers = {
+            "Authorization": f"Bearer {auth_token}",
+            "Content-Type": "application/json",
+        }
+
+    def execute(self, sql: str, params: object = None) -> TursoHttpCursor:
+        result = self._request([self._statement(sql, params)])[0]
+        return self._cursor(result)
+
+    def executemany(self, sql: str, params: object) -> TursoHttpCursor:
+        statements = [self._statement(sql, batch) for batch in self._many_params(params)]
+        if not statements:
+            return TursoHttpCursor([], [], 0, None)
+
+        results = [self._cursor(result) for result in self._request(statements)]
+        return TursoHttpCursor(
+            results[-1].fetchall(),
+            [column[0] for column in results[-1].description],
+            sum(result.rowcount for result in results),
+            results[-1].lastrowid,
+        )
+
+    def close(self) -> None:
+        return None
+
+    def _request(self, statements: list[dict[str, object]]) -> list[dict[str, Any]]:
+        body = json.dumps(
+            {
+                "requests": [
+                    {
+                        "type": "execute",
+                        "stmt": statement,
+                    }
+                    for statement in statements
+                ]
+            }
+        ).encode()
+        req = request.Request(
+            self._endpoint,
+            data=body,
+            headers=self._headers,
+            method="POST",
+        )
+
+        try:
+            with request.urlopen(req, timeout=10) as response:
+                payload = json.loads(response.read().decode())
+        except error.HTTPError as exc:
+            response_body = exc.read().decode("utf-8", "replace")
+            raise ValueError(
+                f"Hrana: `api error: `status={exc.code} {exc.reason}, body={response_body}``"
+            ) from exc
+        except error.URLError as exc:
+            raise ValueError(f"Hrana: `http error: `{exc.reason}``") from exc
+
+        responses = []
+        for result in payload["results"]:
+            if result["type"] != "ok":
+                raise ValueError(f"Hrana: `stream error: `{result}``")
+            response = result["response"]
+            if response["type"] != "execute":
+                raise ValueError(f"Hrana: `stream error: `{response}``")
+            responses.append(response["result"])
+        return responses
+
+    def _statement(self, sql: str, params: object = None) -> dict[str, object]:
+        statement: dict[str, object] = {"sql": sql}
+        if params is not None:
+            statement["args"] = [
+                self._value(value) for value in self._params(bind_params(params))
+            ]
+        return statement
+
+    def _params(self, params: object) -> list[object]:
+        if isinstance(params, dict):
+            raise ValueError("Named SQL parameters are not supported")
+        if isinstance(params, list | tuple):
+            return list(params)
+        return [params]
+
+    def _many_params(self, params: object) -> list[object]:
+        if isinstance(params, list | tuple):
+            return list(params)
+        raise ValueError("executemany parameters must be a list or tuple")
+
+    def _cursor(self, result: dict[str, Any]) -> TursoHttpCursor:
+        columns = [column["name"] for column in result["cols"]]
+        rows = [
+            tuple(self._result_value(value) for value in row)
+            for row in result["rows"]
+        ]
+        lastrowid = result["last_insert_rowid"]
+        return TursoHttpCursor(
+            rows,
+            columns,
+            result["affected_row_count"],
+            int(lastrowid) if lastrowid is not None else None,
+        )
+
+    def _value(self, value: object) -> dict[str, object]:
+        if value is None:
+            return {"type": "null"}
+        if isinstance(value, bool):
+            return {"type": "integer", "value": "1" if value else "0"}
+        if isinstance(value, int):
+            return {"type": "integer", "value": str(value)}
+        if isinstance(value, float):
+            return {"type": "float", "value": value}
+        if isinstance(value, str):
+            return {"type": "text", "value": value}
+        raise ValueError(f"Unsupported Turso value: {type(value).__name__}")
+
+    def _result_value(self, value: dict[str, Any]) -> object:
+        kind = value["type"]
+        if kind == "null":
+            return None
+        if kind == "integer":
+            return int(value["value"])
+        if kind == "float":
+            return float(value["value"])
+        if kind == "text":
+            return value["value"]
+        raise ValueError(f"Unsupported Hrana value type: {kind}")
 
 
 class TursoOperation:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import importlib
 import io
+import json
 import os
 import unittest
 from datetime import datetime
@@ -98,6 +99,20 @@ class FakeResponse:
 
     async def json(self):
         return self.data
+
+
+class FakeUrlOpenResponse:
+    def __init__(self, data: object) -> None:
+        self.data = data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(self.data).encode()
 
 
 class FakeSession:
@@ -432,6 +447,106 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             row = await rows.fetchone()
 
         self.assertEqual(row["seen_at"], "2026-06-05 07:58:02.221759")
+
+    async def test_turso_http_adapter_uses_hrana_pipeline_shape(self):
+        seen = {}
+
+        def fake_urlopen(req, *, timeout: int):
+            seen["timeout"] = timeout
+            seen["url"] = req.full_url
+            seen["authorization"] = req.get_header("Authorization")
+            seen["body"] = json.loads(req.data.decode())
+            return FakeUrlOpenResponse(
+                {
+                    "results": [
+                        {
+                            "type": "ok",
+                            "response": {
+                                "type": "execute",
+                                "result": {
+                                    "cols": [
+                                        {"name": "id"},
+                                        {"name": "name"},
+                                    ],
+                                    "rows": [
+                                        [
+                                            {"type": "integer", "value": "1"},
+                                            {"type": "text", "value": "one"},
+                                        ]
+                                    ],
+                                    "affected_row_count": 0,
+                                    "last_insert_rowid": None,
+                                },
+                            },
+                        }
+                    ]
+                }
+            )
+
+        with patch.object(db.request, "urlopen", fake_urlopen):
+            conn = db.TursoConnection(
+                db.TursoHttpConnection("libsql://example.turso.io", "secret")
+            )
+            async with conn.execute("SELECT ? AS id, ? AS name", (1, "one")) as rows:
+                row = await rows.fetchone()
+
+        self.assertEqual(seen["timeout"], 10)
+        self.assertEqual(seen["url"], "https://example.turso.io/v2/pipeline")
+        self.assertEqual(seen["authorization"], "Bearer secret")
+        self.assertEqual(
+            seen["body"],
+            {
+                "requests": [
+                    {
+                        "type": "execute",
+                        "stmt": {
+                            "sql": "SELECT ? AS id, ? AS name",
+                            "args": [
+                                {"type": "integer", "value": "1"},
+                                {"type": "text", "value": "one"},
+                            ],
+                        },
+                    }
+                ]
+            },
+        )
+        self.assertEqual(row["id"], 1)
+        self.assertEqual(row["name"], "one")
+
+    async def test_turso_http_executemany_sums_rowcounts(self):
+        def fake_urlopen(req, *, timeout: int):
+            body = json.loads(req.data.decode())
+            return FakeUrlOpenResponse(
+                {
+                    "results": [
+                        {
+                            "type": "ok",
+                            "response": {
+                                "type": "execute",
+                                "result": {
+                                    "cols": [],
+                                    "rows": [],
+                                    "affected_row_count": 1,
+                                    "last_insert_rowid": str(index + 1),
+                                },
+                            },
+                        }
+                        for index, _request in enumerate(body["requests"])
+                    ]
+                }
+            )
+
+        with patch.object(db.request, "urlopen", fake_urlopen):
+            conn = db.TursoConnection(
+                db.TursoHttpConnection("libsql://example.turso.io", "secret")
+            )
+            cursor = await conn.executemany(
+                "INSERT INTO items (name) VALUES (?)",
+                [("one",), ("two",)],
+            )
+
+        self.assertEqual(cursor.rowcount, 2)
+        self.assertEqual(cursor.lastrowid, 2)
 
     async def test_turso_open_retries_hrana_closed_stream(self):
         failed = FakeSyncConnection(
