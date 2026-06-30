@@ -478,7 +478,8 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                                     "last_insert_rowid": None,
                                 },
                             },
-                        }
+                        },
+                        {"type": "ok", "response": {"type": "close"}},
                     ]
                 }
             )
@@ -506,7 +507,8 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                                 {"type": "text", "value": "one"},
                             ],
                         },
-                    }
+                    },
+                    {"type": "close"},
                 ]
             },
         )
@@ -532,7 +534,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                             },
                         }
                         for index, _request in enumerate(body["requests"])
+                        if _request["type"] == "execute"
                     ]
+                    + [{"type": "ok", "response": {"type": "close"}}]
                 }
             )
 
@@ -580,6 +584,16 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(connect.call_count, 1)
         self.assertTrue(failed.closed)
         sleep.assert_not_awaited()
+
+    async def test_turso_open_skips_foreign_key_pragma_for_http_transport(self):
+        opened = FakeSyncConnection()
+        opened.needs_foreign_key_init = False
+
+        with patch.object(db, "open_sync_connection", return_value=opened):
+            conn = await db._open_connection()
+
+        self.assertEqual(opened.queries, [])
+        await conn.close()
 
 
 if __name__ == "__main__":

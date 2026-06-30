@@ -129,6 +129,8 @@ class TursoHttpCursor:
 
 
 class TursoHttpConnection:
+    needs_foreign_key_init = False
+
     def __init__(self, database_url: str, auth_token: str):
         hostname = parse.urlparse(database_url).hostname
         if not hostname:
@@ -168,7 +170,7 @@ class TursoHttpConnection:
                         "stmt": statement,
                     }
                     for statement in statements
-                ]
+                ] + [{"type": "close"}]
             }
         ).encode()
         req = request.Request(
@@ -194,6 +196,8 @@ class TursoHttpConnection:
             if result["type"] != "ok":
                 raise ValueError(f"Hrana: `stream error: `{result}``")
             response = result["response"]
+            if response["type"] == "close":
+                continue
             if response["type"] != "execute":
                 raise ValueError(f"Hrana: `stream error: `{response}``")
             responses.append(response["result"])
@@ -330,7 +334,8 @@ async def _open_connection() -> TursoConnection:
         conn = open_sync_connection()
         wrapper = TursoConnection(conn)
         try:
-            await wrapper.execute("PRAGMA foreign_keys = ON;")
+            if getattr(conn, "needs_foreign_key_init", True):
+                await wrapper.execute("PRAGMA foreign_keys = ON;")
             return wrapper
         except Exception as exc:
             with suppress(Exception):
