@@ -32,9 +32,11 @@ model_module = importlib.import_module("commands.model")
 song_module = importlib.import_module("commands.song")
 transcribe_module = importlib.import_module("commands.transcribe")
 weather_module = importlib.import_module("commands.weather")
-send_markdown_or_plain = importlib.import_module(
-    "utils.messages"
-).send_markdown_or_plain
+messages_module = importlib.import_module("utils.messages")
+send_markdown_or_plain = messages_module.send_markdown_or_plain
+reply_markdown_or_plain = messages_module.reply_markdown_or_plain
+stats_module = importlib.import_module("management.stats")
+remind_module = importlib.import_module("commands.remind")
 decorators = importlib.import_module("utils.decorators")
 
 USER_REPLY_METHODS = {
@@ -78,12 +80,23 @@ class FakeMessage:
         self.reply_to_message = None
         self.replies: list[str] = []
         self.animations: list[str] = []
+        self.documents: list[dict] = []
 
     async def reply_text(self, text: str, **_kwargs):
         self.replies.append(text)
 
     async def reply_animation(self, animation: str, **_kwargs):
         self.animations.append(animation)
+
+    async def reply_document(self, document, **_kwargs):
+        self.documents.append(
+            {
+                "name": getattr(document, "name", None),
+                "text": document.getvalue().decode()
+                if hasattr(document, "getvalue")
+                else document,
+            }
+        )
 
 
 class FakeResponse:
@@ -395,6 +408,102 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(bot.sent_document["chat_id"], 123)
         self.assertEqual(bot.sent_document["name"], "long.txt")
         self.assertEqual(bot.sent_document["text"], "x" * 5000)
+
+    async def test_reply_markdown_or_plain_defaults_document_for_long_text(self):
+        message = FakeMessage()
+
+        await reply_markdown_or_plain(message, "y" * 5000)
+
+        self.assertEqual(message.replies, [])
+        self.assertEqual(len(message.documents), 1)
+        self.assertEqual(message.documents[0]["name"], "response.txt")
+        self.assertEqual(message.documents[0]["text"], "y" * 5000)
+
+    def test_message_link_scopes_to_supergroup_path(self):
+        self.assertEqual(
+            stats_module._message_link(-1001234567890, 42, None),
+            "https://t.me/c/1234567890/42",
+        )
+        self.assertEqual(
+            stats_module._message_link(-1001, 7, "mygroup"),
+            "https://t.me/mygroup/7",
+        )
+        self.assertIsNone(stats_module._message_link(12345, 1, None))
+
+    async def test_worker_reminder_claims_before_send(self):
+        due = [
+            {
+                "id": 1,
+                "title": "ship it",
+                "target_time": 1,
+                "user_id": 9,
+                "chat_id": -1001,
+            }
+        ]
+        claim = SimpleNamespace(rowcount=1)
+        bot = AsyncMock()
+        context = SimpleNamespace(bot=bot)
+
+        class SelectCursor:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+            async def fetchall(self):
+                return due
+
+        class SelectConn:
+            def __init__(self):
+                self.cursor = SelectCursor()
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+            def execute(self, *_args, **_kwargs):
+                return self.cursor
+
+        class ClaimConn:
+            def __init__(self):
+                self.execute_args = None
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+            async def execute(self, *args, **_kwargs):
+                self.execute_args = args
+                return claim
+
+        select_conn = SelectConn()
+        claim_conn = ClaimConn()
+
+        with (
+            patch.object(
+                remind_module,
+                "get_db",
+                side_effect=[select_conn, claim_conn],
+            ),
+            patch.object(
+                remind_module.utils,
+                "get_username",
+                AsyncMock(return_value="tester"),
+            ),
+        ):
+            await remind_module.worker_reminder(context)
+
+        self.assertEqual(
+            claim_conn.execute_args,
+            ("DELETE FROM reminders WHERE id = ?", (1,)),
+        )
+        bot.send_message.assert_awaited_once()
+        self.assertEqual(bot.send_message.await_args.args[0], -1001)
 
     async def test_process_mentions_uses_telegram_entity_parser(self):
         entity = SimpleNamespace(type=MessageEntity.MENTION)

@@ -38,14 +38,14 @@ async def reply_markdown_or_plain(
     except Exception:
         pass
 
-    if len(text) <= 4096 or not document_name:
+    if len(text) <= 4096:
         return await message.reply_text(
             text,
             disable_web_page_preview=disable_web_page_preview,
         )
 
     buffer = io.BytesIO(text.encode())
-    buffer.name = document_name
+    buffer.name = document_name or "response.txt"
     return await message.reply_document(buffer)
 
 

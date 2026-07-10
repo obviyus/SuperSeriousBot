@@ -10,12 +10,35 @@ from telegram.helpers import mention_html
 import commands
 import utils
 from config.db import get_db
-from management.chat_memory import chat_stats_summary, last_seen_by_username
+from management.chat_memory import chat_stats_summary, last_seen_in_chat
 from utils import readable_time
 from utils.decorators import command
 from utils.messages import get_message
 
 _DOW_NAMES = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+
+
+def _message_link(chat_id: int, message_id: int, chat_username: str | None) -> str | None:
+    if not message_id:
+        return None
+    if chat_username:
+        return f"https://t.me/{chat_username}/{message_id}"
+    chat_id_str = str(chat_id)
+    if chat_id_str.startswith("-100"):
+        return f"https://t.me/c/{chat_id_str[4:]}/{message_id}"
+    return None
+
+
+def _timestamp_from_create_time(create_time: object) -> int:
+    if isinstance(create_time, (int, float)):
+        return int(create_time)
+    if isinstance(create_time, datetime):
+        return int(create_time.timestamp())
+    text = str(create_time)
+    try:
+        return int(text)
+    except ValueError:
+        return int(datetime.fromisoformat(text).timestamp())
 
 
 async def reply_chat_stats(
@@ -61,25 +84,28 @@ async def get_last_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     username_lower = username_input[1].lower()
 
-    user_stats = await last_seen_by_username(username_lower)
+    user_stats = await last_seen_in_chat(message.chat_id, username_lower)
 
     if not user_stats:
-        await message.reply_text(f"@{username_input[1]} has never been seen.")
+        await message.reply_text(
+            f"@{username_input[1]} has never been seen in this chat."
+        )
         return
 
-    last_seen = user_stats["last_seen"]
-    message_link = user_stats["last_message_link"]
     username_display = user_stats["username"]
+    last_seen_int = _timestamp_from_create_time(user_stats["create_time"])
+    message_link = _message_link(
+        message.chat_id,
+        user_stats["message_id"],
+        message.chat.username,
+    )
+    safe_link = html.escape(message_link, quote=True) if message_link else ""
+    html_message = f'\n\n🔗 <a href="{safe_link}">Link</a>' if safe_link else ""
 
-    try:
-        last_seen_int = int(last_seen)
-    except ValueError:
-        last_seen_int = int(datetime.fromisoformat(last_seen).timestamp())
-
-    # Create a link to the message if available
-    html_message = f"\n\n🔗 <a href='{message_link}'>Link</a>" if message_link else ""
-
-    user_mention_string = mention_html(username_display, username_display)
+    user_mention_string = mention_html(
+        int(user_stats["user_id"]),
+        username_display or username_input[1],
+    )
     await message.reply_text(
         f"Last message from {user_mention_string} was {await readable_time(last_seen_int)} ago.{html_message}",
         disable_web_page_preview=True,
