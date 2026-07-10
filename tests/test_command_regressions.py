@@ -80,6 +80,7 @@ class FakeMessage:
         self.reply_to_message = None
         self.replies: list[str] = []
         self.animations: list[str] = []
+        self.photos: list[str] = []
         self.documents: list[dict] = []
 
     async def reply_text(self, text: str, **_kwargs):
@@ -87,6 +88,9 @@ class FakeMessage:
 
     async def reply_animation(self, animation: str, **_kwargs):
         self.animations.append(animation)
+
+    async def reply_photo(self, photo: str, **_kwargs):
+        self.photos.append(photo)
 
     async def reply_document(self, document, **_kwargs):
         self.documents.append(
@@ -139,7 +143,9 @@ class FakeSession:
         return None
 
     def get(self, *_args, **_kwargs):
-        return self.responses.pop(0)
+        if len(self.responses) > 1:
+            return self.responses.pop(0)
+        return self.responses[0]
 
 
 class FailingSession:
@@ -255,6 +261,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 "ensure_command_available",
                 AsyncMock(return_value=True),
             ),
+            patch.object(ask_module, "ensure_quota", AsyncMock(return_value=True)),
         ):
             await ask_module.ask(update, context)
 
@@ -273,6 +280,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 "ensure_command_available",
                 AsyncMock(return_value=True),
             ),
+            patch.object(song_module, "ensure_quota", AsyncMock(return_value=True)),
         ):
             await song_module.song(update, context)
 
@@ -295,6 +303,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 transcribe_module,
                 "ensure_command_available",
                 AsyncMock(return_value=True),
+            ),
+            patch.object(
+                transcribe_module, "ensure_quota", AsyncMock(return_value=True)
             ),
         ):
             await transcribe_module.transcribe(update, context)
@@ -375,7 +386,24 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         ):
             await meme_module.meme(SimpleNamespace(), SimpleNamespace())
 
-        self.assertEqual(message.replies, ["Could not fetch a meme right now."])
+        self.assertEqual(message.replies, ["Could not fetch a SFW meme right now."])
+
+    async def test_meme_skips_nsfw_responses(self):
+        message = FakeMessage()
+        nsfw = FakeResponse({"url": "https://example.com/nsfw.jpg", "nsfw": True})
+        sfw = FakeResponse({"url": "https://example.com/sfw.jpg", "nsfw": False})
+
+        with (
+            patch.object(meme_module, "get_message", return_value=message),
+            patch(
+                "aiohttp.ClientSession",
+                return_value=FakeSession(nsfw, sfw),
+            ),
+        ):
+            await meme_module.meme(SimpleNamespace(), SimpleNamespace())
+
+        self.assertEqual(message.replies, [])
+        self.assertEqual(message.photos, ["https://example.com/sfw.jpg"])
 
     async def test_weather_handles_malformed_api_data(self):
         message = FakeMessage()

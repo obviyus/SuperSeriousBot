@@ -17,6 +17,7 @@ from commands.ai import (
 from commands.runtime import ensure_command_available
 from config.logger import logger
 from config.options import config
+from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message
 
@@ -86,6 +87,8 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
 
     if not await ensure_command_available(message, message.from_user.id, "tr"):
+        return
+    if not await ensure_quota(message, message.from_user.id, "tr"):
         return
 
     reply = message.reply_to_message

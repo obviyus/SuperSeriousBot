@@ -17,6 +17,7 @@ from commands.ai import (
 from commands.runtime import ensure_command_available
 from config.logger import logger
 from config.options import config
+from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message
 
@@ -267,6 +268,8 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not await ensure_command_available(message, message.from_user.id, "song"):
         return
+    if not await ensure_quota(message, message.from_user.id, "song"):
+        return
 
     user_prompt = " ".join(context.args).strip() if context.args else ""
     if not user_prompt:
@@ -316,6 +319,9 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_media_group(
             song_media_group(song_tracks(music_task), song_plan.title)
         )
-    except RuntimeError as exc:
+    except Exception as exc:
         logger.exception("Song generation failed: %s", exc)
-        await progress.edit_text("Song generation failed. Please try again.")
+        try:
+            await progress.edit_text("Song generation failed. Please try again.")
+        except Exception:
+            await message.reply_text("Song generation failed. Please try again.")

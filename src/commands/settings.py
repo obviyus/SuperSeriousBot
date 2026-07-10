@@ -27,6 +27,8 @@ TOGGLES = (
     SettingToggle("ask", "/ask", "command_whitelist", "ask"),
     SettingToggle("edit", "/edit", "command_whitelist", "edit"),
     SettingToggle("tr", "/tr", "command_whitelist", "tr"),
+    SettingToggle("tldr", "/tldr", "command_whitelist", "tldr"),
+    SettingToggle("search", "/search", "command_whitelist", "search"),
     SettingToggle("cron", "/cron", "command_whitelist", "cron"),
     SettingToggle("song", "/song", "command_whitelist", "song"),
 )

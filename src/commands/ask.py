@@ -24,6 +24,7 @@ from commands.ai import (
 from commands.runtime import ensure_command_available
 from config.logger import logger
 from config.options import config
+from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.media import get_sticker_image_bytes
 from utils.messages import get_message, reply_markdown_or_plain
@@ -160,6 +161,8 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "ask",
         allow_private_whitelist=True,
     ):
+        return
+    if not await ensure_quota(message, message.from_user.id, "ask"):
         return
 
     api_key = config.API.OPENROUTER_API_KEY
@@ -326,6 +329,8 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not message or not message.from_user or not update.effective_user:
         return
     if not await ensure_command_available(message, message.from_user.id, "edit"):
+        return
+    if not await ensure_quota(message, message.from_user.id, "edit"):
         return
 
     reply = message.reply_to_message
