@@ -172,9 +172,16 @@ def command_wrapper(
                 )
         except Exception as exc:
             logger.error(
-                f"Error in /{getattr(fn, '__name__', fn.__class__.__name__)}: {exc!s}"
+                "Error in /%s: %s",
+                getattr(fn, "__name__", fn.__class__.__name__),
+                exc,
             )
             logger.error(traceback.format_exc())
+            try:
+                await message.reply_text("Something went wrong. Please try again.")
+            except Exception:
+                pass
+            raise
 
     return wrapped_command
 

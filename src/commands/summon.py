@@ -131,12 +131,14 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
         return
     elif action == "resummon":
         last_tag_time = summon_log.get(group_id)
-        if last_tag_time and (datetime.now() - last_tag_time).seconds < 60:
-            remaining_seconds = 60 - (datetime.now() - last_tag_time).seconds
-            await query.answer(
-                f"You can only resummon once every 60 seconds. Wait {remaining_seconds}s."
-            )
-            return
+        if last_tag_time:
+            elapsed = (datetime.now() - last_tag_time).total_seconds()
+            if elapsed < 60:
+                remaining_seconds = int(60 - elapsed)
+                await query.answer(
+                    f"You can only resummon once every 60 seconds. Wait {remaining_seconds}s."
+                )
+                return
 
         await query.answer("Resummoning...")
         async with get_db() as conn:

@@ -4,17 +4,18 @@ import re
 
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.error import ChatMigrated
+from telegram.error import ChatMigrated, TelegramError
 from telegram.ext import ContextTypes
 
 import commands
 import utils
 from config.db import get_db
+from config.logger import logger
 from utils.decorators import command
 from utils.messages import get_message
 
 IST_ALIAS_PATTERN = re.compile(r"\bIST\b", re.IGNORECASE)
-REMINDER_DELIVERY_GRACE_SECONDS = 10 * 60
+REMINDER_BATCH_LIMIT = 50
 
 
 def tg_time(unix_time: int, fallback_text: str, format_string: str | None = None) -> str:
@@ -134,28 +135,29 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
     now = int(datetime.datetime.now(datetime.UTC).timestamp())
-    stale_before = now - REMINDER_DELIVERY_GRACE_SECONDS
 
     async with get_db() as conn:
-        await conn.execute(
-            """
-            DELETE FROM reminders
-            WHERE target_time < ?;
-            """,
-            (stale_before,),
-        )
         async with conn.execute(
             """
             SELECT id, title, target_time, user_id, chat_id
             FROM reminders
             WHERE target_time <= ?
-            AND target_time >= ?;
+            ORDER BY target_time ASC
+            LIMIT ?;
             """,
-            (now, stale_before),
+            (now, REMINDER_BATCH_LIMIT),
         ) as cursor:
             existing_reminders = await cursor.fetchall()
 
     for reminder in existing_reminders:
+        async with get_db() as conn:
+            claim = await conn.execute(
+                "DELETE FROM reminders WHERE id = ?",
+                (reminder["id"],),
+            )
+            if claim.rowcount == 0:
+                continue
+
         text = (
             f"⏰ <code>{html.escape(reminder['title'])}</code>\n\n"
             f"@{await utils.get_username(reminder['user_id'], context)}"
@@ -165,13 +167,20 @@ async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
                 reminder["chat_id"], text, parse_mode=ParseMode.HTML
             )
         except ChatMigrated as exc:
-            await context.bot.send_message(
-                exc.new_chat_id, text, parse_mode=ParseMode.HTML
-            )
-            async with get_db() as conn:
-                await conn.execute(
-                    "UPDATE reminders SET chat_id = ? WHERE chat_id = ?",
-                    (exc.new_chat_id, reminder["chat_id"]),
+            try:
+                await context.bot.send_message(
+                    exc.new_chat_id, text, parse_mode=ParseMode.HTML
                 )
-        async with get_db() as conn:
-            await conn.execute("DELETE FROM reminders WHERE id = ?", (reminder["id"],))
+            except TelegramError as send_exc:
+                logger.error(
+                    "Failed to deliver migrated reminder %s: %s",
+                    reminder["id"],
+                    send_exc,
+                )
+        except TelegramError as exc:
+            logger.error(
+                "Failed to deliver reminder %s to chat %s: %s",
+                reminder["id"],
+                reminder["chat_id"],
+                exc,
+            )

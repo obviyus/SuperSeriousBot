@@ -183,11 +183,20 @@ async def chat_stats_summary(chat_id: int, *, today_only: bool) -> tuple[list, i
     return rows, total_count
 
 
-async def last_seen_by_username(username: str):
+async def last_seen_in_chat(chat_id: int, username: str):
+    """Last message from username in this chat only (no cross-chat links)."""
     async with get_db() as conn:
         async with conn.execute(
-            "SELECT username, last_seen, last_message_link FROM user_stats WHERE LOWER(username) = ?",
-            (username.lower(),),
+            """
+            SELECT us.user_id, us.username, cs.message_id, cs.create_time
+            FROM user_stats us
+            INNER JOIN chat_stats cs
+                ON cs.user_id = us.user_id AND cs.chat_id = ?
+            WHERE LOWER(us.username) = ?
+            ORDER BY cs.id DESC
+            LIMIT 1
+            """,
+            (chat_id, username.lower()),
         ) as cursor:
             return await cursor.fetchone()
 

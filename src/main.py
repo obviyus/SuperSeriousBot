@@ -157,7 +157,13 @@ def main():
             "Job queue not initialized. Install python-telegram-bot[job-queue]."
         )
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
-    job_queue.run_repeating(worker_reminder, interval=60, first=10)
+    job_queue.run_repeating(
+        worker_reminder,
+        interval=60,
+        first=10,
+        name="worker_reminder",
+        job_kwargs={"max_instances": 1, "coalesce": True},
+    )
     job_queue.run_daily(command_limits.reset_command_limits, time=datetime.time(18, 30))
     if config.TELEGRAM.UPDATER == "polling":
         logger.info("Using polling...")
@@ -168,7 +174,8 @@ def main():
     if not webhook_url:
         raise RuntimeError("WEBHOOK_URL must be set when UPDATER is 'webhook'")
     port = int(os.environ.get("PORT", "8443"))
-    logger.info(f"Using webhook URL: {webhook_url} with port {port}")
+    # WEBHOOK_URL embeds the bot token as the path — never log it.
+    logger.info("Using webhook mode on port %s", port)
     application.run_webhook(
         listen="0.0.0.0",
         port=port,
