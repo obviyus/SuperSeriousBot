@@ -18,6 +18,7 @@ from commands.cron_service import (
     validate_cron_expression,
 )
 from commands.runtime import ensure_command_available
+from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message
 
@@ -122,6 +123,8 @@ async def cron(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         except ValueError as exc:
             await message.reply_text(str(exc))
             return
+        if not await ensure_quota(message, message.from_user.id, "cron"):
+            return
         task = await load_owned_cron_task(
             task_id,
             message.chat_id,
@@ -135,6 +138,9 @@ async def cron(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode=ParseMode.HTML,
         )
         await run_cron_task(context, task_id)
+        return
+
+    if not await ensure_quota(message, message.from_user.id, "cron"):
         return
 
     user_request = " ".join(context.args).strip()

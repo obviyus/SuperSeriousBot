@@ -7,6 +7,7 @@ from telegram import Update
 from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
+from commands.runtime import ensure_command_available
 from management.chat_memory import (
     enable_fts as enable_chat_fts,
 )
@@ -16,6 +17,7 @@ from management.chat_memory import (
     parse_export_file,
 )
 from management.chat_semantic_search import semantic_search_answer
+from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message, reply_markdown_or_plain
 
@@ -29,7 +31,12 @@ from utils.messages import get_message, reply_markdown_or_plain
 )
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
-    if not message:
+    if not message or not message.from_user:
+        return
+
+    if not await ensure_command_available(message, message.from_user.id, "search"):
+        return
+    if not await ensure_quota(message, message.from_user.id, "search"):
         return
 
     if not context.args:
@@ -43,7 +50,13 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else None
     )
 
-    answer = await semantic_search_answer(message.chat_id, query, author_id)
+    try:
+        answer = await semantic_search_answer(message.chat_id, query, author_id)
+    except Exception:
+        logging.exception("Semantic search failed for chat %s", message.chat_id)
+        await message.reply_text("Search failed. Please try again.")
+        return
+
     if not answer:
         if not await is_fts_enabled(message.chat_id):
             await message.reply_text(

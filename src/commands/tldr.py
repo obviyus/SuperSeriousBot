@@ -8,9 +8,11 @@ from telegram.ext import ContextTypes
 import commands
 import utils
 from commands.ai import first_message_content, openrouter_json, openrouter_payload
+from commands.runtime import ensure_command_available
 from config.db import get_db
 from config.logger import logger
 from config.options import config
+from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message, reply_markdown_or_plain
 
@@ -88,6 +90,11 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     if not message or not message.from_user:
         return
 
+    if not await ensure_command_available(message, message.from_user.id, "tldr"):
+        return
+    if not await ensure_quota(message, message.from_user.id, "tldr"):
+        return
+
     url = utils.extract_link(message)
 
     if url:
@@ -96,12 +103,13 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         # Check if it's a YouTube URL
         video_id = extract_youtube_video_id(url_str)
         if video_id:
-            async with get_db() as conn:
-                async with conn.execute(
-                    "SELECT summary FROM tldw WHERE video_id = ?;",
-                    (video_id,),
-                ) as cursor:
-                    cached_summary = await cursor.fetchone()
+            try:
+                async with get_db() as conn:
+                    async with conn.execute(
+                        "SELECT summary FROM tldw WHERE video_id = ?;",
+                        (video_id,),
+                    ) as cursor:
+                        cached_summary = await cursor.fetchone()
                 if cached_summary:
                     await reply_markdown_or_plain(message, cached_summary[0])
                     return
@@ -111,11 +119,15 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                 if nano_api_key:
                     headers["x-api-key"] = nano_api_key
 
-                async with aiohttp.ClientSession() as session:
+                async with aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=60)
+                ) as session:
                     async with session.post(
                         "https://nano-gpt.com/api/youtube-transcribe",
                         headers=headers,
-                        json={"urls": [f"https://www.youtube.com/watch?v={video_id}"]},
+                        json={
+                            "urls": [f"https://www.youtube.com/watch?v={video_id}"]
+                        },
                     ) as response:
                         if response.status != 200:
                             await message.reply_text(
@@ -135,10 +147,15 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                     context_hint="a YouTube video transcript",
                 )
                 await reply_markdown_or_plain(message, summary)
-                await conn.execute(
-                    "INSERT INTO tldw (video_id, summary, user_id) VALUES (?, ?, ?);",
-                    (video_id, summary, message.from_user.id),
-                )
+                async with get_db() as conn:
+                    await conn.execute(
+                        "INSERT INTO tldw (video_id, summary, user_id) VALUES (?, ?, ?);",
+                        (video_id, summary, message.from_user.id),
+                    )
+                return
+            except Exception as e:
+                logger.error("Error generating YouTube TLDR for %s: %s", video_id, e)
+                await message.reply_text("I couldn't generate a summary for that.")
                 return
 
         try:

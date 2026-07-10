@@ -6,6 +6,7 @@ from telegram.error import Forbidden
 from telegram.ext import ContextTypes
 
 from config.db import get_db
+from config.logger import logger
 from utils.decorators import command
 from utils.messages import get_message
 
@@ -164,12 +165,10 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     ),
                 )
             except Forbidden:
-                await message.reply_text(
-                    f"<a href='tg://user?id={row['user_id']}'>Your highlight</a> "
-                    f"<code>{html.escape(row['string'])}</code> was triggered, but I can't DM you. "
-                    "Please start a conversation with me first.",
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=InlineKeyboardMarkup(
-                        [[start_dm_button(context.bot.username)]]
-                    ),
+                # Do not leak highlight keywords or owner identity into the group.
+                logger.info(
+                    "Highlight DM forbidden for user %s in chat %s",
+                    row["user_id"],
+                    message.chat_id,
                 )
+
