@@ -150,6 +150,76 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["kickoff_time"], original.kickoff_time + 3600)
         self.assertIsNone(row["alert_time"])
 
+    async def test_next_fixtures_returns_every_match_at_earliest_kickoff(
+        self,
+    ) -> None:
+        now = 1_800_000_000
+        fixtures = [
+            fixture("later", now + 7200),
+            fixture("next-1", now + 3600),
+            fixture(
+                "next-2",
+                now + 3600,
+                competition="uefa.champions",
+                competition_name="Champions League",
+                home_team="Real Madrid",
+                away_team="Liverpool",
+            ),
+            fixture(
+                "untracked",
+                now + 1800,
+                home_team="Everton",
+                away_team="Fulham",
+            ),
+        ]
+        await football.store_fixtures(fixtures)
+
+        next_fixtures = await football.load_next_fixtures(now)
+
+        self.assertEqual(
+            [item.provider_id for item in next_fixtures],
+            ["next-2", "next-1"],
+        )
+
+    async def test_next_command_shows_live_countdown(self) -> None:
+        kickoff_time = 1_800_003_600
+        fixtures = [
+            fixture("next-1", kickoff_time),
+            fixture(
+                "next-2",
+                kickoff_time,
+                competition="uefa.champions",
+                competition_name="Champions League",
+                home_team="Real Madrid",
+                away_team="Liverpool",
+            ),
+        ]
+        await football.store_fixtures(fixtures)
+        message = SimpleNamespace(reply_text=AsyncMock())
+
+        with (
+            patch.object(football, "get_message", return_value=message),
+            patch.object(football, "utc_timestamp", return_value=1_800_000_000),
+        ):
+            await football.next_match(SimpleNamespace(), SimpleNamespace())
+
+        message.reply_text.assert_awaited_once()
+        sent = message.reply_text.await_args
+        self.assertIn("Arsenal vs Coventry City", sent.args[0])
+        self.assertIn("Real Madrid vs Liverpool", sent.args[0])
+        self.assertIn(f'<tg-time unix="{kickoff_time}" format="r">', sent.args[0])
+        self.assertEqual(sent.kwargs["parse_mode"], football.ParseMode.HTML)
+
+    async def test_next_command_handles_empty_schedule(self) -> None:
+        message = SimpleNamespace(reply_text=AsyncMock())
+
+        with patch.object(football, "get_message", return_value=message):
+            await football.next_match(SimpleNamespace(), SimpleNamespace())
+
+        message.reply_text.assert_awaited_once_with(
+            "No upcoming Big Six matches found."
+        )
+
     async def test_old_kickoff_delivery_cannot_finalize_rescheduled_fixture(
         self,
     ) -> None:

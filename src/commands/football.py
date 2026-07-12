@@ -360,6 +360,36 @@ async def load_due_fixtures(now: int) -> list[FootballFixture]:
     return [fixture for fixture in fixtures if is_tracked_fixture(fixture)]
 
 
+async def load_next_fixtures(now: int) -> list[FootballFixture]:
+    async with get_db() as conn:
+        async with conn.execute(
+            """
+            SELECT
+                provider_id,
+                competition,
+                competition_name,
+                home_team,
+                away_team,
+                kickoff_time,
+                status
+            FROM football_fixtures
+            WHERE status = ?
+              AND kickoff_time > ?
+            ORDER BY kickoff_time, competition_name, home_team
+            """,
+            (SCHEDULED_STATUS, now),
+        ) as cursor:
+            fixtures = [row_to_fixture(row) for row in await cursor.fetchall()]
+
+    tracked_fixtures = [fixture for fixture in fixtures if is_tracked_fixture(fixture)]
+    if not tracked_fixtures:
+        return []
+    kickoff_time = tracked_fixtures[0].kickoff_time
+    return [
+        fixture for fixture in tracked_fixtures if fixture.kickoff_time == kickoff_time
+    ]
+
+
 async def verify_fixtures(fixtures: list[FootballFixture]) -> set[str]:
     candidate_ids = {fixture.provider_id for fixture in fixtures}
     fixtures = [
@@ -520,6 +550,38 @@ def fixture_alert_text(fixtures: list[FootballFixture]) -> str:
     return "\n".join(lines)
 
 
+def next_fixture_text(fixtures: list[FootballFixture]) -> str:
+    kickoff_time = fixtures[0].kickoff_time
+    fallback_time = datetime.datetime.fromtimestamp(
+        kickoff_time, datetime.UTC
+    ).strftime("%Y-%m-%d %H:%M UTC")
+    lines = ["⚽ <b>Next Big Six match</b>"]
+    ordered = sorted(
+        fixtures,
+        key=lambda fixture: (
+            COMPETITION_ORDER[fixture.competition_name],
+            fixture.home_team,
+            fixture.away_team,
+        ),
+    )
+    for competition_name, competition_fixtures in groupby(
+        ordered, key=lambda fixture: fixture.competition_name
+    ):
+        lines.extend(("", f"<b>{html.escape(competition_name)}</b>"))
+        lines.extend(
+            f"• {html.escape(fixture.home_team)} vs {html.escape(fixture.away_team)}"
+            for fixture in competition_fixtures
+        )
+    lines.extend(
+        (
+            "",
+            f'Kickoff <tg-time unix="{kickoff_time}" format="r">'
+            f"{fallback_time}</tg-time>",
+        )
+    )
+    return "\n".join(lines)
+
+
 async def send_fixture_alerts(
     context: ContextTypes.DEFAULT_TYPE,
     fixtures: list[FootballFixture],
@@ -579,6 +641,28 @@ async def worker_football_alerts(context: ContextTypes.DEFAULT_TYPE) -> None:
             fixtures = list(slot)
             if await send_fixture_alerts(context, fixtures, now):
                 await mark_fixtures_alerted(fixtures, now)
+
+
+@command(
+    triggers=["next"],
+    usage="/next",
+    example="/next",
+    description="Show the countdown to the next Big Six match.",
+)
+async def next_match(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = get_message(update)
+    if not message:
+        return
+
+    fixtures = await load_next_fixtures(utc_timestamp())
+    if not fixtures:
+        await message.reply_text("No upcoming Big Six matches found.")
+        return
+
+    await message.reply_text(
+        next_fixture_text(fixtures),
+        parse_mode=ParseMode.HTML,
+    )
 
 
 @command(
