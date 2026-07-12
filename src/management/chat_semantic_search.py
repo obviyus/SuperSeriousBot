@@ -86,8 +86,7 @@ def telegram_message_link(chat_id: int, message_id: int) -> str | None:
 
 def build_evidence_text(rows: list[ChatMessageText]) -> str:
     return "\n".join(
-        f"{row.message_id} {row.create_time} {row.author}: {row.text}"
-        for row in rows
+        f"{row.message_id} {row.create_time} {row.author}: {row.text}" for row in rows
     )
 
 
@@ -255,22 +254,37 @@ async def fts_search_windows(
     return windows
 
 
-def dedupe_evidence(windows: list[SearchEvidence]) -> list[SearchEvidence]:
-    seen: set[tuple[int, int, int]] = set()
-    deduped = []
-    for window in sorted(windows, key=lambda item: item.score, reverse=True):
-        key = (window.chat_id, window.start_message_id, window.end_message_id)
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(window)
-    return deduped[:ANSWER_EVIDENCE_COUNT]
+def evidence_overlaps(left: SearchEvidence, right: SearchEvidence) -> bool:
+    return (
+        left.chat_id == right.chat_id
+        and left.start_message_id <= right.end_message_id
+        and right.start_message_id <= left.end_message_id
+    )
 
 
-def answer_messages(query: str, evidence: list[SearchEvidence]) -> list[dict[str, object]]:
+def select_evidence(
+    vector_windows: list[SearchEvidence],
+    fts_windows: list[SearchEvidence],
+) -> list[SearchEvidence]:
+    selected = []
+    for rank in range(max(len(vector_windows), len(fts_windows))):
+        for windows in (vector_windows, fts_windows):
+            if rank >= len(windows):
+                continue
+            candidate = windows[rank]
+            if any(evidence_overlaps(candidate, item) for item in selected):
+                continue
+            selected.append(candidate)
+            if len(selected) == ANSWER_EVIDENCE_COUNT:
+                return selected
+    return selected
+
+
+def answer_messages(
+    query: str, evidence: list[SearchEvidence]
+) -> list[dict[str, object]]:
     evidence_text = "\n\n".join(
-        f"[{index}]\n{item.text}"
-        for index, item in enumerate(evidence, start=1)
+        f"[{index}]\n{item.text}" for index, item in enumerate(evidence, start=1)
     )
     return [
         {
@@ -333,9 +347,9 @@ async def semantic_search_answer(
 ) -> str | None:
     async with aiohttp.ClientSession() as session:
         query_vector = await embed_search_query(session, query)
-        windows = await vector_search_windows(chat_id, query_vector, author_id)
-        windows.extend(await fts_search_windows(chat_id, query, author_id))
-        evidence = dedupe_evidence(windows)
+        vector_windows = await vector_search_windows(chat_id, query_vector, author_id)
+        fts_windows = await fts_search_windows(chat_id, query, author_id)
+        evidence = select_evidence(vector_windows, fts_windows)
         if not evidence:
             return None
 

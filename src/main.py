@@ -30,6 +30,7 @@ from config.db import (
 )
 from config.logger import logger
 from config.options import config
+from management.chat_search_index import index_pending_windows, indexed_chat_ids
 from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
 from utils.decorators import get_command_meta
@@ -49,9 +50,7 @@ async def post_init(application: Application) -> None:
 
     logging_channel_id = config.TELEGRAM.LOGGING_CHANNEL_ID
     if logging_channel_id:
-        logger.info(
-            f"Logging to channel ID: {logging_channel_id}"
-        )
+        logger.info(f"Logging to channel ID: {logging_channel_id}")
 
         await application.bot.send_message(
             chat_id=logging_channel_id,
@@ -81,11 +80,21 @@ async def post_shutdown(application: Application) -> None:
     logger.info("Cleanup finished.")
 
 
+async def worker_chat_search_index(_: ContextTypes.DEFAULT_TYPE) -> None:
+    indexed = await index_pending_windows(
+        config.API.OPENROUTER_API_KEY,
+        chat_ids=await indexed_chat_ids(),
+    )
+    if indexed:
+        logger.info("Indexed %d chat search windows", indexed)
+
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
     if isinstance(context.error, NetworkError) and "ConnectError" in str(context.error):
-        logger.debug("Transient network error (ConnectError), skipping: %s", context.error)
+        logger.debug(
+            "Transient network error (ConnectError), skipping: %s", context.error
+        )
         return
 
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
@@ -184,6 +193,15 @@ def main():
         name="worker_reminder",
         job_kwargs={"max_instances": 1, "coalesce": True},
     )
+    search_index_enabled = bool(config.API.OPENROUTER_API_KEY)
+    if search_index_enabled:
+        job_queue.run_repeating(
+            worker_chat_search_index,
+            interval=900,
+            first=30,
+            name="worker_chat_search_index",
+            job_kwargs={"max_instances": 1, "coalesce": True},
+        )
     job_queue.run_daily(command_limits.reset_command_limits, time=datetime.time(18, 30))
     if config.TELEGRAM.UPDATER == "polling":
         logger.info("Using polling...")
