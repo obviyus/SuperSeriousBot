@@ -19,6 +19,7 @@ from telegram.ext import (
 
 import commands
 from commands.cron_service import register_enabled_cron_tasks
+from commands.football import sync_football_fixtures_job, worker_football_alerts
 from commands.habit import worker_habit_tracker
 from commands.highlight import highlight_worker
 from commands.remind import worker_reminder
@@ -157,6 +158,25 @@ def main():
             "Job queue not initialized. Install python-telegram-bot[job-queue]."
         )
     job_queue.run_daily(worker_habit_tracker, time=datetime.time(14, 30))
+    job_queue.run_once(
+        sync_football_fixtures_job,
+        when=5,
+        name="sync_football_fixtures_startup",
+        job_kwargs={"max_instances": 1, "coalesce": True},
+    )
+    job_queue.run_daily(
+        sync_football_fixtures_job,
+        time=datetime.time(3, tzinfo=datetime.UTC),
+        name="sync_football_fixtures_daily",
+        job_kwargs={"max_instances": 1, "coalesce": True},
+    )
+    job_queue.run_repeating(
+        worker_football_alerts,
+        interval=60,
+        first=15,
+        name="worker_football_alerts",
+        job_kwargs={"max_instances": 1, "coalesce": True},
+    )
     job_queue.run_repeating(
         worker_reminder,
         interval=60,

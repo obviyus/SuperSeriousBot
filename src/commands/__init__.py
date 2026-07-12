@@ -20,10 +20,11 @@ from utils.decorators import get_command_meta, get_registered_commands
 from utils.messages import get_message
 
 COMMAND_MODULE_NAMES = (
-    "animals", "ask", "book", "calc", "cron", "define", "dl", "gif", "graph",
-    "habit", "highlight", "hltb", "insult", "joke", "meme", "model", "ping",
-    "quote", "remind", "search", "settings", "song", "spurdo", "store", "summon",
-    "tldr", "transcribe", "translate", "ud", "uwu", "weather", "whitelist",
+    "animals", "ask", "book", "calc", "cron", "define", "dl", "football", "gif",
+    "graph", "habit", "highlight", "hltb", "insult", "joke", "meme", "model",
+    "ping", "quote", "remind", "search", "settings", "song", "spurdo", "store",
+    "summon", "tldr", "transcribe", "translate", "ud", "uwu", "weather",
+    "whitelist",
 )
 MANAGEMENT_MODULE_NAMES = ("blocks", "botstats", "stats")
 
@@ -35,6 +36,7 @@ for module_name in MANAGEMENT_MODULE_NAMES:
 habit = import_module(f"{__name__}.habit")
 dl = import_module(f"{__name__}.dl")
 cron_module = import_module(f"{__name__}.cron")
+football_module = import_module(f"{__name__}.football")
 summon = import_module(f"{__name__}.summon")
 highlight_button_handler = import_module(
     f"{__name__}.highlight"
@@ -73,6 +75,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     handler = {
         "cr": cron_module.cron_button_handler,
+        "fb": football_module.football_button_handler,
         "hb": habit.habit_button_handler,
         "hl": highlight_button_handler,
         "st": settings_button_handler,
