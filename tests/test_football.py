@@ -217,7 +217,13 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Arsenal vs Coventry City", sent.args[0])
         self.assertIn("Real Madrid vs Liverpool", sent.args[0])
         self.assertIn(f'<tg-time unix="{kickoff_time}" format="r">', sent.args[0])
+        self.assertIn("📊 <b>Polymarket odds</b>", sent.args[0])
+        self.assertIn(
+            "Arsenal vs Coventry City: not available yet",
+            sent.args[0],
+        )
         self.assertEqual(sent.kwargs["parse_mode"], football.ParseMode.HTML)
+        self.assertTrue(sent.kwargs["link_preview_options"].is_disabled)
 
     async def test_next_command_handles_empty_schedule(self) -> None:
         message = SimpleNamespace(reply_text=AsyncMock())
@@ -412,6 +418,16 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(
             'href="https://polymarket.com/event/epl-ars-cov-2026-08-21"',
             text,
+        )
+
+        next_text = football.next_fixture_text(
+            [match],
+            {match.provider_id: odds},
+        )
+        self.assertIn("📊 <b>Polymarket odds</b>", next_text)
+        self.assertIn(
+            "Arsenal <b>62%</b> · Draw <b>23%</b> · Coventry City <b>15%</b>",
+            next_text,
         )
 
     async def test_odds_lookup_keeps_completed_results_on_timeout(self) -> None:

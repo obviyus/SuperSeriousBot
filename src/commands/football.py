@@ -596,6 +596,16 @@ async def record_deliveries(
         )
 
 
+def fixture_odds_line(fixture: FootballFixture, odds: MatchOdds) -> str:
+    market_url = html.escape(event_url(odds), quote=True)
+    return (
+        f"• {html.escape(fixture.home_team)} <b>{odds.home:.0%}</b> · "
+        f"Draw <b>{odds.draw:.0%}</b> · "
+        f"{html.escape(fixture.away_team)} <b>{odds.away:.0%}</b> · "
+        f'<a href="{market_url}">market</a>'
+    )
+
+
 def fixture_alert_text(
     fixtures: list[FootballFixture],
     odds_by_fixture: dict[str, MatchOdds],
@@ -624,17 +634,14 @@ def fixture_alert_text(
         lines.extend(("", "📊 <b>Polymarket odds</b>"))
         for fixture in fixtures_with_odds:
             odds = odds_by_fixture[fixture.provider_id]
-            market_url = html.escape(event_url(odds), quote=True)
-            lines.append(
-                f"• {html.escape(fixture.home_team)} <b>{odds.home:.0%}</b> · "
-                f"Draw <b>{odds.draw:.0%}</b> · "
-                f"{html.escape(fixture.away_team)} <b>{odds.away:.0%}</b> · "
-                f'<a href="{market_url}">market</a>'
-            )
+            lines.append(fixture_odds_line(fixture, odds))
     return "\n".join(lines)
 
 
-def next_fixture_text(fixtures: list[FootballFixture]) -> str:
+def next_fixture_text(
+    fixtures: list[FootballFixture],
+    odds_by_fixture: dict[str, MatchOdds],
+) -> str:
     kickoff_time = fixtures[0].kickoff_time
     fallback_time = datetime.datetime.fromtimestamp(
         kickoff_time, datetime.UTC
@@ -663,6 +670,16 @@ def next_fixture_text(fixtures: list[FootballFixture]) -> str:
             f"{fallback_time}</tg-time>",
         )
     )
+    lines.extend(("", "📊 <b>Polymarket odds</b>"))
+    for fixture in ordered:
+        odds = odds_by_fixture.get(fixture.provider_id)
+        if odds is not None:
+            lines.append(fixture_odds_line(fixture, odds))
+        else:
+            lines.append(
+                f"• {html.escape(fixture.home_team)} vs "
+                f"{html.escape(fixture.away_team)}: not available yet"
+            )
     return "\n".join(lines)
 
 
@@ -751,9 +768,11 @@ async def next_match(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await message.reply_text("No upcoming Big Six matches found.")
         return
 
+    odds_by_fixture = await load_fixture_odds(fixtures)
     await message.reply_text(
-        next_fixture_text(fixtures),
+        next_fixture_text(fixtures, odds_by_fixture),
         parse_mode=ParseMode.HTML,
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
 
