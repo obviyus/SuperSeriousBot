@@ -221,6 +221,23 @@ def build_message_windows(
     return windows
 
 
+def merge_message_ranges(
+    hit_message_ids: list[int],
+    *,
+    before: int,
+    after: int,
+) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    for message_id in sorted(set(hit_message_ids)):
+        start = message_id - before
+        end = message_id + after
+        if ranges and start <= ranges[-1][1] + 1:
+            ranges[-1] = (ranges[-1][0], max(ranges[-1][1], end))
+        else:
+            ranges.append((start, end))
+    return ranges
+
+
 async def message_windows(
     chat_id: int,
     hit_message_ids: list[int],
@@ -231,29 +248,32 @@ async def message_windows(
     if not hit_message_ids:
         return []
 
-    ranges = [
-        (message_id - before, message_id + after) for message_id in hit_message_ids
-    ]
-    range_query = " OR ".join("cs.message_id BETWEEN ? AND ?" for _ in ranges)
+    ranges = merge_message_ranges(hit_message_ids, before=before, after=after)
+    range_values = ", ".join("(?, ?)" for _ in ranges)
     async with get_db() as conn:
         async with conn.execute(
             f"""
+            WITH ranges (start_message_id, end_message_id) AS (
+                VALUES {range_values}
+            )
             SELECT
                 cs.message_id,
                 cs.create_time,
                 COALESCE(us.username, 'user:' || cs.user_id) AS author,
                 cs.message_text
-            FROM chat_stats cs
+            FROM ranges
+            INNER JOIN chat_stats cs
+                ON cs.chat_id = ?
+                AND cs.message_id BETWEEN ranges.start_message_id
+                    AND ranges.end_message_id
             LEFT JOIN user_stats us ON us.user_id = cs.user_id
-            WHERE cs.chat_id = ?
-            AND ({range_query})
-            AND cs.message_id IS NOT NULL
+            WHERE cs.message_id IS NOT NULL
             AND cs.message_text IS NOT NULL
             AND cs.message_text <> ''
             AND cs.message_text NOT LIKE '/%'
             ORDER BY cs.message_id;
             """,
-            (chat_id, *(bound for range_ in ranges for bound in range_)),
+            (*(bound for range_ in ranges for bound in range_), chat_id),
         ) as cursor:
             rows = await cursor.fetchall()
 

@@ -116,6 +116,16 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertIn("100 2026-07-12 00:00:100 @user: message 100", windows[0].text)
         self.assertIn("105 2026-07-12 00:00:105 @user: message 105", windows[1].text)
 
+    def test_merge_message_ranges_combines_overlapping_windows(self):
+        self.assertEqual(
+            semantic_search.merge_message_ranges(
+                [300, 100, 105, 100],
+                before=10,
+                after=14,
+            ),
+            [(90, 119), (290, 314)],
+        )
+
 
 class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
     async def test_pending_indexing_allocates_each_chat_a_share(self):
