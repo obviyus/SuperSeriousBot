@@ -1,4 +1,6 @@
+import logging
 import re
+import time
 from dataclasses import dataclass
 
 import aiohttp
@@ -190,16 +192,52 @@ async def fts_hit_message_ids(
     return [row["message_id"] for row in rows]
 
 
-async def message_window(
+def build_message_windows(
     chat_id: int,
-    message_id: int,
+    hit_message_ids: list[int],
+    rows: list[ChatMessageText],
     *,
     before: int = 10,
     after: int = 14,
-) -> SearchEvidence | None:
+) -> list[SearchEvidence]:
+    windows = []
+    for hit_message_id in hit_message_ids:
+        messages = [
+            row
+            for row in rows
+            if hit_message_id - before <= row.message_id <= hit_message_id + after
+        ]
+        if not messages:
+            continue
+        windows.append(
+            SearchEvidence(
+                chat_id=chat_id,
+                start_message_id=messages[0].message_id,
+                end_message_id=messages[-1].message_id,
+                text=build_evidence_text(messages),
+                score=0.5,
+            )
+        )
+    return windows
+
+
+async def message_windows(
+    chat_id: int,
+    hit_message_ids: list[int],
+    *,
+    before: int = 10,
+    after: int = 14,
+) -> list[SearchEvidence]:
+    if not hit_message_ids:
+        return []
+
+    ranges = [
+        (message_id - before, message_id + after) for message_id in hit_message_ids
+    ]
+    range_query = " OR ".join("cs.message_id BETWEEN ? AND ?" for _ in ranges)
     async with get_db() as conn:
         async with conn.execute(
-            """
+            f"""
             SELECT
                 cs.message_id,
                 cs.create_time,
@@ -208,19 +246,16 @@ async def message_window(
             FROM chat_stats cs
             LEFT JOIN user_stats us ON us.user_id = cs.user_id
             WHERE cs.chat_id = ?
-            AND cs.message_id BETWEEN ? AND ?
+            AND ({range_query})
             AND cs.message_id IS NOT NULL
             AND cs.message_text IS NOT NULL
             AND cs.message_text <> ''
             AND cs.message_text NOT LIKE '/%'
             ORDER BY cs.message_id;
             """,
-            (chat_id, message_id - before, message_id + after),
+            (chat_id, *(bound for range_ in ranges for bound in range_)),
         ) as cursor:
             rows = await cursor.fetchall()
-
-    if not rows:
-        return None
 
     messages = [
         ChatMessageText(
@@ -231,12 +266,12 @@ async def message_window(
         )
         for row in rows
     ]
-    return SearchEvidence(
-        chat_id=chat_id,
-        start_message_id=messages[0].message_id,
-        end_message_id=messages[-1].message_id,
-        text=build_evidence_text(messages),
-        score=0.5,
+    return build_message_windows(
+        chat_id,
+        hit_message_ids,
+        messages,
+        before=before,
+        after=after,
     )
 
 
@@ -246,12 +281,7 @@ async def fts_search_windows(
     author_id: int | None,
 ) -> list[SearchEvidence]:
     message_ids = await fts_hit_message_ids(chat_id, query, author_id)
-    windows = []
-    for message_id in message_ids:
-        window = await message_window(chat_id, message_id)
-        if window:
-            windows.append(window)
-    return windows
+    return await message_windows(chat_id, message_ids)
 
 
 def evidence_overlaps(left: SearchEvidence, right: SearchEvidence) -> bool:
@@ -325,6 +355,14 @@ async def answer_from_evidence(
     content = first_message_content(data)
     if not isinstance(content, str) or not content.strip():
         raise RuntimeError("OpenRouter returned an empty search answer.")
+    usage = data.get("usage")
+    if isinstance(usage, dict):
+        logging.info(
+            "Search answer usage: prompt_tokens=%s completion_tokens=%s total_tokens=%s",
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+            usage.get("total_tokens"),
+        )
     return content.strip()
 
 
@@ -345,13 +383,25 @@ async def semantic_search_answer(
     query: str,
     author_id: int | None,
 ) -> str | None:
+    started = time.monotonic()
     async with aiohttp.ClientSession() as session:
         query_vector = await embed_search_query(session, query)
+        embedded = time.monotonic()
         vector_windows = await vector_search_windows(chat_id, query_vector, author_id)
         fts_windows = await fts_search_windows(chat_id, query, author_id)
         evidence = select_evidence(vector_windows, fts_windows)
         if not evidence:
             return None
 
+        retrieved = time.monotonic()
         answer = await answer_from_evidence(session, query, evidence)
+        answered = time.monotonic()
+        logging.info(
+            "Semantic search timings: chat_id=%s embedding_ms=%d retrieval_ms=%d answer_ms=%d evidence=%d",
+            chat_id,
+            round((embedded - started) * 1000),
+            round((retrieved - embedded) * 1000),
+            round((answered - retrieved) * 1000),
+            len(evidence),
+        )
         return append_source_links(answer, evidence)

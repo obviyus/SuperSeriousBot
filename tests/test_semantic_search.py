@@ -92,6 +92,30 @@ class SemanticSearchTests(unittest.TestCase):
 
         self.assertEqual([item.text for item in selected], ["v1", "f1", "v3", "f3"])
 
+    def test_build_message_windows_reuses_overlapping_rows(self):
+        rows = [
+            semantic_search.ChatMessageText(
+                message_id,
+                f"2026-07-12 00:00:{message_id:02d}",
+                "@user",
+                f"message {message_id}",
+            )
+            for message_id in range(90, 116)
+        ]
+
+        windows = semantic_search.build_message_windows(
+            -1001,
+            [100, 105],
+            rows,
+        )
+
+        self.assertEqual(
+            [(window.start_message_id, window.end_message_id) for window in windows],
+            [(90, 114), (95, 115)],
+        )
+        self.assertIn("100 2026-07-12 00:00:100 @user: message 100", windows[0].text)
+        self.assertIn("105 2026-07-12 00:00:105 @user: message 105", windows[1].text)
+
 
 class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
     async def test_pending_indexing_allocates_each_chat_a_share(self):
