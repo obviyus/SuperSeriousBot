@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import datetime
 import importlib
 import os
@@ -57,8 +58,16 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
 
         self.db_patch = patch.object(football, "get_db", test_db)
         self.db_patch.start()
+        self.fetch_match_odds = AsyncMock(return_value=None)
+        self.odds_patch = patch.object(
+            football,
+            "fetch_match_odds",
+            self.fetch_match_odds,
+        )
+        self.odds_patch.start()
 
     async def asyncTearDown(self) -> None:
+        self.odds_patch.stop()
         self.db_patch.stop()
         await self.connection.close()
 
@@ -280,6 +289,8 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("<b>Champions League</b>", sent["text"])
         self.assertIn("Real Madrid vs Liverpool", sent["text"])
         self.assertIn("tg://user?id=7", sent["text"])
+        self.assertNotIn("Polymarket odds", sent["text"])
+        self.assertTrue(sent["link_preview_options"].is_disabled)
 
         async with self.connection.execute(
             "SELECT COUNT(*) AS count FROM football_fixtures WHERE alert_time IS NOT NULL"
@@ -382,6 +393,87 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
             '<a href="tg://user?id=7">Ayaan &amp; Co</a>',
         )
 
+    def test_alert_text_includes_glanceable_polymarket_odds(self) -> None:
+        match = fixture("match-1", 1_800_000_000)
+        odds = football.MatchOdds(
+            event_slug="epl-ars-cov-2026-08-21",
+            home=0.62,
+            draw=0.23,
+            away=0.15,
+        )
+
+        text = football.fixture_alert_text([match], {match.provider_id: odds})
+
+        self.assertIn("📊 <b>Polymarket odds</b>", text)
+        self.assertIn(
+            "Arsenal <b>62%</b> · Draw <b>23%</b> · Coventry City <b>15%</b>",
+            text,
+        )
+        self.assertIn(
+            'href="https://polymarket.com/event/epl-ars-cov-2026-08-21"',
+            text,
+        )
+
+    async def test_odds_lookup_keeps_completed_results_on_timeout(self) -> None:
+        fixtures = [
+            fixture("fast", 1_800_000_000),
+            fixture(
+                "slow",
+                1_800_000_000,
+                home_team="Liverpool",
+                away_team="Everton",
+            ),
+        ]
+        odds = football.MatchOdds("epl-ars-cov-2026-08-21", 0.62, 0.23, 0.15)
+
+        async def fetch(_session, odds_fixture):
+            if odds_fixture.home_team == "Arsenal":
+                return odds
+            await asyncio.sleep(1)
+
+        self.fetch_match_odds.side_effect = fetch
+        with patch.object(football, "ODDS_LOOKUP_TIMEOUT_SECONDS", 0.01):
+            result = await football.load_fixture_odds(fixtures)
+
+        self.assertEqual(result, {"fast": odds})
+
+    async def test_odds_task_failure_does_not_escape(self) -> None:
+        self.fetch_match_odds.side_effect = RuntimeError("bad upstream data")
+
+        result = await football.load_fixture_odds([fixture("match-1", 1_800_000_000)])
+
+        self.assertEqual(result, {})
+
+    async def test_worker_loads_odds_once_for_all_kickoff_slots(self) -> None:
+        now = int(datetime.datetime.now(datetime.UTC).timestamp())
+        fixtures = [
+            fixture("match-1", now + 300),
+            fixture(
+                "match-2",
+                now + 330,
+                home_team="Liverpool",
+                away_team="Everton",
+            ),
+        ]
+        await football.store_fixtures(fixtures)
+        odds_loader = AsyncMock(return_value={})
+
+        with (
+            patch.object(football, "load_fixture_odds", odds_loader),
+            patch.object(
+                football,
+                "verify_fixtures",
+                AsyncMock(return_value={item.provider_id for item in fixtures}),
+            ),
+        ):
+            await football.worker_football_alerts(SimpleNamespace(bot=AsyncMock()))
+
+        odds_loader.assert_awaited_once()
+        self.assertEqual(
+            [item.provider_id for item in odds_loader.await_args.args[0]],
+            ["match-1", "match-2"],
+        )
+
     async def test_failed_delivery_retries_without_resending_successful_chats(
         self,
     ) -> None:
@@ -468,7 +560,7 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         bot = AsyncMock()
         context = SimpleNamespace(bot=bot)
 
-        delivered = await football.send_fixture_alerts(context, fixtures, now)
+        delivered = await football.send_fixture_alerts(context, fixtures, {}, now)
 
         self.assertTrue(delivered)
         bot.send_message.assert_awaited_once()
@@ -499,13 +591,18 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         bot.send_message.side_effect = [None, football.TelegramError("temporary")]
         context = SimpleNamespace(bot=bot)
 
-        delivered = await football.send_fixture_alerts(context, [due_fixture], now)
+        delivered = await football.send_fixture_alerts(context, [due_fixture], {}, now)
 
         self.assertFalse(delivered)
         bot.send_message.reset_mock()
         bot.send_message.side_effect = None
 
-        delivered = await football.send_fixture_alerts(context, [due_fixture], now + 60)
+        delivered = await football.send_fixture_alerts(
+            context,
+            [due_fixture],
+            {},
+            now + 60,
+        )
 
         self.assertTrue(delivered)
         bot.send_message.assert_awaited_once()

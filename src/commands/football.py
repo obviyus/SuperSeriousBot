@@ -5,13 +5,19 @@ from dataclasses import dataclass
 from itertools import groupby
 
 import aiohttp
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    LinkPreviewOptions,
+    Update,
+)
 from telegram.constants import KeyboardButtonStyle, ParseMode
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 from config.db import TursoRow, get_db
 from config.logger import logger
+from football_odds import MatchOdds, OddsFixture, event_url, fetch_match_odds
 from utils.decorators import command
 from utils.messages import get_message
 
@@ -23,6 +29,7 @@ ESPN_SUMMARY_URL = (
 )
 SCHEDULED_STATUS = "STATUS_SCHEDULED"
 MENTIONS_PER_MESSAGE = 5
+ODDS_LOOKUP_TIMEOUT_SECONDS = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -413,6 +420,66 @@ async def verify_fixtures(fixtures: list[FootballFixture]) -> set[str]:
     return verified_ids
 
 
+async def fetch_fixture_odds(
+    session: aiohttp.ClientSession,
+    fixture: FootballFixture,
+) -> tuple[str, MatchOdds | None]:
+    odds_fixture = OddsFixture(
+        competition=fixture.competition,
+        home_team=fixture.home_team,
+        away_team=fixture.away_team,
+        kickoff=datetime.datetime.fromtimestamp(
+            fixture.kickoff_time,
+            datetime.UTC,
+        ),
+        home_tracked=fixture.home_team in TRACKED_TEAMS,
+        away_tracked=fixture.away_team in TRACKED_TEAMS,
+    )
+    try:
+        odds = await fetch_match_odds(session, odds_fixture)
+    except (aiohttp.ClientError, TimeoutError, ValueError, KeyError):
+        logger.exception(
+            "Could not fetch Polymarket odds for fixture %s",
+            fixture.provider_id,
+        )
+        odds = None
+    return fixture.provider_id, odds
+
+
+async def load_fixture_odds(
+    fixtures: list[FootballFixture],
+) -> dict[str, MatchOdds]:
+    if not fixtures:
+        return {}
+    timeout = aiohttp.ClientTimeout(total=ODDS_LOOKUP_TIMEOUT_SECONDS)
+    headers = {"User-Agent": "SuperSeriousBot/Football-Odds"}
+    async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+        tasks = [
+            asyncio.create_task(fetch_fixture_odds(session, fixture))
+            for fixture in fixtures
+        ]
+        done, pending = await asyncio.wait(
+            tasks,
+            timeout=ODDS_LOOKUP_TIMEOUT_SECONDS,
+        )
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
+    if pending:
+        logger.warning("Timed out fetching odds for %s fixtures", len(pending))
+    odds_by_fixture: dict[str, MatchOdds] = {}
+    for task in done:
+        try:
+            provider_id, odds = task.result()
+        except Exception:
+            logger.exception("Polymarket odds lookup task failed")
+            continue
+        if odds is not None:
+            odds_by_fixture[provider_id] = odds
+    return odds_by_fixture
+
+
 async def mark_fixtures_alerted(fixtures: list[FootballFixture], now: int) -> None:
     async with get_db() as conn:
         await conn.executemany(
@@ -529,7 +596,10 @@ async def record_deliveries(
         )
 
 
-def fixture_alert_text(fixtures: list[FootballFixture]) -> str:
+def fixture_alert_text(
+    fixtures: list[FootballFixture],
+    odds_by_fixture: dict[str, MatchOdds],
+) -> str:
     lines = ["⚽ <b>Kickoff in five minutes</b>"]
     ordered = sorted(
         fixtures,
@@ -547,6 +617,20 @@ def fixture_alert_text(fixtures: list[FootballFixture]) -> str:
             f"• {html.escape(fixture.home_team)} vs {html.escape(fixture.away_team)}"
             for fixture in competition_fixtures
         )
+    fixtures_with_odds = [
+        fixture for fixture in ordered if fixture.provider_id in odds_by_fixture
+    ]
+    if fixtures_with_odds:
+        lines.extend(("", "📊 <b>Polymarket odds</b>"))
+        for fixture in fixtures_with_odds:
+            odds = odds_by_fixture[fixture.provider_id]
+            market_url = html.escape(event_url(odds), quote=True)
+            lines.append(
+                f"• {html.escape(fixture.home_team)} <b>{odds.home:.0%}</b> · "
+                f"Draw <b>{odds.draw:.0%}</b> · "
+                f"{html.escape(fixture.away_team)} <b>{odds.away:.0%}</b> · "
+                f'<a href="{market_url}">market</a>'
+            )
     return "\n".join(lines)
 
 
@@ -585,13 +669,14 @@ def next_fixture_text(fixtures: list[FootballFixture]) -> str:
 async def send_fixture_alerts(
     context: ContextTypes.DEFAULT_TYPE,
     fixtures: list[FootballFixture],
+    odds_by_fixture: dict[str, MatchOdds],
     delivery_time: int,
 ) -> bool:
     all_delivered = True
     for chat_id in await load_alert_chats():
         groups = await load_pending_member_groups(fixtures, chat_id)
         for pending_fixtures, members in groups:
-            alert_text = fixture_alert_text(pending_fixtures)
+            alert_text = fixture_alert_text(pending_fixtures, odds_by_fixture)
             for index in range(0, len(members), MENTIONS_PER_MESSAGE):
                 member_chunk = members[index : index + MENTIONS_PER_MESSAGE]
                 mention_text = " ".join(map(member_mention, member_chunk))
@@ -601,6 +686,7 @@ async def send_fixture_alerts(
                         text=f"{alert_text}\n\n{mention_text}",
                         parse_mode=ParseMode.HTML,
                         reply_markup=football_keyboard(),
+                        link_preview_options=LinkPreviewOptions(is_disabled=True),
                     )
                 except TelegramError:
                     logger.exception(
@@ -635,11 +721,17 @@ async def worker_football_alerts(context: ContextTypes.DEFAULT_TYPE) -> None:
             for fixture in await load_due_fixtures(now)
             if fixture.provider_id in verified_ids
         ]
+        odds_by_fixture = await load_fixture_odds(current_due_fixtures)
         for _, slot in groupby(
             current_due_fixtures, key=lambda fixture: fixture.kickoff_time
         ):
             fixtures = list(slot)
-            if await send_fixture_alerts(context, fixtures, now):
+            if await send_fixture_alerts(
+                context,
+                fixtures,
+                odds_by_fixture,
+                now,
+            ):
                 await mark_fixtures_alerted(fixtures, now)
 
 
