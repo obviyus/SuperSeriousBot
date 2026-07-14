@@ -20,7 +20,7 @@
 
 ## Introduction
 
-SuperSeriousBot is an asynchronous Telegram bot with modular commands, Turso-backed state, and API-key-gated optional features.
+SuperSeriousBot is a plug-and-play Telegram group bot with dozens of commands — AI, media, stats, moderation — where every API-key-gated feature quietly disables itself when its key is missing. Run a bare-bones instance or a fully-loaded one from the same code.
 
 ## ✨ Features
 
