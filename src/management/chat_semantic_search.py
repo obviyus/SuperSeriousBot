@@ -25,7 +25,7 @@ from openrouter_embeddings import (
     vector32_json,
 )
 
-_CITATION_RE = re.compile(r"\[(\d+)(?::(\d+))?]")
+_CITATION_RE = re.compile(r"(?P<space>[ \t]*)\[(?P<index>\d+)(?::[^]\s]+)?](?!\()")
 
 
 @dataclass(frozen=True)
@@ -192,8 +192,9 @@ def answer_messages(
                 "You are the memory of a playful Telegram group, not a fact-checker or "
                 "auditor. Use only the evidence, but synthesize it freely. Answer first, "
                 "without discussing logs, evidence quality, or your process. Keep it to "
-                "one to three sentences and cite claims with the evidence number and exact "
-                "message ID, such as [1:123456]. Preserve participants' @handles exactly. "
+                "one to three sentences and cite claims only with the evidence number, "
+                "such as [1]. Never put message IDs, ranges, or URLs in citations. "
+                "Preserve participants' @handles exactly. "
                 "For social, subjective, hypothetical, "
                 "'most likely', and similar participant questions, always make the most "
                 "entertaining plausible choice supported by the chat. Weak or indirect "
@@ -245,16 +246,23 @@ async def answer_from_evidence(
 
 
 def link_citations(answer: str, evidence: list[SearchEvidence]) -> str:
+    previous_index: int | None = None
+    previous_end = -1
+
     def replace(match: re.Match[str]) -> str:
-        index = int(match.group(1))
+        nonlocal previous_end, previous_index
+        index = int(match.group("index"))
+        adjacent_duplicate = index == previous_index and match.start() == previous_end
+        previous_index = index
+        previous_end = match.end()
+        if adjacent_duplicate:
+            return ""
         if index < 1 or index > len(evidence):
-            return match.group(0)
+            return ""
         item = evidence[index - 1]
-        message_id = int(match.group(2)) if match.group(2) else item.citation_message_id
-        if not item.start_message_id <= message_id <= item.end_message_id:
-            return match.group(0)
-        link = telegram_message_link(item.chat_id, message_id)
-        return f"[{index}]({link})" if link else match.group(0)
+        link = telegram_message_link(item.chat_id, item.citation_message_id)
+        citation = f"[{index}]({link})" if link else ""
+        return match.group("space") + citation if citation else ""
 
     return _CITATION_RE.sub(replace, answer)
 
