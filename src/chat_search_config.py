@@ -4,6 +4,7 @@ ANSWER_MODEL = "x-ai/grok-4.3"
 WINDOW_MESSAGE_COUNT = 24
 WINDOW_STRIDE = 8
 VECTOR_RESULT_COUNT = 12
+AUTHOR_VECTOR_RESULT_COUNT = 512
 ANSWER_EVIDENCE_COUNT = 6
 QUERY_INSTRUCTION = (
     "Instruct: Retrieve Telegram chat windows containing direct or indirect "

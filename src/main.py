@@ -30,6 +30,7 @@ from config.db import (
 )
 from config.logger import logger
 from config.options import config
+from management.chat_search_cache import sync_search_cache
 from management.chat_search_index import index_pending_windows, searchable_chat_ids
 from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
@@ -44,6 +45,7 @@ async def post_init(application: Application) -> None:
     """
     global bot_startup_time
     await init_db()
+    await sync_search_cache()
     logger.info(f"Started @{application.bot.username} (ID: {application.bot.id})")
 
     bot_startup_time = datetime.datetime.now().timestamp()

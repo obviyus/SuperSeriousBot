@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 import time
@@ -8,6 +9,7 @@ import aiohttp
 from chat_search_config import (
     ANSWER_EVIDENCE_COUNT,
     ANSWER_MODEL,
+    AUTHOR_VECTOR_RESULT_COUNT,
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     QUERY_INSTRUCTION,
@@ -16,6 +18,7 @@ from chat_search_config import (
 from commands.ai import first_message_content
 from config.db import get_db
 from config.options import config
+from management.chat_search_cache import open_search_cache
 from openrouter_embeddings import (
     openrouter_api_headers,
     openrouter_embeddings,
@@ -38,6 +41,12 @@ class SearchEvidence:
         return self.end_message_id
 
 
+@dataclass(frozen=True)
+class SearchCandidate:
+    remote_id: int
+    score: float
+
+
 def telegram_message_link(chat_id: int, message_id: int) -> str | None:
     chat_id_text = str(chat_id)
     if chat_id_text.startswith("-100"):
@@ -56,56 +65,96 @@ async def embed_search_query(session: aiohttp.ClientSession, query: str) -> str:
     return vector32_json(embeddings[0])
 
 
-async def vector_search_windows(
+async def vector_search_candidates(
     chat_id: int,
     query_vector: str,
-    author_id: int | None,
-) -> list[SearchEvidence]:
-    async with get_db() as conn:
-        async with conn.execute(
-            """
+    result_count: int,
+) -> list[SearchCandidate]:
+    def search() -> list[tuple]:
+        connection = open_search_cache()
+        try:
+            return connection.execute(
+                """
             SELECT
-                w.chat_id,
-                w.start_message_id,
-                w.end_message_id,
-                w.message_text,
+                w.remote_id,
                 vector_distance_cos(w.embedding, vector32(?)) AS distance
-            FROM chat_search_windows w
+            FROM search_windows w
             WHERE w.chat_id = ?
             AND w.embedding_model = ?
             AND w.embedding_dimension = ?
-            AND (
-                ? IS NULL
-                OR EXISTS (
-                    SELECT 1
-                    FROM chat_stats cs
-                    WHERE cs.chat_id = w.chat_id
-                    AND cs.message_id BETWEEN w.start_message_id AND w.end_message_id
-                    AND cs.user_id = ?
-                )
-            )
             ORDER BY distance ASC
             LIMIT ?;
             """,
+                (
+                    query_vector,
+                    chat_id,
+                    EMBEDDING_MODEL,
+                    EMBEDDING_DIMENSIONS,
+                    result_count,
+                ),
+            ).fetchall()
+        finally:
+            connection.close()
+
+    rows = await asyncio.to_thread(search)
+
+    return [SearchCandidate(remote_id=row[0], score=1 - row[1]) for row in rows]
+
+
+async def fetch_search_evidence(
+    candidates: list[SearchCandidate],
+    author_id: int | None,
+) -> list[SearchEvidence]:
+    if not candidates:
+        return []
+    values = ", ".join("(?, ?)" for _ in candidates)
+    candidate_params = [
+        value
+        for rank, candidate in enumerate(candidates)
+        for value in (candidate.remote_id, rank)
+    ]
+    async with get_db() as connection:
+        async with connection.execute(
+            f"""
+            WITH candidates(remote_id, rank) AS (VALUES {values})
+            SELECT
+                windows.id,
+                windows.chat_id,
+                windows.start_message_id,
+                windows.end_message_id,
+                windows.message_text
+            FROM candidates
+            JOIN chat_search_windows windows ON windows.id = candidates.remote_id
+            WHERE (
+                ? IS NULL
+                OR EXISTS (
+                    SELECT 1
+                    FROM chat_stats messages
+                    WHERE messages.chat_id = windows.chat_id
+                    AND messages.message_id BETWEEN windows.start_message_id
+                        AND windows.end_message_id
+                    AND messages.user_id = ?
+                )
+            )
+            ORDER BY candidates.rank
+            LIMIT ?
+            """,
             (
-                query_vector,
-                chat_id,
-                EMBEDDING_MODEL,
-                EMBEDDING_DIMENSIONS,
+                *candidate_params,
                 author_id,
                 author_id,
                 VECTOR_RESULT_COUNT,
             ),
         ) as cursor:
             rows = await cursor.fetchall()
-
+    scores = {candidate.remote_id: candidate.score for candidate in candidates}
     return [
         SearchEvidence(
             chat_id=row["chat_id"],
             start_message_id=row["start_message_id"],
             end_message_id=row["end_message_id"],
             text=row["message_text"],
-            score=1 - row["distance"],
+            score=scores[row["id"]],
         )
         for row in rows
     ]
@@ -219,7 +268,18 @@ async def semantic_search_answer(
     async with aiohttp.ClientSession() as session:
         query_vector = await embed_search_query(session, query)
         embedded = time.monotonic()
-        vector_windows = await vector_search_windows(chat_id, query_vector, author_id)
+        candidate_count = (
+            AUTHOR_VECTOR_RESULT_COUNT if author_id is not None else VECTOR_RESULT_COUNT
+        )
+        candidates = await vector_search_candidates(
+            chat_id,
+            query_vector,
+            candidate_count,
+        )
+        vector_windows = await fetch_search_evidence(
+            candidates,
+            author_id,
+        )
         evidence = select_evidence(vector_windows)
         if not evidence:
             return None

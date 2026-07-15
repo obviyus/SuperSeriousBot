@@ -4,7 +4,7 @@ services:
     # image: ghcr.io/obviyus/superseriousbot:latest
     build: .
     volumes:
-      - ./db/:/db/
+      - ./db/:/app/db/
       - ./src:/app/src
       - ./vis/:/app/vis/
     env_file:
