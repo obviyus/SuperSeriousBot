@@ -30,7 +30,7 @@ from config.db import (
 )
 from config.logger import logger
 from config.options import config
-from management.chat_search_index import index_pending_windows, indexed_chat_ids
+from management.chat_search_index import index_pending_windows, searchable_chat_ids
 from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
 from utils.decorators import get_command_meta
@@ -83,7 +83,7 @@ async def post_shutdown(application: Application) -> None:
 async def worker_chat_search_index(_: ContextTypes.DEFAULT_TYPE) -> None:
     indexed = await index_pending_windows(
         config.API.OPENROUTER_API_KEY,
-        chat_ids=await indexed_chat_ids(),
+        chat_ids=await searchable_chat_ids(),
     )
     if indexed:
         logger.info("Indexed %d chat search windows", indexed)
