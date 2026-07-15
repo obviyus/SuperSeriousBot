@@ -68,14 +68,24 @@ def build_windows(
     return windows
 
 
-async def indexed_chat_ids() -> list[int]:
+async def searchable_chat_ids() -> list[int]:
     async with get_db() as conn:
         async with conn.execute(
             """
-            SELECT chat_id
-            FROM chat_search_windows
-            GROUP BY chat_id
-            ORDER BY MAX(update_time), chat_id
+            SELECT settings.chat_id
+            FROM group_settings settings
+            LEFT JOIN chat_search_windows windows
+                ON windows.chat_id = settings.chat_id
+            WHERE settings.fts = 1
+            AND EXISTS (
+                SELECT 1
+                FROM chat_stats messages
+                WHERE messages.chat_id = settings.chat_id
+                AND messages.message_text IS NOT NULL
+                AND messages.message_text <> ''
+            )
+            GROUP BY settings.chat_id
+            ORDER BY MAX(windows.update_time), settings.chat_id
             """
         ) as cursor:
             rows = await cursor.fetchall()

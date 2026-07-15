@@ -10,7 +10,6 @@ from chat_search_config import (
     ANSWER_MODEL,
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
-    FTS_HIT_COUNT,
     QUERY_INSTRUCTION,
     VECTOR_RESULT_COUNT,
 )
@@ -23,37 +22,7 @@ from openrouter_embeddings import (
     vector32_json,
 )
 
-_TOKEN_RE = re.compile(r"[\w@]+", re.UNICODE)
-_FTS_STOPWORDS = {
-    "a",
-    "an",
-    "and",
-    "are",
-    "does",
-    "do",
-    "for",
-    "have",
-    "how",
-    "is",
-    "it",
-    "of",
-    "or",
-    "the",
-    "to",
-    "what",
-    "when",
-    "where",
-    "who",
-    "why",
-}
-
-
-@dataclass(frozen=True)
-class ChatMessageText:
-    message_id: int
-    create_time: str
-    author: str
-    text: str
+_CITATION_RE = re.compile(r"\[(\d+)(?::(\d+))?]")
 
 
 @dataclass(frozen=True)
@@ -69,32 +38,11 @@ class SearchEvidence:
         return self.end_message_id
 
 
-def build_fts_query(query: str) -> str:
-    terms = []
-    for token in _TOKEN_RE.findall(query.lower()):
-        term = token.lstrip("@")
-        if len(term) < 2 or term in _FTS_STOPWORDS:
-            continue
-        terms.append(term)
-    return " OR ".join(f'"{term}"' for term in dict.fromkeys(terms))
-
-
 def telegram_message_link(chat_id: int, message_id: int) -> str | None:
     chat_id_text = str(chat_id)
     if chat_id_text.startswith("-100"):
         return f"https://t.me/c/{chat_id_text[4:]}/{message_id}"
     return None
-
-
-def build_evidence_text(rows: list[ChatMessageText]) -> str:
-    return "\n".join(
-        f"{row.message_id} {row.create_time} {row.author}: {row.text}" for row in rows
-    )
-
-
-def format_author(author: object) -> str:
-    author_text = str(author)
-    return author_text if author_text.startswith("user:") else f"@{author_text}"
 
 
 async def embed_search_query(session: aiohttp.ClientSession, query: str) -> str:
@@ -163,147 +111,6 @@ async def vector_search_windows(
     ]
 
 
-async def fts_hit_message_ids(
-    chat_id: int,
-    query: str,
-    author_id: int | None,
-) -> list[int]:
-    fts_query = build_fts_query(query)
-    if not fts_query:
-        return []
-
-    async with get_db() as conn:
-        async with conn.execute(
-            """
-            SELECT cs.message_id
-            FROM chat_stats_fts csf
-            INNER JOIN chat_stats cs ON cs.id = csf.rowid
-            WHERE csf.message_text MATCH ?
-            AND csf.chat_id = ?
-            AND cs.message_id IS NOT NULL
-            AND cs.message_text NOT LIKE '/%'
-            AND (? IS NULL OR cs.user_id = ?)
-            ORDER BY cs.create_time DESC
-            LIMIT ?;
-            """,
-            (fts_query, chat_id, author_id, author_id, FTS_HIT_COUNT),
-        ) as cursor:
-            rows = await cursor.fetchall()
-    return [row["message_id"] for row in rows]
-
-
-def build_message_windows(
-    chat_id: int,
-    hit_message_ids: list[int],
-    rows: list[ChatMessageText],
-    *,
-    before: int = 10,
-    after: int = 14,
-) -> list[SearchEvidence]:
-    windows = []
-    for hit_message_id in hit_message_ids:
-        messages = [
-            row
-            for row in rows
-            if hit_message_id - before <= row.message_id <= hit_message_id + after
-        ]
-        if not messages:
-            continue
-        windows.append(
-            SearchEvidence(
-                chat_id=chat_id,
-                start_message_id=messages[0].message_id,
-                end_message_id=messages[-1].message_id,
-                text=build_evidence_text(messages),
-                score=0.5,
-            )
-        )
-    return windows
-
-
-def merge_message_ranges(
-    hit_message_ids: list[int],
-    *,
-    before: int,
-    after: int,
-) -> list[tuple[int, int]]:
-    ranges: list[tuple[int, int]] = []
-    for message_id in sorted(set(hit_message_ids)):
-        start = message_id - before
-        end = message_id + after
-        if ranges and start <= ranges[-1][1] + 1:
-            ranges[-1] = (ranges[-1][0], max(ranges[-1][1], end))
-        else:
-            ranges.append((start, end))
-    return ranges
-
-
-async def message_windows(
-    chat_id: int,
-    hit_message_ids: list[int],
-    *,
-    before: int = 10,
-    after: int = 14,
-) -> list[SearchEvidence]:
-    if not hit_message_ids:
-        return []
-
-    ranges = merge_message_ranges(hit_message_ids, before=before, after=after)
-    range_values = ", ".join("(?, ?)" for _ in ranges)
-    async with get_db() as conn:
-        async with conn.execute(
-            f"""
-            WITH ranges (start_message_id, end_message_id) AS (
-                VALUES {range_values}
-            )
-            SELECT
-                cs.message_id,
-                cs.create_time,
-                COALESCE(us.username, 'user:' || cs.user_id) AS author,
-                cs.message_text
-            FROM ranges
-            INNER JOIN chat_stats cs
-                ON cs.chat_id = ?
-                AND cs.message_id BETWEEN ranges.start_message_id
-                    AND ranges.end_message_id
-            LEFT JOIN user_stats us ON us.user_id = cs.user_id
-            WHERE cs.message_id IS NOT NULL
-            AND cs.message_text IS NOT NULL
-            AND cs.message_text <> ''
-            AND cs.message_text NOT LIKE '/%'
-            ORDER BY cs.message_id;
-            """,
-            (*(bound for range_ in ranges for bound in range_), chat_id),
-        ) as cursor:
-            rows = await cursor.fetchall()
-
-    messages = [
-        ChatMessageText(
-            message_id=row["message_id"],
-            create_time=row["create_time"],
-            author=format_author(row["author"]),
-            text=row["message_text"],
-        )
-        for row in rows
-    ]
-    return build_message_windows(
-        chat_id,
-        hit_message_ids,
-        messages,
-        before=before,
-        after=after,
-    )
-
-
-async def fts_search_windows(
-    chat_id: int,
-    query: str,
-    author_id: int | None,
-) -> list[SearchEvidence]:
-    message_ids = await fts_hit_message_ids(chat_id, query, author_id)
-    return await message_windows(chat_id, message_ids)
-
-
 def evidence_overlaps(left: SearchEvidence, right: SearchEvidence) -> bool:
     return (
         left.chat_id == right.chat_id
@@ -312,21 +119,14 @@ def evidence_overlaps(left: SearchEvidence, right: SearchEvidence) -> bool:
     )
 
 
-def select_evidence(
-    vector_windows: list[SearchEvidence],
-    fts_windows: list[SearchEvidence],
-) -> list[SearchEvidence]:
+def select_evidence(windows: list[SearchEvidence]) -> list[SearchEvidence]:
     selected = []
-    for rank in range(max(len(vector_windows), len(fts_windows))):
-        for windows in (vector_windows, fts_windows):
-            if rank >= len(windows):
-                continue
-            candidate = windows[rank]
-            if any(evidence_overlaps(candidate, item) for item in selected):
-                continue
-            selected.append(candidate)
-            if len(selected) == ANSWER_EVIDENCE_COUNT:
-                return selected
+    for candidate in windows:
+        if any(evidence_overlaps(candidate, item) for item in selected):
+            continue
+        selected.append(candidate)
+        if len(selected) == ANSWER_EVIDENCE_COUNT:
+            break
     return selected
 
 
@@ -340,9 +140,18 @@ def answer_messages(
         {
             "role": "system",
             "content": (
-                "You answer questions about Telegram chat history. "
-                "Use only the evidence. Be concise. Cite claims with [1], [2], etc. "
-                "If the evidence does not answer the question, say you cannot tell."
+                "You are the memory of a playful Telegram group, not a fact-checker or "
+                "auditor. Use only the evidence, but synthesize it freely. Answer first, "
+                "without discussing logs, evidence quality, or your process. Keep it to "
+                "one to three sentences and cite claims with the evidence number and exact "
+                "message ID, such as [1:123456]. Preserve participants' @handles exactly. "
+                "For social, subjective, hypothetical, "
+                "'most likely', and similar participant questions, always make the most "
+                "entertaining plausible choice supported by the chat. Weak or indirect "
+                "receipts are enough; use 'probably' or 'best guess' only when useful. "
+                "For factual questions, distinguish established facts from inference. "
+                "Never answer 'I cannot tell'. If a factual answer truly is absent, say "
+                "'No solid answer in the chat.'"
             ),
         },
         {
@@ -360,7 +169,7 @@ async def answer_from_evidence(
     payload = {
         "model": ANSWER_MODEL,
         "messages": answer_messages(query, evidence),
-        "temperature": 0,
+        "temperature": 0.2,
         "max_tokens": 350,
     }
     async with session.post(
@@ -386,16 +195,19 @@ async def answer_from_evidence(
     return content.strip()
 
 
-def append_source_links(answer: str, evidence: list[SearchEvidence]) -> str:
-    links = []
-    for index, item in enumerate(evidence, start=1):
-        link = telegram_message_link(item.chat_id, item.citation_message_id)
-        if link:
-            links.append(f"[{index}]({link})")
+def link_citations(answer: str, evidence: list[SearchEvidence]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        index = int(match.group(1))
+        if index < 1 or index > len(evidence):
+            return match.group(0)
+        item = evidence[index - 1]
+        message_id = int(match.group(2)) if match.group(2) else item.citation_message_id
+        if not item.start_message_id <= message_id <= item.end_message_id:
+            return match.group(0)
+        link = telegram_message_link(item.chat_id, message_id)
+        return f"[{index}]({link})" if link else match.group(0)
 
-    if not links:
-        return answer
-    return f"{answer}\n\nSources: {' '.join(links)}"
+    return _CITATION_RE.sub(replace, answer)
 
 
 async def semantic_search_answer(
@@ -408,8 +220,7 @@ async def semantic_search_answer(
         query_vector = await embed_search_query(session, query)
         embedded = time.monotonic()
         vector_windows = await vector_search_windows(chat_id, query_vector, author_id)
-        fts_windows = await fts_search_windows(chat_id, query, author_id)
-        evidence = select_evidence(vector_windows, fts_windows)
+        evidence = select_evidence(vector_windows)
         if not evidence:
             return None
 
@@ -424,4 +235,4 @@ async def semantic_search_answer(
             round((answered - retrieved) * 1000),
             len(evidence),
         )
-        return append_source_links(answer, evidence)
+        return link_citations(answer, evidence)

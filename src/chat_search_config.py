@@ -3,10 +3,11 @@ EMBEDDING_DIMENSIONS = 1024
 ANSWER_MODEL = "x-ai/grok-4.3"
 WINDOW_MESSAGE_COUNT = 24
 WINDOW_STRIDE = 8
-VECTOR_RESULT_COUNT = 8
-FTS_HIT_COUNT = 8
-ANSWER_EVIDENCE_COUNT = 8
+VECTOR_RESULT_COUNT = 12
+ANSWER_EVIDENCE_COUNT = 6
 QUERY_INSTRUCTION = (
-    "Instruct: Given a question about Telegram chat history, retrieve the chat "
-    "window that answers it.\nQuery: "
+    "Instruct: Retrieve Telegram chat windows containing direct or indirect "
+    "evidence needed to answer the question. For participant comparisons and "
+    "'most likely' questions, retrieve relevant statements, preferences, "
+    "attitudes, and behavior.\nQuery: "
 )

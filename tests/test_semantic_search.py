@@ -16,16 +16,10 @@ search_index = importlib.import_module("management.chat_search_index")
 
 
 class SemanticSearchTests(unittest.TestCase):
-    def test_build_fts_query_keeps_domain_terms(self):
-        self.assertEqual(
-            semantic_search.build_fts_query("what job does @Nathu do"),
-            '"job" OR "nathu"',
-        )
-
     def test_telegram_message_link_uses_private_supergroup_link(self):
         self.assertEqual(
-            semantic_search.telegram_message_link(-1001118116449, 3305660),
-            "https://t.me/c/1118116449/3305660",
+            semantic_search.telegram_message_link(-1001234567890, 42),
+            "https://t.me/c/1234567890/42",
         )
 
     def test_build_windows_uses_overlapping_chat_windows(self):
@@ -75,55 +69,43 @@ class SemanticSearchTests(unittest.TestCase):
             [(9, 32), (17, 40), (25, 40), (33, 40)],
         )
 
-    def test_select_evidence_alternates_sources_and_removes_overlaps(self):
+    def test_select_evidence_removes_overlaps(self):
         evidence = semantic_search.SearchEvidence
-        vector = [
+        windows = [
             evidence(-1001, 1, 24, "v1", 0.8),
             evidence(-1001, 9, 32, "v2", 0.7),
             evidence(-1001, 100, 124, "v3", 0.6),
-        ]
-        fts = [
-            evidence(-1001, 200, 224, "f1", 0.5),
-            evidence(-1001, 16, 40, "f2", 0.5),
-            evidence(-1001, 300, 324, "f3", 0.5),
+            evidence(-1001, 200, 224, "v4", 0.5),
         ]
 
-        selected = semantic_search.select_evidence(vector, fts)
+        selected = semantic_search.select_evidence(windows)
 
-        self.assertEqual([item.text for item in selected], ["v1", "f1", "v3", "f3"])
+        self.assertEqual([item.text for item in selected], ["v1", "v3", "v4"])
 
-    def test_build_message_windows_reuses_overlapping_rows(self):
-        rows = [
-            semantic_search.ChatMessageText(
-                message_id,
-                f"2026-07-12 00:00:{message_id:02d}",
-                "@user",
-                f"message {message_id}",
-            )
-            for message_id in range(90, 116)
+    def test_answer_prompt_requires_playful_best_guess(self):
+        messages = semantic_search.answer_messages(
+            "most likely to bring snacks on a road trip",
+            [semantic_search.SearchEvidence(-1001, 1, 24, "chat", 0.8)],
+        )
+
+        self.assertIn("always make", messages[0]["content"])
+        self.assertIn("Weak or indirect receipts are enough", messages[0]["content"])
+        self.assertIn("Never answer 'I cannot tell'", messages[0]["content"])
+
+    def test_link_citations_links_only_citations_in_answer(self):
+        evidence = [
+            semantic_search.SearchEvidence(-1001234567890, 1, 24, "first", 0.8),
+            semantic_search.SearchEvidence(-1001234567890, 25, 48, "second", 0.7),
         ]
 
-        windows = semantic_search.build_message_windows(
-            -1001,
-            [100, 105],
-            rows,
+        answer = semantic_search.link_citations(
+            "Best guess: @user [2:30]. Unsupported [3:50].",
+            evidence,
         )
 
         self.assertEqual(
-            [(window.start_message_id, window.end_message_id) for window in windows],
-            [(90, 114), (95, 115)],
-        )
-        self.assertIn("100 2026-07-12 00:00:100 @user: message 100", windows[0].text)
-        self.assertIn("105 2026-07-12 00:00:105 @user: message 105", windows[1].text)
-
-    def test_merge_message_ranges_combines_overlapping_windows(self):
-        self.assertEqual(
-            semantic_search.merge_message_ranges(
-                [300, 100, 105, 100],
-                before=10,
-                after=14,
-            ),
-            [(90, 119), (290, 314)],
+            answer,
+            "Best guess: @user [2](https://t.me/c/1234567890/30). Unsupported [3:50].",
         )
 
 
