@@ -95,22 +95,28 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertIn("always make", messages[0]["content"])
         self.assertIn("Weak or indirect receipts are enough", messages[0]["content"])
         self.assertIn("Never answer 'I cannot tell'", messages[0]["content"])
+        self.assertIn(
+            "cite claims only with the evidence number", messages[0]["content"]
+        )
+        self.assertIn("Never put message IDs, ranges, or URLs", messages[0]["content"])
 
-    def test_link_citations_links_only_citations_in_answer(self):
+    def test_link_citations_owns_message_ids_and_is_idempotent(self):
         evidence = [
             semantic_search.SearchEvidence(-1001234567890, 1, 24, "first", 0.8),
             semantic_search.SearchEvidence(-1001234567890, 25, 48, "second", 0.7),
         ]
 
         answer = semantic_search.link_citations(
-            "Best guess: @user [2:30]. Unsupported [3:50].",
+            "Best guess: @user [2:30][2:31]. Range [1:1-24]. Unsupported [3:50].",
             evidence,
         )
 
         self.assertEqual(
             answer,
-            "Best guess: @user [2](https://t.me/c/1234567890/30). Unsupported [3:50].",
+            "Best guess: @user [2](https://t.me/c/1234567890/48). "
+            "Range [1](https://t.me/c/1234567890/24). Unsupported.",
         )
+        self.assertEqual(semantic_search.link_citations(answer, evidence), answer)
 
 
 class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
