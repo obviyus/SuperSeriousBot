@@ -9,6 +9,7 @@ from chat_search_config import (
     WINDOW_STRIDE,
 )
 from config.db import get_db
+from management.chat_search_cache import reset_search_cache, sync_search_cache
 from openrouter_embeddings import openrouter_embeddings, vector32_json
 
 INDEX_BATCH_WINDOWS = 64
@@ -368,6 +369,7 @@ async def index_pending_windows(
                 chat_id,
                 remaining,
             )
+    await sync_search_cache()
     return indexed
 
 
@@ -389,4 +391,6 @@ async def refresh_windows(api_key: str, chat_ids: list[int]) -> int:
                 if batch_size < INDEX_BATCH_WINDOWS or next_start_message_id is None:
                     break
                 start_message_id = next_start_message_id
+    reset_search_cache()
+    await sync_search_cache()
     return refreshed

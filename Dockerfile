@@ -33,6 +33,7 @@ FROM python:3.13-slim AS runtime
 
 RUN groupadd --system app \
     && useradd --system --home /app --gid app app \
+    && install -d -o app -g app /app/db \
     && DEBIAN_FRONTEND=noninteractive apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \

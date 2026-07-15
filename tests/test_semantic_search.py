@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import tempfile
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -12,7 +13,10 @@ os.environ.setdefault("TURSO_DATABASE_URL", ":memory:")
 os.environ.setdefault("TURSO_AUTH_TOKEN", "test-token")
 
 semantic_search = importlib.import_module("management.chat_semantic_search")
+search_cache = importlib.import_module("management.chat_search_cache")
 search_index = importlib.import_module("management.chat_search_index")
+db = importlib.import_module("config.db")
+libsql = importlib.import_module("libsql")
 
 
 class SemanticSearchTests(unittest.TestCase):
@@ -109,6 +113,175 @@ class SemanticSearchTests(unittest.TestCase):
         )
 
 
+class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
+    async def test_vector_search_reads_local_cache_and_scopes_chat(self):
+        def vector(first: int) -> str:
+            return f"[{first}," + ",".join(["0"] * 1023) + "]"
+
+        columns = {
+            name: index
+            for index, name in enumerate(
+                (
+                    "id",
+                    "chat_id",
+                    "start_message_id",
+                    "end_message_id",
+                    "embedding",
+                    "embedding_model",
+                    "embedding_dimension",
+                )
+            )
+        }
+        rows = [
+            search_cache.TursoRow(
+                (1, -1001, 1, 24, vector(1), "model", 1024),
+                columns,
+            ),
+            search_cache.TursoRow(
+                (2, -1001, 25, 48, vector(-1), "model", 1024),
+                columns,
+            ),
+            search_cache.TursoRow(
+                (3, -1002, 1, 24, vector(1), "model", 1024),
+                columns,
+            ),
+        ]
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.dict(
+                os.environ,
+                {"SEARCH_CACHE_PATH": f"{directory}/search.db"},
+            ),
+        ):
+            search_cache.initialize_search_cache_file()
+            search_cache.store_search_cache_rows(rows)
+            with (
+                patch.object(semantic_search, "EMBEDDING_MODEL", "model"),
+                patch.object(semantic_search, "get_db", side_effect=AssertionError),
+            ):
+                candidates = await semantic_search.vector_search_candidates(
+                    -1001,
+                    vector(1),
+                    12,
+                )
+
+        self.assertEqual([item.remote_id for item in candidates], [1, 2])
+
+    async def test_evidence_fetch_preserves_author_filter(self):
+        class ConnectionContext:
+            def __init__(self, connection):
+                self.connection = connection
+
+            async def __aenter__(self):
+                return self.connection
+
+            async def __aexit__(self, *_args):
+                return None
+
+        with tempfile.TemporaryDirectory() as directory:
+            connection = libsql.connect(
+                f"{directory}/remote.db",
+                autocommit=True,
+                _check_same_thread=False,
+            )
+            connection.execute(
+                """
+                CREATE TABLE chat_search_windows (
+                    id INTEGER PRIMARY KEY,
+                    chat_id INTEGER NOT NULL,
+                    start_message_id INTEGER NOT NULL,
+                    end_message_id INTEGER NOT NULL,
+                    message_text TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE chat_stats (
+                    chat_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    message_id INTEGER NOT NULL
+                )
+                """
+            )
+            connection.executemany(
+                "INSERT INTO chat_search_windows VALUES (?, -1001, ?, ?, ?)",
+                [(1, 1, 24, "first"), (2, 25, 48, "second")],
+            )
+            connection.executemany(
+                "INSERT INTO chat_stats VALUES (-1001, ?, ?)",
+                [(7, 10), (8, 30)],
+            )
+            wrapped = db.TursoConnection(connection)
+            candidates = [
+                semantic_search.SearchCandidate(1, 0.9),
+                semantic_search.SearchCandidate(2, 0.8),
+            ]
+            try:
+                with patch.object(
+                    semantic_search,
+                    "get_db",
+                    return_value=ConnectionContext(wrapped),
+                ):
+                    evidence = await semantic_search.fetch_search_evidence(
+                        candidates,
+                        author_id=7,
+                    )
+            finally:
+                await wrapped.close()
+
+        self.assertEqual(
+            [(item.text, item.score) for item in evidence], [("first", 0.9)]
+        )
+
+    def test_new_tail_window_replaces_stale_cached_range(self):
+        vector = "[1," + ",".join(["0"] * 1023) + "]"
+        columns = {
+            name: index
+            for index, name in enumerate(
+                (
+                    "id",
+                    "chat_id",
+                    "start_message_id",
+                    "end_message_id",
+                    "embedding",
+                    "embedding_model",
+                    "embedding_dimension",
+                )
+            )
+        }
+        rows = [
+            search_cache.TursoRow(
+                (1, -1001, 1, 10, vector, "model", 1024),
+                columns,
+            ),
+            search_cache.TursoRow(
+                (2, -1001, 1, 20, vector, "model", 1024),
+                columns,
+            ),
+        ]
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.dict(
+                os.environ,
+                {"SEARCH_CACHE_PATH": f"{directory}/search.db"},
+            ),
+        ):
+            search_cache.initialize_search_cache_file()
+            search_cache.store_search_cache_rows(rows)
+            connection = search_cache.open_search_cache()
+            try:
+                cached = connection.execute(
+                    "SELECT end_message_id, remote_id FROM search_windows"
+                ).fetchall()
+            finally:
+                connection.close()
+
+        self.assertEqual(cached, [(20, 2)])
+
+
 class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
     async def test_pending_indexing_allocates_each_chat_a_share(self):
         class SessionContext:
@@ -132,6 +305,7 @@ class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
                 "index_chat_windows",
                 index_chat_windows,
             ),
+            patch.object(search_index, "sync_search_cache", AsyncMock()),
         ):
             indexed = await search_index.index_pending_windows(
                 "key",
@@ -168,6 +342,8 @@ class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
                 "index_window_batch",
                 index_window_batch,
             ),
+            patch.object(search_index, "reset_search_cache"),
+            patch.object(search_index, "sync_search_cache", AsyncMock()),
         ):
             refreshed = await search_index.refresh_windows("key", [-1001])
 
