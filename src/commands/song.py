@@ -119,17 +119,13 @@ async def song_plan_payload(user_prompt: str) -> JsonObject:
                         "properties": {
                             "title": {
                                 "type": "string",
-                                "maxLength": SONG_TITLE_CHAR_LIMIT,
                             },
                             "lyricsLines": {
                                 "type": "array",
-                                "items": {"type": "string", "maxLength": 120},
-                                "minItems": 1,
-                                "maxItems": 80,
+                                "items": {"type": "string"},
                             },
                             "style": {
                                 "type": "string",
-                                "maxLength": SONG_STYLE_CHAR_LIMIT,
                             },
                         },
                         "required": ["title", "lyricsLines", "style"],

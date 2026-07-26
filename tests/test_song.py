@@ -66,7 +66,7 @@ class SongTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(plan.style, "upbeat Urdu pop, bright synths, catchy hook")
 
-    async def test_song_plan_payload_requests_line_array_schema(self):
+    async def test_song_plan_payload_requests_portable_schema(self):
         with patch.object(
             ai_module,
             "get_model",
@@ -78,14 +78,16 @@ class SongTests(unittest.IsolatedAsyncioTestCase):
         properties = string_dict(properties)
         lyrics_lines = properties["lyricsLines"]
         lyrics_lines = string_dict(lyrics_lines)
-        items = lyrics_lines["items"]
-        items = string_dict(items)
 
         self.assertEqual(payload["max_tokens"], 1800)
         self.assertEqual(payload["model"], "anthropic/claude-sonnet-4")
         self.assertEqual(schema["required"], ["title", "lyricsLines", "style"])
-        self.assertEqual(lyrics_lines["type"], "array")
-        self.assertEqual(items["maxLength"], 120)
+        self.assertEqual(properties["title"], {"type": "string"})
+        self.assertEqual(
+            lyrics_lines,
+            {"type": "array", "items": {"type": "string"}},
+        )
+        self.assertEqual(properties["style"], {"type": "string"})
 
     async def test_parse_song_plan_rejects_non_string_lyric_lines(self):
         response = openrouter_response(
