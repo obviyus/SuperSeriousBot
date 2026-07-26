@@ -15,6 +15,7 @@ os.environ.setdefault("TURSO_AUTH_TOKEN", "test-token")
 semantic_search = importlib.import_module("management.chat_semantic_search")
 search_cache = importlib.import_module("management.chat_search_cache")
 search_index = importlib.import_module("management.chat_search_index")
+openrouter_embeddings = importlib.import_module("openrouter_embeddings")
 db = importlib.import_module("config.db")
 libsql = importlib.import_module("libsql")
 
@@ -76,10 +77,10 @@ class SemanticSearchTests(unittest.TestCase):
     def test_select_evidence_removes_overlaps(self):
         evidence = semantic_search.SearchEvidence
         windows = [
-            evidence(-1001, 1, 24, "v1", 0.8),
-            evidence(-1001, 9, 32, "v2", 0.7),
-            evidence(-1001, 100, 124, "v3", 0.6),
-            evidence(-1001, 200, 224, "v4", 0.5),
+            evidence(-1001, 1, 24, 24, "v1", 0.8),
+            evidence(-1001, 9, 32, 32, "v2", 0.7),
+            evidence(-1001, 100, 124, 124, "v3", 0.6),
+            evidence(-1001, 200, 224, 224, "v4", 0.5),
         ]
 
         selected = semantic_search.select_evidence(windows)
@@ -89,7 +90,7 @@ class SemanticSearchTests(unittest.TestCase):
     def test_answer_prompt_requires_playful_best_guess(self):
         messages = semantic_search.answer_messages(
             "most likely to bring snacks on a road trip",
-            [semantic_search.SearchEvidence(-1001, 1, 24, "chat", 0.8)],
+            [semantic_search.SearchEvidence(-1001, 1, 24, 24, "chat", 0.8)],
         )
 
         self.assertIn("always make", messages[0]["content"])
@@ -102,8 +103,8 @@ class SemanticSearchTests(unittest.TestCase):
 
     def test_link_citations_owns_message_ids_and_is_idempotent(self):
         evidence = [
-            semantic_search.SearchEvidence(-1001234567890, 1, 24, "first", 0.8),
-            semantic_search.SearchEvidence(-1001234567890, 25, 48, "second", 0.7),
+            semantic_search.SearchEvidence(-1001234567890, 1, 24, 20, "first", 0.8),
+            semantic_search.SearchEvidence(-1001234567890, 25, 48, 40, "second", 0.7),
         ]
 
         answer = semantic_search.link_citations(
@@ -113,8 +114,8 @@ class SemanticSearchTests(unittest.TestCase):
 
         self.assertEqual(
             answer,
-            "Best guess: @user [2](https://t.me/c/1234567890/48). "
-            "Range [1](https://t.me/c/1234567890/24). Unsupported.",
+            "Best guess: @user [2](https://t.me/c/1234567890/40). "
+            "Range [1](https://t.me/c/1234567890/20). Unsupported.",
         )
         self.assertEqual(semantic_search.link_citations(answer, evidence), answer)
 
@@ -144,7 +145,7 @@ class SearchAnswerTests(unittest.IsolatedAsyncioTestCase):
 
         session = Session()
         evidence = [
-            semantic_search.SearchEvidence(-1001, 1, 24, "chat", 0.8),
+            semantic_search.SearchEvidence(-1001, 1, 24, 24, "chat", 0.8),
         ]
 
         with patch.object(
@@ -250,7 +251,17 @@ class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
                 CREATE TABLE chat_stats (
                     chat_id INTEGER NOT NULL,
                     user_id INTEGER NOT NULL,
-                    message_id INTEGER NOT NULL
+                    message_id INTEGER NOT NULL,
+                    create_time TEXT NOT NULL,
+                    message_text TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE user_stats (
+                    user_id INTEGER NOT NULL,
+                    username TEXT
                 )
                 """
             )
@@ -259,8 +270,17 @@ class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
                 [(1, 1, 24, "first"), (2, 25, 48, "second")],
             )
             connection.executemany(
-                "INSERT INTO chat_stats VALUES (-1001, ?, ?)",
-                [(7, 10), (8, 30)],
+                "INSERT INTO chat_stats VALUES (-1001, ?, ?, ?, ?)",
+                [
+                    (7, 10, "2026-07-26 10:00:00", "target message"),
+                    (8, 11, "2026-07-26 10:01:00", "other message"),
+                    (7, 12, "2026-07-26 10:02:00", "/command"),
+                    (8, 30, "2026-07-26 10:03:00", "second window"),
+                ],
+            )
+            connection.executemany(
+                "INSERT INTO user_stats VALUES (?, ?)",
+                [(7, "alice"), (8, "bob")],
             )
             wrapped = db.TursoConnection(connection)
             candidates = [
@@ -281,7 +301,8 @@ class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
                 await wrapped.close()
 
         self.assertEqual(
-            [(item.text, item.score) for item in evidence], [("first", 0.9)]
+            [(item.text, item.citation_message_id, item.score) for item in evidence],
+            [("10 2026-07-26 10:00:00 @alice: target message", 10, 0.9)],
         )
 
     def test_new_tail_window_replaces_stale_cached_range(self):
@@ -329,6 +350,42 @@ class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
                 connection.close()
 
         self.assertEqual(cached, [(20, 2)])
+
+
+class OpenRouterEmbeddingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_embeddings_prefer_low_latency_provider(self):
+        class Response:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+            def raise_for_status(self):
+                return None
+
+            async def json(self):
+                return {"data": [{"embedding": [1.0, 0.0]}]}
+
+        class Session:
+            def __init__(self):
+                self.payload = None
+
+            def post(self, _url, *, headers, json, timeout):
+                self.payload = json
+                return Response()
+
+        session = Session()
+
+        await openrouter_embeddings.openrouter_embeddings(
+            session,
+            "key",
+            "model",
+            ["query"],
+            dimensions=2,
+        )
+
+        self.assertEqual(session.payload["provider"], {"sort": "latency"})
 
 
 class SearchIndexTests(unittest.IsolatedAsyncioTestCase):

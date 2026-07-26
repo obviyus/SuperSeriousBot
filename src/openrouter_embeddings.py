@@ -28,6 +28,7 @@ async def openrouter_embeddings(
         "model": model,
         "input": inputs,
         "dimensions": dimensions,
+        "provider": {"sort": "latency"},
     }
     async with session.post(
         OPENROUTER_EMBEDDINGS_API_URL,
