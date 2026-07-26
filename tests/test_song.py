@@ -79,7 +79,7 @@ class SongTests(unittest.IsolatedAsyncioTestCase):
         lyrics_lines = properties["lyricsLines"]
         lyrics_lines = string_dict(lyrics_lines)
 
-        self.assertEqual(payload["max_tokens"], 1800)
+        self.assertNotIn("max_tokens", payload)
         self.assertEqual(payload["model"], "anthropic/claude-sonnet-4")
         self.assertEqual(schema["required"], ["title", "lyricsLines", "style"])
         self.assertEqual(properties["title"], {"type": "string"})

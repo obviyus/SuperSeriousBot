@@ -104,7 +104,6 @@ async def song_plan_payload(user_prompt: str) -> JsonObject:
             {"role": "system", "content": SONG_PLANNER_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        max_tokens=1800,
     )
     payload.update(
         {
