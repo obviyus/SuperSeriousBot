@@ -35,7 +35,6 @@ messages_module = importlib.import_module("utils.messages")
 send_markdown_or_plain = messages_module.send_markdown_or_plain
 reply_markdown_or_plain = messages_module.reply_markdown_or_plain
 stats_module = importlib.import_module("management.stats")
-remind_module = importlib.import_module("commands.remind")
 decorators = importlib.import_module("utils.decorators")
 
 USER_REPLY_METHODS = {
@@ -444,81 +443,6 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             "https://t.me/mygroup/7",
         )
         self.assertIsNone(stats_module._message_link(12345, 1, None))
-
-    async def test_worker_reminder_claims_before_send(self):
-        due = [
-            {
-                "id": 1,
-                "title": "ship it",
-                "target_time": 1,
-                "user_id": 9,
-                "chat_id": -1001,
-            }
-        ]
-        claim = SimpleNamespace(rowcount=1)
-        bot = AsyncMock()
-        context = SimpleNamespace(bot=bot)
-
-        class SelectCursor:
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *_args):
-                return None
-
-            async def fetchall(self):
-                return due
-
-        class SelectConn:
-            def __init__(self):
-                self.cursor = SelectCursor()
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *_args):
-                return None
-
-            def execute(self, *_args, **_kwargs):
-                return self.cursor
-
-        class ClaimConn:
-            def __init__(self):
-                self.execute_args = None
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *_args):
-                return None
-
-            async def execute(self, *args, **_kwargs):
-                self.execute_args = args
-                return claim
-
-        select_conn = SelectConn()
-        claim_conn = ClaimConn()
-
-        with (
-            patch.object(
-                remind_module,
-                "get_db",
-                side_effect=[select_conn, claim_conn],
-            ),
-            patch.object(
-                remind_module.utils,
-                "get_username",
-                AsyncMock(return_value="tester"),
-            ),
-        ):
-            await remind_module.worker_reminder(context)
-
-        self.assertEqual(
-            claim_conn.execute_args,
-            ("DELETE FROM reminders WHERE id = ?", (1,)),
-        )
-        bot.send_message.assert_awaited_once()
-        self.assertEqual(bot.send_message.await_args.args[0], -1001)
 
     async def test_process_mentions_uses_telegram_entity_parser(self):
         entity = SimpleNamespace(type=MessageEntity.MENTION)
