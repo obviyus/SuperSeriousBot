@@ -1,4 +1,5 @@
 import random
+import time
 import traceback
 from collections.abc import Callable, Coroutine
 from functools import wraps
@@ -43,12 +44,70 @@ type CommandHandler_T = Callable[
 ]
 
 
-async def record_command_stat(command: str, user_id: int) -> None:
+async def record_command_event(
+    message: Message,
+    command: str,
+    status: str,
+    duration_ms: int,
+    error: Exception | None,
+) -> None:
+    user = message.from_user
+    if not user:
+        return
+
+    text = message.text or ""
+    _, separator, input_text = text.partition(" ")
+    username = f"@{user.username}" if user.username else user.full_name
     async with get_db() as conn:
         await conn.execute(
-            "INSERT INTO command_stats (command, user_id) VALUES (?, ?);",
-            (command, user_id),
+            """
+            INSERT INTO command_stats (
+                command, user_id, chat_id, message_id, username, input_text,
+                status, duration_ms, error_type, error_message, error_traceback
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                command,
+                user.id,
+                message.chat_id,
+                message.message_id,
+                username,
+                input_text.strip() if separator else None,
+                status,
+                duration_ms,
+                type(error).__name__ if error else None,
+                str(error) if error else None,
+                "".join(traceback.format_exception(error)) if error else None,
+            ),
         )
+
+
+def finish_command_event(
+    message: Message,
+    command: str,
+    status: str,
+    start_time: float,
+    error: Exception | None,
+) -> None:
+    duration_ms = round((time.perf_counter() - start_time) * 1000)
+    log = logger.error if error else logger.info
+    log(
+        "command_event command=%s status=%s duration_ms=%s chat_id=%s "
+        "message_id=%s user_id=%s error_type=%s",
+        command,
+        status,
+        duration_ms,
+        message.chat_id,
+        message.message_id,
+        message.from_user.id if message.from_user else None,
+        type(error).__name__ if error else None,
+        exc_info=(type(error), error, error.__traceback__) if error else None,
+    )
+    schedule_background_task(
+        record_command_event(message, command, status, duration_ms, error),
+        "command-event",
+    )
 
 
 async def disabled(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -135,7 +194,6 @@ async def ensure_command_available(
 
 def command_wrapper(
     fn: CommandHandler_T,
-    command_triggers: set[str],
 ) -> CommandHandler_T:
     @wraps(fn)
     async def wrapped_command(
@@ -144,6 +202,11 @@ def command_wrapper(
         message = get_message(update)
         if not message:
             return
+
+        command_name = sent_command(message)
+        start_time = time.perf_counter()
+        status = "completed"
+        error: Exception | None = None
 
         async def set_command_reaction() -> None:
             try:
@@ -157,36 +220,35 @@ def command_wrapper(
                 "typing-indicator",
             )
 
-            command_name = sent_command(message)
             if (
                 command_name
                 and message.from_user
                 and await _is_blocked(message.from_user.id, command_name)
             ):
+                status = "blocked"
                 await message.reply_text("❌ You are blocked from using this command.")
                 return
 
             schedule_background_task(set_command_reaction(), "command-reaction")
 
             await fn(update, context)
-
-            if command_name and command_name in command_triggers and message.from_user:
-                schedule_background_task(
-                    record_command_stat(command_name, message.from_user.id),
-                    "command-stats",
-                )
         except Exception as exc:
-            logger.error(
-                "Error in /%s: %s",
-                getattr(fn, "__name__", fn.__class__.__name__),
-                exc,
-            )
-            logger.error(traceback.format_exc())
+            status = "failed"
+            error = exc
             try:
                 await message.reply_text("Something went wrong. Please try again.")
             except TelegramError:
                 logger.exception("Failed to send command error response")
             raise
+        finally:
+            if command_name and message.from_user:
+                finish_command_event(
+                    message,
+                    command_name,
+                    status,
+                    start_time,
+                    error,
+                )
 
     return wrapped_command
 

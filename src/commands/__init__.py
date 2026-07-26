@@ -76,18 +76,15 @@ auto_dl_message_handler = dl.auto_dl_message_handler
 list_of_commands = get_registered_commands()
 
 command_handler_list = []
-command_triggers: set[str] = set()
 
 
 for command in list_of_commands:
     meta = get_command_meta(command)
 
     handler = command if is_command_enabled(command) else disabled
-    handler = command_wrapper(handler, command_triggers)
+    handler = command_wrapper(handler)
 
     command_handler_list.append(CommandHandler(meta.triggers, handler))
-
-    command_triggers.update(meta.triggers)
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

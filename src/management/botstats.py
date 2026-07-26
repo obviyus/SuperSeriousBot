@@ -109,8 +109,7 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     ):
         rows = await cursor.fetchall()
     total_count = await _fetch_scalar(
-        "SELECT id FROM main.command_stats ORDER BY id DESC LIMIT 1;",
-        "id",
+        "SELECT COUNT(*) FROM command_stats;",
     )
     await _reply_ranked_stats(
         message,

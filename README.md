@@ -93,6 +93,16 @@ $ uv sync
 $ uv run python src/main.py
 ```
 
+### Operator diagnostics
+
+Command history and failures are stored in Turso and available as structured JSON:
+
+```bash
+uv run src/command_usage.py
+uv run src/command_usage.py --command search --days 30
+uv run src/command_usage.py --status failed
+```
+
 ## Recommended Reading
 
 - [Telegram API documentation](https://core.telegram.org/bots/api)
