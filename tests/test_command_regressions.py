@@ -198,6 +198,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
     def test_default_ai_models_match_live_verified_models(self):
         self.assertEqual(model_module.DEFAULT_MODELS["ask"], "openrouter/x-ai/grok-4.3")
         self.assertEqual(
+            model_module.DEFAULT_MODELS["cron"], "openrouter/x-ai/grok-4.3"
+        )
+        self.assertEqual(
             model_module.DEFAULT_MODELS["search"], "openrouter/x-ai/grok-4.3"
         )
         self.assertEqual(
@@ -207,6 +210,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             model_module.DEFAULT_MODELS["tldr"],
             "openrouter/google/gemini-3-flash-preview",
+        )
+        self.assertEqual(
+            model_module.DEFAULT_MODELS["song"], "openrouter/x-ai/grok-4.3"
         )
 
     def test_shiba_uses_live_verified_dog_ceo_contract(self):

@@ -4,11 +4,13 @@ import importlib
 import json
 import os
 import unittest
+from unittest.mock import AsyncMock, patch
 
 os.environ.setdefault("TELEGRAM_TOKEN", "test-token")
 os.environ.setdefault("QUOTE_CHANNEL_ID", "1")
 os.environ.setdefault("OPENROUTER_API_KEY", "test-openrouter-key")
 
+ai_module = importlib.import_module("commands.ai")
 song_module = importlib.import_module("commands.song")
 
 
@@ -24,8 +26,7 @@ def openrouter_response(content: object) -> dict[str, object]:
     }
 
 
-def song_plan_schema() -> dict[str, object]:
-    payload = song_module.song_plan_payload("spreadsheet party")
+def song_plan_schema(payload: dict[str, object]) -> dict[str, object]:
     response_format = payload["response_format"]
     response_format = string_dict(response_format)
     json_schema = response_format["json_schema"]
@@ -66,8 +67,13 @@ class SongTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plan.style, "upbeat Urdu pop, bright synths, catchy hook")
 
     async def test_song_plan_payload_requests_line_array_schema(self):
-        payload = song_module.song_plan_payload("spreadsheet party")
-        schema = song_plan_schema()
+        with patch.object(
+            ai_module,
+            "get_model",
+            AsyncMock(return_value="openrouter/anthropic/claude-sonnet-4"),
+        ):
+            payload = await song_module.song_plan_payload("spreadsheet party")
+        schema = song_plan_schema(payload)
         properties = schema["properties"]
         properties = string_dict(properties)
         lyrics_lines = properties["lyricsLines"]
@@ -76,6 +82,7 @@ class SongTests(unittest.IsolatedAsyncioTestCase):
         items = string_dict(items)
 
         self.assertEqual(payload["max_tokens"], 1800)
+        self.assertEqual(payload["model"], "anthropic/claude-sonnet-4")
         self.assertEqual(schema["required"], ["title", "lyricsLines", "style"])
         self.assertEqual(lyrics_lines["type"], "array")
         self.assertEqual(items["maxLength"], 120)

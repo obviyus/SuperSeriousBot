@@ -11,8 +11,10 @@ GLOBAL_CHAT_ID = -1
 
 DEFAULT_MODELS = {
     "ask": "openrouter/x-ai/grok-4.3",
+    "cron": "openrouter/x-ai/grok-4.3",
     "edit": "openrouter/google/gemini-3.1-flash-image-preview",
     "search": "openrouter/x-ai/grok-4.3",
+    "song": "openrouter/x-ai/grok-4.3",
     "tr": "google/gemini-2.5-flash",
     "tldr": "openrouter/google/gemini-3-flash-preview",
 }

@@ -10,10 +10,9 @@ from telegram.ext import ContextTypes
 
 import commands
 from commands.ai import (
-    OPENROUTER_API_URL,
     first_message_content,
-    openrouter_api_key,
-    openrouter_headers,
+    openrouter_json,
+    openrouter_payload,
 )
 from commands.runtime import ensure_command_available
 from config.logger import logger
@@ -29,7 +28,6 @@ SONG_STYLE_CHAR_LIMIT = 1000
 SONG_TITLE_CHAR_LIMIT = 80
 MUSIC_POLL_ATTEMPTS = 96
 POLL_INTERVAL_SECONDS = 5
-SONG_PLANNER_MODEL = "x-ai/grok-4.3"
 SONG_NEGATIVE_TAGS = "rap, spoken word, mumble rap, long dense verses"
 SONG_MODEL = "V5"
 
@@ -99,44 +97,49 @@ async def kie_json(
         return data
 
 
-def song_plan_payload(user_prompt: str) -> JsonObject:
-    return {
-        "model": SONG_PLANNER_MODEL,
-        "messages": [
+async def song_plan_payload(user_prompt: str) -> JsonObject:
+    payload = await openrouter_payload(
+        "song",
+        [
             {"role": "system", "content": SONG_PLANNER_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        "max_tokens": 1800,
-        "provider": {"require_parameters": True},
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "song_plan",
-                "strict": True,
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "title": {
-                            "type": "string",
-                            "maxLength": SONG_TITLE_CHAR_LIMIT,
+        max_tokens=1800,
+    )
+    payload.update(
+        {
+            "provider": {"require_parameters": True},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "song_plan",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "maxLength": SONG_TITLE_CHAR_LIMIT,
+                            },
+                            "lyricsLines": {
+                                "type": "array",
+                                "items": {"type": "string", "maxLength": 120},
+                                "minItems": 1,
+                                "maxItems": 80,
+                            },
+                            "style": {
+                                "type": "string",
+                                "maxLength": SONG_STYLE_CHAR_LIMIT,
+                            },
                         },
-                        "lyricsLines": {
-                            "type": "array",
-                            "items": {"type": "string", "maxLength": 120},
-                            "minItems": 1,
-                            "maxItems": 80,
-                        },
-                        "style": {
-                            "type": "string",
-                            "maxLength": SONG_STYLE_CHAR_LIMIT,
-                        },
+                        "required": ["title", "lyricsLines", "style"],
+                        "additionalProperties": False,
                     },
-                    "required": ["title", "lyricsLines", "style"],
-                    "additionalProperties": False,
                 },
             },
-        },
-    }
+        }
+    )
+    return payload
 
 
 def parse_song_plan_response(data: object) -> SongPlan:
@@ -179,15 +182,8 @@ def parse_song_plan_response(data: object) -> SongPlan:
 
 
 async def plan_song(session: aiohttp.ClientSession, user_prompt: str) -> SongPlan:
-    payload = song_plan_payload(user_prompt)
-    async with session.post(
-        OPENROUTER_API_URL,
-        headers=openrouter_headers(openrouter_api_key()),
-        json=payload,
-    ) as response:
-        response.raise_for_status()
-        data = await response.json()
-
+    payload = await song_plan_payload(user_prompt)
+    data = await openrouter_json(session, payload)
     return parse_song_plan_response(data)
 
 

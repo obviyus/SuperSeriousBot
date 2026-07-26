@@ -159,7 +159,7 @@ def _parse_cron_draft(content: str) -> CronDraft:
 async def generate_cron_draft(user_request: str) -> CronDraft:
     now = datetime.datetime.now(ZoneInfo(DEFAULT_TIMEZONE)).isoformat()
     payload = await openrouter_payload(
-        "ask",
+        "cron",
         [
             {"role": "system", "content": SCHEDULER_SYSTEM_PROMPT},
             {
@@ -379,7 +379,7 @@ def build_runner_messages(task: CronTask, runs: list[CronRun]) -> list[JsonObjec
 
 async def execute_cron_task(task: CronTask, runs: list[CronRun]) -> str:
     payload = await openrouter_payload(
-        "ask",
+        "cron",
         build_runner_messages(task, runs),
         max_tokens=1000,
     )
