@@ -87,19 +87,20 @@ class SemanticSearchTests(unittest.TestCase):
 
         self.assertEqual([item.text for item in selected], ["v1", "v3", "v4"])
 
-    def test_answer_prompt_requires_playful_best_guess(self):
+    def test_answer_prompt_commits_to_playful_social_choice(self):
         messages = semantic_search.answer_messages(
             "most likely to bring snacks on a road trip",
             [semantic_search.SearchEvidence(-1001, 1, 24, 24, "chat", 0.8)],
         )
 
-        self.assertIn("always make", messages[0]["content"])
-        self.assertIn("Weak or indirect receipts are enough", messages[0]["content"])
-        self.assertIn("Never answer 'I cannot tell'", messages[0]["content"])
-        self.assertIn(
-            "cite claims only with the evidence number", messages[0]["content"]
-        )
-        self.assertIn("Never put message IDs, ranges, or URLs", messages[0]["content"])
+        prompt = messages[0]["content"]
+        self.assertIn("pick one participant confidently", prompt)
+        self.assertIn("banter about chat persona", prompt)
+        self.assertIn("Weak or indirect receipts are enough", prompt)
+        self.assertIn("Never hedge, disclaim, moralize", prompt)
+        self.assertIn("Never answer 'I cannot tell'", prompt)
+        self.assertIn("cite claims only with the evidence number", prompt)
+        self.assertIn("Never put message IDs, ranges, or URLs", prompt)
 
     def test_link_citations_owns_message_ids_and_is_idempotent(self):
         evidence = [
