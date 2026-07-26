@@ -171,8 +171,9 @@ def store_search_cache_rows(rows: Sequence[TursoRow]) -> None:
 
 
 async def fetch_search_cache_rows(after_remote_id: int) -> list[TursoRow]:
-    async with get_db() as connection:
-        async with connection.execute(
+    async with (
+        get_db() as connection,
+        connection.execute(
             """
             SELECT
                 id,
@@ -188,8 +189,9 @@ async def fetch_search_cache_rows(after_remote_id: int) -> list[TursoRow]:
             LIMIT ?
             """,
             (after_remote_id, SEARCH_CACHE_BATCH_SIZE),
-        ) as cursor:
-            return await cursor.fetchall()
+        ) as cursor,
+    ):
+        return await cursor.fetchall()
 
 
 async def sync_search_cache() -> int:

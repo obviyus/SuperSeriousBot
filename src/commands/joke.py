@@ -4,6 +4,7 @@ import random
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from config.logger import logger
 from utils.decorators import command
 from utils.messages import get_message
 
@@ -23,17 +24,19 @@ async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     setup = "Here's a joke..."
     punchline = "(joke delivery unavailable)"
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 "https://v2.jokeapi.dev/joke/Any",
                 params={"type": "twopart"},
                 timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                data = await resp.json()
-                setup = data.get("setup", setup)
-                punchline = data.get("delivery", punchline)
-    except Exception:
-        pass
+            ) as resp,
+        ):
+            data = await resp.json()
+            setup = data.get("setup", setup)
+            punchline = data.get("delivery", punchline)
+    except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+        logger.debug("Joke API unavailable: %s", exc)
 
     await message.reply_text(text=setup)
     await asyncio.sleep(2.0)

@@ -123,7 +123,7 @@ async def get_object(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
         try:
             target_message = message.reply_to_message or message
-            await getattr(target_message, method_name)(**{row['type'].lower(): file_id})
+            await getattr(target_message, method_name)(**{row["type"].lower(): file_id})
         except AttributeError:
             await message.reply_text(
                 f"Object with key <code>{html.escape(key)}</code> has an invalid or unsupported type.",

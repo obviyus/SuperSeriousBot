@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Coroutine
-from typing import TypeVar
 
 from config.logger import logger
-
-_T = TypeVar("_T")
 
 
 def schedule_background_task[T](
@@ -29,7 +26,7 @@ def schedule_background_task[T](
             completed.result()
         except asyncio.CancelledError:
             logger.debug("Background task '%s' cancelled", label)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning("Background task '%s' failed: %s", label, exc, exc_info=exc)
 
     task.add_done_callback(_log_task_result)

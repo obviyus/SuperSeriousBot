@@ -18,9 +18,7 @@ def upgrade(connection):
             );
         """
     )
-    pass
 
 
 def downgrade(connection):
     connection.execute("DROP TABLE video_history;")
-    pass

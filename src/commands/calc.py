@@ -32,20 +32,22 @@ async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     import aiohttp
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 WOLFRAM_SHORT_QUERY,
                 params={"i": query, "appid": config.API.WOLFRAM_APP_ID},
                 timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                if response.status == 200:
-                    result = await response.text()
-                elif response.status == 501:
-                    result = "❌ I couldn't understand that query."
-                elif response.status == 403:
-                    result = "❌ Calculation service is not configured."
-                else:
-                    result = "❌ Calculation service is unavailable."
+            ) as response,
+        ):
+            if response.status == 200:
+                result = await response.text()
+            elif response.status == 501:
+                result = "❌ I couldn't understand that query."
+            elif response.status == 403:
+                result = "❌ Calculation service is not configured."
+            else:
+                result = "❌ Calculation service is unavailable."
     except TimeoutError:
         result = "❌ Request timed out"
     except aiohttp.ClientError as e:

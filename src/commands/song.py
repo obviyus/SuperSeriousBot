@@ -5,6 +5,7 @@ from typing import Any
 
 import aiohttp
 from telegram import InputMediaAudio, Update
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 import commands
@@ -143,7 +144,7 @@ def parse_song_plan_response(data: object) -> SongPlan:
                 response[key] = value
     content = first_message_content(response)
     if not isinstance(content, str):
-        raise RuntimeError("OpenRouter did not return a song plan.")
+        raise TypeError("OpenRouter did not return a song plan.")
 
     try:
         plan = json.loads(content)
@@ -158,7 +159,7 @@ def parse_song_plan_response(data: object) -> SongPlan:
         or not isinstance(lyrics_lines, list)
         or not isinstance(style, str)
     ):
-        raise RuntimeError("OpenRouter returned an incomplete song plan.")
+        raise TypeError("OpenRouter returned an incomplete song plan.")
     if not all(isinstance(line, str) for line in lyrics_lines):
         raise RuntimeError("OpenRouter returned invalid lyrics.")
 
@@ -195,7 +196,7 @@ async def create_task(
     data = await kie_json(session, "POST", path, json=payload)
     task_id = data.get("data", {}).get("taskId")
     if not isinstance(task_id, str):
-        raise RuntimeError("KIE did not return a task.")
+        raise TypeError("KIE did not return a task.")
     return task_id
 
 
@@ -211,7 +212,7 @@ async def poll_task(
         data = await kie_json(session, "GET", path, params={"taskId": task_id})
         task = data.get("data")
         if not isinstance(task, dict):
-            raise RuntimeError("KIE did not return task details.")
+            raise TypeError("KIE did not return task details.")
         status = task.get("status")
         if status == final_status:
             return task
@@ -226,7 +227,7 @@ def song_tracks(task: JsonObject) -> list[JsonObject]:
     response = task.get("response")
     suno_data = response.get("sunoData") if isinstance(response, dict) else None
     if not isinstance(suno_data, list):
-        raise RuntimeError("No song files were generated.")
+        raise TypeError("No song files were generated.")
     tracks = [track for track in suno_data if isinstance(track, dict)]
     if not tracks:
         raise RuntimeError("No song files were generated.")
@@ -240,7 +241,9 @@ def audio_url(track: JsonObject) -> str:
     return url
 
 
-def song_media_group(tracks: list[JsonObject], fallback_title: str) -> list[InputMediaAudio]:
+def song_media_group(
+    tracks: list[JsonObject], fallback_title: str
+) -> list[InputMediaAudio]:
     selected_tracks = tracks[:2]
     if len(selected_tracks) != 2:
         raise RuntimeError("KIE generated fewer than two songs.")
@@ -319,9 +322,16 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_media_group(
             song_media_group(song_tracks(music_task), song_plan.title)
         )
-    except Exception as exc:
+    except (
+        aiohttp.ClientError,
+        RuntimeError,
+        TelegramError,
+        TimeoutError,
+        TypeError,
+        ValueError,
+    ) as exc:
         logger.exception("Song generation failed: %s", exc)
         try:
             await progress.edit_text("Song generation failed. Please try again.")
-        except Exception:
+        except TelegramError:
             await message.reply_text("Song generation failed. Please try again.")

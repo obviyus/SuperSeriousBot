@@ -2,6 +2,7 @@
 Add indexes to chat_mentions table for performance optimization.
 """
 
+
 def upgrade(connection):
     """Add indexes for optimized queries."""
     # Index for get_oldest_mention query
@@ -24,6 +25,7 @@ def upgrade(connection):
     """)
 
     print("Added performance indexes to chat_mentions table")
+
 
 def downgrade(connection):
     """Remove the indexes."""

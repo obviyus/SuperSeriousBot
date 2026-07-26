@@ -1,18 +1,20 @@
 import asyncio
 import html
-from datetime import datetime
+import time
 
 from telegram import ChatMember, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import KeyboardButtonStyle, ParseMode
+from telegram.error import TelegramError
 from telegram.ext import CallbackContext, ContextTypes
 
 import commands
 import utils
 from config.db import get_db
+from config.logger import logger
 from utils.decorators import command
 from utils.messages import get_message
 
-summon_log = {}
+summon_log: dict[int, float] = {}
 
 
 async def perform_summon(
@@ -21,8 +23,9 @@ async def perform_summon(
     group_id: int,
     group_name: str,
 ):
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT user_id, chat_id
             FROM summon_group_members
@@ -30,8 +33,9 @@ async def perform_summon(
             WHERE group_id = ?;
             """,
             (group_id,),
-        ) as cursor:
-            group_members = [(row[0], row[1]) for row in await cursor.fetchall()]
+        ) as cursor,
+    ):
+        group_members = [(row[0], row[1]) for row in await cursor.fetchall()]
 
     async def check_member(user_id: int, member_chat_id: int) -> str | None:
         try:
@@ -40,14 +44,17 @@ async def perform_summon(
                 username = await utils.get_username(user_id, context)
                 if username:
                     return f"@{username}"
-        except Exception as e:
-            print(f"Error getting member {user_id}: {e}")
+        except TelegramError as exc:
+            logger.warning("Could not get summon member %s: %s", user_id, exc)
         return None
 
     members = [
         member
         for member in await asyncio.gather(
-            *(check_member(user_id, member_chat_id) for user_id, member_chat_id in group_members)
+            *(
+                check_member(user_id, member_chat_id)
+                for user_id, member_chat_id in group_members
+            )
         )
         if member
     ]
@@ -82,7 +89,7 @@ async def perform_summon(
             reply_markup=keyboard,
             parse_mode=ParseMode.HTML,
         )
-        summon_log[group_id] = datetime.now()
+        summon_log[group_id] = time.monotonic()
         return
 
     for index in range(0, len(members), 5):
@@ -94,7 +101,7 @@ async def perform_summon(
             reply_markup=keyboard if index + 5 >= len(members) else None,
         )
 
-    summon_log[group_id] = datetime.now()
+    summon_log[group_id] = time.monotonic()
 
 
 async def summon_keyboard_button(update: Update, context: CallbackContext) -> None:
@@ -132,7 +139,7 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
     elif action == "resummon":
         last_tag_time = summon_log.get(group_id)
         if last_tag_time:
-            elapsed = (datetime.now() - last_tag_time).total_seconds()
+            elapsed = time.monotonic() - last_tag_time
             if elapsed < 60:
                 remaining_seconds = int(60 - elapsed)
                 await query.answer(
@@ -141,12 +148,14 @@ async def summon_keyboard_button(update: Update, context: CallbackContext) -> No
                 return
 
         await query.answer("Resummoning...")
-        async with get_db() as conn:
-            async with conn.execute(
+        async with (
+            get_db() as conn,
+            conn.execute(
                 "SELECT group_name FROM summon_groups WHERE id = ?", (group_id,)
-            ) as cursor:
-                result = await cursor.fetchone()
-                group_name = result[0] if result else "Unknown"
+            ) as cursor,
+        ):
+            result = await cursor.fetchone()
+            group_name = result[0] if result else "Unknown"
 
         await perform_summon(context, message.chat_id, group_id, group_name)
         return

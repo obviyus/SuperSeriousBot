@@ -5,9 +5,10 @@ import mimetypes
 import time
 from datetime import timedelta
 
+import aiohttp
 from telegram import Message, Update
 from telegram.constants import ChatType
-from telegram.error import BadRequest, RetryAfter
+from telegram.error import BadRequest, RetryAfter, TelegramError
 from telegram.ext import ContextTypes
 
 import commands
@@ -76,13 +77,15 @@ async def load_reply_image(
                 "Animated/video stickers aren't supported yet. Send a static sticker or image."
             )
         return sticker_payload
-    if allow_image_document and reply.document and (reply.document.mime_type or "").startswith(
-        "image/"
+    if (
+        allow_image_document
+        and reply.document
+        and (reply.document.mime_type or "").startswith("image/")
     ):
         file = await bot.getFile(reply.document.file_id)
-        return bytes(await file.download_as_bytearray()), reply.document.mime_type or mimetypes.guess_type(
-            file.file_path or ""
-        )[0]
+        return bytes(
+            await file.download_as_bytearray()
+        ), reply.document.mime_type or mimetypes.guess_type(file.file_path or "")[0]
     return None
 
 
@@ -108,7 +111,7 @@ async def edit_stream_reply(bot, chat_id: int, message_id: int, text: str) -> bo
     attempts = [{"text": text}]
     try:
         formatted = telegramify_markdown.markdownify(text)
-    except Exception:
+    except (TypeError, ValueError):
         formatted = None
     if formatted and len(formatted) <= TELEGRAM_MESSAGE_LIMIT:
         attempts.insert(0, {"text": formatted, "parse_mode": "MarkdownV2"})
@@ -201,7 +204,9 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         text_prompt = query if query else "Describe this image in detail."
         if reply_context:
-            text_prompt = f"Reply context:\n{reply_context}\n\nUser request:\n{text_prompt}"
+            text_prompt = (
+                f"Reply context:\n{reply_context}\n\nUser request:\n{text_prompt}"
+            )
         user_content.append({"type": "text", "text": text_prompt})
         user_content.append(
             {
@@ -312,7 +317,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         sent_message.message_id,
                         content,
                     )
-    except Exception:
+    except (aiohttp.ClientError, TelegramError, TimeoutError, TypeError, ValueError):
         logger.exception("Ask command failed")
         await message.reply_text("AI request failed. Please try again.")
 
@@ -347,8 +352,6 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prompt = " ".join(context.args)
 
     try:
-        import aiohttp
-
         try:
             reply_image = await load_reply_image(
                 reply,
@@ -383,12 +386,12 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             modalities=["image", "text"],
         )
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                OPENROUTER_API_URL, headers=headers, json=payload
-            ) as resp:
-                resp.raise_for_status()
-                response = await resp.json()
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(OPENROUTER_API_URL, headers=headers, json=payload) as resp,
+        ):
+            resp.raise_for_status()
+            response = await resp.json()
 
         choices = response.get("choices")
         choice = choices[0] if isinstance(choices, list) and choices else None
@@ -416,7 +419,9 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 if isinstance(first_image, dict)
                 else None
             )
-            if isinstance(image_url_data, str) and image_url_data.startswith("data:image/"):
+            if isinstance(image_url_data, str) and image_url_data.startswith(
+                "data:image/"
+            ):
                 buffer = io.BytesIO(base64.b64decode(image_url_data.split(",", 1)[1]))
                 user_mention = (
                     f"@{update.effective_user.username}"
@@ -437,6 +442,6 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         await message.reply_text("Could not generate edited image. Please try again.")
 
-    except Exception:
+    except (aiohttp.ClientError, TelegramError, TimeoutError, TypeError, ValueError):
         logger.exception("Edit command failed")
         await message.reply_text("AI request failed. Please try again.")

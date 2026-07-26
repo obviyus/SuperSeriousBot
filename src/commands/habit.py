@@ -1,6 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import KeyboardButtonStyle
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
 import commands
@@ -14,8 +14,9 @@ from utils.messages import get_message
 async def habit_message_builder(
     habit_id: int, context: ContextTypes.DEFAULT_TYPE
 ) -> str:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
                 SELECT h.*, hm.user_id,
                        (SELECT COUNT(*) FROM habit_log hl
@@ -28,8 +29,9 @@ async def habit_message_builder(
                 WHERE h.id = ?
                 """,
             (habit_id,),
-        ) as cursor:
-            rows = list(await cursor.fetchall())
+        ) as cursor,
+    ):
+        rows = list(await cursor.fetchall())
     if not rows:
         return "Habit not found."
 
@@ -115,7 +117,7 @@ async def habit_button_handler(
             else:
                 await query.answer("Invalid action.")
                 return
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Error in habit_button_handler: {e!s}")
             await query.answer("An error occurred. Please try again.")
             return
@@ -125,27 +127,28 @@ async def habit_button_handler(
             await habit_message_builder(habit_id, context),
             reply_markup=await habit_keyboard(habit_id),
         )
-    except Exception as e:
+    except TelegramError as e:
         logger.error(f"Error updating message in habit_button_handler: {e!s}")
 
 
-
 async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
                 SELECT * FROM habit
                 WHERE id IN (SELECT DISTINCT habit_id FROM habit_members)
                 """
-        ) as cursor:
-            group_habits = await cursor.fetchall()
+        ) as cursor,
+    ):
+        group_habits = await cursor.fetchall()
 
     for group_habit in group_habits:
         # Build message and keyboard first; if this fails, skip sending
         try:
             text = await habit_message_builder(group_habit["id"], context)
             keyboard = await habit_keyboard(group_habit["id"])
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Error building message for habit {group_habit['id']}: {e!s}")
             continue
 
@@ -176,7 +179,7 @@ async def worker_habit_tracker(context: ContextTypes.DEFAULT_TYPE) -> None:
                     )
             else:
                 logger.error(f"BadRequest error for habit {group_habit['id']}: {e!s}")
-        except Exception as e:
+        except TelegramError as e:
             logger.error(f"Error sending message for habit {group_habit['id']}: {e!s}")
 
 

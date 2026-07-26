@@ -71,16 +71,18 @@ async def gif(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 KLIPY_API_URL.format(api_key=config.API.KLIPY_API_KEY),
                 params={"per_page": 24, "rating": "g", "locale": "en_US"},
                 headers={"User-Agent": "SuperSeriousBot/1.0"},
-            ) as response:
-                if response.status != 200:
-                    await message.reply_text("Could not fetch a GIF right now.")
-                    return
-                data = await response.json()
+            ) as response,
+        ):
+            if response.status != 200:
+                await message.reply_text("Could not fetch a GIF right now.")
+                return
+            data = await response.json()
     except aiohttp.ClientError:
         await message.reply_text("Could not fetch a GIF right now.")
         return

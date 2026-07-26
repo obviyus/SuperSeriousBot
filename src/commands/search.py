@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import uuid
 
@@ -8,6 +7,7 @@ from telegram.constants import ChatType
 from telegram.ext import ContextTypes
 
 from commands.runtime import ensure_command_available
+from config.logger import logger
 from management.chat_memory import (
     enable_fts as enable_chat_fts,
 )
@@ -50,12 +50,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else None
     )
 
-    try:
-        answer = await semantic_search_answer(message.chat_id, query, author_id)
-    except Exception:
-        logging.exception("Semantic search failed for chat %s", message.chat_id)
-        await message.reply_text("Search failed. Please try again.")
-        return
+    answer = await semantic_search_answer(message.chat_id, query, author_id)
 
     if not answer:
         if not await is_fts_enabled(message.chat_id):
@@ -143,7 +138,7 @@ async def import_chat_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await status_msg.edit_text("Rebuilding search index...")
         await import_chat_stats_rows(message.chat_id, batch)
 
-        logging.info(f"Import completed: {len(batch):,} messages processed.")
+        logger.info("Import completed: %s messages processed.", f"{len(batch):,}")
         await status_msg.edit_text(
             f"Import complete! {len(batch):,} messages imported."
         )

@@ -144,7 +144,7 @@ def _required_string(data: dict[str, object], key: str) -> str:
 def _parse_cron_draft(content: str) -> CronDraft:
     parsed = json.loads(content)
     if not isinstance(parsed, dict):
-        raise RuntimeError("AI returned invalid cron metadata.")
+        raise TypeError("AI returned invalid cron metadata.")
 
     draft = CronDraft(
         title=_required_string(parsed, "title"),
@@ -176,7 +176,7 @@ async def generate_cron_draft(user_request: str) -> CronDraft:
 
     content = first_message_content(response)
     if not isinstance(content, str):
-        raise RuntimeError("AI returned no cron metadata.")
+        raise TypeError("AI returned no cron metadata.")
     return _parse_cron_draft(content)
 
 
@@ -226,8 +226,9 @@ async def create_cron_task(chat_id: int, user_id: int, draft: CronDraft) -> Cron
 
 
 async def load_cron_tasks(where_sql: str, params: tuple[object, ...]) -> list[CronTask]:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             f"""
             SELECT {CRON_TASK_COLUMNS}
             FROM cron_tasks
@@ -235,8 +236,9 @@ async def load_cron_tasks(where_sql: str, params: tuple[object, ...]) -> list[Cr
             ORDER BY id;
             """,
             params,
-        ) as cursor:
-            rows = await cursor.fetchall()
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
     return [_task_from_row(row) for row in rows]
 
 
@@ -297,8 +299,9 @@ async def delete_owned_cron_task(
 
 
 async def load_recent_cron_runs(task_id: int) -> list[CronRun]:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT status, result_text, error_text, start_time, finish_time
             FROM cron_runs
@@ -307,8 +310,9 @@ async def load_recent_cron_runs(task_id: int) -> list[CronRun]:
             LIMIT 5;
             """,
             (task_id,),
-        ) as cursor:
-            rows = await cursor.fetchall()
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
     ordered_rows = list(rows)
     ordered_rows.reverse()
     return [_run_from_row(row) for row in ordered_rows]
@@ -441,17 +445,13 @@ async def run_cron_task(context: ContextTypes.DEFAULT_TYPE, task_id: int) -> Non
         await send_markdown_or_plain(
             context.bot,
             task.chat_id,
-            text=(
-                f"⏰ **{task.title}**\n\n"
-                f"{result_text}\n\n"
-                f"@{username}"
-            ),
+            text=(f"⏰ **{task.title}**\n\n{result_text}\n\n@{username}"),
             disable_web_page_preview=True,
             document_name="cron-result.txt",
             reply_markup=cron_delete_keyboard(task.id),
         )
         await record_cron_run(task.id, "success", result_text, None, start_time)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.exception("Cron task %s failed", task.id)
         error_text = str(exc)
         await record_cron_run(task.id, "error", None, error_text, start_time)

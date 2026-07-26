@@ -4,6 +4,7 @@ import io
 
 from telegram import Message, Update
 from telegram.constants import ParseMode
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 import commands
@@ -24,7 +25,6 @@ async def text_grabber(
     separator_index = context.args.index("-")
     text = " ".join(context.args[separator_index + 1 :])
     return (text, context.args[0]) if text else None
-
 
 
 @command(
@@ -64,6 +64,7 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     import gtts.lang
     from gtts import gTTS
+    from gtts.tts import gTTSError
 
     message = get_message(update)
     if not message:
@@ -99,5 +100,5 @@ async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         tts_obj.write_to_fp(fp)
         fp.seek(0)
         await message.reply_voice(fp)
-    except Exception:
+    except (gTTSError, OSError, TelegramError, ValueError):
         await message.reply_text("Could not generate speech for that text.")

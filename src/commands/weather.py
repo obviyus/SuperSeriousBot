@@ -32,16 +32,18 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if context.args:
         query = " ".join(context.args)
     else:
-        async with get_db() as conn:
-            async with conn.execute(
+        async with (
+            get_db() as conn,
+            conn.execute(
                 "SELECT latitude, longitude FROM weather_cache WHERE user_id = ?",
                 (message.from_user.id,),
-            ) as cursor:
-                row = await cursor.fetchone()
+            ) as cursor,
+        ):
+            row = await cursor.fetchone()
         if not row:
             await commands.usage_string(message, weather)
             return
-        query = f'{float(row["latitude"])},{float(row["longitude"])}'
+        query = f"{float(row['latitude'])},{float(row['longitude'])}"
 
     weatherapi_token = config.API.WEATHERAPI_API_KEY
     waqi_token = config.API.WAQI_API_KEY
@@ -66,16 +68,20 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             data = {
                 "address": ", ".join(
                     part
-                    for part in (location["name"], location["region"], location["country"])
+                    for part in (
+                        location["name"],
+                        location["region"],
+                        location["country"],
+                    )
                     if part
                 ),
                 "latitude": float(location["lat"]),
                 "longitude": float(location["lon"]),
-                "temperature": f'{current["temp_c"]:.1f} °C',
-                "feels_like": f'{current["feelslike_c"]:.1f} °C',
+                "temperature": f"{current['temp_c']:.1f} °C",
+                "feels_like": f"{current['feelslike_c']:.1f} °C",
                 "condition": current["condition"]["text"],
-                "humidity": f'{current["humidity"]}%',
-                "wind": f'{current["wind_kph"]:.1f} km/h {current["wind_dir"]}',
+                "humidity": f"{current['humidity']}%",
+                "wind": f"{current['wind_kph']:.1f} km/h {current['wind_dir']}",
                 "pm2_5": format_pollutant(air_quality.get("pm2_5")),
                 "pm10": format_pollutant(air_quality.get("pm10")),
             }
@@ -88,7 +94,11 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await message.reply_text(WEATHER_ERROR_TEXT)
                 return
             aqi_value = raw_aqi["data"].get("aqi")
-            data["aqi"] = "Unavailable" if aqi_value is None or aqi_value == "-" else str(int(aqi_value))
+            data["aqi"] = (
+                "Unavailable"
+                if aqi_value is None or aqi_value == "-"
+                else str(int(aqi_value))
+            )
     except (aiohttp.ClientError, KeyError, TypeError, ValueError):
         await message.reply_text(WEATHER_ERROR_TEXT)
         return
@@ -105,7 +115,12 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     address = excluded.address,
                     update_time = CURRENT_TIMESTAMP
                 """,
-                (message.from_user.id, data["latitude"], data["longitude"], data["address"]),
+                (
+                    message.from_user.id,
+                    data["latitude"],
+                    data["longitude"],
+                    data["address"],
+                ),
             )
 
     await message.reply_text(
@@ -122,7 +137,6 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 🏭 <b>PM10:</b> {html.escape(str(data["pm10"]))}""",
         parse_mode=ParseMode.HTML,
     )
-
 
 
 def format_pollutant(value: float | None) -> str:

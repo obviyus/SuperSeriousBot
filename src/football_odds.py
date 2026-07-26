@@ -55,7 +55,7 @@ def contains_team_name(text: str, team: str) -> bool:
 
 
 def parse_time(value: str) -> datetime.datetime:
-    return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return datetime.datetime.fromisoformat(value)
 
 
 def tracked_teams(fixture: OddsFixture) -> list[str]:
@@ -100,7 +100,7 @@ async def search_polymarket(
             payload = string_mapping(await response.json())
         event_values = payload.get("events") if payload is not None else None
         if not isinstance(event_values, list):
-            raise ValueError("Polymarket search returned an invalid response.")
+            raise TypeError("Polymarket search returned an invalid response.")
         for value in event_values:
             event = string_mapping(value)
             if event is not None and "id" in event:

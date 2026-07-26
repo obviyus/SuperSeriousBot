@@ -1,4 +1,5 @@
 import os
+import sys
 from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
@@ -83,4 +84,4 @@ try:
 except ValueError as e:
     logger.error("Invalid configuration found.")
     logger.error(str(e))
-    exit(1)
+    sys.exit(1)

@@ -5,7 +5,7 @@ from functools import wraps
 
 from telegram import Message, Update
 from telegram.constants import ChatAction, ChatType, ParseMode, ReactionEmoji
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
 from config import logger
@@ -104,8 +104,9 @@ async def ensure_command_available(
         await message.reply_text("This command is not available in private chats.")
         return False
 
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT 1
             FROM command_whitelist
@@ -116,9 +117,10 @@ async def ensure_command_available(
             );
             """,
             (command, whitelist_chat_id, user_id),
-        ) as cursor:
-            if await cursor.fetchone():
-                return True
+        ) as cursor,
+    ):
+        if await cursor.fetchone():
+            return True
 
     if message.chat.type == ChatType.PRIVATE:
         await message.reply_text("This command is not available in private chats.")
@@ -136,7 +138,9 @@ def command_wrapper(
     command_triggers: set[str],
 ) -> CommandHandler_T:
     @wraps(fn)
-    async def wrapped_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def wrapped_command(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         message = get_message(update)
         if not message:
             return
@@ -154,12 +158,13 @@ def command_wrapper(
             )
 
             command_name = sent_command(message)
-            if command_name and message.from_user:
-                if await _is_blocked(message.from_user.id, command_name):
-                    await message.reply_text(
-                        "❌ You are blocked from using this command."
-                    )
-                    return
+            if (
+                command_name
+                and message.from_user
+                and await _is_blocked(message.from_user.id, command_name)
+            ):
+                await message.reply_text("❌ You are blocked from using this command.")
+                return
 
             schedule_background_task(set_command_reaction(), "command-reaction")
 
@@ -179,8 +184,8 @@ def command_wrapper(
             logger.error(traceback.format_exc())
             try:
                 await message.reply_text("Something went wrong. Please try again.")
-            except Exception:
-                pass
+            except TelegramError:
+                logger.exception("Failed to send command error response")
             raise
 
     return wrapped_command

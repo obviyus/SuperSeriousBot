@@ -1,6 +1,6 @@
 import asyncio
 import html
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from telegram import Message, Update
 from telegram.constants import ParseMode
@@ -18,7 +18,9 @@ from utils.messages import get_message
 _DOW_NAMES = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
 
 
-def _message_link(chat_id: int, message_id: int, chat_username: str | None) -> str | None:
+def _message_link(
+    chat_id: int, message_id: int, chat_username: str | None
+) -> str | None:
     if not message_id:
         return None
     if chat_username:
@@ -56,9 +58,14 @@ async def reply_chat_stats(
     names = await asyncio.gather(
         *(utils.get_first_name(user_id, context) for _, user_id, _ in rows)
     )
-    lines = [f"Stats for <b>{html.escape(message.chat.title or str(message.chat_id))}:</b>", ""]
+    lines = [
+        f"Stats for <b>{html.escape(message.chat.title or str(message.chat_id))}:</b>",
+        "",
+    ]
     for (_, _user_id, count), name in zip(rows, names, strict=True):
-        lines.append(f"<code>{count / total_count * 100:4.1f}% - {html.escape(name)}</code>")
+        lines.append(
+            f"<code>{count / total_count * 100:4.1f}% - {html.escape(name)}</code>"
+        )
     lines.append(f"\nTotal messages: <b>{total_count}</b>")
     await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
@@ -141,7 +148,6 @@ def _format_horizontal_bars(
     return "\n".join(lines)
 
 
-
 @command(
     triggers=["stats"],
     usage="/stats",
@@ -183,19 +189,19 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat_id = message.chat_id
 
     if context.args and "@" in context.args[0]:
-        async with get_db() as conn:
-            async with conn.execute(
+        async with (
+            get_db() as conn,
+            conn.execute(
                 "SELECT user_id, username FROM user_stats WHERE LOWER(username) = ?",
                 (context.args[0].split("@", 1)[1].lower(),),
-            ) as cursor:
-                row = await cursor.fetchone()
+            ) as cursor,
+        ):
+            row = await cursor.fetchone()
         user_id = int(row["user_id"]) if row else None
         username_display = row["username"] if row else None
     else:
         user = (
-            message.reply_to_message.from_user
-            if message.reply_to_message
-            else None
+            message.reply_to_message.from_user if message.reply_to_message else None
         ) or message.from_user
         user_id = user.id if user else None
         username_display = (user.username or user.full_name) if user else None
@@ -206,7 +212,7 @@ async def get_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     # Build the last 7 days (oldest -> newest) date keys in localtime
-    today_local = datetime.now()
+    today_local = datetime.now(UTC).astimezone()
     day_keys: list[str] = []
     day_labels: list[str] = []
     for i in range(6, -1, -1):

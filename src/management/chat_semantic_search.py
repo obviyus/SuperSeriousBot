@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import re
 import time
 from dataclasses import dataclass
@@ -17,6 +16,7 @@ from chat_search_config import (
 )
 from commands.ai import first_message_content
 from config.db import get_db
+from config.logger import logger
 from config.options import config
 from management.chat_search_cache import open_search_cache
 from openrouter_embeddings import (
@@ -113,8 +113,9 @@ async def fetch_search_evidence(
         for rank, candidate in enumerate(candidates)
         for value in (candidate.remote_id, rank)
     ]
-    async with get_db() as connection:
-        async with connection.execute(
+    async with (
+        get_db() as connection,
+        connection.execute(
             f"""
             WITH candidates(remote_id, rank) AS (VALUES {values})
             SELECT
@@ -145,8 +146,9 @@ async def fetch_search_evidence(
                 author_id,
                 VECTOR_RESULT_COUNT,
             ),
-        ) as cursor:
-            rows = await cursor.fetchall()
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
     scores = {candidate.remote_id: candidate.score for candidate in candidates}
     return [
         SearchEvidence(
@@ -236,7 +238,7 @@ async def answer_from_evidence(
         raise RuntimeError("OpenRouter returned an empty search answer.")
     usage = data.get("usage")
     if isinstance(usage, dict):
-        logging.info(
+        logger.info(
             "Search answer usage: prompt_tokens=%s completion_tokens=%s total_tokens=%s",
             usage.get("prompt_tokens"),
             usage.get("completion_tokens"),
@@ -295,7 +297,7 @@ async def semantic_search_answer(
         retrieved = time.monotonic()
         answer = await answer_from_evidence(session, query, evidence)
         answered = time.monotonic()
-        logging.info(
+        logger.info(
             "Semantic search timings: chat_id=%s embedding_ms=%d retrieval_ms=%d answer_ms=%d evidence=%d",
             chat_id,
             round((embedded - started) * 1000),

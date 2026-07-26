@@ -18,14 +18,15 @@ IST_ALIAS_PATTERN = re.compile(r"\bIST\b", re.IGNORECASE)
 REMINDER_BATCH_LIMIT = 50
 
 
-def tg_time(unix_time: int, fallback_text: str, format_string: str | None = None) -> str:
+def tg_time(
+    unix_time: int, fallback_text: str, format_string: str | None = None
+) -> str:
     format_attr = f' format="{format_string}"' if format_string else ""
     return (
         f'<tg-time unix="{unix_time}"{format_attr}>'
         f"{html.escape(fallback_text)}"
         "</tg-time>"
     )
-
 
 
 @command(
@@ -42,16 +43,18 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if not context.args:
-        async with get_db() as conn:
-            async with conn.execute(
+        async with (
+            get_db() as conn,
+            conn.execute(
                 """
                 SELECT title, target_time
                 FROM reminders
                 WHERE user_id = ? AND chat_id = ? AND target_time > STRFTIME('%s', 'now');
                 """,
                 (message.from_user.id, message.chat_id),
-            ) as cursor:
-                reminders = await cursor.fetchall()
+            ) as cursor,
+        ):
+            reminders = await cursor.fetchall()
 
         if reminders:
             text = "⏰ Your reminders in this chat:\n"
@@ -136,8 +139,9 @@ async def remind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
     now = int(datetime.datetime.now(datetime.UTC).timestamp())
 
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT id, title, target_time, user_id, chat_id
             FROM reminders
@@ -146,8 +150,9 @@ async def worker_reminder(context: ContextTypes.DEFAULT_TYPE):
             LIMIT ?;
             """,
             (now, REMINDER_BATCH_LIMIT),
-        ) as cursor:
-            existing_reminders = await cursor.fetchall()
+        ) as cursor,
+    ):
+        existing_reminders = await cursor.fetchall()
 
     for reminder in existing_reminders:
         async with get_db() as conn:

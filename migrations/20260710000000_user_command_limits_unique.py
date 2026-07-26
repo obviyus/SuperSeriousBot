@@ -24,6 +24,4 @@ def upgrade(connection):
 
 
 def downgrade(connection):
-    connection.execute(
-        "DROP INDEX IF EXISTS user_command_limits_user_command_unique"
-    )
+    connection.execute("DROP INDEX IF EXISTS user_command_limits_user_command_unique")

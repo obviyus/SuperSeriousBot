@@ -3,7 +3,6 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from config.db import get_db
-from config.logger import logger
 from utils.admin import is_admin
 from utils.decorators import command
 from utils.messages import get_message
@@ -38,26 +37,21 @@ async def _update_blocklist(
 
     command = args[1].lower()
 
-    try:
-        async with get_db() as conn:
-            if remove:
-                result = await conn.execute(
-                    "DELETE FROM command_blocklist WHERE user_id = ? AND command = ?",
-                    (user_id, command),
-                )
-            else:
-                await conn.execute(
-                    """
-                    INSERT INTO command_blocklist (user_id, command, blocked_by)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(user_id, command) DO NOTHING
-                    """,
-                    (user_id, command, update.effective_user.id),
-                )
-    except Exception as e:
-        logger.exception("Failed to update command blocklist: %s", e)
-        await message.reply_text("❌ Could not update the blocklist.")
-        return
+    async with get_db() as conn:
+        if remove:
+            result = await conn.execute(
+                "DELETE FROM command_blocklist WHERE user_id = ? AND command = ?",
+                (user_id, command),
+            )
+        else:
+            await conn.execute(
+                """
+                INSERT INTO command_blocklist (user_id, command, blocked_by)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id, command) DO NOTHING
+                """,
+                (user_id, command, update.effective_user.id),
+            )
 
     if remove:
         await message.reply_text(
@@ -110,15 +104,17 @@ async def show_blocklist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await message.reply_text("❌ This command is only available to admins")
         return
 
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT user_id, command, blocked_by, blocked_at
             FROM command_blocklist
             ORDER BY blocked_at DESC
             """
-        ) as cursor:
-            blocks = await cursor.fetchall()
+        ) as cursor,
+    ):
+        blocks = await cursor.fetchall()
 
     if not blocks:
         await message.reply_text("No blocked users found.")

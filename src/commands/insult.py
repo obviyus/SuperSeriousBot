@@ -19,15 +19,17 @@ async def insult(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     insult_response: str = ""
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 "https://evilinsult.com/generate_insult.php",
                 params={"lang": "en", "type": "json"},
                 timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                data = await resp.json()
-                insult_response = data.get("insult", "")
-    except Exception:
+            ) as resp,
+        ):
+            data = await resp.json()
+            insult_response = data.get("insult", "")
+    except (aiohttp.ClientError, TimeoutError, ValueError):
         insult_response = "I'm too polite to insult right now."
 
     if message.reply_to_message:

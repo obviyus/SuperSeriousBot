@@ -48,7 +48,7 @@ async def post_init(application: Application) -> None:
     await sync_search_cache()
     logger.info(f"Started @{application.bot.username} (ID: {application.bot.id})")
 
-    bot_startup_time = datetime.datetime.now().timestamp()
+    bot_startup_time = datetime.datetime.now(datetime.UTC).timestamp()
 
     logging_channel_id = config.TELEGRAM.LOGGING_CHANNEL_ID
     if logging_channel_id:
@@ -56,7 +56,7 @@ async def post_init(application: Application) -> None:
 
         await application.bot.send_message(
             chat_id=logging_channel_id,
-            text=f"📝 Started @{application.bot.username} (ID: {application.bot.id}) at {datetime.datetime.now()}",
+            text=f"📝 Started @{application.bot.username} (ID: {application.bot.id}) at {datetime.datetime.now(datetime.UTC).astimezone()}",
         )
 
     await application.bot.set_my_commands(

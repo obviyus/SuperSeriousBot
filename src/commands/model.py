@@ -29,23 +29,27 @@ def normalize_model_name(model_name: str) -> str:
 
 async def get_model(command: str) -> str:
     column = f"{command}_model"
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             f"SELECT {column} FROM group_settings WHERE chat_id = ?",
             (GLOBAL_CHAT_ID,),
-        ) as cursor:
-            result = await cursor.fetchone()
-            return result[0] if result and result[0] else DEFAULT_MODELS[command]
+        ) as cursor,
+    ):
+        result = await cursor.fetchone()
+        return result[0] if result and result[0] else DEFAULT_MODELS[command]
 
 
 async def get_thinking() -> str:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             "SELECT ask_thinking FROM group_settings WHERE chat_id = ?",
             (GLOBAL_CHAT_ID,),
-        ) as cursor:
-            result = await cursor.fetchone()
-            return result[0] if result and result[0] else DEFAULT_THINKING_LEVEL
+        ) as cursor,
+    ):
+        result = await cursor.fetchone()
+        return result[0] if result and result[0] else DEFAULT_THINKING_LEVEL
 
 
 @command(
@@ -64,12 +68,14 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not context.args:
         columns = ", ".join(f"{name}_model" for name in MODEL_COMMANDS)
-        async with get_db() as conn:
-            async with conn.execute(
+        async with (
+            get_db() as conn,
+            conn.execute(
                 f"SELECT {columns} FROM group_settings WHERE chat_id = ?",
                 (GLOBAL_CHAT_ID,),
-            ) as cursor:
-                result = await cursor.fetchone()
+            ) as cursor,
+        ):
+            result = await cursor.fetchone()
 
         models = {
             name: (result[index] if result and result[index] else DEFAULT_MODELS[name])
@@ -79,7 +85,9 @@ async def model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         text += "\n".join(
             f"• <b>/{name}</b>: <code>{models[name]}</code>" for name in MODEL_COMMANDS
         )
-        text += "\n\n<b>Usage:</b> <code>/model &lt;command&gt; &lt;model_name&gt;</code>\n"
+        text += (
+            "\n\n<b>Usage:</b> <code>/model &lt;command&gt; &lt;model_name&gt;</code>\n"
+        )
         text += f"<b>Commands:</b> {MODEL_COMMAND_LIST}\n\n"
         text += "<b>Examples:</b>\n"
         text += "• <code>/model ask openrouter/google/gemini-3.0-flash</code>\n"

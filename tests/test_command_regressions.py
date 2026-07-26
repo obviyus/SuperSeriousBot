@@ -211,7 +211,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(url, "https://dog.ceo/api/breed/shiba/images/random")
         self.assertEqual(
-            extract_url({"status": "success", "message": "https://example.com/shiba.jpg"}),
+            extract_url(
+                {"status": "success", "message": "https://example.com/shiba.jpg"}
+            ),
             "https://example.com/shiba.jpg",
         )
 
@@ -228,9 +230,14 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 if func.attr not in USER_REPLY_METHODS:
                     continue
                 text_parts = []
-                for argument in (*node.args, *(keyword.value for keyword in node.keywords)):
+                for argument in (
+                    *node.args,
+                    *(keyword.value for keyword in node.keywords),
+                ):
                     for child in ast.walk(argument):
-                        if isinstance(child, ast.Constant) and isinstance(child.value, str):
+                        if isinstance(child, ast.Constant) and isinstance(
+                            child.value, str
+                        ):
                             text_parts.append(child.value)
                 user_text = "\n".join(text_parts)
                 for forbidden in FORBIDDEN_USER_COPY:
@@ -358,7 +365,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(gif_module, "get_message", return_value=message),
             patch.object(gif_module.config.API, "KLIPY_API_KEY", "klipy-key"),
-            patch("aiohttp.ClientSession", return_value=FakeSession(FakeResponse(data))),
+            patch(
+                "aiohttp.ClientSession", return_value=FakeSession(FakeResponse(data))
+            ),
         ):
             await gif_module.gif(SimpleNamespace(), SimpleNamespace())
 
@@ -411,7 +420,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(weather_module, "get_message", return_value=message),
-            patch.object(weather_module.config.API, "WEATHERAPI_API_KEY", "weather-key"),
+            patch.object(
+                weather_module.config.API, "WEATHERAPI_API_KEY", "weather-key"
+            ),
             patch.object(weather_module.config.API, "WAQI_API_KEY", "waqi-key"),
             patch(
                 "aiohttp.ClientSession",
@@ -575,7 +586,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_turso_adapter_binds_datetimes_as_sqlite_text(self):
         conn = db.TursoConnection(libsql.connect(":memory:", autocommit=True))
-        seen_at = datetime(2026, 6, 5, 7, 58, 2, 221759)
+        seen_at = datetime(2026, 6, 5, 7, 58, 2, 221759)  # noqa: DTZ001
 
         await conn.execute("CREATE TABLE sightings (seen_at TEXT NOT NULL)")
         await conn.execute("INSERT INTO sightings (seen_at) VALUES (?)", (seen_at,))
@@ -691,7 +702,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_turso_open_retries_hrana_closed_stream(self):
         failed = FakeSyncConnection(
-            ValueError("Hrana: `http error: `connection closed before message completed``")
+            ValueError(
+                "Hrana: `http error: `connection closed before message completed``"
+            )
         )
         recovered = FakeSyncConnection()
 
@@ -714,9 +727,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(db, "open_sync_connection", return_value=failed) as connect,
             patch.object(db.asyncio, "sleep", AsyncMock()) as sleep,
+            self.assertRaisesRegex(ValueError, "syntax error"),
         ):
-            with self.assertRaisesRegex(ValueError, "syntax error"):
-                await db._open_connection()
+            await db._open_connection()
 
         self.assertEqual(connect.call_count, 1)
         self.assertTrue(failed.closed)

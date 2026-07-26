@@ -70,8 +70,9 @@ def build_windows(
 
 
 async def searchable_chat_ids() -> list[int]:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT settings.chat_id
             FROM group_settings settings
@@ -88,14 +89,16 @@ async def searchable_chat_ids() -> list[int]:
             GROUP BY settings.chat_id
             ORDER BY MAX(windows.update_time), settings.chat_id
             """
-        ) as cursor:
-            rows = await cursor.fetchall()
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
     return [row["chat_id"] for row in rows]
 
 
 async def source_chat_ids() -> list[int]:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT chat_id
             FROM chat_stats
@@ -104,14 +107,16 @@ async def source_chat_ids() -> list[int]:
             GROUP BY chat_id
             ORDER BY COUNT(*) DESC
             """
-        ) as cursor:
-            rows = await cursor.fetchall()
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
     return [row["chat_id"] for row in rows]
 
 
 async def resume_window_start(chat_id: int) -> int | None:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT COALESCE(
                 MIN(
@@ -132,8 +137,9 @@ async def resume_window_start(chat_id: int) -> int | None:
                 EMBEDDING_MODEL,
                 EMBEDDING_DIMENSIONS,
             ),
-        ) as cursor:
-            row = await cursor.fetchone()
+        ) as cursor,
+    ):
+        row = await cursor.fetchone()
     return row["start_message_id"] if row and row["start_message_id"] else None
 
 
@@ -143,8 +149,9 @@ async def source_messages(
     window_limit: int,
 ) -> list[SourceMessage]:
     row_limit = WINDOW_STRIDE * window_limit + WINDOW_MESSAGE_COUNT
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT
                 cs.message_id,
@@ -163,8 +170,9 @@ async def source_messages(
             LIMIT ?
             """,
             (chat_id, start_message_id, start_message_id, row_limit),
-        ) as cursor:
-            rows = await cursor.fetchall()
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
     return [
         SourceMessage(
             message_id=row["message_id"],
@@ -180,8 +188,9 @@ async def existing_windows(
     chat_id: int,
     start_message_id: int | None,
 ) -> set[tuple[int, int]]:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT start_message_id, end_message_id
             FROM chat_search_windows
@@ -197,8 +206,9 @@ async def existing_windows(
                 start_message_id,
                 start_message_id,
             ),
-        ) as cursor:
-            rows = await cursor.fetchall()
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
     return {(row["start_message_id"], row["end_message_id"]) for row in rows}
 
 

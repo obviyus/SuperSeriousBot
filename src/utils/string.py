@@ -1,14 +1,14 @@
-from datetime import datetime
+import time
 
 from async_lru import alru_cache
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
 from config.db import get_db
 
 
 async def readable_time(input_timestamp: int) -> str:
-    seconds = abs(round(datetime.now().timestamp()) - input_timestamp)
+    seconds = abs(round(time.time()) - input_timestamp)
     for limit, unit, divisor in (
         (60, "second", 1),
         (3600, "minute", 60),
@@ -30,19 +30,21 @@ async def get_username(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> str:
     """
     Get the username and/or first_name for a user_id.
     """
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             "SELECT username FROM user_stats WHERE user_id = ?",
             (user_id,),
-        ) as cursor:
-            result = await cursor.fetchone()
+        ) as cursor,
+    ):
+        result = await cursor.fetchone()
 
     if result and result["username"]:
         return result["username"]
 
     try:
         chat = await context.bot.get_chat(user_id)
-    except Exception:
+    except TelegramError:
         return f"{user_id}"
 
     if chat.username:
@@ -69,11 +71,13 @@ async def get_user_id_from_username(username: str) -> int | None:
     """
     Get the user_id from a username.
     """
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             "SELECT user_id FROM user_stats WHERE LOWER(username) = ?",
             (username.lower().replace("@", ""),),
-        ) as cursor:
-            result = await cursor.fetchone()
+        ) as cursor,
+    ):
+        result = await cursor.fetchone()
 
     return int(result["user_id"]) if result else None

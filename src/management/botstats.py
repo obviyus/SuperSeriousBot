@@ -9,9 +9,8 @@ from utils.messages import get_message
 
 
 async def _fetch_scalar(query: str, key: int | str = 0) -> int:
-    async with get_db() as conn:
-        async with conn.execute(query) as cursor:
-            result = await cursor.fetchone()
+    async with get_db() as conn, conn.execute(query) as cursor:
+        result = await cursor.fetchone()
     return result[key] if result and result[key] else 0
 
 
@@ -96,8 +95,9 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     message = get_message(update)
     if not message:
         return
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT *, COUNT(id) AS command_count
             FROM command_stats
@@ -105,8 +105,9 @@ async def get_command_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             ORDER BY COUNT(id) DESC
             LIMIT 10;
             """
-        ) as cursor:
-            rows = await cursor.fetchall()
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
     total_count = await _fetch_scalar(
         "SELECT id FROM main.command_stats ORDER BY id DESC LIMIT 1;",
         "id",
@@ -130,16 +131,18 @@ async def get_object_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     message = get_message(update)
     if not message:
         return
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT key, fetch_count
             FROM object_store
             ORDER BY fetch_count DESC
             LIMIT 10;
             """
-        ) as cursor:
-            rows = await cursor.fetchall()
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
     total_fetch_count = await _fetch_scalar(
         "SELECT SUM(fetch_count) AS fetch_count FROM main.object_store;",
         "fetch_count",

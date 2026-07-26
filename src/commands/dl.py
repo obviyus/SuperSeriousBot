@@ -1,4 +1,5 @@
 import io
+import json
 from urllib.parse import ParseResult, urlparse
 
 import aiohttp
@@ -17,8 +18,12 @@ from utils.messages import get_message
 MAX_MEDIA_COUNT = 10
 MAX_DOWNLOAD_SIZE = 47 * (1 << 20)
 DOWNLOAD_CHUNK_SIZE = 256 * 1024
-COBALT_TIMEOUT = aiohttp.ClientTimeout(total=45, connect=10, sock_connect=10, sock_read=30)
-MEDIA_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=10, sock_connect=10, sock_read=45)
+COBALT_TIMEOUT = aiohttp.ClientTimeout(
+    total=45, connect=10, sock_connect=10, sock_read=30
+)
+MEDIA_TIMEOUT = aiohttp.ClientTimeout(
+    total=120, connect=10, sock_connect=10, sock_read=45
+)
 
 
 def _cobalt_endpoint() -> str | None:
@@ -38,12 +43,14 @@ def _is_instagram_reel(url: ParseResult) -> bool:
 
 
 async def _is_auto_dl_enabled(chat_id: int) -> bool:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             "SELECT auto_dl FROM group_settings WHERE chat_id = ?",
             (chat_id,),
-        ) as cursor:
-            row = await cursor.fetchone()
+        ) as cursor,
+    ):
+        row = await cursor.fetchone()
     return bool(row and row["auto_dl"])
 
 
@@ -99,7 +106,7 @@ async def _fetch_and_send(
     except BadRequest as e:
         logger.error(f"Failed to send media: {e}")
         await message.reply_text("Media unavailable or too large.")
-    except Exception as e:
+    except (aiohttp.ClientError, OSError, TimeoutError) as e:
         logger.error(f"Failed to download media: {e}")
         await message.reply_text("Failed to download media.")
 
@@ -115,12 +122,15 @@ async def _download_media(message: Message, target: str) -> None:
         async with aiohttp.ClientSession(timeout=COBALT_TIMEOUT) as session:
             async with session.post(
                 endpoint,
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
                 json={"url": target},
             ) as resp:
                 try:
                     data = await resp.json()
-                except Exception:
+                except (aiohttp.ContentTypeError, json.JSONDecodeError):
                     text = await resp.text()
                     raise RuntimeError(
                         f"Cobalt non-JSON response: {resp.status} {text[:120]}"
@@ -180,8 +190,16 @@ async def _download_media(message: Message, target: str) -> None:
                 )
                 return
 
-            await message.reply_text("Download service returned an unsupported response.")
-    except Exception as e:
+            await message.reply_text(
+                "Download service returned an unsupported response."
+            )
+    except (
+        aiohttp.ClientError,
+        KeyError,
+        RuntimeError,
+        TimeoutError,
+        TypeError,
+    ) as e:
         logger.error(f"Cobalt error: {e}")
         await message.reply_text("Failed to fetch media.")
 
@@ -205,9 +223,7 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await _download_media(message, _target_url(url))
 
 
-async def auto_dl_message_handler(
-    update: Update, _: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def auto_dl_message_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
     if not message or not message.from_user or message.from_user.is_bot:
         return

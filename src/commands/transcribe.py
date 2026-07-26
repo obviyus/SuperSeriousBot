@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 
 from telegram import Update
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 import commands
@@ -22,7 +23,6 @@ from utils.decorators import command
 from utils.messages import get_message
 
 FALLBACK_PROMPT = "Please transcribe this audio file. No wall of text, keep it readable, suitable for a Telegram message. Begin transcript immediately without any commentary."
-
 
 
 async def _convert_audio_to_wav(
@@ -69,7 +69,6 @@ async def _convert_audio_to_wav(
     return await asyncio.to_thread(_run)
 
 
-
 @command(
     triggers=["tr"],
     usage="/tr [optional instructions]",
@@ -103,7 +102,11 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         file_id = reply.audio.file_id
         mime_type = reply.audio.mime_type
         source_summary = "audio file"
-    elif reply.document and reply.document.mime_type and reply.document.mime_type.startswith("audio/"):
+    elif (
+        reply.document
+        and reply.document.mime_type
+        and reply.document.mime_type.startswith("audio/")
+    ):
         file_id = reply.document.file_id
         mime_type = reply.document.mime_type
         source_summary = "audio document"
@@ -119,7 +122,7 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     try:
         telegram_file = await context.bot.getFile(file_id)
         audio_bytes = bytes(await telegram_file.download_as_bytearray())
-    except Exception as exc:  # pragma: no cover - Telegram I/O
+    except TelegramError as exc:  # pragma: no cover - Telegram I/O
         logger.exception("Failed to download audio for transcription: %s", exc)
         await message.reply_text("I couldn't download that audio.")
         return
@@ -150,8 +153,7 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                     {
                         "type": "text",
                         "text": (
-                            f"You are transcribing a {source_summary}. "
-                            f"{instruction}"
+                            f"You are transcribing a {source_summary}. {instruction}"
                         ).strip(),
                     },
                     {
@@ -165,23 +167,25 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     headers = openrouter_headers(api_key_value)
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
+    async with (
+        aiohttp.ClientSession() as session,
+        session.post(
             OPENROUTER_API_URL,
             headers=headers,
             json=payload,
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                logger.error(
-                    "Transcription request failed (%s): %s",
-                    response.status,
-                    error_text,
-                )
-                await message.reply_text("Transcription failed. Please try again.")
-                return
+        ) as response,
+    ):
+        if response.status != 200:
+            error_text = await response.text()
+            logger.error(
+                "Transcription request failed (%s): %s",
+                response.status,
+                error_text,
+            )
+            await message.reply_text("Transcription failed. Please try again.")
+            return
 
-            data = await response.json()
+        data = await response.json()
 
     choices = data.get("choices") or []
     content = choices[0].get("message", {}).get("content") if choices else None
@@ -191,7 +195,9 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         transcript = "\n".join(
             item["text"]
             for item in content
-            if isinstance(item, dict) and item.get("type") == "text" and item.get("text")
+            if isinstance(item, dict)
+            and item.get("type") == "text"
+            and item.get("text")
         ).strip()
     else:
         transcript = ""

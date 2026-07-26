@@ -32,7 +32,9 @@ async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             UD_API_URL,
             {"term": " ".join(context.args).lower()},
         )
-        definition = max(entries, key=lambda entry: entry["thumbs_up"]) if entries else {}
+        definition = (
+            max(entries, key=lambda entry: entry["thumbs_up"]) if entries else {}
+        )
         wotd_prefix = ""
 
     if not definition:
@@ -60,21 +62,22 @@ async def _fetch_ud_entries(url: str, params: dict | None = None) -> list[dict]:
     import aiohttp
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 url,
                 headers={"User-Agent": "SuperSeriousBot", "Accept": "application/json"},
                 params=params,
-            ) as response:
-                if response.status != 200:
-                    return []
-                data = await response.json()
+            ) as response,
+        ):
+            if response.status != 200:
+                return []
+            data = await response.json()
     except aiohttp.ClientError:
         return []
     if "error" in data or not data.get("list"):
         return []
     return data["list"]
-
 
 
 def truncate_text(text: str, max_length: int = MAX_DEFINITION_LENGTH) -> str:

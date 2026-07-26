@@ -23,16 +23,6 @@ dependencies = [
 
 
 [tool.ruff.lint]
-select = [
-  "E",     # pycodestyle errors
-  "F",     # pyflakes
-  "W",     # pycodestyle warnings
-  "I",     # isort
-  "UP",    # pyupgrade (auto-fixable)
-  "ASYNC", # async best practices
-  "B",     # bugbear
-  "RUF",   # ruff-specific
-]
 ignore = [
   "E501", # line length (handled by formatter/line-length)
 ]
@@ -40,7 +30,7 @@ ignore = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "ruff>=0.15.18",
+    "ruff>=0.16.0",
     "ty>=0.0.31",
 ]
 

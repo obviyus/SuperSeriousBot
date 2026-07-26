@@ -13,7 +13,9 @@ from utils.decorators import command
 from utils.messages import get_message
 
 
-async def _fetch_random_quote(conn, query_conditions: str, params: list[int], chat_id: int):
+async def _fetch_random_quote(
+    conn, query_conditions: str, params: list[int], chat_id: int
+):
     async with conn.execute(
         f"SELECT * FROM quote_db {query_conditions} AND id NOT IN (SELECT quote_id FROM quote_recent_history WHERE chat_id = ?) ORDER BY RANDOM() LIMIT 1;",
         (*params, chat_id),
@@ -128,7 +130,9 @@ async def get_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         row = await _fetch_random_quote(conn, query_conditions, params, message.chat_id)
         if not row:
             await conn.execute(clear_history_sql, clear_history_params)
-            row = await _fetch_random_quote(conn, query_conditions, params, message.chat_id)
+            row = await _fetch_random_quote(
+                conn, query_conditions, params, message.chat_id
+            )
 
         if not row:
             await message.reply_text(no_quote_text, parse_mode=ParseMode.HTML)

@@ -1,6 +1,7 @@
 import io
 
 from telegram import InlineKeyboardMarkup, Message, Update
+from telegram.error import BadRequest
 from telegram.ext import ExtBot
 
 
@@ -35,8 +36,8 @@ async def reply_markdown_or_plain(
                 disable_web_page_preview=disable_web_page_preview,
                 parse_mode="MarkdownV2",
             )
-    except Exception:
-        pass
+    except (BadRequest, TypeError, ValueError):
+        formatted = None
 
     if len(text) <= 4096:
         return await message.reply_text(
@@ -70,8 +71,8 @@ async def send_markdown_or_plain(
                 parse_mode="MarkdownV2",
                 reply_markup=reply_markup,
             )
-    except Exception:
-        pass
+    except (BadRequest, TypeError, ValueError):
+        formatted = None
 
     if len(text) <= 4096:
         return await bot.send_message(

@@ -48,7 +48,9 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 (chat_id, user_id, user_id, user_id, user_id),
             ) as cursor:
                 if await cursor.fetchone() is None:
-                    await message.reply_text("You are not in this group's social graph.")
+                    await message.reply_text(
+                        "You are not in this group's social graph."
+                    )
                     return
 
             async with conn.execute(
@@ -83,7 +85,9 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     for row in await cursor.fetchall()
                 ]
 
-        user_ids = list({uid for uid, _ in edges_outgoing} | {uid for uid, _ in edges_incoming})
+        user_ids = list(
+            {uid for uid, _ in edges_outgoing} | {uid for uid, _ in edges_incoming}
+        )
         names: dict[int, str] = {}
         if user_ids:
             resolved_names = await asyncio.gather(
@@ -107,6 +111,6 @@ async def get_friends(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 text += f"\n<code>{weight:6} {arrow} {names.get(uid, str(uid))}</code>"
 
         await message.reply_text(text, parse_mode=ParseMode.HTML)
-    except Exception as e:
+    except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Error in get_friends: {e}")
         await message.reply_text("An error occurred while fetching your connections.")

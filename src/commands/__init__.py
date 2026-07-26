@@ -20,10 +20,38 @@ from utils.decorators import get_command_meta, get_registered_commands
 from utils.messages import get_message
 
 COMMAND_MODULE_NAMES = (
-    "animals", "ask", "book", "calc", "cron", "define", "dl", "football", "gif",
-    "graph", "habit", "highlight", "hltb", "insult", "joke", "meme", "model",
-    "ping", "quote", "remind", "search", "settings", "song", "spurdo", "store",
-    "summon", "tldr", "transcribe", "translate", "ud", "uwu", "weather",
+    "animals",
+    "ask",
+    "book",
+    "calc",
+    "cron",
+    "define",
+    "dl",
+    "football",
+    "gif",
+    "graph",
+    "habit",
+    "highlight",
+    "hltb",
+    "insult",
+    "joke",
+    "meme",
+    "model",
+    "ping",
+    "quote",
+    "remind",
+    "search",
+    "settings",
+    "song",
+    "spurdo",
+    "store",
+    "summon",
+    "tldr",
+    "transcribe",
+    "translate",
+    "ud",
+    "uwu",
+    "weather",
     "whitelist",
 )
 MANAGEMENT_MODULE_NAMES = ("blocks", "botstats", "stats")
@@ -41,9 +69,7 @@ summon = import_module(f"{__name__}.summon")
 highlight_button_handler = import_module(
     f"{__name__}.highlight"
 ).highlight_button_handler
-settings_button_handler = import_module(
-    f"{__name__}.settings"
-).settings_button_handler
+settings_button_handler = import_module(f"{__name__}.settings").settings_button_handler
 auto_dl_message_handler = dl.auto_dl_message_handler
 
 # Import side effects above register decorated commands.

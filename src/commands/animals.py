@@ -15,7 +15,6 @@ ANIMAL_APIS: dict[str, tuple[str, Callable]] = {
 }
 
 
-
 @command(
     triggers=["fox", "shiba", "cat"],
     usage="/fox, /shiba, /cat",

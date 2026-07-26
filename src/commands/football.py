@@ -127,18 +127,18 @@ def is_tracked_fixture(fixture: FootballFixture) -> bool:
 
 def required_mapping(value: object, field: str) -> dict[str, object]:
     if not isinstance(value, dict):
-        raise ValueError(f"ESPN response missing {field}.")
+        raise TypeError(f"ESPN response missing {field}.")
     result: dict[str, object] = {}
     for key, item in value.items():
         if not isinstance(key, str):
-            raise ValueError(f"ESPN response has an invalid {field} key.")
+            raise TypeError(f"ESPN response has an invalid {field} key.")
         result[key] = item
     return result
 
 
 def required_list(value: object, field: str) -> list[object]:
     if not isinstance(value, list):
-        raise ValueError(f"ESPN response missing {field}.")
+        raise TypeError(f"ESPN response missing {field}.")
     result: list[object] = []
     result.extend(value)
     return result
@@ -175,7 +175,7 @@ def parse_fixture_competition(
         team = required_mapping(competitor.get("team"), "team")
         teams[side] = required_string(team.get("displayName"), "team.displayName")
 
-    kickoff = datetime.datetime.fromisoformat(date_text.replace("Z", "+00:00"))
+    kickoff = datetime.datetime.fromisoformat(date_text)
     return FootballFixture(
         provider_id=provider_id,
         competition=competition.slug,
@@ -317,7 +317,7 @@ async def sync_football_fixtures() -> int:
                     fixtures = await fetch_competition_fixtures(
                         session, competition, now
                     )
-                except (aiohttp.ClientError, TimeoutError, ValueError):
+                except (aiohttp.ClientError, TimeoutError, TypeError, ValueError):
                     logger.exception("Could not sync %s fixtures", competition.name)
                     continue
                 fixtures = [
@@ -343,8 +343,9 @@ def row_to_fixture(row: TursoRow) -> FootballFixture:
 
 
 async def load_due_fixtures(now: int) -> list[FootballFixture]:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT
                 provider_id,
@@ -362,14 +363,16 @@ async def load_due_fixtures(now: int) -> list[FootballFixture]:
             ORDER BY kickoff_time, competition_name, home_team
             """,
             (SCHEDULED_STATUS, now, now + 360),
-        ) as cursor:
-            fixtures = [row_to_fixture(row) for row in await cursor.fetchall()]
+        ) as cursor,
+    ):
+        fixtures = [row_to_fixture(row) for row in await cursor.fetchall()]
     return [fixture for fixture in fixtures if is_tracked_fixture(fixture)]
 
 
 async def load_next_fixtures(now: int) -> list[FootballFixture]:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT
                 provider_id,
@@ -385,8 +388,9 @@ async def load_next_fixtures(now: int) -> list[FootballFixture]:
             ORDER BY kickoff_time, competition_name, home_team
             """,
             (SCHEDULED_STATUS, now),
-        ) as cursor:
-            fixtures = [row_to_fixture(row) for row in await cursor.fetchall()]
+        ) as cursor,
+    ):
+        fixtures = [row_to_fixture(row) for row in await cursor.fetchall()]
 
     tracked_fixtures = [fixture for fixture in fixtures if is_tracked_fixture(fixture)]
     if not tracked_fixtures:
@@ -410,7 +414,7 @@ async def verify_fixtures(fixtures: list[FootballFixture]) -> set[str]:
         for fixture in fixtures:
             try:
                 current_fixture = await fetch_fixture(session, fixture)
-            except (aiohttp.ClientError, TimeoutError, ValueError):
+            except (aiohttp.ClientError, TimeoutError, TypeError, ValueError):
                 logger.exception(
                     "Could not verify football fixture %s", fixture.provider_id
                 )
@@ -437,7 +441,7 @@ async def fetch_fixture_odds(
     )
     try:
         odds = await fetch_match_odds(session, odds_fixture)
-    except (aiohttp.ClientError, TimeoutError, ValueError, KeyError):
+    except (aiohttp.ClientError, TimeoutError, TypeError, ValueError, KeyError):
         logger.exception(
             "Could not fetch Polymarket odds for fixture %s",
             fixture.provider_id,
@@ -472,7 +476,7 @@ async def load_fixture_odds(
     for task in done:
         try:
             provider_id, odds = task.result()
-        except Exception:
+        except Exception:  # noqa: BLE001
             logger.exception("Polymarket odds lookup task failed")
             continue
         if odds is not None:
@@ -499,11 +503,13 @@ async def mark_fixtures_alerted(fixtures: list[FootballFixture], now: int) -> No
 
 
 async def load_alert_chats() -> list[int]:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             "SELECT DISTINCT chat_id FROM football_alert_members ORDER BY chat_id"
-        ) as cursor:
-            return [int(row["chat_id"]) for row in await cursor.fetchall()]
+        ) as cursor,
+    ):
+        return [int(row["chat_id"]) for row in await cursor.fetchall()]
 
 
 def member_mention(member: AlertMember) -> str:
@@ -666,8 +672,10 @@ def next_fixture_text(
     lines.extend(
         (
             "",
-            f'Kickoff <tg-time unix="{kickoff_time}" format="r">'
-            f"{fallback_time}</tg-time>",
+            (
+                f'Kickoff <tg-time unix="{kickoff_time}" format="r">'
+                f"{fallback_time}</tg-time>"
+            ),
         )
     )
     lines.extend(("", "📊 <b>Polymarket odds</b>"))

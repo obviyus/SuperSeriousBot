@@ -18,7 +18,11 @@ HRANA_CLOSED_MESSAGE = "connection closed before message completed"
 
 
 def is_retryable_open_error(exc: Exception) -> bool:
-    return isinstance(exc, ValueError) and "Hrana:" in str(exc) and HRANA_CLOSED_MESSAGE in str(exc)
+    return (
+        isinstance(exc, ValueError)
+        and "Hrana:" in str(exc)
+        and HRANA_CLOSED_MESSAGE in str(exc)
+    )
 
 
 def open_sync_connection():
@@ -68,8 +72,7 @@ class TursoCursor:
     def __init__(self, cursor):
         self._cursor = cursor
         self._columns = {
-            column[0]: index
-            for index, column in enumerate(cursor.description or ())
+            column[0]: index for index, column in enumerate(cursor.description or ())
         }
 
     @property
@@ -120,7 +123,7 @@ class TursoHttpCursor:
         return row
 
     def fetchall(self) -> list[tuple[Any, ...]]:
-        rows = self._rows[self._offset:]
+        rows = self._rows[self._offset :]
         self._offset = len(self._rows)
         return rows
 
@@ -146,7 +149,9 @@ class TursoHttpConnection:
         return self._cursor(result)
 
     def executemany(self, sql: str, params: object) -> TursoHttpCursor:
-        statements = [self._statement(sql, batch) for batch in self._many_params(params)]
+        statements = [
+            self._statement(sql, batch) for batch in self._many_params(params)
+        ]
         if not statements:
             return TursoHttpCursor([], [], 0, None)
 
@@ -170,7 +175,8 @@ class TursoHttpConnection:
                         "stmt": statement,
                     }
                     for statement in statements
-                ] + [{"type": "close"}]
+                ]
+                + [{"type": "close"}]
             }
         ).encode()
         req = request.Request(
@@ -213,7 +219,7 @@ class TursoHttpConnection:
 
     def _params(self, params: object) -> list[object]:
         if isinstance(params, dict):
-            raise ValueError("Named SQL parameters are not supported")
+            raise TypeError("Named SQL parameters are not supported")
         if isinstance(params, list | tuple):
             return list(params)
         return [params]
@@ -221,13 +227,12 @@ class TursoHttpConnection:
     def _many_params(self, params: object) -> list[object]:
         if isinstance(params, list | tuple):
             return list(params)
-        raise ValueError("executemany parameters must be a list or tuple")
+        raise TypeError("executemany parameters must be a list or tuple")
 
     def _cursor(self, result: dict[str, Any]) -> TursoHttpCursor:
         columns = [column["name"] for column in result["cols"]]
         rows = [
-            tuple(self._result_value(value) for value in row)
-            for row in result["rows"]
+            tuple(self._result_value(value) for value in row) for row in result["rows"]
         ]
         lastrowid = result["last_insert_rowid"]
         return TursoHttpCursor(
@@ -248,7 +253,7 @@ class TursoHttpConnection:
             return {"type": "float", "value": value}
         if isinstance(value, str):
             return {"type": "text", "value": value}
-        raise ValueError(f"Unsupported Turso value: {type(value).__name__}")
+        raise TypeError(f"Unsupported Turso value: {type(value).__name__}")
 
     def _result_value(self, value: dict[str, Any]) -> object:
         kind = value["type"]

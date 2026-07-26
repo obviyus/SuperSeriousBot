@@ -30,7 +30,7 @@ async def save_message_stats(message: Message) -> None:
                 (
                     user.id,
                     user.username,
-                    datetime.now(),
+                    datetime.now(UTC).replace(tzinfo=None),
                     message.link if message.link else None,
                 ),
             )
@@ -131,12 +131,14 @@ async def chat_search(
 
 
 async def is_fts_enabled(chat_id: int) -> bool:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             "SELECT fts FROM group_settings WHERE chat_id = ?;",
             (chat_id,),
-        ) as cursor:
-            setting = await cursor.fetchone()
+        ) as cursor,
+    ):
+        setting = await cursor.fetchone()
     return bool(setting and setting["fts"])
 
 
@@ -185,8 +187,9 @@ async def chat_stats_summary(chat_id: int, *, today_only: bool) -> tuple[list, i
 
 async def last_seen_in_chat(chat_id: int, username: str):
     """Last message from username in this chat only (no cross-chat links)."""
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """
             SELECT us.user_id, us.username, cs.message_id, cs.create_time
             FROM user_stats us
@@ -197,21 +200,27 @@ async def last_seen_in_chat(chat_id: int, username: str):
             LIMIT 1
             """,
             (chat_id, username.lower()),
-        ) as cursor:
-            return await cursor.fetchone()
+        ) as cursor,
+    ):
+        return await cursor.fetchone()
 
 
 def parse_export_file(filepath: str, chat_id: int) -> list[ChatImportRow]:
     batch = []
     with open(filepath, "rb") as f:
         for msg in ijson.items(f, "messages.item"):
-            if msg["type"] != "message" or not msg["text"] or not (from_id := msg.get("from_id")):
+            if (
+                msg["type"] != "message"
+                or not msg["text"]
+                or not (from_id := msg.get("from_id"))
+            ):
                 continue
 
             text = "".join(
                 part.get("text", "")
                 if isinstance(part, dict) and part.get("type") == "bot_command"
-                else part if isinstance(part, str)
+                else part
+                if isinstance(part, str)
                 else ""
                 for part in msg["text"]
             )
@@ -224,7 +233,9 @@ def parse_export_file(filepath: str, chat_id: int) -> list[ChatImportRow]:
             try:
                 dt = datetime.fromisoformat(raw)
             except ValueError:
-                dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S")
+                dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S").replace(
+                    tzinfo=UTC
+                )
             if dt.tzinfo is not None:
                 dt = dt.astimezone(UTC).replace(tzinfo=None)
 

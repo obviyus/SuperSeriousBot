@@ -33,12 +33,14 @@ async def highlight_keyboard_builder(
     *,
     bot_username: str | None = None,
 ) -> InlineKeyboardMarkup:
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             "SELECT * FROM 'highlights' WHERE chat_id = ? AND user_id = ?",
             (chat_id, user_id),
-        ) as cursor:
-            result = await cursor.fetchall()
+        ) as cursor,
+    ):
+        result = await cursor.fetchall()
 
     keyboard = [
         [
@@ -83,7 +85,9 @@ async def highlight_button_handler(
     await query.answer("Deleted highlight.")
 
     await query.edit_message_reply_markup(
-        reply_markup=await highlight_keyboard_builder(message.chat_id, query.from_user.id)
+        reply_markup=await highlight_keyboard_builder(
+            message.chat_id, query.from_user.id
+        )
     )
 
 
@@ -144,11 +148,13 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not message.text or not message.from_user:
         return
 
-    async with get_db() as conn:
-        async with conn.execute(
+    async with (
+        get_db() as conn,
+        conn.execute(
             """SELECT * FROM highlights WHERE chat_id = ?""", (message.chat_id,)
-        ) as cursor:
-            result = await cursor.fetchall()
+        ) as cursor,
+    ):
+        result = await cursor.fetchall()
 
     for row in result:
         if row["string"].lower() in message.text.lower():
@@ -171,4 +177,3 @@ async def highlight_worker(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     row["user_id"],
                     message.chat_id,
                 )
-

@@ -60,7 +60,9 @@ async def openrouter_json(
     return data if isinstance(data, dict) else {}
 
 
-async def stream_openrouter_deltas(response: aiohttp.ClientResponse) -> AsyncIterator[str]:
+async def stream_openrouter_deltas(
+    response: aiohttp.ClientResponse,
+) -> AsyncIterator[str]:
     buffer = ""
     async for chunk in response.content.iter_chunked(1024):
         buffer += chunk.decode("utf-8", errors="ignore")
@@ -76,7 +78,9 @@ async def stream_openrouter_deltas(response: aiohttp.ClientResponse) -> AsyncIte
                 continue
             choices = payload.get("choices")
             first_choice = choices[0] if isinstance(choices, list) and choices else None
-            delta = first_choice.get("delta") if isinstance(first_choice, dict) else None
+            delta = (
+                first_choice.get("delta") if isinstance(first_choice, dict) else None
+            )
             content = delta.get("content") if isinstance(delta, dict) else None
             if content:
                 yield content
