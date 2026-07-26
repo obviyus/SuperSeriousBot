@@ -2,7 +2,7 @@
 Commands for chat management.
 """
 
-from .botstats import get_total_chats, get_total_users, get_uptime
+from .botstats import get_total_chats, get_total_users
 from .stats import (
     get_chat_stats,
     get_last_seen,
@@ -16,6 +16,5 @@ __all__ = [
     "get_total_chat_stats",
     "get_total_chats",
     "get_total_users",
-    "get_uptime",
     "get_user_stats",
 ]

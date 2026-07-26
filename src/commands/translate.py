@@ -1,10 +1,4 @@
-import difflib
-import html
-import io
-
 from telegram import Message, Update
-from telegram.constants import ParseMode
-from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 import commands
@@ -52,53 +46,3 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(translated.text)
     except ValueError:
         await message.reply_text(f"Invalid target language: {target_language}")
-
-
-@command(
-    triggers=["tts"],
-    usage="/tts [language] - [content]",
-    example="/tts fr - Good morning!",
-    description="Generate text-to-speech of message in the desired speaker language. "
-    "Reply to a message with just the language code to TTS it.",
-)
-async def tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    import gtts.lang
-    from gtts import gTTS
-    from gtts.tts import gTTSError
-
-    message = get_message(update)
-    if not message:
-        return
-    result = await text_grabber(message, context)
-    if not result:
-        await commands.usage_string(message, tts)
-        return
-
-    text, lang = result
-    langs = gtts.lang.tts_langs()
-    if lang.lower() not in langs:
-        closest = difflib.get_close_matches(
-            lang.lower(), list(langs.keys()), n=1, cutoff=0.5
-        )
-        if closest:
-            sim = difflib.SequenceMatcher(None, lang.lower(), closest[0]).ratio() * 100
-            await message.reply_text(
-                f"Couldn't recognize the given language: <b>{html.escape(lang)}</b>. "
-                f"Did you mean: {html.escape(closest[0])} ({html.escape(langs[closest[0]])})? <b>Similarity: {sim:.2f}%</b>",
-                parse_mode=ParseMode.HTML,
-            )
-        else:
-            await message.reply_text(
-                f"Invalid language: <b>{html.escape(lang)}</b>",
-                parse_mode=ParseMode.HTML,
-            )
-        return
-
-    try:
-        tts_obj = gTTS(text, lang=lang.lower())
-        fp = io.BytesIO()
-        tts_obj.write_to_fp(fp)
-        fp.seek(0)
-        await message.reply_voice(fp)
-    except (gTTSError, OSError, TelegramError, ValueError):
-        await message.reply_text("Could not generate speech for that text.")

@@ -27,8 +27,8 @@ SuperSeriousBot is a plug-and-play Telegram group bot with dozens of commands â€
 Current command set includes:
 
 - AI features: `/ask`, `/edit`, `/tldr`, `/tr`, `/song`, `/model`, `/thinking`
-- Object store + media: `/set`, `/get`, `/dl`, `/gif`, `/meme`, `/joke`
-- Language + utility: `/tl`, `/tts`, `/define`, `/ud`, `/calc`, `/book`
+- Object store + media: `/set`, `/get`, `/dl`, `/meme`, `/joke`
+- Language + utility: `/tl`, `/define`, `/ud`, `/calc`, `/book`
 - Group utilities: `/remind`, `/habit`, `/summon`, `/highlight`
 - Stats + moderation: `/stats`, `/gstats`, `/ustats`, `/seen`, `/block`, `/unblock`, `/whitelist`
 - Social graph: `/friends`
@@ -68,7 +68,6 @@ Optional:
 - `OPENROUTER_API_KEY` for `/ask`, `/edit`, `/tldr`, `/tr`, `/song`
 - `WAQI_API_KEY` for `/weather` AQI
 - `WEATHERAPI_API_KEY` for `/weather`
-- `KLIPY_API_KEY` for `/gif`
 - `GOODREADS_API_KEY` for `/book`
 - `KIE_API_KEY` for `/song`
 - `WOLFRAM_APP_ID` for `/calc`

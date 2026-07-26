@@ -36,19 +36,14 @@ from management.message_tracking import mention_handler, message_stats_handler
 from utils import command_limits
 from utils.decorators import get_command_meta
 
-bot_startup_time: float | None = None
-
 
 async def post_init(application: Application) -> None:
     """
     Initialize the bot.
     """
-    global bot_startup_time
     await init_db()
     await sync_search_cache()
     logger.info(f"Started @{application.bot.username} (ID: {application.bot.id})")
-
-    bot_startup_time = datetime.datetime.now(datetime.UTC).timestamp()
 
     logging_channel_id = config.TELEGRAM.LOGGING_CHANNEL_ID
     if logging_channel_id:

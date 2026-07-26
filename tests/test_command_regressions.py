@@ -25,7 +25,6 @@ db = importlib.import_module("config.db")
 ask_module = importlib.import_module("commands.ask")
 animals_module = importlib.import_module("commands.animals")
 define_module = importlib.import_module("commands.define")
-gif_module = importlib.import_module("commands.gif")
 habit_module = importlib.import_module("commands.habit")
 meme_module = importlib.import_module("commands.meme")
 model_module = importlib.import_module("commands.model")
@@ -50,7 +49,6 @@ FORBIDDEN_USER_COPY = (
     "WAQI_API_KEY",
     "OpenRouter request failed",
     "Giphy",
-    "Klipy",
     "Unexpected response structure",
     "Unsupported response from Cobalt",
 )
@@ -194,6 +192,17 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(meta.usage)
             self.assertTrue(meta.example)
             self.assertTrue(meta.description)
+
+    def test_removed_commands_are_not_registered(self):
+        triggers = {
+            trigger
+            for command in commands_module.list_of_commands
+            for trigger in decorators.get_command_meta(command).triggers
+        }
+
+        self.assertTrue(
+            {"gif", "spurdo", "uwu", "tts", "objects", "uptime"}.isdisjoint(triggers)
+        )
 
     def test_default_ai_models_match_live_verified_models(self):
         self.assertEqual(model_module.DEFAULT_MODELS["ask"], "openrouter/x-ai/grok-4.3")
@@ -340,48 +349,6 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             await weather_module.weather(SimpleNamespace(), context)
 
         self.assertEqual(message.replies, ["Could not fetch weather data right now."])
-
-    async def test_gif_handles_empty_api_data(self):
-        message = FakeMessage()
-
-        with (
-            patch.object(gif_module, "get_message", return_value=message),
-            patch.object(gif_module.config.API, "KLIPY_API_KEY", "klipy-key"),
-            patch("aiohttp.ClientSession", return_value=FakeSession()),
-        ):
-            await gif_module.gif(SimpleNamespace(), SimpleNamespace())
-
-        self.assertEqual(message.replies, ["Could not fetch a GIF right now."])
-        self.assertEqual(message.animations, [])
-
-    async def test_gif_uses_klipy_trending_response(self):
-        message = FakeMessage()
-        data = {
-            "result": True,
-            "data": {
-                "data": [
-                    {
-                        "file": {
-                            "md": {
-                                "gif": {"url": "https://cdn.example.com/hype.gif"},
-                            },
-                        }
-                    }
-                ]
-            },
-        }
-
-        with (
-            patch.object(gif_module, "get_message", return_value=message),
-            patch.object(gif_module.config.API, "KLIPY_API_KEY", "klipy-key"),
-            patch(
-                "aiohttp.ClientSession", return_value=FakeSession(FakeResponse(data))
-            ),
-        ):
-            await gif_module.gif(SimpleNamespace(), SimpleNamespace())
-
-        self.assertEqual(message.replies, [])
-        self.assertEqual(message.animations, ["https://cdn.example.com/hype.gif"])
 
     async def test_define_handles_network_error(self):
         message = FakeMessage()
