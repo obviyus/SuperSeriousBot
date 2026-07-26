@@ -82,13 +82,16 @@ async def kie_json(
     session: aiohttp.ClientSession,
     method: str,
     path: str,
-    **kwargs: object,
+    *,
+    json_data: JsonObject | None = None,
+    params: dict[str, str] | None = None,
 ) -> JsonObject:
     async with session.request(
         method,
         f"{KIE_API_URL}{path}",
         headers=kie_headers(),
-        **kwargs,
+        json=json_data,
+        params=params,
     ) as response:
         data = await response.json()
         if response.status != 200 or data.get("code") != 200:
@@ -193,7 +196,7 @@ async def create_task(
     path: str,
     payload: JsonObject,
 ) -> str:
-    data = await kie_json(session, "POST", path, json=payload)
+    data = await kie_json(session, "POST", path, json_data=payload)
     task_id = data.get("data", {}).get("taskId")
     if not isinstance(task_id, str):
         raise TypeError("KIE did not return a task.")
