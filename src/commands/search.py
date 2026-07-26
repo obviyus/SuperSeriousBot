@@ -24,9 +24,12 @@ from utils.messages import get_message, reply_markdown_or_plain
 
 @command(
     triggers=["search"],
-    usage="/search [SEARCH_QUERY]",
+    usage="/search [QUESTION]",
     example="/search what job does Nathu do",
-    description="Answer a question using this chat's search history.",
+    description=(
+        "Answer from this chat's message history. "
+        "Reply to someone to search only their messages."
+    ),
     api_key="OPENROUTER_API_KEY",
 )
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -40,7 +43,10 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if not context.args:
-        await message.reply_text("Please provide a search query.")
+        await message.reply_text(
+            "Ask a question after /search. "
+            "Reply to someone to search only their messages."
+        )
         return
 
     query = " ".join(context.args)
@@ -55,10 +61,14 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not answer:
         if not await is_fts_enabled(message.chat_id):
             await message.reply_text(
-                "Full text search is not enabled in this chat. To enable it, use /enable_fts."
+                "Chat search isn't enabled here. An admin can run /enable_fts."
             )
             return
-        await message.reply_text("No results found.")
+        await message.reply_text(
+            "I couldn't find anything from them about that."
+            if author_id is not None
+            else "I couldn't find anything about that."
+        )
         return
 
     await reply_markdown_or_plain(

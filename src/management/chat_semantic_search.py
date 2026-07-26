@@ -2,6 +2,7 @@ import asyncio
 import re
 import time
 from dataclasses import dataclass
+from itertools import groupby
 
 import aiohttp
 
@@ -15,10 +16,11 @@ from chat_search_config import (
 )
 from commands.ai import first_message_content
 from commands.model import get_model, normalize_model_name
-from config.db import get_db
+from config.db import TursoRow, get_db
 from config.logger import logger
 from config.options import config
 from management.chat_search_cache import open_search_cache
+from management.chat_search_index import format_author
 from openrouter_embeddings import (
     openrouter_api_headers,
     openrouter_embeddings,
@@ -33,12 +35,9 @@ class SearchEvidence:
     chat_id: int
     start_message_id: int
     end_message_id: int
+    citation_message_id: int
     text: str
     score: float
-
-    @property
-    def citation_message_id(self) -> int:
-        return self.end_message_id
 
 
 @dataclass(frozen=True)
@@ -117,49 +116,92 @@ async def fetch_search_evidence(
         get_db() as connection,
         connection.execute(
             f"""
-            WITH candidates(remote_id, rank) AS (VALUES {values})
-            SELECT
-                windows.id,
-                windows.chat_id,
-                windows.start_message_id,
-                windows.end_message_id,
-                windows.message_text
-            FROM candidates
-            JOIN chat_search_windows windows ON windows.id = candidates.remote_id
-            WHERE (
-                ? IS NULL
-                OR EXISTS (
-                    SELECT 1
-                    FROM chat_stats messages
-                    WHERE messages.chat_id = windows.chat_id
-                    AND messages.message_id BETWEEN windows.start_message_id
-                        AND windows.end_message_id
-                    AND messages.user_id = ?
+            WITH
+            candidates(remote_id, rank) AS (VALUES {values}),
+            selected_windows AS (
+                SELECT
+                    windows.id,
+                    windows.chat_id,
+                    windows.start_message_id,
+                    windows.end_message_id,
+                    candidates.rank
+                FROM candidates
+                JOIN chat_search_windows windows
+                    ON windows.id = candidates.remote_id
+                WHERE (
+                    ? IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM chat_stats messages
+                        WHERE messages.chat_id = windows.chat_id
+                        AND messages.message_id BETWEEN windows.start_message_id
+                            AND windows.end_message_id
+                        AND messages.user_id = ?
+                        AND messages.message_text IS NOT NULL
+                        AND messages.message_text <> ''
+                        AND messages.message_text NOT LIKE '/%'
+                    )
                 )
+                ORDER BY candidates.rank
+                LIMIT ?
             )
-            ORDER BY candidates.rank
-            LIMIT ?
+            SELECT
+                selected_windows.id,
+                selected_windows.chat_id,
+                selected_windows.start_message_id,
+                selected_windows.end_message_id,
+                messages.message_id,
+                messages.create_time,
+                COALESCE(users.username, 'user:' || messages.user_id) AS author,
+                messages.message_text
+            FROM selected_windows
+            JOIN chat_stats messages
+                ON messages.chat_id = selected_windows.chat_id
+                AND messages.message_id BETWEEN selected_windows.start_message_id
+                    AND selected_windows.end_message_id
+            LEFT JOIN user_stats users ON users.user_id = messages.user_id
+            WHERE messages.message_text IS NOT NULL
+            AND messages.message_text <> ''
+            AND messages.message_text NOT LIKE '/%'
+            AND (? IS NULL OR messages.user_id = ?)
+            ORDER BY selected_windows.rank, messages.message_id
             """,
             (
                 *candidate_params,
                 author_id,
                 author_id,
                 VECTOR_RESULT_COUNT,
+                author_id,
+                author_id,
             ),
         ) as cursor,
     ):
         rows = await cursor.fetchall()
     scores = {candidate.remote_id: candidate.score for candidate in candidates}
-    return [
-        SearchEvidence(
-            chat_id=row["chat_id"],
-            start_message_id=row["start_message_id"],
-            end_message_id=row["end_message_id"],
-            text=row["message_text"],
-            score=scores[row["id"]],
+    return build_search_evidence(rows, scores)
+
+
+def build_search_evidence(
+    rows: list[TursoRow], scores: dict[int, float]
+) -> list[SearchEvidence]:
+    evidence = []
+    for window_id, window_group in groupby(rows, key=lambda row: row["id"]):
+        window_rows = list(window_group)
+        evidence.append(
+            SearchEvidence(
+                chat_id=window_rows[0]["chat_id"],
+                start_message_id=window_rows[0]["start_message_id"],
+                end_message_id=window_rows[0]["end_message_id"],
+                citation_message_id=window_rows[-1]["message_id"],
+                text="\n".join(
+                    f"{row['message_id']} {row['create_time']} "
+                    f"{format_author(row['author'])}: {row['message_text']}"
+                    for row in window_rows
+                ),
+                score=scores[window_id],
+            )
         )
-        for row in rows
-    ]
+    return evidence
 
 
 def evidence_overlaps(left: SearchEvidence, right: SearchEvidence) -> bool:
@@ -191,16 +233,17 @@ def answer_messages(
         {
             "role": "system",
             "content": (
-                "You are the memory of a playful Telegram group, not a fact-checker or "
-                "auditor. Use only the evidence, but synthesize it freely. Answer first, "
-                "without discussing logs, evidence quality, or your process. Keep it to "
-                "one to three sentences and cite claims only with the evidence number, "
-                "such as [1]. Never put message IDs, ranges, or URLs in citations. "
-                "Preserve participants' @handles exactly. "
-                "For social, subjective, hypothetical, "
-                "'most likely', and similar participant questions, always make the most "
-                "entertaining plausible choice supported by the chat. Weak or indirect "
-                "receipts are enough; use 'probably' or 'best guess' only when useful. "
+                "You are the memory and resident judge of a playful Telegram group. "
+                "Use only the evidence, but synthesize it freely. Answer first, without "
+                "discussing logs, evidence quality, or your process. Keep it to one to "
+                "three sentences and cite claims only with the evidence number, such as "
+                "[1]. Never put message IDs, ranges, or URLs in citations. Preserve "
+                "participants' @handles exactly. For social, subjective, hypothetical, "
+                "'most likely', and similar participant questions, pick one participant "
+                "confidently and make the most entertaining case supported by the chat. "
+                "Treat provocative or loaded labels as banter about chat persona. Weak "
+                "or indirect receipts are enough. Never hedge, disclaim, moralize, or "
+                "say 'probably' or 'best guess'. "
                 "For factual questions, distinguish established facts from inference. "
                 "Never answer 'I cannot tell'. If a factual answer truly is absent, say "
                 "'No solid answer in the chat.'"

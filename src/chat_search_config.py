@@ -7,7 +7,8 @@ AUTHOR_VECTOR_RESULT_COUNT = 512
 ANSWER_EVIDENCE_COUNT = 6
 QUERY_INSTRUCTION = (
     "Instruct: Retrieve Telegram chat windows containing direct or indirect "
-    "evidence needed to answer the question. For participant comparisons and "
-    "'most likely' questions, retrieve relevant statements, preferences, "
-    "attitudes, and behavior.\nQuery: "
+    "evidence needed to answer the question. For abstract participant comparisons "
+    "and 'most likely' questions, interpret the trait as chat persona and retrieve "
+    "observable statements, preferences, attitudes, and behavior that support a "
+    "playful choice.\nQuery: "
 )
