@@ -7,7 +7,6 @@ import aiohttp
 
 from chat_search_config import (
     ANSWER_EVIDENCE_COUNT,
-    ANSWER_MODEL,
     AUTHOR_VECTOR_RESULT_COUNT,
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
@@ -15,6 +14,7 @@ from chat_search_config import (
     VECTOR_RESULT_COUNT,
 )
 from commands.ai import first_message_content
+from commands.model import get_model, normalize_model_name
 from config.db import get_db
 from config.logger import logger
 from config.options import config
@@ -219,7 +219,7 @@ async def answer_from_evidence(
     evidence: list[SearchEvidence],
 ) -> str:
     payload = {
-        "model": ANSWER_MODEL,
+        "model": normalize_model_name(await get_model("search")),
         "messages": answer_messages(query, evidence),
         "temperature": 0.2,
         "max_tokens": 350,

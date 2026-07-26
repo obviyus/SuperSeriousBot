@@ -119,6 +119,49 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertEqual(semantic_search.link_citations(answer, evidence), answer)
 
 
+class SearchAnswerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_answer_uses_configured_search_model(self):
+        class Response:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+            def raise_for_status(self):
+                return None
+
+            async def json(self):
+                return {"choices": [{"message": {"content": "answer"}}]}
+
+        class Session:
+            def __init__(self):
+                self.payload = None
+
+            def post(self, _url, *, headers, json, timeout):
+                self.payload = json
+                return Response()
+
+        session = Session()
+        evidence = [
+            semantic_search.SearchEvidence(-1001, 1, 24, "chat", 0.8),
+        ]
+
+        with patch.object(
+            semantic_search,
+            "get_model",
+            AsyncMock(return_value="openrouter/google/gemini-3-flash-preview"),
+        ):
+            answer = await semantic_search.answer_from_evidence(
+                session,
+                "question",
+                evidence,
+            )
+
+        self.assertEqual(answer, "answer")
+        self.assertEqual(session.payload["model"], "google/gemini-3-flash-preview")
+
+
 class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
     async def test_vector_search_reads_local_cache_and_scopes_chat(self):
         def vector(first: int) -> str:
