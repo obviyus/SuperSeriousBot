@@ -162,6 +162,8 @@ class SearchAnswerTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(answer, "answer")
         self.assertEqual(session.payload["model"], "google/gemini-3-flash-preview")
+        self.assertEqual(session.payload["reasoning"], {"effort": "low"})
+        self.assertNotIn("max_tokens", session.payload)
 
 
 class SearchCacheTests(unittest.IsolatedAsyncioTestCase):

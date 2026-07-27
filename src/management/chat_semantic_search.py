@@ -265,7 +265,7 @@ async def answer_from_evidence(
         "model": normalize_model_name(await get_model("search")),
         "messages": answer_messages(query, evidence),
         "temperature": 0.2,
-        "max_tokens": 350,
+        "reasoning": {"effort": "low"},
     }
     async with session.post(
         "https://openrouter.ai/api/v1/chat/completions",
