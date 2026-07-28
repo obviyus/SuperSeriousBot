@@ -1,3 +1,4 @@
+import asyncio
 import io
 import json
 from urllib.parse import ParseResult, urlparse
@@ -7,6 +8,8 @@ from telegram import InputFile, InputMediaPhoto, InputMediaVideo, Message, Updat
 from telegram.constants import ChatType, ReactionEmoji
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
+from yt_dlp import YoutubeDL
+from yt_dlp.utils import DownloadError
 
 import utils
 from config.db import get_db
@@ -18,6 +21,7 @@ from utils.messages import get_message
 MAX_MEDIA_COUNT = 10
 MAX_DOWNLOAD_SIZE = 47 * (1 << 20)
 DOWNLOAD_CHUNK_SIZE = 256 * 1024
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 COBALT_TIMEOUT = aiohttp.ClientTimeout(
     total=45, connect=10, sock_connect=10, sock_read=30
 )
@@ -29,10 +33,6 @@ MEDIA_TIMEOUT = aiohttp.ClientTimeout(
 def _cobalt_endpoint() -> str | None:
     url = config.API.COBALT_URL.strip()
     return f"{url.rstrip('/')}/" if url else None
-
-
-def _target_url(url: ParseResult) -> str:
-    return url.geturl()
 
 
 def _is_instagram_reel(url: ParseResult) -> bool:
@@ -52,6 +52,66 @@ async def _is_auto_dl_enabled(chat_id: int) -> bool:
     ):
         row = await cursor.fetchone()
     return bool(row and row["auto_dl"])
+
+
+async def _request_cobalt(
+    session: aiohttp.ClientSession,
+    endpoint: str,
+    target: str,
+) -> dict:
+    async with session.post(
+        endpoint,
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        json={"url": target},
+    ) as resp:
+        try:
+            data = await resp.json()
+        except (aiohttp.ContentTypeError, json.JSONDecodeError):
+            text = await resp.text()
+            raise RuntimeError(
+                f"Cobalt non-JSON response: {resp.status} {text[:120]}"
+            ) from None
+        if resp.status != 200 and data.get("status") != "error":
+            raise RuntimeError(f"Cobalt HTTP {resp.status}: {data}")
+    return data
+
+
+def _needs_yt_dlp(url: ParseResult, data: dict) -> bool:
+    if not _is_instagram_reel(url):
+        return False
+    if data.get("status") == "error":
+        return True
+    filename = data.get("filename")
+    return (
+        data.get("status") in {"redirect", "tunnel"}
+        and isinstance(filename, str)
+        and filename.lower().endswith(IMAGE_EXTENSIONS)
+    )
+
+
+def _extract_with_yt_dlp(target: str) -> tuple[str, str]:
+    with YoutubeDL(
+        {
+            "format": "best[ext=mp4]/best",
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+        }
+    ) as yt_dlp:
+        info = yt_dlp.extract_info(target, download=False)
+    return info["url"], f"instagram_{info['id']}.{info['ext']}"
+
+
+async def _fetch_with_yt_dlp(
+    message: Message,
+    session: aiohttp.ClientSession,
+    target: str,
+) -> None:
+    media_url, filename = await asyncio.to_thread(_extract_with_yt_dlp, target)
+    await _fetch_and_send(message, session, media_url, filename)
 
 
 async def _fetch_and_send(
@@ -91,7 +151,7 @@ async def _fetch_and_send(
         file = InputFile(buffer, filename=safe_name)
         target_name = safe_name.lower()
 
-        if target_name.endswith((".jpg", ".jpeg", ".png", ".webp", ".gif")) or (
+        if target_name.endswith(IMAGE_EXTENSIONS) or (
             content_type and content_type.startswith("image/")
         ):
             await message.reply_photo(photo=file)
@@ -111,7 +171,7 @@ async def _fetch_and_send(
         await message.reply_text("Failed to download media.")
 
 
-async def _download_media(message: Message, target: str) -> None:
+async def _download_media(message: Message, url: ParseResult) -> None:
     endpoint = _cobalt_endpoint()
     if not endpoint:
         logger.error("COBALT_URL is not configured.")
@@ -120,23 +180,22 @@ async def _download_media(message: Message, target: str) -> None:
 
     try:
         async with aiohttp.ClientSession(timeout=COBALT_TIMEOUT) as session:
-            async with session.post(
-                endpoint,
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                },
-                json={"url": target},
-            ) as resp:
-                try:
-                    data = await resp.json()
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    text = await resp.text()
-                    raise RuntimeError(
-                        f"Cobalt non-JSON response: {resp.status} {text[:120]}"
-                    ) from None
-                if resp.status != 200 and data.get("status") != "error":
-                    raise RuntimeError(f"Cobalt HTTP {resp.status}: {data}")
+            target = url.geturl()
+            try:
+                data = await _request_cobalt(session, endpoint, target)
+            except (aiohttp.ClientError, RuntimeError, TimeoutError) as e:
+                if not _is_instagram_reel(url):
+                    raise
+                logger.warning("Cobalt failed for Instagram Reel; using yt-dlp: %s", e)
+                await _fetch_with_yt_dlp(message, session, target)
+                return
+
+            if _needs_yt_dlp(url, data):
+                logger.info(
+                    "Cobalt could not resolve Instagram Reel video; using yt-dlp."
+                )
+                await _fetch_with_yt_dlp(message, session, target)
+                return
 
             status = data.get("status")
             if status in {"redirect", "tunnel"}:
@@ -199,8 +258,9 @@ async def _download_media(message: Message, target: str) -> None:
         RuntimeError,
         TimeoutError,
         TypeError,
+        DownloadError,
     ) as e:
-        logger.error(f"Cobalt error: {e}")
+        logger.error(f"Media download error: {e}")
         await message.reply_text("Failed to fetch media.")
 
 
@@ -220,7 +280,7 @@ async def dl_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("Please provide a valid URL.")
         return
 
-    await _download_media(message, _target_url(url))
+    await _download_media(message, url)
 
 
 async def auto_dl_message_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -241,5 +301,5 @@ async def auto_dl_message_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) 
                 await message.set_reaction(ReactionEmoji.HIGH_VOLTAGE_SIGN)
             except BadRequest as e:
                 logger.debug("Skipping auto-dl reaction: %s", e)
-            await _download_media(message, _target_url(url))
+            await _download_media(message, url)
             return
