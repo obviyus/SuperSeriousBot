@@ -4,6 +4,7 @@ import importlib
 import os
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 os.environ.setdefault("TELEGRAM_TOKEN", "test-token")
@@ -93,7 +94,7 @@ class SemanticSearchTests(unittest.TestCase):
             [semantic_search.SearchEvidence(-1001, 1, 24, 24, "chat", 0.8)],
         )
 
-        prompt = messages[0]["content"]
+        prompt = messages[0].text
         self.assertIn("pick one participant confidently", prompt)
         self.assertIn("banter about chat persona", prompt)
         self.assertIn("Weak or indirect receipts are enough", prompt)
@@ -122,48 +123,24 @@ class SemanticSearchTests(unittest.TestCase):
 
 
 class SearchAnswerTests(unittest.IsolatedAsyncioTestCase):
-    async def test_answer_uses_configured_search_model(self):
-        class Response:
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *_args):
-                return None
-
-            def raise_for_status(self):
-                return None
-
-            async def json(self):
-                return {"choices": [{"message": {"content": "answer"}}]}
-
-        class Session:
-            def __init__(self):
-                self.payload = None
-
-            def post(self, _url, *, headers, json, timeout):
-                self.payload = json
-                return Response()
-
-        session = Session()
+    async def test_answer_uses_low_reasoning(self):
         evidence = [
             semantic_search.SearchEvidence(-1001, 1, 24, 24, "chat", 0.8),
         ]
 
         with patch.object(
             semantic_search,
-            "get_model",
-            AsyncMock(return_value="openrouter/google/gemini-3-flash-preview"),
-        ):
-            answer = await semantic_search.answer_from_evidence(
-                session,
-                "question",
-                evidence,
-            )
+            "generate_text",
+            AsyncMock(return_value="answer"),
+        ) as generate_text:
+            answer = await semantic_search.answer_from_evidence("question", evidence)
 
         self.assertEqual(answer, "answer")
-        self.assertEqual(session.payload["model"], "google/gemini-3-flash-preview")
-        self.assertEqual(session.payload["reasoning"], {"effort": "low"})
-        self.assertNotIn("max_tokens", session.payload)
+        self.assertEqual(generate_text.await_args.args[0], "search")
+        self.assertEqual(
+            generate_text.await_args.kwargs["extra_body"],
+            {"reasoning": {"effort": "low"}},
+        )
 
 
 class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
@@ -357,58 +334,38 @@ class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
 
 class OpenRouterEmbeddingTests(unittest.IsolatedAsyncioTestCase):
     async def test_embeddings_prefer_low_latency_provider(self):
-        class Response:
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *_args):
-                return None
-
-            def raise_for_status(self):
-                return None
-
-            async def json(self):
-                return {"data": [{"embedding": [1.0, 0.0]}]}
-
-        class Session:
-            def __init__(self):
-                self.payload = None
-
-            def post(self, _url, *, headers, json, timeout):
-                self.payload = json
-                return Response()
-
-        session = Session()
-
-        await openrouter_embeddings.openrouter_embeddings(
-            session,
-            "key",
-            "model",
-            ["query"],
-            dimensions=2,
+        response = SimpleNamespace(
+            data=[SimpleNamespace(embedding=[1.0, 0.0])],
+        )
+        create = AsyncMock(return_value=response)
+        provider = SimpleNamespace(
+            sdk_client=SimpleNamespace(
+                embeddings=SimpleNamespace(create=create),
+            )
         )
 
-        self.assertEqual(session.payload["provider"], {"sort": "latency"})
+        with patch.object(
+            openrouter_embeddings,
+            "openrouter_provider",
+            return_value=provider,
+        ):
+            embeddings = await openrouter_embeddings.openrouter_embeddings(
+                "model",
+                ["query"],
+                dimensions=2,
+            )
+
+        self.assertEqual(embeddings, [[1.0, 0.0]])
+        self.assertEqual(
+            create.await_args.kwargs["extra_body"],
+            {"provider": {"sort": "latency"}},
+        )
 
 
 class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
     async def test_pending_indexing_allocates_each_chat_a_share(self):
-        class SessionContext:
-            async def __aenter__(self):
-                return object()
-
-            async def __aexit__(self, *_: object):
-                return None
-
-        index_chat_windows = AsyncMock(
-            side_effect=lambda _session, _key, _chat_id, limit: limit
-        )
+        index_chat_windows = AsyncMock(side_effect=lambda _chat_id, limit: limit)
         with (
-            patch.object(
-                search_index.aiohttp,
-                "ClientSession",
-                return_value=SessionContext(),
-            ),
             patch.object(
                 search_index,
                 "index_chat_windows",
@@ -417,7 +374,6 @@ class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
             patch.object(search_index, "sync_search_cache", AsyncMock()),
         ):
             indexed = await search_index.index_pending_windows(
-                "key",
                 chat_ids=[-1002, -1001],
                 window_limit=6,
             )
@@ -425,27 +381,15 @@ class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(indexed, 6)
         self.assertEqual(
             [
-                (call.args[2], call.args[3])
+                (call.args[0], call.args[1])
                 for call in index_chat_windows.await_args_list
             ],
             [(-1002, 3), (-1001, 3)],
         )
 
     async def test_refresh_advances_without_clearing_existing_windows(self):
-        class SessionContext:
-            async def __aenter__(self):
-                return object()
-
-            async def __aexit__(self, *_: object):
-                return None
-
         index_window_batch = AsyncMock(side_effect=[(64, 100), (2, 200)])
         with (
-            patch.object(
-                search_index.aiohttp,
-                "ClientSession",
-                return_value=SessionContext(),
-            ),
             patch.object(
                 search_index,
                 "index_window_batch",
@@ -454,11 +398,11 @@ class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
             patch.object(search_index, "reset_search_cache"),
             patch.object(search_index, "sync_search_cache", AsyncMock()),
         ):
-            refreshed = await search_index.refresh_windows("key", [-1001])
+            refreshed = await search_index.refresh_windows([-1001])
 
         self.assertEqual(refreshed, 66)
         self.assertEqual(
-            [call.args[3] for call in index_window_batch.await_args_list],
+            [call.args[1] for call in index_window_batch.await_args_list],
             [None, 100],
         )
 

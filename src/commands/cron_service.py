@@ -4,19 +4,15 @@ from dataclasses import dataclass
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-import aiohttp
+import ai
+import pydantic
 from apscheduler.triggers.cron import CronTrigger
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import KeyboardButtonStyle
 from telegram.ext import ContextTypes, JobQueue
 
 import utils
-from commands.ai import (
-    JsonObject,
-    first_message_content,
-    openrouter_json,
-    openrouter_payload,
-)
+from commands.ai import generate_object, generate_text
 from config.db import get_db
 from config.logger import logger
 from utils.messages import send_markdown_or_plain
@@ -43,37 +39,6 @@ Previous runs are context only, not a template. If a previous run is incomplete,
 correct it in this run.
 Return the Telegram message to send. No scheduling metadata."""
 
-CRON_RESPONSE_FORMAT: JsonObject = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "cron_task",
-        "strict": True,
-        "schema": {
-            "type": "object",
-            "properties": {
-                "title": {
-                    "type": "string",
-                    "description": "Short title for the scheduled task.",
-                },
-                "task": {
-                    "type": "string",
-                    "description": "Complete instruction to execute on each run.",
-                },
-                "cron_expr": {
-                    "type": "string",
-                    "description": "Five-field crontab expression.",
-                },
-                "timezone": {
-                    "type": "string",
-                    "description": "IANA timezone.",
-                },
-            },
-            "required": ["title", "task", "cron_expr", "timezone"],
-            "additionalProperties": False,
-        },
-    },
-}
-
 
 @dataclass(frozen=True, slots=True)
 class CronDraft:
@@ -81,6 +46,13 @@ class CronDraft:
     task: str
     cron_expr: str
     timezone: str
+
+
+class CronDraftOutput(pydantic.BaseModel):
+    title: str = pydantic.Field(description="Short title for the scheduled task.")
+    task: str = pydantic.Field(description="Complete instruction to execute each run.")
+    cron_expr: str = pydantic.Field(description="Five-field crontab expression.")
+    timezone: str = pydantic.Field(description="IANA timezone.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,26 +130,16 @@ def _parse_cron_draft(content: str) -> CronDraft:
 
 async def generate_cron_draft(user_request: str) -> CronDraft:
     now = datetime.datetime.now(ZoneInfo(DEFAULT_TIMEZONE)).isoformat()
-    payload = await openrouter_payload(
+    output = await generate_object(
         "cron",
         [
-            {"role": "system", "content": SCHEDULER_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"Current time: {now}\n\nRequest:\n{user_request}",
-            },
+            ai.system_message(SCHEDULER_SYSTEM_PROMPT),
+            ai.user_message(f"Current time: {now}\n\nRequest:\n{user_request}"),
         ],
+        CronDraftOutput,
         max_tokens=500,
     )
-    payload["response_format"] = CRON_RESPONSE_FORMAT
-
-    async with aiohttp.ClientSession() as session:
-        response = await openrouter_json(session, payload)
-
-    content = first_message_content(response)
-    if not isinstance(content, str):
-        raise TypeError("AI returned no cron metadata.")
-    return _parse_cron_draft(content)
+    return _parse_cron_draft(output.model_dump_json())
 
 
 def _task_from_row(row) -> CronTask:
@@ -363,31 +325,26 @@ def format_run_history(runs: list[CronRun]) -> str:
     return "\n\n".join(lines)
 
 
-def build_runner_messages(task: CronTask, runs: list[CronRun]) -> list[JsonObject]:
+def build_runner_messages(
+    task: CronTask, runs: list[CronRun]
+) -> list[ai.messages.Message]:
     return [
-        {"role": "system", "content": RUNNER_SYSTEM_PROMPT},
-        {
-            "role": "user",
-            "content": (
-                f"Title: {task.title}\n\n"
-                f"Task:\n{task.task}\n\n"
-                f"Previous runs:\n{format_run_history(runs)}"
-            ),
-        },
+        ai.system_message(RUNNER_SYSTEM_PROMPT),
+        ai.user_message(
+            f"Title: {task.title}\n\n"
+            f"Task:\n{task.task}\n\n"
+            f"Previous runs:\n{format_run_history(runs)}"
+        ),
     ]
 
 
 async def execute_cron_task(task: CronTask, runs: list[CronRun]) -> str:
-    payload = await openrouter_payload(
+    content = await generate_text(
         "cron",
         build_runner_messages(task, runs),
         max_tokens=1000,
     )
-    async with aiohttp.ClientSession() as session:
-        response = await openrouter_json(session, payload)
-
-    content = first_message_content(response)
-    if not isinstance(content, str) or not content.strip():
+    if not content.strip():
         raise RuntimeError("AI returned no cron task result.")
     return content.strip()
 

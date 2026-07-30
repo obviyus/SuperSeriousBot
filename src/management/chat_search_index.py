@@ -1,7 +1,5 @@
 from dataclasses import dataclass
 
-import aiohttp
-
 from chat_search_config import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
@@ -285,8 +283,6 @@ async def store_windows(
 
 
 async def index_window_batch(
-    session: aiohttp.ClientSession,
-    api_key: str,
     chat_id: int,
     start_message_id: int | None,
     window_limit: int,
@@ -303,8 +299,6 @@ async def index_window_batch(
     if not windows:
         return 0, None
     embeddings = await openrouter_embeddings(
-        session,
-        api_key,
         EMBEDDING_MODEL,
         [window.text for window in windows],
         dimensions=EMBEDDING_DIMENSIONS,
@@ -325,14 +319,10 @@ async def index_window_batch(
 
 
 async def index_chat_windows(
-    session: aiohttp.ClientSession,
-    api_key: str,
     chat_id: int,
     window_limit: int,
 ) -> int:
     indexed, _ = await index_window_batch(
-        session,
-        api_key,
         chat_id,
         await resume_window_start(chat_id),
         window_limit,
@@ -342,7 +332,6 @@ async def index_chat_windows(
 
 
 async def index_pending_windows(
-    api_key: str,
     *,
     chat_ids: list[int],
     window_limit: int = INDEX_BATCH_WINDOWS,
@@ -353,54 +342,40 @@ async def index_pending_windows(
     indexed = 0
     backlogged = []
     per_chat_limit = max(1, window_limit // len(chat_ids))
-    async with aiohttp.ClientSession() as session:
-        for chat_id in chat_ids:
-            remaining = window_limit - indexed
-            if remaining <= 0:
-                break
-            chat_limit = min(per_chat_limit, remaining)
-            chat_indexed = await index_chat_windows(
-                session,
-                api_key,
-                chat_id,
-                chat_limit,
-            )
-            indexed += chat_indexed
-            if chat_indexed == chat_limit:
-                backlogged.append(chat_id)
+    for chat_id in chat_ids:
+        remaining = window_limit - indexed
+        if remaining <= 0:
+            break
+        chat_limit = min(per_chat_limit, remaining)
+        chat_indexed = await index_chat_windows(chat_id, chat_limit)
+        indexed += chat_indexed
+        if chat_indexed == chat_limit:
+            backlogged.append(chat_id)
 
-        for chat_id in backlogged:
-            remaining = window_limit - indexed
-            if remaining <= 0:
-                break
-            indexed += await index_chat_windows(
-                session,
-                api_key,
-                chat_id,
-                remaining,
-            )
+    for chat_id in backlogged:
+        remaining = window_limit - indexed
+        if remaining <= 0:
+            break
+        indexed += await index_chat_windows(chat_id, remaining)
     await sync_search_cache()
     return indexed
 
 
-async def refresh_windows(api_key: str, chat_ids: list[int]) -> int:
+async def refresh_windows(chat_ids: list[int]) -> int:
     refreshed = 0
-    async with aiohttp.ClientSession() as session:
-        for chat_id in chat_ids:
-            start_message_id = None
-            while True:
-                batch_size, next_start_message_id = await index_window_batch(
-                    session,
-                    api_key,
-                    chat_id,
-                    start_message_id,
-                    INDEX_BATCH_WINDOWS,
-                    skip_indexed=False,
-                )
-                refreshed += batch_size
-                if batch_size < INDEX_BATCH_WINDOWS or next_start_message_id is None:
-                    break
-                start_message_id = next_start_message_id
+    for chat_id in chat_ids:
+        start_message_id = None
+        while True:
+            batch_size, next_start_message_id = await index_window_batch(
+                chat_id,
+                start_message_id,
+                INDEX_BATCH_WINDOWS,
+                skip_indexed=False,
+            )
+            refreshed += batch_size
+            if batch_size < INDEX_BATCH_WINDOWS or next_start_message_id is None:
+                break
+            start_message_id = next_start_message_id
     reset_search_cache()
     await sync_search_cache()
     return refreshed

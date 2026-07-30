@@ -18,6 +18,7 @@ from telegram.ext import (
 )
 
 import commands
+from commands.ai import close_ai_provider
 from commands.cron_service import register_enabled_cron_tasks
 from commands.football import sync_football_fixtures_job, worker_football_alerts
 from commands.habit import worker_habit_tracker
@@ -73,13 +74,13 @@ async def post_shutdown(application: Application) -> None:
     Shutdown the bot.
     """
     logger.info(f"Shutting down @{application.bot.username} (ID: {application.bot.id})")
+    await close_ai_provider()
     await close_db()
     logger.info("Cleanup finished.")
 
 
 async def worker_chat_search_index(_: ContextTypes.DEFAULT_TYPE) -> None:
     indexed = await index_pending_windows(
-        config.API.OPENROUTER_API_KEY,
         chat_ids=await searchable_chat_ids(),
     )
     if indexed:
