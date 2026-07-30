@@ -3,6 +3,8 @@ import os
 import unittest
 from unittest.mock import AsyncMock, patch
 
+from ai.providers.openai import OpenAIChatCompletionsProtocol
+
 os.environ.setdefault("TELEGRAM_TOKEN", "test-token")
 os.environ.setdefault("QUOTE_CHANNEL_ID", "1")
 os.environ.setdefault("TURSO_DATABASE_URL", ":memory:")
@@ -42,6 +44,13 @@ class AIRequestTests(unittest.IsolatedAsyncioTestCase):
             params = await ai_module.request_params("tldr")
 
         self.assertIsNone(params.extra_body)
+
+    async def test_provider_speaks_chat_completions(self):
+        # OpenRouter's Responses endpoint rejects audio/* parts, breaking /tr.
+        self.addCleanup(ai_module.close_ai_provider)
+        provider = ai_module.openrouter_provider()
+
+        self.assertIsInstance(provider.protocol, OpenAIChatCompletionsProtocol)
 
 
 if __name__ == "__main__":
