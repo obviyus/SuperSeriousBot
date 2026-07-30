@@ -3,7 +3,10 @@ from contextlib import asynccontextmanager
 
 import ai
 import pydantic
-from ai.providers.openai import OpenAICompatibleProvider
+from ai.providers.openai import (
+    OpenAIChatCompletionsProtocol,
+    OpenAICompatibleProvider,
+)
 from ai.types.messages import Message
 
 from commands.model import get_model, get_thinking, normalize_model_name
@@ -33,6 +36,7 @@ def openrouter_provider() -> OpenAICompatibleProvider:
             base_url=OPENROUTER_BASE_URL,
             api_key=config.API.OPENROUTER_API_KEY,
             headers=OPENROUTER_HEADERS,
+            protocol=OpenAIChatCompletionsProtocol(),
         )
         if not isinstance(provider, OpenAICompatibleProvider):
             raise TypeError("OpenRouter requires an OpenAI-compatible provider.")
