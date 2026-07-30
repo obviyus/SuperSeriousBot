@@ -5,23 +5,15 @@ import mimetypes
 import time
 from datetime import timedelta
 
-import aiohttp
+import ai
+import openai
 from telegram import Message, Update
 from telegram.constants import ChatType
 from telegram.error import BadRequest, RetryAfter, TelegramError
 from telegram.ext import ContextTypes
 
 import commands
-from commands.ai import (
-    OPENROUTER_API_URL,
-    JsonObject,
-    first_message_content,
-    openrouter_api_key,
-    openrouter_headers,
-    openrouter_json,
-    openrouter_payload,
-    stream_openrouter_deltas,
-)
+from commands.ai import model, openrouter_provider, stream_model
 from commands.runtime import ensure_command_available
 from config.logger import logger
 from config.options import config
@@ -174,8 +166,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     query: str = " ".join(context.args) if context.args else ""
-    messages: list[JsonObject] = [{"role": "system", "content": system_prompt}]
-    user_content: list[JsonObject] = []
+    messages = [ai.system_message(system_prompt)]
 
     reply = message.reply_to_message
     reply_context = get_reply_context(reply)
@@ -200,124 +191,88 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if reply_image:
         image_data, mime_type = reply_image
-        image_url = image_data_url(image_data, mime_type)
-
         text_prompt = query if query else "Describe this image in detail."
         if reply_context:
             text_prompt = (
                 f"Reply context:\n{reply_context}\n\nUser request:\n{text_prompt}"
             )
-        user_content.append({"type": "text", "text": text_prompt})
-        user_content.append(
-            {
-                "type": "image_url",
-                "image_url": {"url": image_url},
-            }
+        messages.append(
+            ai.user_message(
+                text_prompt,
+                ai.file_part(image_data, media_type=mime_type or "image/jpeg"),
+            )
         )
-        messages.append({"role": "user", "content": user_content})
     else:
         if not query:
             await commands.usage_string(message, ask)
             return
         if reply_context:
             query = f"Reply context:\n{reply_context}\n\nUser request:\n{query}"
-        messages.append({"role": "user", "content": query})
+        messages.append(ai.user_message(query))
 
     try:
-        import aiohttp
+        is_group = message.chat.type in {ChatType.GROUP, ChatType.SUPERGROUP}
+        sent_message = None
+        prev_length = 0
+        content = ""
+        truncated = False
+        last_edit_time = 0.0
 
-        headers = openrouter_headers(openrouter_api_key())
-        payload = await openrouter_payload("ask", messages)
-
-        async with aiohttp.ClientSession() as session:
-            if reply_image:
-                response = await openrouter_json(session, payload)
-                text = first_message_content(response)
-                if not isinstance(text, str):
-                    await message.reply_text(
-                        "No response received from AI. Please try again."
-                    )
-                    return
-
-                await reply_markdown_or_plain(
-                    message,
-                    text,
-                    disable_web_page_preview=True,
-                    document_name="response.txt",
-                )
-                return
-
-            payload = await openrouter_payload("ask", messages, stream=True)
-            async with session.post(
-                OPENROUTER_API_URL, headers=headers, json=payload
-            ) as resp:
-                resp.raise_for_status()
-                is_group = message.chat.type in {
-                    ChatType.GROUP,
-                    ChatType.SUPERGROUP,
-                }
-                sent_message = None
-                prev_length = 0
-                content = ""
-                truncated = False
-                last_edit_time = 0.0
-
-                async for delta in stream_openrouter_deltas(resp):
-                    if not truncated:
-                        content += delta
-                        if len(content) >= TELEGRAM_MESSAGE_LIMIT:
-                            content = content[:TELEGRAM_MESSAGE_LIMIT]
-                            truncated = True
-
-                    if not content:
-                        continue
-
-                    if sent_message is None:
-                        sent_message = await reply_markdown_or_plain(
-                            message,
-                            content,
-                            disable_web_page_preview=True,
-                        )
-                        prev_length = len(content)
-                        continue
-
-                    if len(content) == prev_length:
-                        continue
-
-                    cutoff = get_stream_cutoff(is_group, len(content))
-                    if not truncated and (len(content) - prev_length) < cutoff:
-                        continue
-                    if (
-                        not truncated
-                        and (time.monotonic() - last_edit_time)
-                        < MIN_STREAM_EDIT_INTERVAL_SECONDS
-                    ):
-                        continue
-
-                    if await edit_stream_reply(
-                        context.bot,
-                        message.chat.id,
-                        sent_message.message_id,
-                        content,
-                    ):
-                        prev_length = len(content)
-                        last_edit_time = time.monotonic()
+        async with stream_model("ask", messages) as stream:
+            async for event in stream:
+                if not isinstance(event, ai.events.TextDelta):
+                    continue
+                if not truncated:
+                    content += event.chunk
+                    if len(content) >= TELEGRAM_MESSAGE_LIMIT:
+                        content = content[:TELEGRAM_MESSAGE_LIMIT]
+                        truncated = True
 
                 if not content:
-                    return
-
+                    continue
                 if sent_message is None:
-                    await message.reply_text(content, disable_web_page_preview=True)
-                    return
-
-                if len(content) != prev_length:
-                    await edit_stream_reply(
-                        context.bot,
-                        message.chat.id,
-                        sent_message.message_id,
+                    sent_message = await reply_markdown_or_plain(
+                        message,
                         content,
+                        disable_web_page_preview=True,
                     )
-    except (aiohttp.ClientError, TelegramError, TimeoutError, TypeError, ValueError):
+                    prev_length = len(content)
+                    continue
+                if len(content) == prev_length:
+                    continue
+
+                cutoff = get_stream_cutoff(is_group, len(content))
+                if not truncated and (len(content) - prev_length) < cutoff:
+                    continue
+                if (
+                    not truncated
+                    and (time.monotonic() - last_edit_time)
+                    < MIN_STREAM_EDIT_INTERVAL_SECONDS
+                ):
+                    continue
+                if await edit_stream_reply(
+                    context.bot,
+                    message.chat.id,
+                    sent_message.message_id,
+                    content,
+                ):
+                    prev_length = len(content)
+                    last_edit_time = time.monotonic()
+
+        if not content:
+            await message.reply_text("No response received from AI. Please try again.")
+            return
+        if sent_message is None:
+            await message.reply_text(content, disable_web_page_preview=True)
+            return
+        if len(content) != prev_length:
+            await edit_stream_reply(
+                context.bot,
+                message.chat.id,
+                sent_message.message_id,
+                content,
+            )
+    except (ai.AIError, TelegramError, TimeoutError, TypeError, ValueError):
         logger.exception("Ask command failed")
         await message.reply_text("AI request failed. Please try again.")
 
@@ -368,10 +323,10 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         image_url = image_data_url(*reply_image)
 
-        headers = openrouter_headers(openrouter_api_key())
-        payload = await openrouter_payload(
-            "edit",
-            [
+        image_model = await model("edit")
+        response = await openrouter_provider().sdk_client.chat.completions.create(
+            model=image_model.id,
+            messages=[
                 {
                     "role": "user",
                     "content": [
@@ -383,23 +338,14 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     ],
                 }
             ],
-            modalities=["image", "text"],
+            extra_body={"modalities": ["image", "text"]},
         )
-
-        async with (
-            aiohttp.ClientSession() as session,
-            session.post(OPENROUTER_API_URL, headers=headers, json=payload) as resp,
-        ):
-            resp.raise_for_status()
-            response = await resp.json()
-
-        choices = response.get("choices")
-        choice = choices[0] if isinstance(choices, list) and choices else None
-        if not isinstance(choice, dict):
+        choice = response.choices[0] if response.choices else None
+        if choice is None:
             await message.reply_text("No response received from AI. Please try again.")
             return
 
-        finish_reason = choice.get("finish_reason", "")
+        finish_reason = choice.finish_reason or ""
         if finish_reason and str(finish_reason).upper() in {
             "CONTENT_FILTER",
             "SAFETY",
@@ -410,9 +356,9 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             return
 
-        ai_message = choice.get("message")
-        if isinstance(ai_message, dict):
-            images = ai_message.get("images")
+        ai_message = choice.message
+        if ai_message.model_extra:
+            images = ai_message.model_extra.get("images")
             first_image = images[0] if isinstance(images, list) and images else None
             image_url_data = (
                 first_image.get("image_url", {}).get("url")
@@ -434,14 +380,14 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 return
 
-        if isinstance(ai_message, dict) and ai_message.get("content"):
+        if ai_message.content:
             await message.reply_text(
-                f"{ai_message['content']}\n\nNo edited image was generated."
+                f"{ai_message.content}\n\nNo edited image was generated."
             )
             return
 
         await message.reply_text("Could not generate edited image. Please try again.")
 
-    except (aiohttp.ClientError, TelegramError, TimeoutError, TypeError, ValueError):
+    except (openai.OpenAIError, TelegramError, TimeoutError, TypeError, ValueError):
         logger.exception("Edit command failed")
         await message.reply_text("AI request failed. Please try again.")

@@ -1,13 +1,14 @@
 import html
 from urllib.parse import parse_qs, urlparse
 
+import ai
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 import commands
 import utils
-from commands.ai import first_message_content, openrouter_json, openrouter_payload
+from commands.ai import generate_text
 from commands.runtime import ensure_command_available
 from config.db import get_db
 from config.logger import logger
@@ -46,7 +47,7 @@ def extract_youtube_video_id(url: str) -> str | None:
 
 async def summarize_text(text: str, context_hint: str = "") -> str:
     """Summarize text using AI."""
-    import aiohttp
+    import ai
 
     context = f" (source: {context_hint})" if context_hint else ""
     system_content = f"""Summarize the following content{context} as a short bullet-point list.
@@ -58,20 +59,15 @@ Rules:
 - Skip fluff, intros, and filler
 - No headers or extra formatting, just bullets"""
 
-    payload = await openrouter_payload(
+    content = await generate_text(
         "tldr",
         [
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": text},
+            ai.system_message(system_content),
+            ai.user_message(text),
         ],
         max_tokens=500,
     )
-
-    async with aiohttp.ClientSession() as session:
-        response = await openrouter_json(session, payload)
-
-    content = first_message_content(response)
-    return str(content) if content else "No summary available"
+    return content or "No summary available"
 
 
 @command(
@@ -155,6 +151,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
                     )
                 return
             except (
+                ai.AIError,
                 aiohttp.ClientError,
                 KeyError,
                 RuntimeError,
@@ -239,6 +236,7 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode=ParseMode.HTML,
         )
     except (
+        ai.AIError,
         aiohttp.ClientError,
         RuntimeError,
         TimeoutError,

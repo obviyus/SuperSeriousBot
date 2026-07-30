@@ -1,6 +1,5 @@
 import argparse
 import asyncio
-import os
 
 from dotenv import load_dotenv
 
@@ -26,10 +25,9 @@ async def backfill() -> None:
         source_chat_ids,
     )
 
-    api_key = os.environ["OPENROUTER_API_KEY"]
     chat_ids = args.chat_id or await source_chat_ids()
     if args.refresh:
-        print(f"indexed_windows={await refresh_windows(api_key, chat_ids):,}")
+        print(f"indexed_windows={await refresh_windows(chat_ids):,}")
         return
 
     total_inserted = 0
@@ -38,7 +36,6 @@ async def backfill() -> None:
         if args.limit_windows is not None:
             batch_limit = min(batch_limit, args.limit_windows - total_inserted)
         inserted = await index_pending_windows(
-            api_key,
             chat_ids=chat_ids,
             window_limit=batch_limit,
         )

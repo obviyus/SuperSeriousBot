@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass
 from itertools import groupby
 
-import aiohttp
+import ai
 
 from chat_search_config import (
     ANSWER_EVIDENCE_COUNT,
@@ -14,18 +14,12 @@ from chat_search_config import (
     QUERY_INSTRUCTION,
     VECTOR_RESULT_COUNT,
 )
-from commands.ai import first_message_content
-from commands.model import get_model, normalize_model_name
+from commands.ai import generate_text
 from config.db import TursoRow, get_db
 from config.logger import logger
-from config.options import config
 from management.chat_search_cache import open_search_cache
 from management.chat_search_index import format_author
-from openrouter_embeddings import (
-    openrouter_api_headers,
-    openrouter_embeddings,
-    vector32_json,
-)
+from openrouter_embeddings import openrouter_embeddings, vector32_json
 
 _CITATION_RE = re.compile(r"(?P<space>[ \t]*)\[(?P<index>\d+)(?::[^]\s]+)?](?!\()")
 
@@ -53,10 +47,8 @@ def telegram_message_link(chat_id: int, message_id: int) -> str | None:
     return None
 
 
-async def embed_search_query(session: aiohttp.ClientSession, query: str) -> str:
+async def embed_search_query(query: str) -> str:
     embeddings = await openrouter_embeddings(
-        session,
-        config.API.OPENROUTER_API_KEY,
         EMBEDDING_MODEL,
         [QUERY_INSTRUCTION + query],
         dimensions=EMBEDDING_DIMENSIONS,
@@ -225,68 +217,43 @@ def select_evidence(windows: list[SearchEvidence]) -> list[SearchEvidence]:
 
 def answer_messages(
     query: str, evidence: list[SearchEvidence]
-) -> list[dict[str, object]]:
+) -> list[ai.messages.Message]:
     evidence_text = "\n\n".join(
         f"[{index}]\n{item.text}" for index, item in enumerate(evidence, start=1)
     )
     return [
-        {
-            "role": "system",
-            "content": (
-                "You are the memory and resident judge of a playful Telegram group. "
-                "Use only the evidence, but synthesize it freely. Answer first, without "
-                "discussing logs, evidence quality, or your process. Keep it to one to "
-                "three sentences and cite claims only with the evidence number, such as "
-                "[1]. Never put message IDs, ranges, or URLs in citations. Preserve "
-                "participants' @handles exactly. For social, subjective, hypothetical, "
-                "'most likely', and similar participant questions, pick one participant "
-                "confidently and make the most entertaining case supported by the chat. "
-                "Treat provocative or loaded labels as banter about chat persona. Weak "
-                "or indirect receipts are enough. Never hedge, disclaim, moralize, or "
-                "say 'probably' or 'best guess'. "
-                "For factual questions, distinguish established facts from inference. "
-                "Never answer 'I cannot tell'. If a factual answer truly is absent, say "
-                "'No solid answer in the chat.'"
-            ),
-        },
-        {
-            "role": "user",
-            "content": f"Question: {query}\n\nEvidence:\n{evidence_text}",
-        },
+        ai.system_message(
+            "You are the memory and resident judge of a playful Telegram group. "
+            "Use only the evidence, but synthesize it freely. Answer first, without "
+            "discussing logs, evidence quality, or your process. Keep it to one to "
+            "three sentences and cite claims only with the evidence number, such as "
+            "[1]. Never put message IDs, ranges, or URLs in citations. Preserve "
+            "participants' @handles exactly. For social, subjective, hypothetical, "
+            "'most likely', and similar participant questions, pick one participant "
+            "confidently and make the most entertaining case supported by the chat. "
+            "Treat provocative or loaded labels as banter about chat persona. Weak "
+            "or indirect receipts are enough. Never hedge, disclaim, moralize, or "
+            "say 'probably' or 'best guess'. "
+            "For factual questions, distinguish established facts from inference. "
+            "Never answer 'I cannot tell'. If a factual answer truly is absent, say "
+            "'No solid answer in the chat.'"
+        ),
+        ai.user_message(f"Question: {query}\n\nEvidence:\n{evidence_text}"),
     ]
 
 
 async def answer_from_evidence(
-    session: aiohttp.ClientSession,
     query: str,
     evidence: list[SearchEvidence],
 ) -> str:
-    payload = {
-        "model": normalize_model_name(await get_model("search")),
-        "messages": answer_messages(query, evidence),
-        "temperature": 0.2,
-        "reasoning": {"effort": "low"},
-    }
-    async with session.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers=openrouter_api_headers(config.API.OPENROUTER_API_KEY),
-        json=payload,
-        timeout=aiohttp.ClientTimeout(total=120),
-    ) as response:
-        response.raise_for_status()
-        data = await response.json()
-
-    content = first_message_content(data)
-    if not isinstance(content, str) or not content.strip():
+    content = await generate_text(
+        "search",
+        answer_messages(query, evidence),
+        temperature=0.2,
+        extra_body={"reasoning": {"effort": "low"}},
+    )
+    if not content.strip():
         raise RuntimeError("OpenRouter returned an empty search answer.")
-    usage = data.get("usage")
-    if isinstance(usage, dict):
-        logger.info(
-            "Search answer usage: prompt_tokens=%s completion_tokens=%s total_tokens=%s",
-            usage.get("prompt_tokens"),
-            usage.get("completion_tokens"),
-            usage.get("total_tokens"),
-        )
     return content.strip()
 
 
@@ -318,34 +285,30 @@ async def semantic_search_answer(
     author_id: int | None,
 ) -> str | None:
     started = time.monotonic()
-    async with aiohttp.ClientSession() as session:
-        query_vector = await embed_search_query(session, query)
-        embedded = time.monotonic()
-        candidate_count = (
-            AUTHOR_VECTOR_RESULT_COUNT if author_id is not None else VECTOR_RESULT_COUNT
-        )
-        candidates = await vector_search_candidates(
-            chat_id,
-            query_vector,
-            candidate_count,
-        )
-        vector_windows = await fetch_search_evidence(
-            candidates,
-            author_id,
-        )
-        evidence = select_evidence(vector_windows)
-        if not evidence:
-            return None
+    query_vector = await embed_search_query(query)
+    embedded = time.monotonic()
+    candidate_count = (
+        AUTHOR_VECTOR_RESULT_COUNT if author_id is not None else VECTOR_RESULT_COUNT
+    )
+    candidates = await vector_search_candidates(
+        chat_id,
+        query_vector,
+        candidate_count,
+    )
+    vector_windows = await fetch_search_evidence(candidates, author_id)
+    evidence = select_evidence(vector_windows)
+    if not evidence:
+        return None
 
-        retrieved = time.monotonic()
-        answer = await answer_from_evidence(session, query, evidence)
-        answered = time.monotonic()
-        logger.info(
-            "Semantic search timings: chat_id=%s embedding_ms=%d retrieval_ms=%d answer_ms=%d evidence=%d",
-            chat_id,
-            round((embedded - started) * 1000),
-            round((retrieved - embedded) * 1000),
-            round((answered - retrieved) * 1000),
-            len(evidence),
-        )
-        return link_citations(answer, evidence)
+    retrieved = time.monotonic()
+    answer = await answer_from_evidence(query, evidence)
+    answered = time.monotonic()
+    logger.info(
+        "Semantic search timings: chat_id=%s embedding_ms=%d retrieval_ms=%d answer_ms=%d evidence=%d",
+        chat_id,
+        round((embedded - started) * 1000),
+        round((retrieved - embedded) * 1000),
+        round((answered - retrieved) * 1000),
+        len(evidence),
+    )
+    return link_citations(answer, evidence)

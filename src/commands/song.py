@@ -1,19 +1,16 @@
 import asyncio
-import json
 from dataclasses import dataclass
 from typing import Any
 
+import ai
 import aiohttp
+import pydantic
 from telegram import InputMediaAudio, Update
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 import commands
-from commands.ai import (
-    first_message_content,
-    openrouter_json,
-    openrouter_payload,
-)
+from commands.ai import generate_object
 from commands.runtime import ensure_command_available
 from config.logger import logger
 from config.options import config
@@ -38,6 +35,12 @@ type JsonObject = dict[str, Any]
 class SongPlan:
     title: str
     lyrics: str
+    style: str
+
+
+class SongPlanOutput(pydantic.BaseModel):
+    title: str
+    lyrics_lines: list[str] = pydantic.Field(alias="lyricsLines")
     style: str
 
 
@@ -97,89 +100,26 @@ async def kie_json(
         return data
 
 
-async def song_plan_payload(user_prompt: str) -> JsonObject:
-    payload = await openrouter_payload(
+async def plan_song(user_prompt: str) -> SongPlan:
+    output = await generate_object(
         "song",
         [
-            {"role": "system", "content": SONG_PLANNER_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
+            ai.system_message(SONG_PLANNER_SYSTEM_PROMPT),
+            ai.user_message(user_prompt),
         ],
+        SongPlanOutput,
+        extra_body={"provider": {"require_parameters": True}},
     )
-    payload.update(
-        {
-            "provider": {"require_parameters": True},
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "song_plan",
-                    "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "title": {
-                                "type": "string",
-                            },
-                            "lyricsLines": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                            },
-                            "style": {
-                                "type": "string",
-                            },
-                        },
-                        "required": ["title", "lyricsLines", "style"],
-                        "additionalProperties": False,
-                    },
-                },
-            },
-        }
-    )
-    return payload
-
-
-def parse_song_plan_response(data: object) -> SongPlan:
-    response: JsonObject = {}
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if isinstance(key, str):
-                response[key] = value
-    content = first_message_content(response)
-    if not isinstance(content, str):
-        raise TypeError("OpenRouter did not return a song plan.")
-
-    try:
-        plan = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("OpenRouter returned an invalid song plan.") from exc
-
-    title = plan.get("title") if isinstance(plan, dict) else None
-    lyrics_lines = plan.get("lyricsLines") if isinstance(plan, dict) else None
-    style = plan.get("style") if isinstance(plan, dict) else None
-    if (
-        not isinstance(title, str)
-        or not isinstance(lyrics_lines, list)
-        or not isinstance(style, str)
-    ):
-        raise TypeError("OpenRouter returned an incomplete song plan.")
-    if not all(isinstance(line, str) for line in lyrics_lines):
-        raise RuntimeError("OpenRouter returned invalid lyrics.")
-
-    lyrics = "\n".join(line.strip() for line in lyrics_lines if line.strip())
-    if not title.strip() or not lyrics or not style.strip():
+    lyrics = "\n".join(line.strip() for line in output.lyrics_lines if line.strip())
+    if not output.title.strip() or not lyrics or not output.style.strip():
         raise RuntimeError("OpenRouter returned an empty song plan.")
-    if len(title) > SONG_TITLE_CHAR_LIMIT:
+    if len(output.title) > SONG_TITLE_CHAR_LIMIT:
         raise RuntimeError("OpenRouter returned a title that was too long.")
     if len(lyrics) > SONG_LYRICS_CHAR_LIMIT:
         raise RuntimeError("OpenRouter returned lyrics that were too long.")
-    if len(style) > SONG_STYLE_CHAR_LIMIT:
+    if len(output.style) > SONG_STYLE_CHAR_LIMIT:
         raise RuntimeError("OpenRouter returned a style that was too long.")
-    return SongPlan(title.strip(), lyrics.strip(), style.strip())
-
-
-async def plan_song(session: aiohttp.ClientSession, user_prompt: str) -> SongPlan:
-    payload = await song_plan_payload(user_prompt)
-    data = await openrouter_json(session, payload)
-    return parse_song_plan_response(data)
+    return SongPlan(output.title.strip(), lyrics.strip(), output.style.strip())
 
 
 async def create_task(
@@ -281,7 +221,7 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         async with aiohttp.ClientSession() as session:
-            song_plan = await plan_song(session, user_prompt)
+            song_plan = await plan_song(user_prompt)
 
             await progress.edit_text("Turning lyrics into songs...")
             music_task_id = await create_task(
@@ -318,6 +258,7 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except (
         aiohttp.ClientError,
+        ai.AIError,
         RuntimeError,
         TelegramError,
         TimeoutError,

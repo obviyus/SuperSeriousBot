@@ -1,63 +1,39 @@
 from __future__ import annotations
 
 import importlib
-import json
 import os
 import unittest
 from unittest.mock import AsyncMock, patch
+
+import pydantic
 
 os.environ.setdefault("TELEGRAM_TOKEN", "test-token")
 os.environ.setdefault("QUOTE_CHANNEL_ID", "1")
 os.environ.setdefault("OPENROUTER_API_KEY", "test-openrouter-key")
 
-ai_module = importlib.import_module("commands.ai")
 song_module = importlib.import_module("commands.song")
-
-
-def openrouter_response(content: object) -> dict[str, object]:
-    return {
-        "choices": [
-            {
-                "message": {
-                    "content": json.dumps(content),
-                },
-            },
-        ],
-    }
-
-
-def song_plan_schema(payload: dict[str, object]) -> dict[str, object]:
-    response_format = payload["response_format"]
-    response_format = string_dict(response_format)
-    json_schema = response_format["json_schema"]
-    json_schema = string_dict(json_schema)
-    schema = json_schema["schema"]
-    return string_dict(schema)
-
-
-def string_dict(value: object) -> dict[str, object]:
-    assert isinstance(value, dict)
-    return {key: item for key, item in value.items() if isinstance(key, str)}
 
 
 class SongTests(unittest.IsolatedAsyncioTestCase):
     async def test_parse_song_plan_joins_lyric_lines(self):
-        plan = song_module.parse_song_plan_response(
-            openrouter_response(
-                {
-                    "title": "Online Fever",
-                    "lyricsLines": [
-                        "[Verse 1]",
-                        "Screen light",
-                        "Midnight",
-                        "[Chorus]",
-                        "Online",
-                        "Heart shine",
-                    ],
-                    "style": "upbeat Urdu pop, bright synths, catchy hook",
-                }
-            )
+        output = song_module.SongPlanOutput(
+            title="Online Fever",
+            lyricsLines=[
+                "[Verse 1]",
+                "Screen light",
+                "Midnight",
+                "[Chorus]",
+                "Online",
+                "Heart shine",
+            ],
+            style="upbeat Urdu pop, bright synths, catchy hook",
         )
+        with patch.object(
+            song_module,
+            "generate_object",
+            AsyncMock(return_value=output),
+        ) as generate_object:
+            plan = await song_module.plan_song("spreadsheet party")
 
         self.assertEqual(plan.title, "Online Fever")
         self.assertEqual(
@@ -65,41 +41,29 @@ class SongTests(unittest.IsolatedAsyncioTestCase):
             "[Verse 1]\nScreen light\nMidnight\n[Chorus]\nOnline\nHeart shine",
         )
         self.assertEqual(plan.style, "upbeat Urdu pop, bright synths, catchy hook")
-
-    async def test_song_plan_payload_requests_portable_schema(self):
-        with patch.object(
-            ai_module,
-            "get_model",
-            AsyncMock(return_value="openrouter/anthropic/claude-sonnet-4"),
-        ):
-            payload = await song_module.song_plan_payload("spreadsheet party")
-        schema = song_plan_schema(payload)
-        properties = schema["properties"]
-        properties = string_dict(properties)
-        lyrics_lines = properties["lyricsLines"]
-        lyrics_lines = string_dict(lyrics_lines)
-
-        self.assertNotIn("max_tokens", payload)
-        self.assertEqual(payload["model"], "anthropic/claude-sonnet-4")
-        self.assertEqual(schema["required"], ["title", "lyricsLines", "style"])
-        self.assertEqual(properties["title"], {"type": "string"})
         self.assertEqual(
-            lyrics_lines,
-            {"type": "array", "items": {"type": "string"}},
-        )
-        self.assertEqual(properties["style"], {"type": "string"})
-
-    async def test_parse_song_plan_rejects_non_string_lyric_lines(self):
-        response = openrouter_response(
-            {
-                "title": "Bad Lines",
-                "lyricsLines": ["[Verse 1]", 7],
-                "style": "bright pop",
-            }
+            generate_object.await_args.kwargs["extra_body"],
+            {"provider": {"require_parameters": True}},
         )
 
-        with self.assertRaisesRegex(RuntimeError, "invalid lyrics"):
-            song_module.parse_song_plan_response(response)
+    def test_song_plan_output_uses_portable_schema(self):
+        schema = song_module.SongPlanOutput.model_json_schema()
+        properties = schema["properties"]
+        self.assertEqual(schema["required"], ["title", "lyricsLines", "style"])
+        self.assertEqual(properties["title"]["type"], "string")
+        self.assertEqual(
+            properties["lyricsLines"],
+            {"items": {"type": "string"}, "title": "Lyricslines", "type": "array"},
+        )
+        self.assertEqual(properties["style"]["type"], "string")
+
+    def test_song_plan_output_rejects_non_string_lyric_lines(self):
+        with self.assertRaises(pydantic.ValidationError):
+            song_module.SongPlanOutput(
+                title="Bad Lines",
+                lyricsLines=["[Verse 1]", 7],
+                style="bright pop",
+            )
 
     def test_song_media_group_requires_two_audio_tracks(self):
         tracks = [

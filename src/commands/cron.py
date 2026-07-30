@@ -1,7 +1,7 @@
 import datetime
 import html
 
-import aiohttp
+import ai
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -148,7 +148,7 @@ async def cron(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     status_message = await message.reply_text("Creating cron task...")
     try:
         draft = await generate_cron_draft(user_request)
-    except (aiohttp.ClientError, KeyError, RuntimeError, TypeError, ValueError) as exc:
+    except (ai.AIError, KeyError, RuntimeError, TypeError, ValueError) as exc:
         await status_message.edit_text(f"Could not create cron task: {exc}")
         return
 

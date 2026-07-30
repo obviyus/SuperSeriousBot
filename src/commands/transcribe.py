@@ -1,20 +1,16 @@
 import asyncio
-import base64
 import mimetypes
 import os
 import subprocess
 import tempfile
 
+import ai
 from telegram import Update
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 import commands
-from commands.ai import (
-    OPENROUTER_API_URL,
-    openrouter_headers,
-    openrouter_payload,
-)
+from commands.ai import generate_text
 from commands.runtime import ensure_command_available
 from config.logger import logger
 from config.options import config
@@ -77,8 +73,6 @@ async def _convert_audio_to_wav(
     api_key="OPENROUTER_API_KEY",
 )
 async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    import aiohttp
-
     message = get_message(update)
     if not message:
         return
@@ -140,67 +134,25 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await message.reply_text("I couldn't process that audio.")
         return
 
-    base64_audio = base64.b64encode(wav_audio).decode("utf-8")
     user_prompt = " ".join(context.args).strip() if context.args else ""
     instruction = user_prompt or FALLBACK_PROMPT
 
-    payload = await openrouter_payload(
-        "tr",
-        [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            f"You are transcribing a {source_summary}. {instruction}"
-                        ).strip(),
-                    },
-                    {
-                        "type": "input_audio",
-                        "input_audio": {"data": base64_audio, "format": "wav"},
-                    },
-                ],
-            }
-        ],
-    )
+    try:
+        transcript = await generate_text(
+            "tr",
+            [
+                ai.user_message(
+                    f"You are transcribing a {source_summary}. {instruction}".strip(),
+                    ai.file_part(wav_audio, media_type="audio/wav"),
+                )
+            ],
+        )
+    except (ai.AIError, TimeoutError, TypeError, ValueError):
+        logger.exception("Transcription request failed")
+        await message.reply_text("Transcription failed. Please try again.")
+        return
 
-    headers = openrouter_headers(api_key_value)
-
-    async with (
-        aiohttp.ClientSession() as session,
-        session.post(
-            OPENROUTER_API_URL,
-            headers=headers,
-            json=payload,
-        ) as response,
-    ):
-        if response.status != 200:
-            error_text = await response.text()
-            logger.error(
-                "Transcription request failed (%s): %s",
-                response.status,
-                error_text,
-            )
-            await message.reply_text("Transcription failed. Please try again.")
-            return
-
-        data = await response.json()
-
-    choices = data.get("choices") or []
-    content = choices[0].get("message", {}).get("content") if choices else None
-    if isinstance(content, str):
-        transcript = content.strip()
-    elif isinstance(content, list):
-        transcript = "\n".join(
-            item["text"]
-            for item in content
-            if isinstance(item, dict)
-            and item.get("type") == "text"
-            and item.get("text")
-        ).strip()
-    else:
-        transcript = ""
+    transcript = transcript.strip()
     if not transcript:
         await message.reply_text("No transcript was returned. Please try again.")
         return
