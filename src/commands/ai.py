@@ -60,7 +60,7 @@ async def request_params(
 ) -> ai.InferenceRequestParams:
     body = dict(extra_body or {})
     model_name = normalize_model_name(await get_model(command))
-    if model_name.startswith("x-ai/"):
+    if command == "ask" and model_name.startswith("x-ai/"):
         body["tools"] = [OPENROUTER_WEB_SEARCH]
 
     params = ai.InferenceRequestParams(

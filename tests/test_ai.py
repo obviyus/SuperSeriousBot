@@ -45,6 +45,16 @@ class AIRequestTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(params.extra_body)
 
+    async def test_search_does_not_receive_openrouter_web_tool(self):
+        with patch.object(
+            ai_module,
+            "get_model",
+            AsyncMock(return_value="openrouter/x-ai/grok-4.5"),
+        ):
+            params = await ai_module.request_params("search")
+
+        self.assertIsNone(params.extra_body)
+
     async def test_provider_speaks_chat_completions(self):
         # OpenRouter's Responses endpoint rejects audio/* parts, breaking /tr.
         self.addCleanup(ai_module.close_ai_provider)

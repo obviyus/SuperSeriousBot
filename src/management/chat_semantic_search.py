@@ -1,10 +1,10 @@
 import asyncio
-import re
 import time
 from dataclasses import dataclass
 from itertools import groupby
 
 import ai
+import pydantic
 
 from chat_search_config import (
     ANSWER_EVIDENCE_COUNT,
@@ -14,14 +14,14 @@ from chat_search_config import (
     QUERY_INSTRUCTION,
     VECTOR_RESULT_COUNT,
 )
-from commands.ai import generate_text
+from commands.ai import generate_object
 from config.db import TursoRow, get_db
 from config.logger import logger
 from management.chat_search_cache import open_search_cache
 from management.chat_search_index import format_author
 from openrouter_embeddings import openrouter_embeddings, vector32_json
 
-_CITATION_RE = re.compile(r"(?P<space>[ \t]*)\[(?P<index>\d+)(?::[^]\s]+)?](?!\()")
+NO_SOLID_ANSWER = "No solid answer in the chat."
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,15 @@ class SearchEvidence:
 class SearchCandidate:
     remote_id: int
     score: float
+
+
+class SearchAnswerOutput(pydantic.BaseModel):
+    answer: str = pydantic.Field(
+        description="One to three sentence answer without citation markers."
+    )
+    citations: list[int] = pydantic.Field(
+        description="Evidence numbers that directly support every claim in the answer."
+    )
 
 
 def telegram_message_link(chat_id: int, message_id: int) -> str | None:
@@ -223,20 +232,24 @@ def answer_messages(
     )
     return [
         ai.system_message(
-            "You are the memory and resident judge of a playful Telegram group. "
-            "Use only the evidence, but synthesize it freely. Answer first, without "
-            "discussing logs, evidence quality, or your process. Keep it to one to "
-            "three sentences and cite claims only with the evidence number, such as "
-            "[1]. Never put message IDs, ranges, or URLs in citations. Preserve "
-            "participants' @handles exactly. For social, subjective, hypothetical, "
-            "'most likely', and similar participant questions, pick one participant "
-            "confidently and make the most entertaining case supported by the chat. "
-            "Treat provocative or loaded labels as banter about chat persona. Weak "
-            "or indirect receipts are enough. Never hedge, disclaim, moralize, or "
-            "say 'probably' or 'best guess'. "
-            "For factual questions, distinguish established facts from inference. "
-            "Never answer 'I cannot tell'. If a factual answer truly is absent, say "
-            "'No solid answer in the chat.'"
+            "Answer from the supplied Telegram chat evidence only. Keep the answer "
+            "to one to three sentences and preserve participants' @handles exactly. "
+            "Every claim must be directly supported by the evidence numbers returned "
+            "in citations. Respect who said each message and who they addressed. Do "
+            "not turn a statement about someone into a fact about its speaker. Answer "
+            "the question exactly as asked: if it names a participant, never replace "
+            "them with a different participant. Factual superlatives and quantitative "
+            "comparisons require evidence that establishes the comparison, not merely "
+            "related conversation. Subjective and hypothetical questions may infer "
+            "from observed chat behavior; the evidence need not use the question's "
+            "exact label. When asked why a named participant has a subjective label, "
+            "answer with cited behavior that fits the label whenever it is available. "
+            "For subjective questions, use the no-answer result only when there is no "
+            "relevant behavior about the requested participant or candidates. "
+            "Choose an answer when relevant behavior supports one, then explain only "
+            "that cited behavior. Never invent events or attributes. Put no citation "
+            "markers, message IDs, or URLs in answer. If the evidence does "
+            f"not support a solid answer, return '{NO_SOLID_ANSWER}' with no citations."
         ),
         ai.user_message(f"Question: {query}\n\nEvidence:\n{evidence_text}"),
     ]
@@ -245,38 +258,33 @@ def answer_messages(
 async def answer_from_evidence(
     query: str,
     evidence: list[SearchEvidence],
-) -> str:
-    content = await generate_text(
+) -> SearchAnswerOutput:
+    return await generate_object(
         "search",
         answer_messages(query, evidence),
-        temperature=0.2,
+        SearchAnswerOutput,
         extra_body={"reasoning": {"effort": "low"}},
     )
-    if not content.strip():
-        raise RuntimeError("OpenRouter returned an empty search answer.")
-    return content.strip()
 
 
-def link_citations(answer: str, evidence: list[SearchEvidence]) -> str:
-    previous_index: int | None = None
-    previous_end = -1
+def render_search_answer(
+    output: SearchAnswerOutput, evidence: list[SearchEvidence]
+) -> str:
+    answer = output.answer.strip()
+    if not answer or answer == NO_SOLID_ANSWER:
+        return NO_SOLID_ANSWER
 
-    def replace(match: re.Match[str]) -> str:
-        nonlocal previous_end, previous_index
-        index = int(match.group("index"))
-        adjacent_duplicate = index == previous_index and match.start() == previous_end
-        previous_index = index
-        previous_end = match.end()
-        if adjacent_duplicate:
-            return ""
-        if index < 1 or index > len(evidence):
-            return ""
+    citations = []
+    for index in dict.fromkeys(output.citations):
+        if not 1 <= index <= len(evidence):
+            continue
         item = evidence[index - 1]
-        link = telegram_message_link(item.chat_id, item.citation_message_id)
-        citation = f"[{index}]({link})" if link else ""
-        return match.group("space") + citation if citation else ""
+        if link := telegram_message_link(item.chat_id, item.citation_message_id):
+            citations.append(f"[{index}]({link})")
 
-    return _CITATION_RE.sub(replace, answer)
+    if not citations:
+        return NO_SOLID_ANSWER
+    return f"{answer}\n\n{' '.join(citations)}"
 
 
 async def semantic_search_answer(
@@ -301,14 +309,18 @@ async def semantic_search_answer(
         return None
 
     retrieved = time.monotonic()
-    answer = await answer_from_evidence(query, evidence)
+    output = await answer_from_evidence(query, evidence)
+    answer = render_search_answer(output, evidence)
     answered = time.monotonic()
     logger.info(
-        "Semantic search timings: chat_id=%s embedding_ms=%d retrieval_ms=%d answer_ms=%d evidence=%d",
+        "Semantic search timings: chat_id=%s embedding_ms=%d retrieval_ms=%d "
+        "answer_ms=%d evidence_ranges=%s citations=%s grounded=%s",
         chat_id,
         round((embedded - started) * 1000),
         round((retrieved - embedded) * 1000),
         round((answered - retrieved) * 1000),
-        len(evidence),
+        [(item.start_message_id, item.end_message_id) for item in evidence],
+        output.citations,
+        answer != NO_SOLID_ANSWER,
     )
-    return link_citations(answer, evidence)
+    return answer
