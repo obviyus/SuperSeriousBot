@@ -88,57 +88,92 @@ class SemanticSearchTests(unittest.TestCase):
 
         self.assertEqual([item.text for item in selected], ["v1", "v3", "v4"])
 
-    def test_answer_prompt_commits_to_playful_social_choice(self):
+    def test_answer_prompt_requires_direct_support(self):
         messages = semantic_search.answer_messages(
             "most likely to bring snacks on a road trip",
             [semantic_search.SearchEvidence(-1001, 1, 24, 24, "chat", 0.8)],
         )
 
         prompt = messages[0].text
-        self.assertIn("pick one participant confidently", prompt)
-        self.assertIn("banter about chat persona", prompt)
-        self.assertIn("Weak or indirect receipts are enough", prompt)
-        self.assertIn("Never hedge, disclaim, moralize", prompt)
-        self.assertIn("Never answer 'I cannot tell'", prompt)
-        self.assertIn("cite claims only with the evidence number", prompt)
-        self.assertIn("Never put message IDs, ranges, or URLs", prompt)
+        self.assertIn("Every claim must be directly supported", prompt)
+        self.assertIn("never replace them with a different participant", prompt)
+        self.assertIn("quantitative comparisons require evidence", prompt)
+        self.assertIn("evidence need not use the question's exact label", prompt)
+        self.assertIn("why a named participant has a subjective label", prompt)
+        self.assertIn("only when there is no relevant behavior", prompt)
+        self.assertIn("Never invent events or attributes", prompt)
 
-    def test_link_citations_owns_message_ids_and_is_idempotent(self):
+    def test_render_search_answer_owns_citation_links(self):
         evidence = [
             semantic_search.SearchEvidence(-1001234567890, 1, 24, 20, "first", 0.8),
             semantic_search.SearchEvidence(-1001234567890, 25, 48, 40, "second", 0.7),
         ]
 
-        answer = semantic_search.link_citations(
-            "Best guess: @user [2:30][2:31]. Range [1:1-24]. Unsupported [3:50].",
+        answer = semantic_search.render_search_answer(
+            semantic_search.SearchAnswerOutput(
+                answer="@user has the strongest receipts.",
+                citations=[2, 2, 3, 1],
+            ),
             evidence,
         )
 
         self.assertEqual(
             answer,
-            "Best guess: @user [2](https://t.me/c/1234567890/40). "
-            "Range [1](https://t.me/c/1234567890/20). Unsupported.",
+            "@user has the strongest receipts.\n\n"
+            "[2](https://t.me/c/1234567890/40) "
+            "[1](https://t.me/c/1234567890/20)",
         )
-        self.assertEqual(semantic_search.link_citations(answer, evidence), answer)
+
+    def test_render_search_answer_rejects_uncited_claims(self):
+        evidence = [
+            semantic_search.SearchEvidence(-1001234567890, 1, 24, 20, "first", 0.8)
+        ]
+
+        answer = semantic_search.render_search_answer(
+            semantic_search.SearchAnswerOutput(
+                answer="@user definitely has the most hours.", citations=[]
+            ),
+            evidence,
+        )
+
+        self.assertEqual(answer, semantic_search.NO_SOLID_ANSWER)
+
+    def test_render_search_answer_preserves_no_answer(self):
+        answer = semantic_search.render_search_answer(
+            semantic_search.SearchAnswerOutput(
+                answer=semantic_search.NO_SOLID_ANSWER, citations=[1]
+            ),
+            [semantic_search.SearchEvidence(-1001234567890, 1, 24, 20, "first", 0.8)],
+        )
+
+        self.assertEqual(answer, semantic_search.NO_SOLID_ANSWER)
 
 
 class SearchAnswerTests(unittest.IsolatedAsyncioTestCase):
-    async def test_answer_uses_low_reasoning(self):
+    async def test_answer_uses_structured_output_and_low_reasoning(self):
         evidence = [
             semantic_search.SearchEvidence(-1001, 1, 24, 24, "chat", 0.8),
         ]
 
         with patch.object(
             semantic_search,
-            "generate_text",
-            AsyncMock(return_value="answer"),
-        ) as generate_text:
+            "generate_object",
+            AsyncMock(
+                return_value=semantic_search.SearchAnswerOutput(
+                    answer="answer", citations=[1]
+                )
+            ),
+        ) as generate_object:
             answer = await semantic_search.answer_from_evidence("question", evidence)
 
-        self.assertEqual(answer, "answer")
-        self.assertEqual(generate_text.await_args.args[0], "search")
+        self.assertEqual(answer.answer, "answer")
+        self.assertEqual(answer.citations, [1])
+        self.assertEqual(generate_object.await_args.args[0], "search")
+        self.assertIs(
+            generate_object.await_args.args[2], semantic_search.SearchAnswerOutput
+        )
         self.assertEqual(
-            generate_text.await_args.kwargs["extra_body"],
+            generate_object.await_args.kwargs["extra_body"],
             {"reasoning": {"effort": "low"}},
         )
 
