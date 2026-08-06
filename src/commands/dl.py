@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+from html.parser import HTMLParser
 from urllib.parse import ParseResult, urlparse
 
 import aiohttp
@@ -40,6 +41,24 @@ def _is_instagram_reel(url: ParseResult) -> bool:
     return host in {"instagram.com", "www.instagram.com"} and url.path.startswith(
         "/reel/"
     )
+
+
+def _is_instagram_post(url: ParseResult) -> bool:
+    host = url.hostname or ""
+    return host in {"instagram.com", "www.instagram.com"} and url.path.startswith("/p/")
+
+
+class InstagramImageParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.image_url: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "meta" or self.image_url:
+            return
+        attributes = dict(attrs)
+        if attributes.get("property") == "og:image":
+            self.image_url = attributes.get("content")
 
 
 async def _is_auto_dl_enabled(chat_id: int) -> bool:
@@ -114,6 +133,29 @@ async def _fetch_with_yt_dlp(
     await _fetch_and_send(message, session, media_url, filename)
 
 
+async def _fetch_instagram_image(
+    message: Message,
+    session: aiohttp.ClientSession,
+    target: str,
+) -> None:
+    async with session.get(
+        target,
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=MEDIA_TIMEOUT,
+    ) as resp:
+        if resp.status != 200:
+            raise RuntimeError(f"Instagram page fetch failed: {resp.status}")
+        parser = InstagramImageParser()
+        parser.feed(await resp.text())
+
+    if not parser.image_url:
+        raise RuntimeError("Instagram post has no image metadata")
+    shortcode = urlparse(target).path.rstrip("/").rsplit("/", 1)[-1]
+    await _fetch_and_send(
+        message, session, parser.image_url, f"instagram_{shortcode}.jpg"
+    )
+
+
 async def _fetch_and_send(
     message: Message,
     session: aiohttp.ClientSession,
@@ -184,11 +226,19 @@ async def _download_media(message: Message, url: ParseResult) -> None:
             try:
                 data = await _request_cobalt(session, endpoint, target)
             except (aiohttp.ClientError, RuntimeError, TimeoutError) as e:
-                if not _is_instagram_reel(url):
-                    raise
-                logger.warning("Cobalt failed for Instagram Reel; using yt-dlp: %s", e)
-                await _fetch_with_yt_dlp(message, session, target)
-                return
+                if _is_instagram_reel(url):
+                    logger.warning(
+                        "Cobalt failed for Instagram Reel; using yt-dlp: %s", e
+                    )
+                    await _fetch_with_yt_dlp(message, session, target)
+                    return
+                if _is_instagram_post(url):
+                    logger.warning(
+                        "Cobalt failed for Instagram post; using page metadata: %s", e
+                    )
+                    await _fetch_instagram_image(message, session, target)
+                    return
+                raise
 
             if _needs_yt_dlp(url, data):
                 logger.info(
@@ -243,6 +293,9 @@ async def _download_media(message: Message, url: ParseResult) -> None:
                 return
 
             if status == "error":
+                if _is_instagram_post(url):
+                    await _fetch_instagram_image(message, session, target)
+                    return
                 err = data.get("error", {})
                 await message.reply_text(
                     f"Failed to fetch media: {err.get('code') or 'unknown'}"
