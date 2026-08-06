@@ -27,6 +27,39 @@ class SessionContext:
 
 
 class DownloadTests(IsolatedAsyncioTestCase):
+    async def test_instagram_post_cobalt_error_uses_page_image(self) -> None:
+        message = SimpleNamespace(reply_text=AsyncMock())
+        url = urlparse("https://www.instagram.com/p/DbW6GhitktH/")
+        session = SessionContext()
+
+        with (
+            patch.object(dl.config.API, "COBALT_URL", "http://cobalt/"),
+            patch.object(dl.aiohttp, "ClientSession", return_value=session),
+            patch.object(
+                dl,
+                "_request_cobalt",
+                AsyncMock(
+                    return_value={
+                        "status": "error",
+                        "error": {"code": "error.api.fetch.empty"},
+                    }
+                ),
+            ),
+            patch.object(dl, "_fetch_instagram_image", AsyncMock()) as fallback,
+        ):
+            await dl._download_media(message, url)
+
+        fallback.assert_awaited_once_with(message, session.session, url.geturl())
+        message.reply_text.assert_not_awaited()
+
+    async def test_instagram_image_parser_reads_og_image(self) -> None:
+        parser = dl.InstagramImageParser()
+        parser.feed(
+            '<meta property="og:image" content="https://cdn.example/image.jpg?a=1&amp;b=2">'
+        )
+
+        self.assertEqual(parser.image_url, "https://cdn.example/image.jpg?a=1&b=2")
+
     async def test_instagram_reel_image_falls_back_to_yt_dlp(self) -> None:
         message = SimpleNamespace(reply_text=AsyncMock())
         url = urlparse("https://www.instagram.com/reel/DbT2vSHtvXs/")
