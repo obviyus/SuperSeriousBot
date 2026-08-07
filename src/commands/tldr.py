@@ -2,9 +2,10 @@ import html
 from urllib.parse import parse_qs, urlparse
 
 import ai
-from telegram import Update
+from telegram import Document, Update
 from telegram.constants import ParseMode
-from telegram.ext import ContextTypes
+from telegram.error import TelegramError
+from telegram.ext import ContextTypes, ExtBot
 
 import commands
 import utils
@@ -16,6 +17,18 @@ from config.options import config
 from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message, reply_markdown_or_plain
+
+MAX_DOCUMENT_BYTES = 2_000_000
+
+
+async def read_text_document(bot: ExtBot, document: Document) -> str | None:
+    """Return a document's contents as text, or None if it isn't text."""
+    telegram_file = await bot.getFile(document.file_id)
+    data = bytes(await telegram_file.download_as_bytearray())
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
 
 
 def extract_youtube_video_id(url: str) -> str | None:
@@ -74,11 +87,11 @@ Rules:
     triggers=["tldr", "tldw"],
     usage="/tldr",
     example="/tldr",
-    description="Generate a TLDR summary. Works with YouTube videos, URLs, or replied message text.",
+    description="Generate a TLDR summary. Works with YouTube videos, URLs, replied message text, or text files.",
     api_key="OPENROUTER_API_KEY",
 )
-async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    """Generate a TLDR for YouTube videos, URLs, or replied text."""
+async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate a TLDR for YouTube videos, URLs, replied text, or text files."""
     import aiohttp
 
     message = get_message(update)
@@ -210,21 +223,46 @@ async def tldr(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
             return
     else:
         source_message = message.reply_to_message
-        if not source_message or not (
-            getattr(source_message, "text", None)
-            or getattr(source_message, "caption", None)
-        ):
+        if not source_message:
             await commands.usage_string(message, tldr)
             return
-        raw_text = source_message.text or source_message.caption or ""
+
         username = (
             source_message.from_user.username if source_message.from_user else "unknown"
         )
-        summary_prompt = (
-            f"Please create a TLDR summary of this message from {username}:"
-        )
         response_suffix = ""
-        error_subject = "replied message"
+
+        if document := source_message.document:
+            if (document.file_size or 0) > MAX_DOCUMENT_BYTES:
+                await message.reply_text("That file is too big to summarize.")
+                return
+            try:
+                file_text = await read_text_document(context.bot, document)
+            except TelegramError as e:
+                logger.error("Error downloading %s: %s", document.file_name, e)
+                await message.reply_text("I couldn't download that file.")
+                return
+            if file_text is None:
+                await message.reply_text("I can only summarize text files.")
+                return
+            if not file_text.strip():
+                await message.reply_text("That file is empty.")
+                return
+            raw_text = file_text
+            summary_prompt = (
+                f"Please create a TLDR summary of this file "
+                f"named {document.file_name} shared by {username}:"
+            )
+            error_subject = "document"
+        elif source_message.text or source_message.caption:
+            raw_text = source_message.text or source_message.caption or ""
+            summary_prompt = (
+                f"Please create a TLDR summary of this message from {username}:"
+            )
+            error_subject = "replied message"
+        else:
+            await commands.usage_string(message, tldr)
+            return
 
     try:
         if len(raw_text) > 20000:

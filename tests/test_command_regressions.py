@@ -29,6 +29,7 @@ habit_module = importlib.import_module("commands.habit")
 meme_module = importlib.import_module("commands.meme")
 model_module = importlib.import_module("commands.model")
 song_module = importlib.import_module("commands.song")
+tldr_module = importlib.import_module("commands.tldr")
 transcribe_module = importlib.import_module("commands.transcribe")
 weather_module = importlib.import_module("commands.weather")
 messages_module = importlib.import_module("utils.messages")
@@ -335,6 +336,101 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             await transcribe_module.transcribe(update, context)
 
         self.assertEqual(message.replies, ["Transcription is not configured."])
+
+    async def test_read_text_document_decodes_utf8_only(self):
+        class FakeFile:
+            def __init__(self, data: bytes) -> None:
+                self.data = data
+
+            async def download_as_bytearray(self) -> bytearray:
+                return bytearray(self.data)
+
+        class FileBot:
+            def __init__(self, data: bytes) -> None:
+                self.data = data
+
+            async def getFile(self, _file_id):
+                return FakeFile(self.data)
+
+        document = SimpleNamespace(file_id="doc-file")
+
+        self.assertEqual(
+            await tldr_module.read_text_document(
+                FileBot("héllo transcript".encode()), document
+            ),
+            "héllo transcript",
+        )
+        self.assertIsNone(
+            await tldr_module.read_text_document(
+                FileBot(b"\x89PNG\r\n\x1a\n\xff\xfe"), document
+            )
+        )
+
+    async def test_tldr_summarizes_a_replied_text_document(self):
+        message = FakeMessage()
+        message.reply_to_message = SimpleNamespace(
+            document=SimpleNamespace(
+                file_id="doc-file", file_name="transcript.txt", file_size=42
+            ),
+            text=None,
+            caption=None,
+            from_user=SimpleNamespace(username="obviyus"),
+        )
+        update = SimpleNamespace(effective_user=message.from_user)
+        context = SimpleNamespace(bot=FakeBot(), args=[])
+        summarize = AsyncMock(return_value="- a point")
+
+        with (
+            patch.object(tldr_module, "get_message", return_value=message),
+            patch.object(tldr_module.utils, "extract_link", return_value=None),
+            patch.object(
+                tldr_module,
+                "ensure_command_available",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(tldr_module, "ensure_quota", AsyncMock(return_value=True)),
+            patch.object(
+                tldr_module,
+                "read_text_document",
+                AsyncMock(return_value="the whole transcript"),
+            ),
+            patch.object(tldr_module, "summarize_text", summarize),
+        ):
+            await tldr_module.tldr(update, context)
+
+        self.assertIn("the whole transcript", summarize.await_args.args[0])
+        self.assertIn("transcript.txt", summarize.await_args.args[0])
+        self.assertIn("- a point", message.replies[0])
+
+    async def test_tldr_rejects_a_replied_binary_document(self):
+        message = FakeMessage()
+        message.reply_to_message = SimpleNamespace(
+            document=SimpleNamespace(
+                file_id="doc-file", file_name="cat.png", file_size=42
+            ),
+            text=None,
+            caption=None,
+            from_user=SimpleNamespace(username="obviyus"),
+        )
+        update = SimpleNamespace(effective_user=message.from_user)
+        context = SimpleNamespace(bot=FakeBot(), args=[])
+
+        with (
+            patch.object(tldr_module, "get_message", return_value=message),
+            patch.object(tldr_module.utils, "extract_link", return_value=None),
+            patch.object(
+                tldr_module,
+                "ensure_command_available",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(tldr_module, "ensure_quota", AsyncMock(return_value=True)),
+            patch.object(
+                tldr_module, "read_text_document", AsyncMock(return_value=None)
+            ),
+        ):
+            await tldr_module.tldr(update, context)
+
+        self.assertEqual(message.replies, ["I can only summarize text files."])
 
     async def test_weather_missing_keys_uses_user_facing_message(self):
         message = FakeMessage()
