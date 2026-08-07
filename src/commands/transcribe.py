@@ -16,7 +16,7 @@ from config.logger import logger
 from config.options import config
 from utils.command_limits import ensure_quota
 from utils.decorators import command
-from utils.messages import get_message
+from utils.messages import get_message, reply_markdown_or_plain
 
 FALLBACK_PROMPT = "Please transcribe this audio file. No wall of text, keep it readable, suitable for a Telegram message. Begin transcript immediately without any commentary."
 
@@ -157,4 +157,9 @@ async def transcribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await message.reply_text("No transcript was returned. Please try again.")
         return
 
-    await message.reply_text(transcript, disable_web_page_preview=True)
+    await reply_markdown_or_plain(
+        message,
+        transcript,
+        disable_web_page_preview=True,
+        document_name="transcript.txt",
+    )
