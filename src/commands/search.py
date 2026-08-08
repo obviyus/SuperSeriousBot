@@ -18,7 +18,7 @@ from management.chat_memory import (
     is_fts_enabled,
     parse_export_file,
 )
-from management.chat_semantic_search import semantic_search_answer
+from management.chat_search import search_answer
 from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message, reply_markdown_or_plain
@@ -95,18 +95,26 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         last_status_edit = now
         last_status_text = text
 
+    timed_out = False
     try:
-        answer = await semantic_search_answer(
-            message.chat_id,
-            query,
-            author_id,
-            show_reasoning,
-        )
+        try:
+            answer = await search_answer(
+                message.chat_id,
+                query,
+                author_id,
+                show_reasoning,
+            )
+        except TimeoutError:
+            timed_out = True
     finally:
         try:
             await status_message.delete()
         except TelegramError:
             logger.exception("Search status deletion failed")
+
+    if timed_out:
+        await message.reply_text("Search took too long. Try again.")
+        return
 
     if not answer:
         if not await is_fts_enabled(message.chat_id):

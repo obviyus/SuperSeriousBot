@@ -1,7 +1,5 @@
 import json
 
-from commands.ai import openrouter_provider
-
 
 async def openrouter_embeddings(
     model: str,
@@ -9,6 +7,8 @@ async def openrouter_embeddings(
     *,
     dimensions: int,
 ) -> list[list[float]]:
+    from commands.ai import openrouter_provider
+
     response = await openrouter_provider().sdk_client.embeddings.create(
         model=model,
         input=inputs,

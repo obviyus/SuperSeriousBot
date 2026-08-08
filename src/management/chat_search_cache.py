@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from chat_search_config import UTTERANCE_EMBEDDING_DIMENSIONS
 from config.db import TursoRow, get_db
 from config.logger import logger
 
@@ -55,6 +56,36 @@ def initialize_search_cache_file() -> None:
             """
         )
         connection.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS search_utterances (
+                remote_id INTEGER NOT NULL UNIQUE,
+                chat_id INTEGER NOT NULL,
+                start_message_id INTEGER NOT NULL,
+                end_message_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                author TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT NOT NULL,
+                message_text TEXT NOT NULL,
+                embedding F32_BLOB({UTTERANCE_EMBEDDING_DIMENSIONS}) NOT NULL,
+                embedding_model TEXT NOT NULL,
+                embedding_dimension INTEGER NOT NULL,
+                UNIQUE (
+                    chat_id,
+                    start_message_id,
+                    embedding_model,
+                    embedding_dimension
+                )
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS search_utterances_chat_idx
+            ON search_utterances (chat_id, embedding_model, embedding_dimension)
+            """
+        )
+        connection.execute(
             """
             CREATE INDEX IF NOT EXISTS search_windows_chat_idx
             ON search_windows (chat_id, embedding_model, embedding_dimension)
@@ -74,6 +105,20 @@ def initialize_search_cache_file() -> None:
             VALUES (1, 0)
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS search_utterance_cache_state (
+                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                remote_id INTEGER NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO search_utterance_cache_state (singleton, remote_id)
+            VALUES (1, 0)
+            """
+        )
     finally:
         connection.close()
 
@@ -89,14 +134,29 @@ def cached_remote_id() -> int:
         connection.close()
 
 
+def cached_utterance_remote_id() -> int:
+    connection = open_search_cache()
+    try:
+        row = connection.execute(
+            "SELECT remote_id FROM search_utterance_cache_state WHERE singleton = 1"
+        ).fetchone()
+        return row[0]
+    finally:
+        connection.close()
+
+
 def reset_search_cache() -> None:
     initialize_search_cache_file()
     connection = open_search_cache()
     try:
         connection.execute("BEGIN")
         connection.execute("DELETE FROM search_windows")
+        connection.execute("DELETE FROM search_utterances")
         connection.execute(
             "UPDATE search_cache_state SET remote_id = 0 WHERE singleton = 1"
+        )
+        connection.execute(
+            "UPDATE search_utterance_cache_state SET remote_id = 0 WHERE singleton = 1"
         )
         connection.execute("COMMIT")
     finally:
@@ -170,6 +230,74 @@ def store_search_cache_rows(rows: Sequence[TursoRow]) -> None:
         connection.close()
 
 
+def store_search_utterance_cache_rows(rows: Sequence[TursoRow]) -> None:
+    connection = open_search_cache()
+    try:
+        connection.execute("BEGIN")
+        connection.executemany(
+            """
+            INSERT INTO search_utterances (
+                remote_id,
+                chat_id,
+                start_message_id,
+                end_message_id,
+                user_id,
+                author,
+                start_time,
+                end_time,
+                message_text,
+                embedding,
+                embedding_model,
+                embedding_dimension
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, ?)
+            ON CONFLICT (
+                chat_id,
+                start_message_id,
+                embedding_model,
+                embedding_dimension
+            )
+            DO UPDATE SET
+                remote_id = excluded.remote_id,
+                end_message_id = excluded.end_message_id,
+                user_id = excluded.user_id,
+                author = excluded.author,
+                start_time = excluded.start_time,
+                end_time = excluded.end_time,
+                message_text = excluded.message_text,
+                embedding = excluded.embedding
+            """,
+            [
+                (
+                    row["id"],
+                    row["chat_id"],
+                    row["start_message_id"],
+                    row["end_message_id"],
+                    row["user_id"],
+                    row["author"],
+                    row["start_time"],
+                    row["end_time"],
+                    row["message_text"],
+                    row["embedding"],
+                    row["embedding_model"],
+                    row["embedding_dimension"],
+                )
+                for row in rows
+            ],
+        )
+        connection.execute(
+            """
+            UPDATE search_utterance_cache_state
+            SET remote_id = ?
+            WHERE singleton = 1
+            """,
+            (rows[-1]["id"],),
+        )
+        connection.execute("COMMIT")
+    finally:
+        connection.close()
+
+
 async def fetch_search_cache_rows(after_remote_id: int) -> list[TursoRow]:
     async with (
         get_db() as connection,
@@ -194,6 +322,37 @@ async def fetch_search_cache_rows(after_remote_id: int) -> list[TursoRow]:
         return await cursor.fetchall()
 
 
+async def fetch_search_utterance_cache_rows(
+    after_remote_id: int,
+) -> list[TursoRow]:
+    async with (
+        get_db() as connection,
+        connection.execute(
+            """
+            SELECT
+                id,
+                chat_id,
+                start_message_id,
+                end_message_id,
+                user_id,
+                author,
+                start_time,
+                end_time,
+                message_text,
+                vector_extract(embedding) AS embedding,
+                embedding_model,
+                embedding_dimension
+            FROM chat_search_utterances
+            WHERE id > ?
+            ORDER BY id
+            LIMIT ?
+            """,
+            (after_remote_id, SEARCH_CACHE_BATCH_SIZE),
+        ) as cursor,
+    ):
+        return await cursor.fetchall()
+
+
 async def sync_search_cache() -> int:
     async with _sync_lock:
         initialize_search_cache_file()
@@ -201,6 +360,11 @@ async def sync_search_cache() -> int:
         while rows := await fetch_search_cache_rows(cached_remote_id()):
             await asyncio.to_thread(store_search_cache_rows, rows)
             synced += len(rows)
+        while rows := await fetch_search_utterance_cache_rows(
+            cached_utterance_remote_id()
+        ):
+            await asyncio.to_thread(store_search_utterance_cache_rows, rows)
+            synced += len(rows)
         if synced:
-            logger.info("Synced %d semantic search windows to local cache", synced)
+            logger.info("Synced %d semantic search records to local cache", synced)
         return synced
