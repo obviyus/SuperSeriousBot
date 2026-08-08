@@ -211,7 +211,8 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             model_module.DEFAULT_MODELS["cron"], "openrouter/x-ai/grok-4.3"
         )
         self.assertEqual(
-            model_module.DEFAULT_MODELS["search"], "openrouter/x-ai/grok-4.3"
+            model_module.DEFAULT_MODELS["search"],
+            "openrouter/google/gemini-3-flash-preview",
         )
         self.assertEqual(
             model_module.DEFAULT_MODELS["edit"],
@@ -313,14 +314,14 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 self.replies.append(text)
                 return self.status_message
 
-        async def semantic_search_answer(
+        async def search_answer(
             _chat_id,
             _query,
             _author_id,
             on_reasoning,
         ):
             await on_reasoning("Trying a broader description")
-            return "Grounded answer"
+            return SimpleNamespace(answer="Grounded answer")
 
         async def send_answer(_message, answer, **_kwargs):
             events.append(("answer", answer))
@@ -341,8 +342,8 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch.object(
                 search_module,
-                "semantic_search_answer",
-                semantic_search_answer,
+                "search_answer",
+                search_answer,
             ),
             patch.object(search_module, "reply_markdown_or_plain", send_answer),
             patch.object(search_module.time, "monotonic", return_value=10.0),
@@ -361,6 +362,50 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 ("answer", "Grounded answer"),
             ],
         )
+
+    async def test_search_reports_provider_timeout(self):
+        status_message = SimpleNamespace(
+            edit_text=AsyncMock(),
+            delete=AsyncMock(),
+        )
+
+        class SearchMessage(FakeMessage):
+            def __init__(self):
+                super().__init__()
+                self.chat_id = -1001
+
+            async def reply_text(self, text: str, **_kwargs):
+                self.replies.append(text)
+                return status_message
+
+        async def search_answer(*_args):
+            raise TimeoutError
+
+        message = SearchMessage()
+        with (
+            patch.object(search_module, "get_message", return_value=message),
+            patch.object(
+                search_module,
+                "ensure_command_available",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(
+                search_module,
+                "ensure_quota",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(search_module, "search_answer", search_answer),
+        ):
+            await search_module.search(
+                SimpleNamespace(),
+                SimpleNamespace(args=["question"]),
+            )
+
+        self.assertEqual(
+            message.replies,
+            ["Searching messages...", "Search took too long. Try again."],
+        )
+        status_message.delete.assert_awaited_once()
 
     def test_search_status_keeps_latest_reasoning_within_telegram_limit(self):
         status = search_module.search_status_text("x" * 5000)

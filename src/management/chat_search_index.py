@@ -1,8 +1,12 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from chat_search_config import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
+    UTTERANCE_EMBEDDING_DIMENSIONS,
+    UTTERANCE_GAP_SECONDS,
+    UTTERANCE_MAX_MESSAGES,
     WINDOW_MESSAGE_COUNT,
     WINDOW_STRIDE,
 )
@@ -19,6 +23,7 @@ class SourceMessage:
     create_time: str
     author: str
     text: str
+    user_id: int = 0
 
 
 @dataclass(frozen=True)
@@ -26,6 +31,19 @@ class SearchWindow:
     chat_id: int
     start_message_id: int
     end_message_id: int
+    start_time: str
+    end_time: str
+    message_count: int
+    text: str
+
+
+@dataclass(frozen=True)
+class SearchUtterance:
+    chat_id: int
+    start_message_id: int
+    end_message_id: int
+    user_id: int
+    author: str
     start_time: str
     end_time: str
     message_count: int
@@ -65,6 +83,53 @@ def build_windows(
             )
         )
     return windows
+
+
+def build_utterances(
+    chat_id: int,
+    messages: list[SourceMessage],
+    indexed: set[tuple[int, int]],
+) -> list[SearchUtterance]:
+    groups: list[list[SourceMessage]] = []
+    current: list[SourceMessage] = []
+    for message in messages:
+        if current:
+            gap = datetime.fromisoformat(message.create_time) - datetime.fromisoformat(
+                current[-1].create_time
+            )
+            if (
+                message.user_id != current[-1].user_id
+                or gap.total_seconds() > UTTERANCE_GAP_SECONDS
+                or len(current) == UTTERANCE_MAX_MESSAGES
+            ):
+                groups.append(current)
+                current = []
+        current.append(message)
+    if current:
+        groups.append(current)
+
+    utterances = []
+    for group in groups:
+        first = group[0]
+        last = group[-1]
+        if (first.message_id, last.message_id) in indexed:
+            continue
+        utterances.append(
+            SearchUtterance(
+                chat_id=chat_id,
+                start_message_id=first.message_id,
+                end_message_id=last.message_id,
+                user_id=first.user_id,
+                author=first.author,
+                start_time=first.create_time,
+                end_time=last.create_time,
+                message_count=len(group),
+                text="\n".join(
+                    f"{message.message_id} {message.text}" for message in group
+                ),
+            )
+        )
+    return utterances
 
 
 async def searchable_chat_ids() -> list[int]:
@@ -146,13 +211,17 @@ async def source_messages(
     start_message_id: int | None,
     window_limit: int,
 ) -> list[SourceMessage]:
-    row_limit = WINDOW_STRIDE * window_limit + WINDOW_MESSAGE_COUNT
+    row_limit = max(
+        WINDOW_STRIDE * window_limit + WINDOW_MESSAGE_COUNT,
+        UTTERANCE_MAX_MESSAGES * window_limit + 1,
+    )
     async with (
         get_db() as conn,
         conn.execute(
             """
             SELECT
                 cs.message_id,
+                cs.user_id,
                 cs.create_time,
                 COALESCE(us.username, 'user:' || cs.user_id) AS author,
                 cs.message_text
@@ -177,6 +246,7 @@ async def source_messages(
             create_time=row["create_time"],
             author=format_author(row["author"]),
             text=row["message_text"],
+            user_id=row["user_id"],
         )
         for row in rows
     ]
@@ -201,6 +271,52 @@ async def existing_windows(
                 chat_id,
                 EMBEDDING_MODEL,
                 EMBEDDING_DIMENSIONS,
+                start_message_id,
+                start_message_id,
+            ),
+        ) as cursor,
+    ):
+        rows = await cursor.fetchall()
+    return {(row["start_message_id"], row["end_message_id"]) for row in rows}
+
+
+async def resume_utterance_start(chat_id: int) -> int | None:
+    async with (
+        get_db() as conn,
+        conn.execute(
+            """
+            SELECT MAX(start_message_id) AS start_message_id
+            FROM chat_search_utterances
+            WHERE chat_id = ?
+            AND embedding_model = ?
+            AND embedding_dimension = ?
+            """,
+            (chat_id, EMBEDDING_MODEL, UTTERANCE_EMBEDDING_DIMENSIONS),
+        ) as cursor,
+    ):
+        row = await cursor.fetchone()
+    return row["start_message_id"] if row and row["start_message_id"] else None
+
+
+async def existing_utterances(
+    chat_id: int,
+    start_message_id: int | None,
+) -> set[tuple[int, int]]:
+    async with (
+        get_db() as conn,
+        conn.execute(
+            """
+            SELECT start_message_id, end_message_id
+            FROM chat_search_utterances
+            WHERE chat_id = ?
+            AND embedding_model = ?
+            AND embedding_dimension = ?
+            AND (? IS NULL OR start_message_id >= ?)
+            """,
+            (
+                chat_id,
+                EMBEDDING_MODEL,
+                UTTERANCE_EMBEDDING_DIMENSIONS,
                 start_message_id,
                 start_message_id,
             ),
@@ -282,6 +398,52 @@ async def store_windows(
         )
 
 
+async def store_utterances(
+    utterances: list[SearchUtterance],
+    embeddings: list[list[float]],
+) -> None:
+    async with get_db() as conn:
+        await conn.executemany(
+            """
+            INSERT OR REPLACE INTO chat_search_utterances (
+                chat_id,
+                start_message_id,
+                end_message_id,
+                user_id,
+                author,
+                start_time,
+                end_time,
+                message_count,
+                message_text,
+                embedding,
+                embedding_model,
+                embedding_dimension,
+                update_time
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, ?, CURRENT_TIMESTAMP)
+            """,
+            [
+                (
+                    utterance.chat_id,
+                    utterance.start_message_id,
+                    utterance.end_message_id,
+                    utterance.user_id,
+                    utterance.author,
+                    utterance.start_time,
+                    utterance.end_time,
+                    utterance.message_count,
+                    utterance.text,
+                    vector32_json(embedding),
+                    EMBEDDING_MODEL,
+                    UTTERANCE_EMBEDDING_DIMENSIONS,
+                )
+                for utterance, embedding in zip(
+                    utterances, embeddings, strict=True
+                )
+            ],
+        )
+
+
 async def index_window_batch(
     chat_id: int,
     start_message_id: int | None,
@@ -331,6 +493,87 @@ async def index_chat_windows(
     return indexed
 
 
+async def index_utterance_batch(
+    chat_id: int,
+    start_message_id: int | None,
+    utterance_limit: int,
+    *,
+    skip_indexed: bool,
+) -> tuple[int, int | None]:
+    messages = await source_messages(chat_id, start_message_id, utterance_limit)
+    if not messages:
+        return 0, None
+    indexed = (
+        await existing_utterances(chat_id, start_message_id)
+        if skip_indexed
+        else set()
+    )
+    utterances = build_utterances(chat_id, messages, indexed)[:utterance_limit]
+    if not utterances:
+        return 0, None
+    embeddings = await openrouter_embeddings(
+        EMBEDDING_MODEL,
+        [f"{utterance.author}: {utterance.text}" for utterance in utterances],
+        dimensions=UTTERANCE_EMBEDDING_DIMENSIONS,
+    )
+    await store_utterances(utterances, embeddings)
+    last_end_index = next(
+        index
+        for index, message in enumerate(messages)
+        if message.message_id == utterances[-1].end_message_id
+    )
+    next_start_index = last_end_index + 1
+    next_start_message_id = (
+        messages[next_start_index].message_id
+        if next_start_index < len(messages)
+        else None
+    )
+    return len(utterances), next_start_message_id
+
+
+async def index_chat_utterances(
+    chat_id: int,
+    utterance_limit: int,
+) -> int:
+    indexed, _ = await index_utterance_batch(
+        chat_id,
+        await resume_utterance_start(chat_id),
+        utterance_limit,
+        skip_indexed=True,
+    )
+    return indexed
+
+
+async def index_pending_utterances(
+    *,
+    chat_ids: list[int],
+    utterance_limit: int = INDEX_BATCH_WINDOWS,
+) -> int:
+    if not chat_ids:
+        return 0
+
+    indexed = 0
+    backlogged = []
+    per_chat_limit = max(1, utterance_limit // len(chat_ids))
+    for chat_id in chat_ids:
+        remaining = utterance_limit - indexed
+        if remaining <= 0:
+            break
+        chat_limit = min(per_chat_limit, remaining)
+        chat_indexed = await index_chat_utterances(chat_id, chat_limit)
+        indexed += chat_indexed
+        if chat_indexed == chat_limit:
+            backlogged.append(chat_id)
+
+    for chat_id in backlogged:
+        remaining = utterance_limit - indexed
+        if remaining <= 0:
+            break
+        indexed += await index_chat_utterances(chat_id, remaining)
+    await sync_search_cache()
+    return indexed
+
+
 async def index_pending_windows(
     *,
     chat_ids: list[int],
@@ -377,5 +620,24 @@ async def refresh_windows(chat_ids: list[int]) -> int:
                 break
             start_message_id = next_start_message_id
     reset_search_cache()
+    await sync_search_cache()
+    return refreshed
+
+
+async def refresh_utterances(chat_ids: list[int]) -> int:
+    refreshed = 0
+    for chat_id in chat_ids:
+        start_message_id = None
+        while True:
+            batch_size, next_start_message_id = await index_utterance_batch(
+                chat_id,
+                start_message_id,
+                INDEX_BATCH_WINDOWS,
+                skip_indexed=False,
+            )
+            refreshed += batch_size
+            if batch_size < INDEX_BATCH_WINDOWS or next_start_message_id is None:
+                break
+            start_message_id = next_start_message_id
     await sync_search_cache()
     return refreshed

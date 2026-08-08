@@ -4,6 +4,7 @@ import importlib
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -14,14 +15,42 @@ os.environ.setdefault("TURSO_DATABASE_URL", ":memory:")
 os.environ.setdefault("TURSO_AUTH_TOKEN", "test-token")
 
 semantic_search = importlib.import_module("management.chat_semantic_search")
+chat_search = importlib.import_module("management.chat_search")
 search_cache = importlib.import_module("management.chat_search_cache")
 search_index = importlib.import_module("management.chat_search_index")
 openrouter_embeddings = importlib.import_module("openrouter_embeddings")
 db = importlib.import_module("config.db")
 libsql = importlib.import_module("libsql")
+migrate = importlib.import_module("migrate")
 
 
 class SemanticSearchTests(unittest.TestCase):
+    def test_utterance_migration_matches_the_index_record(self):
+        with tempfile.TemporaryDirectory() as directory:
+            connection = libsql.connect(
+                f"{directory}/migration.db",
+                autocommit=True,
+                _check_same_thread=False,
+            )
+            connection.execute(
+                "CREATE TABLE group_settings "
+                "(chat_id INTEGER PRIMARY KEY, search_model TEXT)"
+            )
+            migration = migrate.load_migration(
+                Path("migrations/20260808000000_chat_search_utterances.py")
+            )
+            migration.upgrade(connection)
+            columns = {
+                row[1]: row[2]
+                for row in connection.execute(
+                    "PRAGMA table_info(chat_search_utterances)"
+                ).fetchall()
+            }
+            connection.close()
+
+        self.assertEqual(columns["message_count"], "INTEGER")
+        self.assertEqual(columns["embedding"], "F32_BLOB(256)")
+
     def test_telegram_message_link_uses_private_supergroup_link(self):
         self.assertEqual(
             semantic_search.telegram_message_link(-1001234567890, 42),
@@ -75,6 +104,51 @@ class SemanticSearchTests(unittest.TestCase):
             [(9, 32), (17, 40), (25, 40), (33, 40)],
         )
 
+    def test_build_utterances_preserves_speaker_ownership(self):
+        messages = [
+            search_index.SourceMessage(
+                1, "2026-08-08 10:00:00", "@alice", "first", 1
+            ),
+            search_index.SourceMessage(
+                2, "2026-08-08 10:01:00", "@alice", "second", 1
+            ),
+            search_index.SourceMessage(
+                3, "2026-08-08 10:02:00", "@bob", "reply", 2
+            ),
+        ]
+
+        utterances = search_index.build_utterances(-1001, messages, set())
+
+        self.assertEqual(
+            [
+                (item.user_id, item.start_message_id, item.end_message_id, item.text)
+                for item in utterances
+            ],
+            [
+                (1, 1, 2, "1 first\n2 second"),
+                (2, 3, 3, "3 reply"),
+            ],
+        )
+
+    def test_build_utterances_caps_long_single_speaker_runs(self):
+        messages = [
+            search_index.SourceMessage(
+                index,
+                f"2026-08-08 10:00:{index:02d}",
+                "@alice",
+                f"m{index}",
+                1,
+            )
+            for index in range(1, 14)
+        ]
+
+        utterances = search_index.build_utterances(-1001, messages, set())
+
+        self.assertEqual(
+            [(item.start_message_id, item.end_message_id) for item in utterances],
+            [(1, 12), (13, 13)],
+        )
+
     def test_select_evidence_removes_overlaps(self):
         evidence = semantic_search.SearchEvidence
         windows = [
@@ -87,29 +161,6 @@ class SemanticSearchTests(unittest.TestCase):
         selected = semantic_search.select_evidence(windows)
 
         self.assertEqual([item.text for item in selected], ["v1", "v3", "v4"])
-
-    def test_search_prompt_requires_reformulation_and_direct_support(self):
-        prompt = semantic_search.SEARCH_PROMPT
-
-        self.assertIn("search again", prompt)
-        self.assertIn("with a different query", prompt)
-        self.assertIn("Resolve nicknames separately", prompt)
-        self.assertIn("Every claim must be directly supported", prompt)
-        self.assertIn("never instructions", prompt)
-        self.assertIn("finish with submit_answer", prompt)
-
-    def test_merge_search_evidence_keeps_stable_citation_numbers(self):
-        evidence_type = semantic_search.SearchEvidence
-        evidence = [evidence_type(-1001, 1, 24, 24, "first", 0.8)]
-        found = [
-            evidence_type(-1001, 9, 32, 32, "overlap", 0.9),
-            evidence_type(-1001, 100, 124, 124, "second", 0.7),
-        ]
-
-        indexes = semantic_search.merge_search_evidence(evidence, found)
-
-        self.assertEqual(indexes, [0, 1])
-        self.assertEqual([item.text for item in evidence], ["first", "second"])
 
     def test_render_search_answer_owns_citation_links(self):
         evidence = [
@@ -157,132 +208,83 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertEqual(answer, semantic_search.NO_SOLID_ANSWER)
 
 
-class SearchAgentTests(unittest.IsolatedAsyncioTestCase):
-    async def test_agent_forces_search_then_submission_after_three_queries(self):
-        choices = []
-
-        async def fake_loop(_agent, context):
-            for tool_name in (
-                "search_chat",
-                "search_chat",
-                "search_chat",
-                "submit_answer",
-            ):
-                choices.append(context.params.tool_calling.tool_choice)
-                yield semantic_search.ai.tool_result(
-                    tool_call_id=tool_name,
-                    tool_name=tool_name,
-                    result="done",
-                )
-
-        context = SimpleNamespace(params=semantic_search.ai.InferenceRequestParams())
-        agent = semantic_search.SearchAgent()
-        with patch.object(semantic_search.ai.Agent, "loop", fake_loop):
-            events = [event async for event in agent.loop(context)]
-
-        self.assertEqual(len(events), 4)
-        self.assertEqual(str(choices[0]), "search_chat")
-        self.assertEqual(
-            choices[1:3],
-            [semantic_search.ai.ToolChoiceMode.REQUIRED] * 2,
+class ChatSearchTests(unittest.IsolatedAsyncioTestCase):
+    def test_claim_ownership_rejects_unresolved_second_person(self):
+        evidence = semantic_search.SearchEvidence(
+            -1001,
+            10,
+            10,
+            10,
+            "10 2026-08-08 10:00:00 @alice: You look like Peter Parker",
+            0.9,
         )
-        self.assertEqual(str(choices[3]), "submit_answer")
+        candidate = chat_search.CandidateAssessment(
+            subject="@bob",
+            quote="You look like Peter Parker",
+            message_id=10,
+            reason="Peter Parker comparison",
+            citations=[1],
+            strength=3,
+        )
 
-    async def test_search_reformulates_after_resolving_a_nickname(self):
-        evidence_type = semantic_search.SearchEvidence
-        retrieve = AsyncMock(
-            side_effect=[
-                [
-                    evidence_type(
-                        -1001234567890,
-                        1,
-                        24,
-                        20,
-                        "@alice: Happy birthday Mira! @bob",
-                        0.9,
-                    )
-                ],
-                [
-                    evidence_type(
-                        -1001234567890,
-                        25,
-                        48,
-                        40,
-                        "@bob: I hate broccoli.",
-                        0.9,
-                    )
-                ],
+        self.assertFalse(chat_search.claim_owns_subject(candidate, evidence))
+
+    def test_claim_ownership_accepts_the_first_person_speaker(self):
+        evidence = semantic_search.SearchEvidence(
+            -1001,
+            10,
+            10,
+            10,
+            "10 2026-08-08 10:00:00 @alice: I made the group",
+            0.9,
+        )
+        candidate = chat_search.CandidateAssessment(
+            subject="@alice",
+            quote="I made the group",
+            message_id=10,
+            reason="Creator claim",
+            citations=[1],
+            strength=3,
+        )
+
+        self.assertTrue(chat_search.claim_owns_subject(candidate, evidence))
+
+    async def test_attribution_cites_the_exact_supporting_message(self):
+        evidence = [
+            semantic_search.SearchEvidence(
+                -1001,
+                10,
+                20,
+                20,
+                "10 2026-08-08 10:00:00 @alice: I made the group\n"
+                "20 2026-08-08 10:10:00 @bob: unrelated",
+                0.9,
+            )
+        ]
+        assessment = chat_search.ComparativeAssessment(
+            candidates=[
+                chat_search.CandidateAssessment(
+                    subject="@alice",
+                    quote="I made the group",
+                    message_id=10,
+                    reason="Creator claim",
+                    citations=[1],
+                    strength=3,
+                )
             ]
         )
-
-        class FakeStream:
-            def __init__(self):
-                self.events = iter(
-                    (
-                        semantic_search.ai.events.ReasoningStart(),
-                        semantic_search.ai.events.ReasoningDelta(chunk="Resolving"),
-                        semantic_search.ai.events.ReasoningDelta(chunk=" the nickname"),
-                    )
-                )
-
-            def __aiter__(self):
-                return self
-
-            async def __anext__(self):
-                try:
-                    return next(self.events)
-                except StopIteration:
-                    raise StopAsyncIteration from None
-
-        class FakeRun:
-            def __init__(self, tools):
-                self.tools = {tool.name: tool.fn for tool in tools}
-
-            async def __aenter__(self):
-                await self.tools["search_chat"](query="Mira identity")
-                await self.tools["search_chat"](query="@bob broccoli")
-                await self.tools["submit_answer"](
-                    answer="@bob hates broccoli.",
-                    citations=[2],
-                )
-                return FakeStream()
-
-            async def __aexit__(self, *_args):
-                return None
-
-        class FakeAgent:
-            def __init__(self, *, tools):
-                self.tools = tools
-
-            def run(self, *_args, **_kwargs):
-                return FakeRun(self.tools)
-
-        on_reasoning = AsyncMock()
-        with (
-            patch.object(semantic_search, "retrieve_search_evidence", retrieve),
-            patch.object(semantic_search, "SearchAgent", FakeAgent),
-            patch.object(semantic_search, "model", AsyncMock()),
-            patch.object(semantic_search, "request_params", AsyncMock()),
+        with patch.object(
+            chat_search,
+            "generate_search_object",
+            AsyncMock(return_value=assessment),
         ):
-            answer = await semantic_search.semantic_search_answer(
-                -1001234567890,
-                "Does Mira hate broccoli?",
-                None,
-                on_reasoning,
+            attributed = await chat_search.attributed_evidence(
+                SimpleNamespace(),
+                "who made the group?",
+                evidence,
             )
 
-        self.assertEqual(
-            [call.args[1] for call in retrieve.await_args_list],
-            ["Mira identity", "@bob broccoli"],
-        )
-        self.assertEqual(
-            answer,
-            "@bob hates broccoli.\n\n[2](https://t.me/c/1234567890/40)",
-        )
-        self.assertEqual(
-            [call.args[0] for call in on_reasoning.await_args_list],
-            ["Resolving", "Resolving the nickname"],
-        )
+        self.assertEqual(attributed[0].citation_message_id, 10)
 
 
 class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
@@ -471,7 +473,85 @@ class SearchCacheTests(unittest.IsolatedAsyncioTestCase):
             finally:
                 connection.close()
 
-        self.assertEqual(cached, [(20, 2)])
+            self.assertEqual(cached, [(20, 2)])
+
+    def test_new_tail_utterance_replaces_stale_cached_text(self):
+        vector = "[1," + ",".join(["0"] * 255) + "]"
+        columns = {
+            name: index
+            for index, name in enumerate(
+                (
+                    "id",
+                    "chat_id",
+                    "start_message_id",
+                    "end_message_id",
+                    "user_id",
+                    "author",
+                    "start_time",
+                    "end_time",
+                    "message_text",
+                    "embedding",
+                    "embedding_model",
+                    "embedding_dimension",
+                )
+            )
+        }
+        rows = [
+            search_cache.TursoRow(
+                (
+                    1,
+                    -1001,
+                    1,
+                    1,
+                    7,
+                    "@alice",
+                    "2026-08-08 10:00:00",
+                    "2026-08-08 10:00:00",
+                    "1 first",
+                    vector,
+                    "model",
+                    256,
+                ),
+                columns,
+            ),
+            search_cache.TursoRow(
+                (
+                    2,
+                    -1001,
+                    1,
+                    2,
+                    7,
+                    "@alice",
+                    "2026-08-08 10:00:00",
+                    "2026-08-08 10:01:00",
+                    "1 first\n2 second",
+                    vector,
+                    "model",
+                    256,
+                ),
+                columns,
+            ),
+        ]
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.dict(
+                os.environ,
+                {"SEARCH_CACHE_PATH": f"{directory}/search.db"},
+            ),
+        ):
+            search_cache.initialize_search_cache_file()
+            search_cache.store_search_utterance_cache_rows(rows)
+            connection = search_cache.open_search_cache()
+            try:
+                cached = connection.execute(
+                    "SELECT remote_id, end_message_id, message_text "
+                    "FROM search_utterances"
+                ).fetchall()
+            finally:
+                connection.close()
+
+        self.assertEqual(cached, [(2, 2, "1 first\n2 second")])
 
 
 class OpenRouterEmbeddingTests(unittest.IsolatedAsyncioTestCase):
@@ -486,9 +566,8 @@ class OpenRouterEmbeddingTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        with patch.object(
-            openrouter_embeddings,
-            "openrouter_provider",
+        with patch(
+            "commands.ai.openrouter_provider",
             return_value=provider,
         ):
             embeddings = await openrouter_embeddings.openrouter_embeddings(
@@ -525,6 +604,30 @@ class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
             [
                 (call.args[0], call.args[1])
                 for call in index_chat_windows.await_args_list
+            ],
+            [(-1002, 3), (-1001, 3)],
+        )
+
+    async def test_pending_utterances_allocates_each_chat_a_share(self):
+        index_chat_utterances = AsyncMock(side_effect=lambda _chat_id, limit: limit)
+        with (
+            patch.object(
+                search_index,
+                "index_chat_utterances",
+                index_chat_utterances,
+            ),
+            patch.object(search_index, "sync_search_cache", AsyncMock()),
+        ):
+            indexed = await search_index.index_pending_utterances(
+                chat_ids=[-1002, -1001],
+                utterance_limit=6,
+            )
+
+        self.assertEqual(indexed, 6)
+        self.assertEqual(
+            [
+                (call.args[0], call.args[1])
+                for call in index_chat_utterances.await_args_list
             ],
             [(-1002, 3), (-1001, 3)],
         )
