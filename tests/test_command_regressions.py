@@ -29,6 +29,7 @@ habit_module = importlib.import_module("commands.habit")
 meme_module = importlib.import_module("commands.meme")
 model_module = importlib.import_module("commands.model")
 song_module = importlib.import_module("commands.song")
+search_module = importlib.import_module("commands.search")
 tldr_module = importlib.import_module("commands.tldr")
 transcribe_module = importlib.import_module("commands.transcribe")
 weather_module = importlib.import_module("commands.weather")
@@ -291,6 +292,81 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             await ask_module.ask(update, context)
 
         self.assertEqual(message.replies, ["AI is not configured for this command."])
+
+    async def test_search_streams_reasoning_then_replaces_it_with_the_answer(self):
+        events = []
+
+        class StatusMessage:
+            async def edit_text(self, text):
+                events.append(("edit", text))
+
+            async def delete(self):
+                events.append(("delete",))
+
+        class SearchMessage(FakeMessage):
+            def __init__(self):
+                super().__init__()
+                self.chat_id = -1001
+                self.status_message = StatusMessage()
+
+            async def reply_text(self, text: str, **_kwargs):
+                self.replies.append(text)
+                return self.status_message
+
+        async def semantic_search_answer(
+            _chat_id,
+            _query,
+            _author_id,
+            on_reasoning,
+        ):
+            await on_reasoning("Trying a broader description")
+            return "Grounded answer"
+
+        async def send_answer(_message, answer, **_kwargs):
+            events.append(("answer", answer))
+
+        message = SearchMessage()
+        context = SimpleNamespace(args=["Who", "likes", "broccoli?"])
+        with (
+            patch.object(search_module, "get_message", return_value=message),
+            patch.object(
+                search_module,
+                "ensure_command_available",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(
+                search_module,
+                "ensure_quota",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(
+                search_module,
+                "semantic_search_answer",
+                semantic_search_answer,
+            ),
+            patch.object(search_module, "reply_markdown_or_plain", send_answer),
+            patch.object(search_module.time, "monotonic", return_value=10.0),
+        ):
+            await search_module.search(SimpleNamespace(), context)
+
+        self.assertEqual(message.replies, ["Searching messages..."])
+        self.assertEqual(
+            events,
+            [
+                (
+                    "edit",
+                    "Searching messages...\n\nTrying a broader description",
+                ),
+                ("delete",),
+                ("answer", "Grounded answer"),
+            ],
+        )
+
+    def test_search_status_keeps_latest_reasoning_within_telegram_limit(self):
+        status = search_module.search_status_text("x" * 5000)
+
+        self.assertEqual(len(status), search_module.TELEGRAM_MESSAGE_LIMIT)
+        self.assertTrue(status.startswith("Searching messages...\n\n…"))
 
     async def test_song_missing_openrouter_key_uses_user_facing_message(self):
         message = FakeMessage()
