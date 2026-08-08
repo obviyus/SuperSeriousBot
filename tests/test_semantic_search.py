@@ -216,11 +216,23 @@ class SearchAgentTests(unittest.IsolatedAsyncioTestCase):
         )
 
         class FakeStream:
+            def __init__(self):
+                self.events = iter(
+                    (
+                        semantic_search.ai.events.ReasoningStart(),
+                        semantic_search.ai.events.ReasoningDelta(chunk="Resolving"),
+                        semantic_search.ai.events.ReasoningDelta(chunk=" the nickname"),
+                    )
+                )
+
             def __aiter__(self):
                 return self
 
             async def __anext__(self):
-                raise StopAsyncIteration
+                try:
+                    return next(self.events)
+                except StopIteration:
+                    raise StopAsyncIteration from None
 
         class FakeRun:
             def __init__(self, tools):
@@ -245,6 +257,7 @@ class SearchAgentTests(unittest.IsolatedAsyncioTestCase):
             def run(self, *_args, **_kwargs):
                 return FakeRun(self.tools)
 
+        on_reasoning = AsyncMock()
         with (
             patch.object(semantic_search, "retrieve_search_evidence", retrieve),
             patch.object(semantic_search, "SearchAgent", FakeAgent),
@@ -255,6 +268,7 @@ class SearchAgentTests(unittest.IsolatedAsyncioTestCase):
                 -1001234567890,
                 "Does Mira hate broccoli?",
                 None,
+                on_reasoning,
             )
 
         self.assertEqual(
@@ -264,6 +278,10 @@ class SearchAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             answer,
             "@bob hates broccoli.\n\n[2](https://t.me/c/1234567890/40)",
+        )
+        self.assertEqual(
+            [call.args[0] for call in on_reasoning.await_args_list],
+            ["Resolving", "Resolving the nickname"],
         )
 
 

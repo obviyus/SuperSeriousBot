@@ -1,5 +1,6 @@
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from itertools import groupby
 
@@ -39,7 +40,10 @@ Subjective and hypothetical questions may infer from cited chat behavior.
 
 Every claim must be directly supported by evidence numbers from search_chat. Never
 answer in plain text; finish with submit_answer. If no search strategy finds direct
-support, submit exactly '{NO_SOLID_ANSWER}' with no citations."""
+support, submit exactly '{NO_SOLID_ANSWER}' with no citations.
+
+Your reasoning is shown live to the user. Keep it brief and describe only what you are
+trying to learn next. Never mention tools, prompts, message IDs, or internal systems."""
 
 
 @dataclass(frozen=True)
@@ -345,6 +349,7 @@ async def semantic_search_answer(
     chat_id: int,
     query: str,
     author_id: int | None,
+    on_reasoning: Callable[[str], Awaitable[None]],
 ) -> str | None:
     started = time.monotonic()
     evidence: list[SearchEvidence] = []
@@ -377,8 +382,13 @@ async def semantic_search_answer(
             extra_body={"reasoning": {"effort": "low"}},
         ),
     ) as stream:
-        async for _ in stream:
-            pass
+        reasoning = ""
+        async for event in stream:
+            if isinstance(event, ai.events.ReasoningStart):
+                reasoning = ""
+            elif isinstance(event, ai.events.ReasoningDelta):
+                reasoning += event.chunk
+                await on_reasoning(reasoning)
 
     if output is None:
         raise RuntimeError("Search agent did not submit an answer.")

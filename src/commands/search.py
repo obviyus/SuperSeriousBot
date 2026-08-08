@@ -1,9 +1,11 @@
 import asyncio
 import os
+import time
 import uuid
 
 from telegram import Update
 from telegram.constants import ChatType
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 from commands.runtime import ensure_command_available
@@ -20,6 +22,19 @@ from management.chat_semantic_search import semantic_search_answer
 from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message, reply_markdown_or_plain
+
+SEARCH_STATUS = "Searching messages..."
+SEARCH_STATUS_EDIT_INTERVAL_SECONDS = 0.8
+TELEGRAM_MESSAGE_LIMIT = 4096
+
+
+def search_status_text(reasoning: str) -> str:
+    prefix = f"{SEARCH_STATUS}\n\n"
+    available = TELEGRAM_MESSAGE_LIMIT - len(prefix)
+    body = reasoning.strip()
+    if len(body) > available:
+        body = f"…{body[-(available - 1) :]}"
+    return prefix + body
 
 
 @command(
@@ -56,7 +71,42 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else None
     )
 
-    answer = await semantic_search_answer(message.chat_id, query, author_id)
+    status_message = await message.reply_text(SEARCH_STATUS)
+    last_status_edit = 0.0
+    last_status_text = SEARCH_STATUS
+    status_updates_enabled = True
+
+    async def show_reasoning(reasoning: str) -> None:
+        nonlocal last_status_edit, last_status_text, status_updates_enabled
+        now = time.monotonic()
+        text = search_status_text(reasoning)
+        if (
+            not status_updates_enabled
+            or text == last_status_text
+            or now - last_status_edit < SEARCH_STATUS_EDIT_INTERVAL_SECONDS
+        ):
+            return
+        try:
+            await status_message.edit_text(text)
+        except TelegramError:
+            status_updates_enabled = False
+            logger.exception("Search status update failed")
+            return
+        last_status_edit = now
+        last_status_text = text
+
+    try:
+        answer = await semantic_search_answer(
+            message.chat_id,
+            query,
+            author_id,
+            show_reasoning,
+        )
+    finally:
+        try:
+            await status_message.delete()
+        except TelegramError:
+            logger.exception("Search status deletion failed")
 
     if not answer:
         if not await is_fts_enabled(message.chat_id):
