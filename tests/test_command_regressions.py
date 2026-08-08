@@ -321,7 +321,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             on_reasoning,
         ):
             await on_reasoning("Trying a broader description")
-            return SimpleNamespace(answer="Grounded answer")
+            return "Grounded answer"
 
         async def send_answer(_message, answer, **_kwargs):
             events.append(("answer", answer))

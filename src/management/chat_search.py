@@ -1,6 +1,5 @@
 import asyncio
 import re
-import time
 from collections.abc import Awaitable, Callable
 
 import ai
@@ -70,13 +69,6 @@ class QueryExpansion(pydantic.BaseModel):
     semantic_queries: list[str] = pydantic.Field(min_length=1, max_length=3)
     lexical_terms: list[str] = pydantic.Field(default_factory=list, max_length=10)
     resolved_handles: list[str] = pydantic.Field(default_factory=list, max_length=3)
-
-
-class SearchResult(pydantic.BaseModel):
-    answer: str
-    plan: SearchPlan
-    evidence_count: int
-    duration_ms: int
 
 
 class CandidateAssessment(pydantic.BaseModel):
@@ -752,8 +744,7 @@ async def search_answer(
     question: str,
     author_id: int | None = None,
     on_status: Callable[[str], Awaitable[None]] | None = None,
-) -> SearchResult:
-    started = time.monotonic()
+) -> str:
     status = on_status or _ignore_status
     await status("Planning searches")
     search_model, identity_result = await asyncio.gather(
@@ -808,12 +799,7 @@ async def search_answer(
         )
         playful_inference = bool(evidence)
     if not evidence:
-        return SearchResult(
-            answer=NO_SOLID_ANSWER,
-            plan=plan,
-            evidence_count=0,
-            duration_ms=round((time.monotonic() - started) * 1000),
-        )
+        return NO_SOLID_ANSWER
 
     await status("Reading the strongest evidence")
     if attributed and COMPARATIVE_PATTERN.search(question):
@@ -856,13 +842,7 @@ async def search_answer(
             SearchAnswerOutput,
             max_tokens=500,
         )
-    answer = render_answer(output, evidence)
-    return SearchResult(
-        answer=answer,
-        plan=plan,
-        evidence_count=len(evidence),
-        duration_ms=round((time.monotonic() - started) * 1000),
-    )
+    return render_answer(output, evidence)
 
 
 async def _ignore_status(_status: str) -> None:

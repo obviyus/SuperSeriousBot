@@ -98,13 +98,12 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     timed_out = False
     try:
         try:
-            result = await search_answer(
+            answer = await search_answer(
                 message.chat_id,
                 query,
                 author_id,
                 show_reasoning,
             )
-            answer = result.answer
         except TimeoutError:
             timed_out = True
     finally:
