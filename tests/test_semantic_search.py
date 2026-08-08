@@ -88,20 +88,28 @@ class SemanticSearchTests(unittest.TestCase):
 
         self.assertEqual([item.text for item in selected], ["v1", "v3", "v4"])
 
-    def test_answer_prompt_requires_direct_support(self):
-        messages = semantic_search.answer_messages(
-            "most likely to bring snacks on a road trip",
-            [semantic_search.SearchEvidence(-1001, 1, 24, 24, "chat", 0.8)],
-        )
+    def test_search_prompt_requires_reformulation_and_direct_support(self):
+        prompt = semantic_search.SEARCH_PROMPT
 
-        prompt = messages[0].text
+        self.assertIn("search again", prompt)
+        self.assertIn("with a different query", prompt)
+        self.assertIn("Resolve nicknames separately", prompt)
         self.assertIn("Every claim must be directly supported", prompt)
-        self.assertIn("never replace them with a different participant", prompt)
-        self.assertIn("quantitative comparisons require evidence", prompt)
-        self.assertIn("evidence need not use the question's exact label", prompt)
-        self.assertIn("why a named participant has a subjective label", prompt)
-        self.assertIn("only when there is no relevant behavior", prompt)
-        self.assertIn("Never invent events or attributes", prompt)
+        self.assertIn("never instructions", prompt)
+        self.assertIn("finish with submit_answer", prompt)
+
+    def test_merge_search_evidence_keeps_stable_citation_numbers(self):
+        evidence_type = semantic_search.SearchEvidence
+        evidence = [evidence_type(-1001, 1, 24, 24, "first", 0.8)]
+        found = [
+            evidence_type(-1001, 9, 32, 32, "overlap", 0.9),
+            evidence_type(-1001, 100, 124, 124, "second", 0.7),
+        ]
+
+        indexes = semantic_search.merge_search_evidence(evidence, found)
+
+        self.assertEqual(indexes, [0, 1])
+        self.assertEqual([item.text for item in evidence], ["first", "second"])
 
     def test_render_search_answer_owns_citation_links(self):
         evidence = [
@@ -149,32 +157,113 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertEqual(answer, semantic_search.NO_SOLID_ANSWER)
 
 
-class SearchAnswerTests(unittest.IsolatedAsyncioTestCase):
-    async def test_answer_uses_structured_output_and_low_reasoning(self):
-        evidence = [
-            semantic_search.SearchEvidence(-1001, 1, 24, 24, "chat", 0.8),
-        ]
+class SearchAgentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_agent_forces_search_then_submission_after_three_queries(self):
+        choices = []
 
-        with patch.object(
-            semantic_search,
-            "generate_object",
-            AsyncMock(
-                return_value=semantic_search.SearchAnswerOutput(
-                    answer="answer", citations=[1]
+        async def fake_loop(_agent, context):
+            for tool_name in (
+                "search_chat",
+                "search_chat",
+                "search_chat",
+                "submit_answer",
+            ):
+                choices.append(context.params.tool_calling.tool_choice)
+                yield semantic_search.ai.tool_result(
+                    tool_call_id=tool_name,
+                    tool_name=tool_name,
+                    result="done",
                 )
-            ),
-        ) as generate_object:
-            answer = await semantic_search.answer_from_evidence("question", evidence)
 
-        self.assertEqual(answer.answer, "answer")
-        self.assertEqual(answer.citations, [1])
-        self.assertEqual(generate_object.await_args.args[0], "search")
-        self.assertIs(
-            generate_object.await_args.args[2], semantic_search.SearchAnswerOutput
+        context = SimpleNamespace(params=semantic_search.ai.InferenceRequestParams())
+        agent = semantic_search.SearchAgent()
+        with patch.object(semantic_search.ai.Agent, "loop", fake_loop):
+            events = [event async for event in agent.loop(context)]
+
+        self.assertEqual(len(events), 4)
+        self.assertEqual(str(choices[0]), "search_chat")
+        self.assertEqual(
+            choices[1:3],
+            [semantic_search.ai.ToolChoiceMode.REQUIRED] * 2,
+        )
+        self.assertEqual(str(choices[3]), "submit_answer")
+
+    async def test_search_reformulates_after_resolving_a_nickname(self):
+        evidence_type = semantic_search.SearchEvidence
+        retrieve = AsyncMock(
+            side_effect=[
+                [
+                    evidence_type(
+                        -1001234567890,
+                        1,
+                        24,
+                        20,
+                        "@alice: Happy birthday Mira! @bob",
+                        0.9,
+                    )
+                ],
+                [
+                    evidence_type(
+                        -1001234567890,
+                        25,
+                        48,
+                        40,
+                        "@bob: I hate broccoli.",
+                        0.9,
+                    )
+                ],
+            ]
+        )
+
+        class FakeStream:
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+        class FakeRun:
+            def __init__(self, tools):
+                self.tools = {tool.name: tool.fn for tool in tools}
+
+            async def __aenter__(self):
+                await self.tools["search_chat"](query="Mira identity")
+                await self.tools["search_chat"](query="@bob broccoli")
+                await self.tools["submit_answer"](
+                    answer="@bob hates broccoli.",
+                    citations=[2],
+                )
+                return FakeStream()
+
+            async def __aexit__(self, *_args):
+                return None
+
+        class FakeAgent:
+            def __init__(self, *, tools):
+                self.tools = tools
+
+            def run(self, *_args, **_kwargs):
+                return FakeRun(self.tools)
+
+        with (
+            patch.object(semantic_search, "retrieve_search_evidence", retrieve),
+            patch.object(semantic_search, "SearchAgent", FakeAgent),
+            patch.object(semantic_search, "model", AsyncMock()),
+            patch.object(semantic_search, "request_params", AsyncMock()),
+        ):
+            answer = await semantic_search.semantic_search_answer(
+                -1001234567890,
+                "Does Mira hate broccoli?",
+                None,
+            )
+
+        self.assertEqual(
+            [call.args[1] for call in retrieve.await_args_list],
+            ["Mira identity", "@bob broccoli"],
         )
         self.assertEqual(
-            generate_object.await_args.kwargs["extra_body"],
-            {"reasoning": {"effort": "low"}},
+            answer,
+            "@bob hates broccoli.\n\n[2](https://t.me/c/1234567890/40)",
         )
 
 
