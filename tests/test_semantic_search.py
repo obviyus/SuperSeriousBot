@@ -584,6 +584,47 @@ class OpenRouterEmbeddingTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
+    async def test_store_windows_cleans_each_growing_tail(self):
+        connection = SimpleNamespace(executemany=AsyncMock())
+        context = AsyncMock()
+        context.__aenter__.return_value = connection
+        windows = [
+            search_index.SearchWindow(
+                -1001,
+                start,
+                end,
+                "2026-08-09 10:00:00",
+                "2026-08-09 10:01:00",
+                end - start + 1,
+                "messages",
+            )
+            for start, end in ((1, 24), (9, 32))
+        ]
+
+        with patch.object(search_index, "get_db", return_value=context):
+            await search_index.store_windows(windows, [[1.0], [2.0]])
+
+        cleanup_params = connection.executemany.await_args_list[1].args[1]
+        self.assertEqual(
+            cleanup_params,
+            [
+                (
+                    -1001,
+                    1,
+                    search_index.EMBEDDING_MODEL,
+                    search_index.EMBEDDING_DIMENSIONS,
+                    24,
+                ),
+                (
+                    -1001,
+                    9,
+                    search_index.EMBEDDING_MODEL,
+                    search_index.EMBEDDING_DIMENSIONS,
+                    32,
+                ),
+            ],
+        )
+
     async def test_pending_indexing_allocates_each_chat_a_share(self):
         index_chat_windows = AsyncMock(side_effect=lambda _chat_id, limit: limit)
         with (
@@ -648,7 +689,7 @@ class SearchIndexTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(refreshed, 66)
         self.assertEqual(
             [call.args[1] for call in index_window_batch.await_args_list],
-            [None, 100],
+            [search_index.MIN_MESSAGE_ID, 100],
         )
 
 
