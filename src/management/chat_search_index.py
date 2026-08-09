@@ -15,6 +15,7 @@ from management.chat_search_cache import reset_search_cache, sync_search_cache
 from openrouter_embeddings import openrouter_embeddings, vector32_json
 
 INDEX_BATCH_WINDOWS = 64
+MIN_MESSAGE_ID = -(1 << 63)
 
 
 @dataclass(frozen=True)
@@ -137,20 +138,10 @@ async def searchable_chat_ids() -> list[int]:
         get_db() as conn,
         conn.execute(
             """
-            SELECT settings.chat_id
-            FROM group_settings settings
-            LEFT JOIN chat_search_windows windows
-                ON windows.chat_id = settings.chat_id
-            WHERE settings.fts = 1
-            AND EXISTS (
-                SELECT 1
-                FROM chat_stats messages
-                WHERE messages.chat_id = settings.chat_id
-                AND messages.message_text IS NOT NULL
-                AND messages.message_text <> ''
-            )
-            GROUP BY settings.chat_id
-            ORDER BY MAX(windows.update_time), settings.chat_id
+            SELECT chat_id
+            FROM group_settings
+            WHERE fts = 1
+            ORDER BY chat_id
             """
         ) as cursor,
     ):
@@ -176,39 +167,41 @@ async def source_chat_ids() -> list[int]:
     return [row["chat_id"] for row in rows]
 
 
-async def resume_window_start(chat_id: int) -> int | None:
+async def resume_window_start(chat_id: int) -> int:
     async with (
         get_db() as conn,
         conn.execute(
             """
-            SELECT COALESCE(
-                MIN(
-                    CASE
-                        WHEN message_count < ? THEN start_message_id
-                    END
-                ),
-                MAX(start_message_id)
-            ) AS start_message_id
+            SELECT start_message_id, message_count
             FROM chat_search_windows
             WHERE chat_id = ?
             AND embedding_model = ?
             AND embedding_dimension = ?
+            ORDER BY start_message_id DESC
+            LIMIT ?
             """,
             (
-                WINDOW_MESSAGE_COUNT,
                 chat_id,
                 EMBEDDING_MODEL,
                 EMBEDDING_DIMENSIONS,
+                (WINDOW_MESSAGE_COUNT + WINDOW_STRIDE - 1) // WINDOW_STRIDE,
             ),
         ) as cursor,
     ):
-        row = await cursor.fetchone()
-    return row["start_message_id"] if row and row["start_message_id"] else None
+        rows = await cursor.fetchall()
+    partial_starts = [
+        row["start_message_id"]
+        for row in rows
+        if row["message_count"] < WINDOW_MESSAGE_COUNT
+    ]
+    if partial_starts:
+        return min(partial_starts)
+    return rows[0]["start_message_id"] if rows else MIN_MESSAGE_ID
 
 
 async def source_messages(
     chat_id: int,
-    start_message_id: int | None,
+    start_message_id: int,
     window_limit: int,
 ) -> list[SourceMessage]:
     row_limit = max(
@@ -228,7 +221,7 @@ async def source_messages(
             FROM chat_stats cs
             LEFT JOIN user_stats us ON us.user_id = cs.user_id
             WHERE cs.chat_id = ?
-            AND (? IS NULL OR cs.message_id >= ?)
+            AND cs.message_id >= ?
             AND cs.message_id IS NOT NULL
             AND cs.message_text IS NOT NULL
             AND cs.message_text <> ''
@@ -236,7 +229,7 @@ async def source_messages(
             ORDER BY cs.message_id
             LIMIT ?
             """,
-            (chat_id, start_message_id, start_message_id, row_limit),
+            (chat_id, start_message_id, row_limit),
         ) as cursor,
     ):
         rows = await cursor.fetchall()
@@ -254,7 +247,7 @@ async def source_messages(
 
 async def existing_windows(
     chat_id: int,
-    start_message_id: int | None,
+    start_message_id: int,
 ) -> set[tuple[int, int]]:
     async with (
         get_db() as conn,
@@ -265,13 +258,12 @@ async def existing_windows(
             WHERE chat_id = ?
             AND embedding_model = ?
             AND embedding_dimension = ?
-            AND (? IS NULL OR start_message_id >= ?)
+            AND start_message_id >= ?
             """,
             (
                 chat_id,
                 EMBEDDING_MODEL,
                 EMBEDDING_DIMENSIONS,
-                start_message_id,
                 start_message_id,
             ),
         ) as cursor,
@@ -280,7 +272,7 @@ async def existing_windows(
     return {(row["start_message_id"], row["end_message_id"]) for row in rows}
 
 
-async def resume_utterance_start(chat_id: int) -> int | None:
+async def resume_utterance_start(chat_id: int) -> int:
     async with (
         get_db() as conn,
         conn.execute(
@@ -295,12 +287,16 @@ async def resume_utterance_start(chat_id: int) -> int | None:
         ) as cursor,
     ):
         row = await cursor.fetchone()
-    return row["start_message_id"] if row and row["start_message_id"] else None
+    return (
+        row["start_message_id"]
+        if row and row["start_message_id"] is not None
+        else MIN_MESSAGE_ID
+    )
 
 
 async def existing_utterances(
     chat_id: int,
-    start_message_id: int | None,
+    start_message_id: int,
 ) -> set[tuple[int, int]]:
     async with (
         get_db() as conn,
@@ -311,13 +307,12 @@ async def existing_utterances(
             WHERE chat_id = ?
             AND embedding_model = ?
             AND embedding_dimension = ?
-            AND (? IS NULL OR start_message_id >= ?)
+            AND start_message_id >= ?
             """,
             (
                 chat_id,
                 EMBEDDING_MODEL,
                 UTTERANCE_EMBEDDING_DIMENSIONS,
-                start_message_id,
                 start_message_id,
             ),
         ) as cursor,
@@ -378,23 +373,25 @@ async def store_windows(
                 for window, embedding in zip(windows, embeddings, strict=True)
             ],
         )
-        await conn.execute(
+        await conn.executemany(
             """
-            DELETE FROM chat_search_windows AS old
-            WHERE old.chat_id = ?
-            AND old.embedding_model = ?
-            AND old.embedding_dimension = ?
-            AND EXISTS (
-                SELECT 1
-                FROM chat_search_windows AS current
-                WHERE current.chat_id = old.chat_id
-                AND current.start_message_id = old.start_message_id
-                AND current.embedding_model = old.embedding_model
-                AND current.embedding_dimension = old.embedding_dimension
-                AND current.end_message_id > old.end_message_id
-            )
+            DELETE FROM chat_search_windows
+            WHERE chat_id = ?
+            AND start_message_id = ?
+            AND embedding_model = ?
+            AND embedding_dimension = ?
+            AND end_message_id < ?
             """,
-            (windows[0].chat_id, EMBEDDING_MODEL, EMBEDDING_DIMENSIONS),
+            [
+                (
+                    window.chat_id,
+                    window.start_message_id,
+                    EMBEDDING_MODEL,
+                    EMBEDDING_DIMENSIONS,
+                    window.end_message_id,
+                )
+                for window in windows
+            ],
         )
 
 
@@ -437,16 +434,14 @@ async def store_utterances(
                     EMBEDDING_MODEL,
                     UTTERANCE_EMBEDDING_DIMENSIONS,
                 )
-                for utterance, embedding in zip(
-                    utterances, embeddings, strict=True
-                )
+                for utterance, embedding in zip(utterances, embeddings, strict=True)
             ],
         )
 
 
 async def index_window_batch(
     chat_id: int,
-    start_message_id: int | None,
+    start_message_id: int,
     window_limit: int,
     *,
     skip_indexed: bool,
@@ -495,7 +490,7 @@ async def index_chat_windows(
 
 async def index_utterance_batch(
     chat_id: int,
-    start_message_id: int | None,
+    start_message_id: int,
     utterance_limit: int,
     *,
     skip_indexed: bool,
@@ -504,9 +499,7 @@ async def index_utterance_batch(
     if not messages:
         return 0, None
     indexed = (
-        await existing_utterances(chat_id, start_message_id)
-        if skip_indexed
-        else set()
+        await existing_utterances(chat_id, start_message_id) if skip_indexed else set()
     )
     utterances = build_utterances(chat_id, messages, indexed)[:utterance_limit]
     if not utterances:
@@ -607,7 +600,7 @@ async def index_pending_windows(
 async def refresh_windows(chat_ids: list[int]) -> int:
     refreshed = 0
     for chat_id in chat_ids:
-        start_message_id = None
+        start_message_id = MIN_MESSAGE_ID
         while True:
             batch_size, next_start_message_id = await index_window_batch(
                 chat_id,
@@ -627,7 +620,7 @@ async def refresh_windows(chat_ids: list[int]) -> int:
 async def refresh_utterances(chat_ids: list[int]) -> int:
     refreshed = 0
     for chat_id in chat_ids:
-        start_message_id = None
+        start_message_id = MIN_MESSAGE_ID
         while True:
             batch_size, next_start_message_id = await index_utterance_batch(
                 chat_id,
