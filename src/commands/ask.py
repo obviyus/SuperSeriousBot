@@ -7,6 +7,10 @@ from datetime import timedelta
 
 import ai
 import openai
+from openai.types.chat import (
+    ChatCompletionContentPartParam,
+    ChatCompletionUserMessageParam,
+)
 from telegram import Message, Update
 from telegram.constants import ChatType
 from telegram.error import BadRequest, RetryAfter, TelegramError
@@ -282,7 +286,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     usage="/edit [prompt]",
     api_key="OPENROUTER_API_KEY",
     example="/edit Make it look like a painting",
-    description="Reply to an image or sticker to edit it using AI. Provide a prompt describing the desired changes.",
+    description="Generate an image from a prompt. Reply to an image or sticker to edit it instead.",
 )
 async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = get_message(update)
@@ -293,51 +297,52 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await ensure_quota(message, message.from_user.id, "edit"):
         return
 
-    reply = message.reply_to_message
-    if not reply:
-        await commands.usage_string(message, edit)
-        return
-
     if not context.args:
-        await message.reply_text(
-            "Please provide a prompt describing how to edit the image."
-        )
+        await message.reply_text("Please provide a prompt describing the image.")
         return
 
     prompt = " ".join(context.args)
+    reply = message.reply_to_message
 
     try:
-        try:
-            reply_image = await load_reply_image(
-                reply,
-                context.bot,
-                allow_image_document=True,
+        reply_image = None
+        if reply:
+            try:
+                reply_image = await load_reply_image(
+                    reply,
+                    context.bot,
+                    allow_image_document=True,
+                )
+            except ValueError as exc:
+                await message.reply_text(str(exc))
+                return
+
+        content: list[ChatCompletionContentPartParam] = [
+            {
+                "type": "text",
+                "text": (
+                    f"Please edit this image according to the following description: {prompt}"
+                    if reply_image
+                    else f"Please generate an image according to the following description: {prompt}"
+                ),
+            }
+        ]
+        if reply_image:
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": image_data_url(*reply_image)},
+                }
             )
-        except ValueError as exc:
-            await message.reply_text(str(exc))
-            return
-
-        if not reply_image:
-            await commands.usage_string(message, edit)
-            return
-
-        image_url = image_data_url(*reply_image)
 
         image_model = await model("edit")
+        user_message: ChatCompletionUserMessageParam = {
+            "role": "user",
+            "content": content,
+        }
         response = await openrouter_provider().sdk_client.chat.completions.create(
             model=image_model.id,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Please edit this image according to the following description: {prompt}",
-                        },
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                }
-            ],
+            messages=[user_message],
             extra_body={"modalities": ["image", "text"]},
         )
         choice = response.choices[0] if response.choices else None
@@ -381,12 +386,10 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 return
 
         if ai_message.content:
-            await message.reply_text(
-                f"{ai_message.content}\n\nNo edited image was generated."
-            )
+            await message.reply_text(f"{ai_message.content}\n\nNo image was generated.")
             return
 
-        await message.reply_text("Could not generate edited image. Please try again.")
+        await message.reply_text("Could not generate image. Please try again.")
 
     except (openai.OpenAIError, TelegramError, TimeoutError, TypeError, ValueError):
         logger.exception("Edit command failed")
