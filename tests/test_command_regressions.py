@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import base64
 import importlib
 import io
 import json
@@ -293,6 +294,91 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             await ask_module.ask(update, context)
 
         self.assertEqual(message.replies, ["AI is not configured for this command."])
+
+    async def test_edit_generates_without_a_reply_and_edits_replied_images(self):
+        generated_image = base64.b64encode(b"generated-image").decode()
+        response = SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    message=SimpleNamespace(
+                        model_extra={
+                            "images": [
+                                {
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{generated_image}"
+                                    }
+                                }
+                            ]
+                        },
+                        content=None,
+                    ),
+                )
+            ]
+        )
+        create_completion = AsyncMock(return_value=response)
+        provider = SimpleNamespace(
+            sdk_client=SimpleNamespace(
+                chat=SimpleNamespace(
+                    completions=SimpleNamespace(create=create_completion)
+                )
+            )
+        )
+        context = SimpleNamespace(args=["A", "tiny", "moon"], bot=object())
+
+        with (
+            patch.object(
+                ask_module,
+                "ensure_command_available",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(ask_module, "ensure_quota", AsyncMock(return_value=True)),
+            patch.object(
+                ask_module,
+                "model",
+                AsyncMock(return_value=SimpleNamespace(id="image-model")),
+            ),
+            patch.object(ask_module, "openrouter_provider", return_value=provider),
+            patch.object(
+                ask_module,
+                "load_reply_image",
+                AsyncMock(return_value=(b"source-image", "image/png")),
+            ) as load_reply_image,
+        ):
+            generate_message = FakeMessage()
+            generate_message.from_user.username = "tester"
+            with patch.object(ask_module, "get_message", return_value=generate_message):
+                await ask_module.edit(
+                    SimpleNamespace(effective_user=generate_message.from_user), context
+                )
+
+            edit_message = FakeMessage()
+            edit_message.from_user.username = "tester"
+            edit_message.reply_to_message = object()
+            with patch.object(ask_module, "get_message", return_value=edit_message):
+                await ask_module.edit(
+                    SimpleNamespace(effective_user=edit_message.from_user), context
+                )
+
+        generated_content = create_completion.await_args_list[0].kwargs["messages"][0][
+            "content"
+        ]
+        edited_content = create_completion.await_args_list[1].kwargs["messages"][0][
+            "content"
+        ]
+        self.assertEqual(
+            generated_content,
+            [
+                {
+                    "type": "text",
+                    "text": "Please generate an image according to the following description: A tiny moon",
+                }
+            ],
+        )
+        self.assertEqual(edited_content[1]["type"], "image_url")
+        self.assertEqual(load_reply_image.await_count, 1)
+        self.assertEqual(len(generate_message.photos), 1)
+        self.assertEqual(len(edit_message.photos), 1)
 
     async def test_search_streams_reasoning_then_replaces_it_with_the_answer(self):
         events = []
