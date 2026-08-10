@@ -219,7 +219,7 @@ async def plan_search(
             ai.user_message(evidence_prompt(question, identity_clues)),
         ],
         QueryExpansion,
-        max_tokens=300,
+        max_tokens=2000,
     )
     return SearchPlan(
         semantic_queries=list(
