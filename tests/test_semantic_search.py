@@ -19,6 +19,7 @@ chat_search = importlib.import_module("management.chat_search")
 search_cache = importlib.import_module("management.chat_search_cache")
 search_index = importlib.import_module("management.chat_search_index")
 openrouter_embeddings = importlib.import_module("openrouter_embeddings")
+commands_ai = importlib.import_module("commands.ai")
 db = importlib.import_module("config.db")
 libsql = importlib.import_module("libsql")
 migrate = importlib.import_module("migrate")
@@ -209,6 +210,26 @@ class SemanticSearchTests(unittest.TestCase):
 
 
 class ChatSearchTests(unittest.IsolatedAsyncioTestCase):
+    async def test_query_expansion_has_room_for_reasoning(self):
+        expansion = chat_search.QueryExpansion(
+            semantic_queries=["who likes being hit"],
+        )
+        with patch.object(
+            chat_search,
+            "generate_search_object",
+            AsyncMock(return_value=expansion),
+        ) as generate:
+            await chat_search.plan_search(
+                chat_search.ai.Model(
+                    id="test",
+                    provider=commands_ai.openrouter_provider(),
+                ),
+                "which person is most likely to be into being physically abused",
+                [],
+            )
+
+        self.assertEqual(generate.call_args.kwargs["max_tokens"], 2000)
+
     def test_claim_ownership_rejects_unresolved_second_person(self):
         evidence = semantic_search.SearchEvidence(
             -1001,
