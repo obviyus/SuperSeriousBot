@@ -27,6 +27,7 @@ MUSIC_POLL_ATTEMPTS = 96
 POLL_INTERVAL_SECONDS = 5
 SONG_NEGATIVE_TAGS = "rap, spoken word, mumble rap, long dense verses"
 SONG_MODEL = "V5"
+SONG_SEND_TIMEOUT_SECONDS = 120
 
 type JsonObject = dict[str, Any]
 
@@ -238,6 +239,7 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     "negativeTags": SONG_NEGATIVE_TAGS,
                 },
             )
+            logger.info("KIE song task created: %s", music_task_id)
             music_task = await poll_task(
                 session,
                 "/generate/record-info",
@@ -254,7 +256,10 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         await progress.delete()
         await message.reply_media_group(
-            song_media_group(song_tracks(music_task), song_plan.title)
+            song_media_group(song_tracks(music_task), song_plan.title),
+            read_timeout=SONG_SEND_TIMEOUT_SECONDS,
+            write_timeout=SONG_SEND_TIMEOUT_SECONDS,
+            connect_timeout=30,
         )
     except (
         aiohttp.ClientError,
