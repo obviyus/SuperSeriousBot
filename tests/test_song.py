@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import os
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pydantic
@@ -74,8 +75,91 @@ class SongTests(unittest.IsolatedAsyncioTestCase):
         media_group = song_module.song_media_group(tracks, "Fallback")
 
         self.assertEqual(len(media_group), 2)
+        self.assertEqual(media_group[0].media, "https://example.com/a.mp3")
         self.assertEqual(media_group[0].title, "A")
+        self.assertEqual(media_group[1].media, "https://example.com/b.mp3")
         self.assertEqual(media_group[1].title, "Fallback")
+
+    async def test_song_sends_audio_urls_with_long_timeout(self):
+        class FakeSession:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_: object) -> None:
+                return None
+
+        class FakeMessage:
+            def __init__(self) -> None:
+                self.from_user = SimpleNamespace(id=123)
+                self.media_kwargs: dict[str, object] | None = None
+                self.media = None
+
+            async def reply_text(self, text: str, **_kwargs: object) -> FakeMessage:
+                return self
+
+            async def edit_text(self, text: str, **_kwargs: object) -> None:
+                return None
+
+            async def delete(self) -> None:
+                return None
+
+            async def reply_media_group(self, media, **kwargs: object) -> None:
+                self.media = media
+                self.media_kwargs = kwargs
+
+        message = FakeMessage()
+        update = SimpleNamespace(effective_user=message.from_user)
+        context = SimpleNamespace(args=["punjabi", "banger"])
+
+        with (
+            patch.object(song_module, "get_message", return_value=message),
+            patch.object(song_module.config.API, "OPENROUTER_API_KEY", "test-key"),
+            patch.object(
+                song_module,
+                "ensure_command_available",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(song_module, "ensure_quota", AsyncMock(return_value=True)),
+            patch.object(
+                song_module,
+                "plan_song",
+                AsyncMock(
+                    return_value=song_module.SongPlan("Title", "lyrics", "style")
+                ),
+            ),
+            patch.object(song_module, "create_task", AsyncMock(return_value="task-1")),
+            patch.object(
+                song_module,
+                "poll_task",
+                AsyncMock(
+                    return_value={
+                        "response": {
+                            "sunoData": [
+                                {
+                                    "audioUrl": "https://cdn.example/a.mp3",
+                                    "title": "A",
+                                },
+                                {"audioUrl": "https://cdn.example/b.mp3"},
+                            ]
+                        }
+                    }
+                ),
+            ),
+            patch.object(song_module.aiohttp, "ClientSession", FakeSession),
+        ):
+            await song_module.song(update, context)
+
+        self.assertIsNotNone(message.media)
+        self.assertEqual(message.media[0].media, "https://cdn.example/a.mp3")
+        self.assertEqual(message.media[1].media, "https://cdn.example/b.mp3")
+        self.assertEqual(
+            message.media_kwargs,
+            {
+                "read_timeout": song_module.SONG_SEND_TIMEOUT_SECONDS,
+                "write_timeout": song_module.SONG_SEND_TIMEOUT_SECONDS,
+                "connect_timeout": 30,
+            },
+        )
 
 
 if __name__ == "__main__":
