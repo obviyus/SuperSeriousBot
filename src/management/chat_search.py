@@ -77,15 +77,19 @@ Default to persona when uncertain. Do not answer the request."""
 PERSONA_ANSWER_PROMPT = """Answer from the supplied friend-group dossiers and receipts.
 Write 2-5 punchy sentences. The first sentence states the answer outright, naming the
 person by @handle; never label it "Verdict:". Keep the tone playful and roast-like,
-never moralising. When recorded interaction totals are supplied, treat them as the
-primary evidence for who is close to whom. Return at most four short verbatim quotes
-copied from message text in the supplied context, never lore topic names or summaries.
-Use only their real message IDs. Do not put links or message IDs in the answer."""
+never moralising. Speak as a friend who simply knows the group: never mention dossiers,
+lore, receipts, evidence, records, retrieval, "documented", "recorded totals", or how
+you know. When interaction totals are supplied, let them decide who is close to whom,
+and you may cite the number itself. Return at most four short verbatim quotes copied
+from message text in the supplied context, never lore topic names or summaries. Use
+only their real message IDs. Do not put links or message IDs in the answer."""
 
 CREATIVE_ANSWER_PROMPT = """Create the requested artefact from the supplied friend-group
-dossiers and receipts. Keep the answer at or below 1200 characters. Return at most four
-short verbatim quotes copied from the supplied context when useful. Use only their real
-message IDs. Do not put links or message IDs in the answer."""
+dossiers and receipts. Keep the answer at or below 1200 characters. Never mention
+dossiers, lore, receipts, evidence, or how you know things; write as a friend who knows
+the group. Return at most four short verbatim quotes copied from message text in the
+supplied context when useful. Use only their real message IDs. Do not put links or
+message IDs in the answer."""
 
 type Lane = Literal["persona", "creative", "fact"]
 
