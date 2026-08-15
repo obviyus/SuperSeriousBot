@@ -79,8 +79,8 @@ Write 2-5 punchy sentences. The first sentence states the answer outright, namin
 person by @handle; never label it "Verdict:". Keep the tone playful and roast-like,
 never moralising. When recorded interaction totals are supplied, treat them as the
 primary evidence for who is close to whom. Return at most four short verbatim quotes
-copied from the supplied context. Use only their real message IDs. Do not put links or
-message IDs in the answer."""
+copied from message text in the supplied context, never lore topic names or summaries.
+Use only their real message IDs. Do not put links or message IDs in the answer."""
 
 CREATIVE_ANSWER_PROMPT = """Create the requested artefact from the supplied friend-group
 dossiers and receipts. Keep the answer at or below 1200 characters. Return at most four
