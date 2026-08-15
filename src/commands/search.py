@@ -140,6 +140,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         question=query,
         answer=answer,
         model=result.model,
+        lane=result.lane,
         citation_message_ids=result.citation_message_ids,
         duration_ms=int((time.monotonic() - search_start) * 1000),
     )

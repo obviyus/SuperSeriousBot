@@ -56,6 +56,7 @@ def search_database(path: str):
         "20240624131537_init.py",
         "20240917172646_user_stats.py",
         "20260815000000_search_foundations.py",
+        "20260817000000_search_event_lane.py",
     ):
         migrate.load_migration(Path("migrations", filename)).upgrade(connection)
     return connection
@@ -432,7 +433,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             on_reasoning,
         ):
             await on_reasoning("Trying a broader description")
-            return chat_search.SearchResult("Grounded answer", "search-model", [42])
+            return chat_search.SearchResult(
+                "Grounded answer", "search-model", [42], "persona"
+            )
 
         async def send_answer(_message, answer, **kwargs):
             events.append(("answer", answer))
@@ -859,6 +862,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                     question="Who likes broccoli?",
                     answer="Ayaan does.",
                     model="x-ai/grok-4.3",
+                    lane="persona",
                     citation_message_ids=[11, 12],
                     duration_ms=321,
                 )
@@ -876,14 +880,15 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                     SimpleNamespace(callback_query=query), SimpleNamespace()
                 )
             event = raw.execute(
-                "SELECT answer_message_id, citation_message_ids, duration_ms FROM search_events"
+                "SELECT answer_message_id, lane, citation_message_ids, duration_ms "
+                "FROM search_events"
             ).fetchone()
             feedback = raw.execute(
                 "SELECT event_id, user_id, vote FROM search_feedback"
             ).fetchone()
             await connection.close()
 
-        self.assertEqual(event, (99, "[11, 12]", 321))
+        self.assertEqual(event, (99, "persona", "[11, 12]", 321))
         self.assertEqual(feedback, (event_id, 7, -1))
         query.answer.assert_awaited_once_with("Noted")
 

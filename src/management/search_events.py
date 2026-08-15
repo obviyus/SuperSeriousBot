@@ -11,6 +11,7 @@ async def record_search_event(
     question: str,
     answer: str,
     model: str,
+    lane: str,
     citation_message_ids: list[int],
     duration_ms: int,
 ) -> int:
@@ -19,9 +20,9 @@ async def record_search_event(
             """
             INSERT INTO search_events (
                 chat_id, user_id, message_id, question, answer, model,
-                citation_message_ids, duration_ms
+                lane, citation_message_ids, duration_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 chat_id,
@@ -30,6 +31,7 @@ async def record_search_event(
                 question,
                 answer,
                 model,
+                lane,
                 json.dumps(citation_message_ids),
                 duration_ms,
             ),
