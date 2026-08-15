@@ -932,7 +932,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             async with conn.execute("SELECT ? AS id, ? AS name", (1, "one")) as rows:
                 row = await rows.fetchone()
 
-        self.assertEqual(seen["timeout"], 10)
+        self.assertEqual(seen["timeout"], db.HTTP_READ_TIMEOUT_SECONDS)
         self.assertEqual(seen["url"], "https://example.turso.io/v2/pipeline")
         self.assertEqual(seen["authorization"], "Bearer secret")
         self.assertEqual(

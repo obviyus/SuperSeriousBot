@@ -411,28 +411,33 @@ async def related_utterances(
 ) -> list[Utterance]:
     return await select_utterances(
         """
-        SELECT u.start_message_id, u.end_message_id, u.end_time, u.author, u.message_text
-        FROM chat_search_utterances u WHERE u.chat_id = ? AND u.user_id <> ?
-        AND u.embedding_model = ? AND u.embedding_dimension = ?
-        AND u.end_message_id >= ? AND u.start_message_id <= ? AND EXISTS (
-            SELECT 1 FROM chat_stats s WHERE s.chat_id = u.chat_id
-            AND s.user_id = u.user_id
-            AND s.message_id BETWEEN u.start_message_id AND u.end_message_id
-            AND (s.reply_to_user_id = ? OR EXISTS (
-                SELECT 1 FROM chat_mentions m WHERE m.chat_id = s.chat_id
-                AND m.message_id = s.message_id AND m.mentioned_user_id = ?
-            ))
-        ) ORDER BY u.end_message_id LIMIT ?
+        SELECT
+            messages.message_id AS start_message_id,
+            messages.message_id AS end_message_id,
+            messages.create_time AS end_time,
+            COALESCE(users.username, 'user:' || messages.user_id) AS author,
+            messages.message_text
+        FROM (
+            SELECT chat_id, mentioning_user_id, message_id
+            FROM chat_mentions
+            WHERE chat_id = ? AND mentioned_user_id = ?
+            AND mentioning_user_id <> ?
+            AND message_id BETWEEN ? AND ?
+            ORDER BY message_id LIMIT ?
+        ) mentions
+        JOIN chat_stats messages
+            ON messages.chat_id = mentions.chat_id
+            AND messages.user_id = mentions.mentioning_user_id
+            AND messages.message_id = mentions.message_id
+        LEFT JOIN user_stats users ON users.user_id = messages.user_id
+        WHERE messages.message_text IS NOT NULL AND messages.message_text <> ''
         """,
         (
             chat_id,
             member.user_id,
-            EMBEDDING_MODEL,
-            UTTERANCE_EMBEDDING_DIMENSIONS,
+            member.user_id,
             start_message_id,
             end_message_id,
-            member.user_id,
-            member.user_id,
             RELATED_UTTERANCE_LIMIT,
         ),
     )
