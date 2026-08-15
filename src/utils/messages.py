@@ -25,6 +25,7 @@ async def reply_markdown_or_plain(
     *,
     disable_web_page_preview: bool = False,
     document_name: str | None = None,
+    reply_markup: InlineKeyboardMarkup | None = None,
 ):
     import telegramify_markdown
 
@@ -35,6 +36,7 @@ async def reply_markdown_or_plain(
                 formatted,
                 disable_web_page_preview=disable_web_page_preview,
                 parse_mode="MarkdownV2",
+                reply_markup=reply_markup,
             )
     except (BadRequest, TypeError, ValueError):
         formatted = None
@@ -43,6 +45,7 @@ async def reply_markdown_or_plain(
         return await message.reply_text(
             text,
             disable_web_page_preview=disable_web_page_preview,
+            reply_markup=reply_markup,
         )
 
     buffer = io.BytesIO(text.encode())

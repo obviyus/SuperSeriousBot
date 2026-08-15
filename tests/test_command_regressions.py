@@ -6,7 +6,9 @@ import importlib
 import io
 import json
 import os
+import tempfile
 import unittest
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,8 +23,10 @@ os.environ.setdefault("TURSO_DATABASE_URL", ":memory:")
 os.environ.setdefault("TURSO_AUTH_TOKEN", "test-token")
 
 chat_memory = importlib.import_module("management.chat_memory")
+chat_search = importlib.import_module("management.chat_search")
 commands_module = importlib.import_module("commands")
 db = importlib.import_module("config.db")
+migrate = importlib.import_module("migrate")
 ask_module = importlib.import_module("commands.ask")
 animals_module = importlib.import_module("commands.animals")
 define_module = importlib.import_module("commands.define")
@@ -39,6 +43,23 @@ send_markdown_or_plain = messages_module.send_markdown_or_plain
 reply_markdown_or_plain = messages_module.reply_markdown_or_plain
 stats_module = importlib.import_module("management.stats")
 decorators = importlib.import_module("utils.decorators")
+
+
+@asynccontextmanager
+async def connection_context(connection):
+    yield connection
+
+
+def search_database(path: str):
+    connection = libsql.connect(path, autocommit=True, _check_same_thread=False)
+    for filename in (
+        "20240624131537_init.py",
+        "20240917172646_user_stats.py",
+        "20260815000000_search_foundations.py",
+    ):
+        migrate.load_migration(Path("migrations", filename)).upgrade(connection)
+    return connection
+
 
 USER_REPLY_METHODS = {
     "edit_text",
@@ -394,11 +415,15 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             def __init__(self):
                 super().__init__()
                 self.chat_id = -1001
+                self.message_id = 51
                 self.status_message = StatusMessage()
 
             async def reply_text(self, text: str, **_kwargs):
                 self.replies.append(text)
                 return self.status_message
+
+        answer_message = SimpleNamespace(message_id=99)
+        answer_kwargs = {}
 
         async def search_answer(
             _chat_id,
@@ -407,10 +432,12 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             on_reasoning,
         ):
             await on_reasoning("Trying a broader description")
-            return "Grounded answer"
+            return chat_search.SearchResult("Grounded answer", "search-model", [42])
 
-        async def send_answer(_message, answer, **_kwargs):
+        async def send_answer(_message, answer, **kwargs):
             events.append(("answer", answer))
+            answer_kwargs.update(kwargs)
+            return answer_message
 
         message = SearchMessage()
         context = SimpleNamespace(args=["Who", "likes", "broccoli?"])
@@ -432,6 +459,16 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 search_answer,
             ),
             patch.object(search_module, "reply_markdown_or_plain", send_answer),
+            patch.object(
+                search_module,
+                "record_search_event",
+                AsyncMock(return_value=73),
+            ),
+            patch.object(
+                search_module,
+                "set_search_answer_message_id",
+                AsyncMock(),
+            ),
             patch.object(search_module.time, "monotonic", return_value=10.0),
         ):
             await search_module.search(SimpleNamespace(), context)
@@ -447,6 +484,11 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 ("delete",),
                 ("answer", "Grounded answer"),
             ],
+        )
+        buttons = answer_kwargs["reply_markup"].inline_keyboard[0]
+        self.assertEqual(
+            [button.callback_data for button in buttons],
+            ["search_fb:73:1", "search_fb:73:-1"],
         )
 
     async def test_search_reports_provider_timeout(self):
@@ -769,6 +811,81 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         get_user_id.assert_awaited_once_with("knownuser")
         save_mention.assert_awaited_once_with(1, 2, message)
+
+    async def test_message_stats_capture_reply(self):
+        with tempfile.TemporaryDirectory() as directory:
+            raw = search_database(f"{directory}/search.db")
+            connection = db.TursoConnection(raw)
+            raw.execute("INSERT INTO group_settings (chat_id, fts) VALUES (-1001, 1)")
+            message = SimpleNamespace(
+                from_user=SimpleNamespace(id=7, username="ayaan", first_name="Ayaan"),
+                chat_id=-1001,
+                message_id=42,
+                text="reply",
+                link=None,
+                reply_to_message=SimpleNamespace(
+                    message_id=41, from_user=SimpleNamespace(id=8)
+                ),
+            )
+            with patch.object(
+                chat_memory, "get_db", return_value=connection_context(connection)
+            ):
+                await chat_memory.save_message_stats(message)
+            row = raw.execute(
+                "SELECT reply_to_message_id, reply_to_user_id FROM chat_stats"
+            ).fetchone()
+            user = raw.execute(
+                "SELECT username, first_name FROM user_stats WHERE user_id = 7"
+            ).fetchone()
+            await connection.close()
+
+        self.assertEqual(row, (41, 8))
+        self.assertEqual(user, ("ayaan", "Ayaan"))
+
+    async def test_search_event_and_feedback_are_persisted(self):
+        search_events = importlib.import_module("management.search_events")
+        with tempfile.TemporaryDirectory() as directory:
+            raw = search_database(f"{directory}/search.db")
+            connection = db.TursoConnection(raw)
+            with patch.object(
+                search_events,
+                "get_db",
+                side_effect=lambda: connection_context(connection),
+            ):
+                event_id = await search_events.record_search_event(
+                    chat_id=-1001,
+                    user_id=7,
+                    message_id=42,
+                    question="Who likes broccoli?",
+                    answer="Ayaan does.",
+                    model="x-ai/grok-4.3",
+                    citation_message_ids=[11, 12],
+                    duration_ms=321,
+                )
+                await search_events.set_search_answer_message_id(event_id, 99)
+                raw.execute(
+                    "INSERT INTO search_feedback (event_id, user_id, vote) VALUES (?, 7, 1)",
+                    (event_id,),
+                )
+                query = SimpleNamespace(
+                    data=f"search_fb:{event_id}:-1",
+                    from_user=SimpleNamespace(id=7),
+                    answer=AsyncMock(),
+                )
+                await search_module.search_feedback(
+                    SimpleNamespace(callback_query=query), SimpleNamespace()
+                )
+            event = raw.execute(
+                "SELECT answer_message_id, citation_message_ids, duration_ms FROM search_events"
+            ).fetchone()
+            feedback = raw.execute(
+                "SELECT event_id, user_id, vote FROM search_feedback"
+            ).fetchone()
+            await connection.close()
+
+        self.assertEqual(event, (99, "[11, 12]", 321))
+        self.assertEqual(feedback, (event_id, 7, -1))
+        query.answer.assert_awaited_once_with("Noted")
 
     async def test_turso_adapter_matches_aiosqlite_call_shape(self):
         conn = db.TursoConnection(libsql.connect(":memory:", autocommit=True))

@@ -1,6 +1,7 @@
 import asyncio
 import re
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 
 import ai
 import pydantic
@@ -63,6 +64,13 @@ class SearchPlan(pydantic.BaseModel):
     lexical_terms: list[str] = pydantic.Field(default_factory=list, max_length=10)
     resolved_handles: list[str] = pydantic.Field(default_factory=list, max_length=3)
     include_interaction_pairs: bool = False
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    answer: str
+    model: str
+    citation_message_ids: list[int]
 
 
 class QueryExpansion(pydantic.BaseModel):
@@ -566,17 +574,17 @@ async def attributed_evidence(
                 "opinion markers do not make the discussed behavior apply to the "
                 "speaker. Include an exact supporting quote and the numeric message ID "
                 "at the start of its line. For comparisons, consolidate each candidate "
-                "without choosing a winner. Return at most 8 relevant subjects or "
+                "without choosing a winner. Return at most 5 relevant subjects or "
                 "claims, strongest first."
             ),
             ai.user_message(raw_evidence_prompt(question, evidence)),
         ],
         ComparativeAssessment,
-        max_tokens=1200,
+        max_tokens=3000,
     )
 
     attributed = []
-    for candidate in assessment.candidates[:8]:
+    for candidate in assessment.candidates[:5]:
         citations = [
             citation
             for citation in candidate.citations
@@ -744,7 +752,7 @@ async def search_answer(
     question: str,
     author_id: int | None = None,
     on_status: Callable[[str], Awaitable[None]] | None = None,
-) -> str:
+) -> SearchResult:
     status = on_status or _ignore_status
     await status("Planning searches")
     search_model, identity_result = await asyncio.gather(
@@ -799,7 +807,7 @@ async def search_answer(
         )
         playful_inference = bool(evidence)
     if not evidence:
-        return NO_SOLID_ANSWER
+        return SearchResult(NO_SOLID_ANSWER, search_model.id, [])
 
     await status("Reading the strongest evidence")
     if attributed and COMPARATIVE_PATTERN.search(question):
@@ -842,7 +850,18 @@ async def search_answer(
             SearchAnswerOutput,
             max_tokens=500,
         )
-    return render_answer(output, evidence)
+    answer = render_answer(output, evidence)
+    citation_message_ids = (
+        list(
+            dict.fromkeys(
+                evidence[citation - 1].citation_message_id
+                for citation in output.citations
+            )
+        )
+        if answer != NO_SOLID_ANSWER
+        else []
+    )
+    return SearchResult(answer, search_model.id, citation_message_ids)
 
 
 async def _ignore_status(_status: str) -> None:

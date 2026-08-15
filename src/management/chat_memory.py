@@ -6,7 +6,7 @@ from telegram import Message, MessageEntity
 from config.db import get_db
 from utils.string import get_user_id_from_username
 
-type ChatImportRow = tuple[int, str, int, str, str]
+type ChatImportRow = tuple[int, str, int, str, str, int | None]
 
 
 async def save_message_stats(message: Message) -> None:
@@ -20,16 +20,20 @@ async def save_message_stats(message: Message) -> None:
         if user.username:
             await conn.execute(
                 """
-                INSERT INTO user_stats (user_id, username, last_seen, last_message_link)
-                    VALUES (?, ?, ?, ?)
+                INSERT INTO user_stats (
+                    user_id, username, first_name, last_seen, last_message_link
+                )
+                    VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                     username = excluded.username,
+                    first_name = excluded.first_name,
                     last_seen = excluded.last_seen,
                     last_message_link = excluded.last_message_link
                 """,
                 (
                     user.id,
                     user.username,
+                    user.first_name,
                     datetime.now(UTC).replace(tzinfo=None),
                     message.link if message.link else None,
                 ),
@@ -47,10 +51,24 @@ async def save_message_stats(message: Message) -> None:
 
         await conn.execute(
             """
-            INSERT OR IGNORE INTO chat_stats (chat_id, user_id, message_id, message_text)
-            VALUES (?, ?, ?, ?)
+            INSERT OR IGNORE INTO chat_stats (
+                chat_id, user_id, message_id, message_text,
+                reply_to_message_id, reply_to_user_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (chat_id, user.id, message.message_id, message_text),
+            (
+                chat_id,
+                user.id,
+                message.message_id,
+                message_text,
+                message.reply_to_message.message_id
+                if message.reply_to_message
+                else None,
+                message.reply_to_message.from_user.id
+                if message.reply_to_message and message.reply_to_message.from_user
+                else None,
+            ),
         )
 
 
@@ -246,6 +264,7 @@ def parse_export_file(filepath: str, chat_id: int) -> list[ChatImportRow]:
                     msg["id"],
                     dt.strftime("%Y-%m-%d %H:%M:%S"),
                     text,
+                    msg.get("reply_to_message_id"),
                 )
             )
 
@@ -256,8 +275,11 @@ async def import_chat_stats_rows(chat_id: int, batch: list[ChatImportRow]) -> No
     async with get_db() as conn:
         await conn.executemany(
             """
-            INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO chat_stats (
+                chat_id, user_id, message_id, create_time, message_text,
+                reply_to_message_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(chat_id, user_id, message_id) DO NOTHING;
             """,
             batch,
