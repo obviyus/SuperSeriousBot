@@ -75,10 +75,12 @@ fact: concrete factual lookups such as jobs, dates, what X said about Y, and lin
 Default to persona when uncertain. Do not answer the request."""
 
 PERSONA_ANSWER_PROMPT = """Answer from the supplied friend-group dossiers and receipts.
-Write 2-5 punchy sentences. The first sentence names the verdict. Keep the tone playful
-and roast-like, never moralising. Return at most four short verbatim quotes copied from
-the supplied context. Use only their real message IDs. Do not put links or message IDs
-in the answer."""
+Write 2-5 punchy sentences. The first sentence states the answer outright, naming the
+person by @handle; never label it "Verdict:". Keep the tone playful and roast-like,
+never moralising. When recorded interaction totals are supplied, treat them as the
+primary evidence for who is close to whom. Return at most four short verbatim quotes
+copied from the supplied context. Use only their real message IDs. Do not put links or
+message IDs in the answer."""
 
 CREATIVE_ANSWER_PROMPT = """Create the requested artefact from the supplied friend-group
 dossiers and receipts. Keep the answer at or below 1200 characters. Return at most four
@@ -707,7 +709,7 @@ def memory_context(
 
     for evidence in utterances:
         if not add_section(
-            f"[Utterance receipt]\n{evidence.text}",
+            f"[Receipt]\n{evidence.text}",
             utterance_message_ids(evidence),
         ):
             break
@@ -778,9 +780,12 @@ async def memory_answer(
     sheets: list[PersonaSheet],
     lane: Literal["persona", "creative"],
 ) -> SearchResult | None:
-    lore, utterances = await asyncio.gather(
+    lore, utterances, pairs = await asyncio.gather(
         load_lore(chat_id),
         utterance_evidence(chat_id, [question], author_id),
+        interaction_pair_evidence(chat_id)
+        if PAIR_PATTERN.search(question)
+        else _empty_evidence(),
     )
     focus_ids = {item.user_id for item in participants}
     if author_id is not None:
@@ -791,7 +796,7 @@ async def memory_answer(
         focus_ids,
         participants,
         rank_lore(question, lore),
-        utterances[:10],
+        [*pairs[:8], *utterances[:10]],
     )
     if lane == "persona" and not allowed_ids:
         return None
