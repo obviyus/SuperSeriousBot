@@ -31,6 +31,7 @@ from config.db import (
 )
 from config.logger import logger
 from config.options import config
+from management.chat_memory_build import build_chat_memories
 from management.chat_search_cache import sync_search_cache
 from management.chat_search_index import (
     index_pending_utterances,
@@ -93,6 +94,10 @@ async def worker_chat_search_index(_: ContextTypes.DEFAULT_TYPE) -> None:
             windows,
             utterances,
         )
+
+
+async def worker_chat_memory_build(_: ContextTypes.DEFAULT_TYPE) -> None:
+    await build_chat_memories()
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -208,6 +213,12 @@ def main():
             name="worker_chat_search_index",
             job_kwargs={"max_instances": 1, "coalesce": True},
         )
+    job_queue.run_daily(
+        worker_chat_memory_build,
+        time=datetime.time(3, tzinfo=datetime.UTC),
+        name="worker_chat_memory_build",
+        job_kwargs={"max_instances": 1, "coalesce": True},
+    )
     job_queue.run_daily(command_limits.reset_command_limits, time=datetime.time(18, 30))
     if config.TELEGRAM.UPDATER == "polling":
         logger.info("Using polling...")

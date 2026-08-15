@@ -15,6 +15,7 @@ _init_lock = asyncio.Lock()
 DB_OPEN_ATTEMPTS = 3
 DB_OPEN_RETRY_DELAY_SECONDS = 0.2
 HRANA_CLOSED_MESSAGE = "connection closed before message completed"
+HTTP_READ_TIMEOUT_SECONDS = 60
 
 
 def is_retryable_open_error(exc: Exception) -> bool:
@@ -187,7 +188,7 @@ class TursoHttpConnection:
         )
 
         try:
-            with request.urlopen(req, timeout=10) as response:
+            with request.urlopen(req, timeout=HTTP_READ_TIMEOUT_SECONDS) as response:
                 payload = json.loads(response.read().decode())
         except error.HTTPError as exc:
             response_body = exc.read().decode("utf-8", "replace")

@@ -15,6 +15,7 @@ os.environ.setdefault("TURSO_DATABASE_URL", ":memory:")
 os.environ.setdefault("TURSO_AUTH_TOKEN", "test-token")
 
 semantic_search = importlib.import_module("management.chat_semantic_search")
+chat_aliases = importlib.import_module("management.chat_aliases")
 chat_search = importlib.import_module("management.chat_search")
 search_cache = importlib.import_module("management.chat_search_cache")
 search_index = importlib.import_module("management.chat_search_index")
@@ -107,15 +108,9 @@ class SemanticSearchTests(unittest.TestCase):
 
     def test_build_utterances_preserves_speaker_ownership(self):
         messages = [
-            search_index.SourceMessage(
-                1, "2026-08-08 10:00:00", "@alice", "first", 1
-            ),
-            search_index.SourceMessage(
-                2, "2026-08-08 10:01:00", "@alice", "second", 1
-            ),
-            search_index.SourceMessage(
-                3, "2026-08-08 10:02:00", "@bob", "reply", 2
-            ),
+            search_index.SourceMessage(1, "2026-08-08 10:00:00", "@alice", "first", 1),
+            search_index.SourceMessage(2, "2026-08-08 10:01:00", "@alice", "second", 1),
+            search_index.SourceMessage(3, "2026-08-08 10:02:00", "@bob", "reply", 2),
         ]
 
         utterances = search_index.build_utterances(-1001, messages, set())
@@ -230,82 +225,62 @@ class ChatSearchTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(generate.call_args.kwargs["max_tokens"], 2000)
 
-    def test_claim_ownership_rejects_unresolved_second_person(self):
-        evidence = semantic_search.SearchEvidence(
-            -1001,
-            10,
-            10,
-            10,
-            "10 2026-08-08 10:00:00 @alice: You look like Peter Parker",
-            0.9,
-        )
-        candidate = chat_search.CandidateAssessment(
-            subject="@bob",
-            quote="You look like Peter Parker",
-            message_id=10,
-            reason="Peter Parker comparison",
-            citations=[1],
-            strength=3,
+    def test_alias_matching_prefers_bigrams_and_preserves_question_order(self):
+        boss = chat_aliases.Participant(1, "@boss", "Boss")
+        big_boss = chat_aliases.Participant(2, "@bigboss", "Big Boss")
+        nathu = chat_aliases.Participant(3, "@nathu", "Nathu")
+
+        matched = chat_aliases.match_participants(
+            "Is BIG boss tighter with Nathu or boss?",
+            [
+                chat_aliases.ParticipantAlias("boss", boss),
+                chat_aliases.ParticipantAlias("big boss", big_boss),
+                chat_aliases.ParticipantAlias("nathu", nathu),
+            ],
         )
 
-        self.assertFalse(chat_search.claim_owns_subject(candidate, evidence))
+        self.assertEqual(matched, [big_boss, nathu, boss])
 
-    def test_claim_ownership_accepts_the_first_person_speaker(self):
-        evidence = semantic_search.SearchEvidence(
-            -1001,
-            10,
-            10,
-            10,
-            "10 2026-08-08 10:00:00 @alice: I made the group",
-            0.9,
-        )
-        candidate = chat_search.CandidateAssessment(
-            subject="@alice",
-            quote="I made the group",
-            message_id=10,
-            reason="Creator claim",
-            citations=[1],
-            strength=3,
-        )
-
-        self.assertTrue(chat_search.claim_owns_subject(candidate, evidence))
-
-    async def test_attribution_cites_the_exact_supporting_message(self):
-        evidence = [
-            semantic_search.SearchEvidence(
-                -1001,
-                10,
-                20,
-                20,
-                "10 2026-08-08 10:00:00 @alice: I made the group\n"
-                "20 2026-08-08 10:10:00 @bob: unrelated",
-                0.9,
-            )
+    def test_lore_ranking_uses_question_overlap(self):
+        lore = [
+            chat_search.LoreRow("chai-war", "Alice declared tea illegal", (1,)),
+            chat_search.LoreRow("gym-arc", "Bob started lifting", (2,)),
+            chat_search.LoreRow("chai-cup", "The ceremonial chai cup", (3,)),
         ]
-        assessment = chat_search.ComparativeAssessment(
-            candidates=[
-                chat_search.CandidateAssessment(
-                    subject="@alice",
-                    quote="I made the group",
-                    message_id=10,
-                    reason="Creator claim",
-                    citations=[1],
-                    strength=3,
-                )
-            ]
-        )
-        with patch.object(
-            chat_search,
-            "generate_search_object",
-            AsyncMock(return_value=assessment),
-        ):
-            attributed = await chat_search.attributed_evidence(
-                SimpleNamespace(),
-                "who made the group?",
-                evidence,
-            )
 
-        self.assertEqual(attributed[0].citation_message_id, 10)
+        ranked = chat_search.rank_lore("Who started the chai war?", lore)
+
+        self.assertEqual(
+            [item.topic for item in ranked],
+            ["chai-war", "chai-cup", "gym-arc"],
+        )
+
+    def test_quote_validation_and_rendering_drop_unknown_receipts(self):
+        quotes = chat_search.valid_quotes(
+            [
+                chat_search.Quote(message_id=12, text="Chai is soup."),
+                chat_search.Quote(message_id=99, text="Invented quote"),
+                chat_search.Quote(message_id=12, text="Duplicate"),
+            ],
+            {12, 13},
+        )
+
+        rendered = chat_search.render_memory_answer(
+            "@alice wins. Nobody else made tea this weird.",
+            quotes,
+            {12: "@alice"},
+            -1001234567890,
+        )
+
+        self.assertEqual(
+            rendered,
+            "@alice wins. Nobody else made tea this weird.\n\n"
+            "“Chai is soup.” — @alice [link](https://t.me/c/1234567890/12)",
+        )
+
+    def test_lane_falls_back_to_fact_without_persona_sheets(self):
+        self.assertEqual(chat_search.lane_for_memory("persona", 0), "fact")
+        self.assertEqual(chat_search.lane_for_memory("creative", 2), "creative")
 
 
 class SearchCacheTests(unittest.IsolatedAsyncioTestCase):

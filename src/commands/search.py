@@ -19,6 +19,7 @@ from management.chat_memory import (
     parse_export_file,
 )
 from management.chat_search import search_answer
+from management.search_events import record_search_event
 from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message, reply_markdown_or_plain
@@ -71,6 +72,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else None
     )
 
+    search_start = time.monotonic()
     status_message = await message.reply_text(SEARCH_STATUS)
     last_status_edit = 0.0
     last_status_text = SEARCH_STATUS
@@ -98,7 +100,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     timed_out = False
     try:
         try:
-            answer = await search_answer(
+            result = await search_answer(
                 message.chat_id,
                 query,
                 author_id,
@@ -116,19 +118,28 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("Search took too long. Try again.")
         return
 
+    answer = result.answer
     if not answer:
         if not await is_fts_enabled(message.chat_id):
-            await message.reply_text(
-                "Chat search isn't enabled here. An admin can run /enable_fts."
+            answer = "Chat search isn't enabled here. An admin can run /enable_fts."
+        else:
+            answer = (
+                "I couldn't find anything from them about that."
+                if author_id is not None
+                else "I couldn't find anything about that."
             )
-            return
-        await message.reply_text(
-            "I couldn't find anything from them about that."
-            if author_id is not None
-            else "I couldn't find anything about that."
-        )
-        return
 
+    await record_search_event(
+        chat_id=message.chat_id,
+        user_id=message.from_user.id,
+        message_id=message.message_id,
+        question=query,
+        answer=answer,
+        model=result.model,
+        lane=result.lane,
+        citation_message_ids=result.citation_message_ids,
+        duration_ms=int((time.monotonic() - search_start) * 1000),
+    )
     await reply_markdown_or_plain(
         message,
         answer,
