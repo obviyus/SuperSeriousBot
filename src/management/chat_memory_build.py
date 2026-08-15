@@ -22,6 +22,20 @@ MEMBER_UTTERANCE_MINIMUM = 200
 PERSONA_BATCH_SIZE = 400
 RELATED_UTTERANCE_LIMIT = 40
 LORE_BATCH_CHARS = 240_000
+MIN_MESSAGE_ID = -(1 << 63)
+ADDRESS_WORDS = {
+    "bhai",
+    "bhaiya",
+    "bro",
+    "bruh",
+    "boss",
+    "dude",
+    "guys",
+    "macha",
+    "mare",
+    "sir",
+    "yaar",
+}
 RECEIPT_PATTERN = re.compile(r"\[(?:msg:\s*-?\d+)(?:,\s*msg:\s*-?\d+)*\]")
 MESSAGE_ID_PATTERN = re.compile(r"(?m)^(-?\d+) ")
 
@@ -34,10 +48,23 @@ TONE = (
 class Alias(pydantic.BaseModel):
     alias: str
     confidence: float = pydantic.Field(ge=0, le=1)
+    quote: str = pydantic.Field(
+        description="Verbatim message addressed to the member that uses the alias."
+    )
 
 
 class AliasOutput(pydantic.BaseModel):
     aliases: list[Alias]
+
+
+class AliasOwner(pydantic.BaseModel):
+    alias: str
+    handle: str
+    confidence: float = pydantic.Field(ge=0, le=1)
+
+
+class AliasOwnerOutput(pydantic.BaseModel):
+    owners: list[AliasOwner]
 
 
 class PersonaOutput(pydantic.BaseModel):
@@ -104,19 +131,23 @@ def batches[T](items: list[T], size: int) -> list[list[T]]:
     return [items[index : index + size] for index in range(0, len(items), size)]
 
 
-def filter_aliases(candidates: list[tuple[int, Alias]]) -> list[StoredAlias]:
+def filter_aliases(
+    owners: list[AliasOwner], user_ids_by_handle: dict[str, int]
+) -> list[StoredAlias]:
     by_alias: dict[str, StoredAlias] = {}
-    for user_id, candidate in candidates:
-        alias = " ".join(candidate.alias.casefold().split())
-        if not alias or candidate.confidence < 0.5:
-            continue
-        stored = StoredAlias(user_id, alias, candidate.confidence)
-        current = by_alias.get(alias)
-        if current is None or (-stored.confidence, stored.user_id) < (
-            -current.confidence,
-            current.user_id,
+    for owner in owners:
+        alias = " ".join(owner.alias.casefold().split())
+        user_id = user_ids_by_handle.get(owner.handle.casefold().lstrip("@"))
+        if (
+            not alias
+            or user_id is None
+            or owner.confidence < 0.5
+            or re.sub(r"(.)\1+", r"\1", alias) in ADDRESS_WORDS
         ):
-            by_alias[alias] = stored
+            continue
+        current = by_alias.get(alias)
+        if current is None or owner.confidence > current.confidence:
+            by_alias[alias] = StoredAlias(user_id, alias, owner.confidence)
     return sorted(by_alias.values(), key=lambda item: item.alias)
 
 
@@ -280,41 +311,46 @@ async def select_utterances(sql: str, params: tuple[object, ...]) -> list[Uttera
     return [utterance_from_row(row) for row in rows]
 
 
-async def alias_evidence(chat_id: int, member: Member) -> list[Utterance]:
-    columns = "start_message_id, end_message_id, end_time, author, message_text"
-    own, incoming = await asyncio.gather(
-        select_utterances(
-            f"""SELECT {columns} FROM chat_search_utterances
-                WHERE chat_id = ? AND user_id = ? AND embedding_model = ?
-                AND embedding_dimension = ? ORDER BY RANDOM() LIMIT 150""",
-            (chat_id, member.user_id, EMBEDDING_MODEL, UTTERANCE_EMBEDDING_DIMENSIONS),
-        ),
-        select_utterances(
-            """
-            SELECT
-                messages.message_id AS start_message_id,
-                messages.message_id AS end_message_id,
-                messages.create_time AS end_time,
-                COALESCE(users.username, 'user:' || messages.user_id) AS author,
-                messages.message_text
-            FROM (
-                SELECT chat_id, mentioning_user_id, message_id
-                FROM chat_mentions
-                WHERE chat_id = ? AND mentioned_user_id = ?
-                AND mentioning_user_id <> ?
-                ORDER BY RANDOM() LIMIT 150
-            ) mentions
-            JOIN chat_stats messages
-                ON messages.chat_id = mentions.chat_id
-                AND messages.user_id = mentions.mentioning_user_id
-                AND messages.message_id = mentions.message_id
-            LEFT JOIN user_stats users ON users.user_id = messages.user_id
-            WHERE messages.message_text IS NOT NULL AND messages.message_text <> ''
-            """,
-            (chat_id, member.user_id, member.user_id),
-        ),
+async def first_indexed_message_id(chat_id: int) -> int:
+    async with (
+        get_db() as conn,
+        conn.execute(
+            "SELECT MIN(end_message_id) FROM chat_search_utterances WHERE chat_id = ?",
+            (chat_id,),
+        ) as cursor,
+    ):
+        row = await cursor.fetchone()
+    return row[0] if row and row[0] is not None else MIN_MESSAGE_ID
+
+
+async def addressed_messages(
+    chat_id: int, member: Member, first_message_id: int, limit: int
+) -> list[Utterance]:
+    """Messages by other members that reply to or @mention this member."""
+    return await select_utterances(
+        """
+        SELECT
+            messages.message_id AS start_message_id,
+            messages.message_id AS end_message_id,
+            messages.create_time AS end_time,
+            COALESCE(users.username, 'user:' || messages.user_id) AS author,
+            messages.message_text
+        FROM (
+            SELECT chat_id, mentioning_user_id, message_id
+            FROM chat_mentions
+            WHERE chat_id = ? AND mentioned_user_id = ?
+            AND mentioning_user_id <> ? AND message_id >= ?
+            ORDER BY RANDOM() LIMIT ?
+        ) mentions
+        JOIN chat_stats messages
+            ON messages.chat_id = mentions.chat_id
+            AND messages.user_id = mentions.mentioning_user_id
+            AND messages.message_id = mentions.message_id
+        LEFT JOIN user_stats users ON users.user_id = messages.user_id
+        WHERE messages.message_text IS NOT NULL AND messages.message_text <> ''
+        """,
+        (chat_id, member.user_id, member.user_id, first_message_id, limit),
     )
-    return own + incoming
 
 
 async def build_aliases(
@@ -322,41 +358,78 @@ async def build_aliases(
     members: list[Member],
     model: ai.Model,
     semaphore: asyncio.Semaphore,
-) -> int:
-    async def generate(member: Member) -> list[tuple[int, Alias]]:
-        evidence = await alias_evidence(chat_id, member)
+) -> list[StoredAlias]:
+    handles = ", ".join(f"@{member.username}" for member in members)
+    first_message_id = await first_indexed_message_id(chat_id)
+
+    async def propose(member: Member) -> list[tuple[Member, Alias]]:
+        evidence = await addressed_messages(chat_id, member, first_message_id, 1500)
         output = await generate_object(
             model,
             semaphore,
             f"aliases chat={chat_id} user={member.user_id}",
             [
                 ai.system_message(
-                    f"{TONE} Extract lowercase nicknames, short names, and spellings "
-                    "people use for this member. Return only grounded aliases. "
-                    "Exclude generic address words (bhai, bro, yaar, dude, sir, "
-                    "boss, guys) and other members' handles or names. Return at "
-                    "most 12 aliases, most common first."
+                    "These messages were written by other people and are addressed "
+                    "to one member (replies or @mentions). List the nicknames, short "
+                    "names, pet names, and spellings used to address THAT member or "
+                    "to talk about them in a reply to them. A name that clearly "
+                    "refers to someone else, and generic address words (bhai, bro, "
+                    "yaar, dude, sir, boss, guys, mare, macha), are not aliases. "
+                    "Return at most 12 aliases with one verbatim supporting message "
+                    "each, most common first."
                 ),
                 ai.user_message(
-                    f"username={member.username}\nfirst_name={member.first_name or ''}\n\n"
-                    + format_utterances(evidence)
+                    f"Member: @{member.username}\n"
+                    f"first_name={member.first_name or ''}\n"
+                    f"Other members: {handles}\n\n" + format_utterances(evidence)
                 ),
             ],
             AliasOutput,
-            2000,
+            3000,
         )
-        return (
-            []
-            if output is None
-            else [(member.user_id, item) for item in output.aliases]
-        )
+        return [] if output is None else [(member, item) for item in output.aliases]
 
-    aliases = filter_aliases(
+    proposals = [
+        item
+        for generated in await asyncio.gather(*(propose(m) for m in members))
+        for item in generated
+    ]
+    if not proposals:
+        return []
+    owners = await generate_object(
+        model,
+        semaphore,
+        f"alias owners chat={chat_id}",
         [
-            item
-            for generated in await asyncio.gather(*(generate(m) for m in members))
-            for item in generated
-        ]
+            ai.system_message(
+                "Assign each proposed nickname to exactly one member of a Telegram "
+                "group, or drop it. Each proposal quotes a message addressed to the "
+                "candidate member. Keep an alias only when the quote addresses or "
+                "refers to that member by it; when a quote uses the name for a "
+                "third person, the alias belongs to whoever it describes, or to "
+                "nobody if unclear. Keep only names and nicknames someone would use "
+                "to refer to that specific person; drop generic address words, "
+                "handles used as-is, slang, and insults or descriptors that could "
+                "apply to anyone (baby, bald, druggie, rascal, my cousin, math "
+                "nerd). Return the final owner list with confidence."
+            ),
+            ai.user_message(
+                "\n".join(
+                    f"@{member.username} <- {item.alias!r} "
+                    f"(confidence {item.confidence:.2f}): {item.quote!r}"
+                    for member, item in proposals
+                )
+            ),
+        ],
+        AliasOwnerOutput,
+        3000,
+    )
+    if owners is None:
+        return []
+    aliases = filter_aliases(
+        owners.owners,
+        {member.username.casefold(): member.user_id for member in members},
     )
     async with get_db() as conn:
         await conn.execute("DELETE FROM chat_aliases WHERE chat_id = ?", (chat_id,))
@@ -368,7 +441,17 @@ async def build_aliases(
                     for item in aliases
                 ],
             )
-    return len(aliases)
+    return aliases
+
+
+def alias_map(members: list[Member], aliases: list[StoredAlias]) -> str:
+    names: dict[int, list[str]] = {}
+    for item in aliases:
+        names.setdefault(item.user_id, []).append(item.alias)
+    return "\n".join(
+        f"@{member.username}: {', '.join(names.get(member.user_id, [])) or '(none)'}"
+        for member in members
+    )
 
 
 async def persona_source(
@@ -446,6 +529,7 @@ async def related_utterances(
 async def build_persona(
     chat_id: int,
     member: Member,
+    members_aliases: str,
     model: ai.Model,
     semaphore: asyncio.Semaphore,
     bootstrap: bool,
@@ -476,11 +560,18 @@ async def build_persona(
                     "3 receipts per bullet; drop the weakest bullets to fit. "
                     "Sections: Nicknames; Interests & obsessions; Opinions they hold; "
                     "Habits & running behaviour; What others roast them for; Feuds & "
-                    "pairings; Signature lines (verbatim). Every bullet ends with "
+                    "pairings; Signature lines (verbatim). Nicknames are what others "
+                    "call THIS member; a name that the member uses for someone else, "
+                    "or that the alias map assigns to another member, is not theirs. "
+                    "Refer to other members by their @handle using the alias map. "
+                    "Utterances by other members are only evidence about this member "
+                    "when they are addressed to or about them. Every bullet ends with "
                     "receipts like [msg:12, msg:34]. Use only supplied receipt IDs."
                 ),
                 ai.user_message(
-                    f"Member: @{member.username}\nPrevious sheet:\n{sheet or '(none)'}"
+                    f"Member: @{member.username}\n"
+                    f"Alias map:\n{members_aliases}\n\n"
+                    f"Previous sheet:\n{sheet or '(none)'}"
                     f"\n\nNew utterances:\n{format_utterances(context)}"
                 ),
             ],
@@ -627,14 +718,15 @@ async def build_chat_memory(
     members = await eligible_members(chat_id)
     semaphore = asyncio.Semaphore(4)
     aliases = await build_aliases(chat_id, members, model, semaphore)
+    members_aliases = alias_map(members, aliases)
     persona_results = await asyncio.gather(
         *(
-            build_persona(chat_id, member, model, semaphore, bootstrap)
+            build_persona(chat_id, member, members_aliases, model, semaphore, bootstrap)
             for member in members
         )
     )
     lore = await build_lore(chat_id, model, semaphore)
-    return BuildCounts(aliases, sum(persona_results), lore)
+    return BuildCounts(len(aliases), sum(persona_results), lore)
 
 
 async def build_chat_memories(

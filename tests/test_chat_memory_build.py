@@ -6,10 +6,13 @@ os.environ.setdefault("TURSO_DATABASE_URL", ":memory:")
 os.environ.setdefault("TURSO_AUTH_TOKEN", "test-token")
 
 from management.chat_memory_build import (
-    Alias,
+    AliasOwner,
     LoreItem,
     LoreWindow,
+    Member,
+    StoredAlias,
     StoredLore,
+    alias_map,
     batch_lore_windows,
     batches,
     disjoint_windows,
@@ -26,15 +29,26 @@ def test_batches_preserve_order_and_tail() -> None:
 def test_filter_aliases_normalizes_filters_and_resolves_collisions() -> None:
     aliases = filter_aliases(
         [
-            (2, Alias(alias="  BOSS  ", confidence=0.8)),
-            (1, Alias(alias="boss", confidence=0.8)),
-            (3, Alias(alias="maybe", confidence=0.49)),
-        ]
+            AliasOwner(alias="  BOSS  ", handle="@Bob", confidence=0.8),
+            AliasOwner(alias="boss", handle="alice", confidence=0.9),
+            AliasOwner(alias="maybe", handle="alice", confidence=0.49),
+            AliasOwner(alias="ghost", handle="nobody", confidence=0.9),
+            AliasOwner(alias="mareee", handle="alice", confidence=0.9),
+        ],
+        {"alice": 1, "bob": 2},
     )
 
     assert [(item.user_id, item.alias, item.confidence) for item in aliases] == [
-        (1, "boss", 0.8)
+        (1, "boss", 0.9)
     ]
+
+
+def test_alias_map_lists_every_member() -> None:
+    members = [Member(1, "alice", "Alice"), Member(2, "bob", None)]
+
+    assert alias_map(members, [StoredAlias(1, "ali", 0.9)]) == (
+        "@alice: ali\n@bob: (none)"
+    )
 
 
 def test_strip_invalid_receipts_keeps_only_supplied_ids() -> None:
