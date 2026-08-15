@@ -805,7 +805,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             connection = db.TursoConnection(raw)
             raw.execute("INSERT INTO group_settings (chat_id, fts) VALUES (-1001, 1)")
             message = SimpleNamespace(
-                from_user=SimpleNamespace(id=7, username="ayaan", first_name="Ayaan"),
+                from_user=SimpleNamespace(id=7, username="alice", first_name="Alice"),
                 chat_id=-1001,
                 message_id=42,
                 text="reply",
@@ -827,7 +827,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             await connection.close()
 
         self.assertEqual(row, (41, 8))
-        self.assertEqual(user, ("ayaan", "Ayaan"))
+        self.assertEqual(user, ("alice", "Alice"))
 
     async def test_search_event_is_persisted(self):
         search_events = importlib.import_module("management.search_events")
@@ -844,7 +844,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                     user_id=7,
                     message_id=42,
                     question="Who likes broccoli?",
-                    answer="Ayaan does.",
+                    answer="Alice does.",
                     model="x-ai/grok-4.3",
                     lane="persona",
                     citation_message_ids=[11, 12],
@@ -857,7 +857,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             await connection.close()
 
         self.assertEqual(
-            event, ("Who likes broccoli?", "Ayaan does.", "persona", "[11, 12]", 321)
+            event, ("Who likes broccoli?", "Alice does.", "persona", "[11, 12]", 321)
         )
 
     async def test_turso_adapter_matches_aiosqlite_call_shape(self):

@@ -290,20 +290,28 @@ async def alias_evidence(chat_id: int, member: Member) -> list[Utterance]:
             (chat_id, member.user_id, EMBEDDING_MODEL, UTTERANCE_EMBEDDING_DIMENSIONS),
         ),
         select_utterances(
-            f"""SELECT {columns} FROM chat_search_utterances u
-                WHERE chat_id = ? AND user_id <> ? AND embedding_model = ?
-                AND embedding_dimension = ? AND EXISTS (
-                    SELECT 1 FROM chat_mentions m WHERE m.chat_id = u.chat_id
-                    AND m.mentioned_user_id = ?
-                    AND m.message_id BETWEEN u.start_message_id AND u.end_message_id
-                ) ORDER BY RANDOM() LIMIT 150""",
-            (
-                chat_id,
-                member.user_id,
-                EMBEDDING_MODEL,
-                UTTERANCE_EMBEDDING_DIMENSIONS,
-                member.user_id,
-            ),
+            """
+            SELECT
+                messages.message_id AS start_message_id,
+                messages.message_id AS end_message_id,
+                messages.create_time AS end_time,
+                COALESCE(users.username, 'user:' || messages.user_id) AS author,
+                messages.message_text
+            FROM (
+                SELECT chat_id, mentioning_user_id, message_id
+                FROM chat_mentions
+                WHERE chat_id = ? AND mentioned_user_id = ?
+                AND mentioning_user_id <> ?
+                ORDER BY RANDOM() LIMIT 150
+            ) mentions
+            JOIN chat_stats messages
+                ON messages.chat_id = mentions.chat_id
+                AND messages.user_id = mentions.mentioning_user_id
+                AND messages.message_id = mentions.message_id
+            LEFT JOIN user_stats users ON users.user_id = messages.user_id
+            WHERE messages.message_text IS NOT NULL AND messages.message_text <> ''
+            """,
+            (chat_id, member.user_id, member.user_id),
         ),
     )
     return own + incoming
