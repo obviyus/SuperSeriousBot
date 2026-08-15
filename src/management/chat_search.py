@@ -179,10 +179,13 @@ async def generate_search_object[OutputT: pydantic.BaseModel](
     output_type: type[OutputT],
     *,
     max_tokens: int,
+    reasoning_effort: str | ai.ModelProviderDefault | None = ai.DEFAULT,
 ) -> OutputT:
-    params = ai.InferenceRequestParams(
-        output=ai.OutputParams(max_tokens=max_tokens)
-    ).with_temperature(0)
+    params = (
+        ai.InferenceRequestParams(output=ai.OutputParams(max_tokens=max_tokens))
+        .with_temperature(0)
+        .with_reasoning_effort(reasoning_effort)
+    )
     async with asyncio.timeout(MODEL_TIMEOUT_SECONDS):
         async with ai.stream(
             search_model,
@@ -556,6 +559,9 @@ async def route_question(question: str) -> Lane:
         [ai.system_message(ROUTER_PROMPT), ai.user_message(question)],
         RouteOutput,
         max_tokens=100,
+        # Small reasoning models return empty structured output when their
+        # default reasoning is on (observed 2026-08).
+        reasoning_effort=None,
     )
     return output.lane
 
@@ -639,7 +645,7 @@ def rank_lore(question: str, lore: list[LoreRow]) -> list[LoreRow]:
 def utterance_message_ids(evidence: SearchEvidence) -> set[int]:
     return {
         evidence.citation_message_id,
-        *(int(value) for value in re.findall(r"(?m)(?:^|:\s)(\d+)\s", evidence.text)),
+        *(int(value) for value in re.findall(r"(?m)(?:^|:\s)(-?\d+)\s", evidence.text)),
     }
 
 

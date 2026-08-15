@@ -22,8 +22,8 @@ MEMBER_UTTERANCE_MINIMUM = 200
 PERSONA_BATCH_SIZE = 400
 RELATED_UTTERANCE_LIMIT = 40
 LORE_BATCH_CHARS = 240_000
-RECEIPT_PATTERN = re.compile(r"\[(?:msg:\s*\d+)(?:,\s*msg:\s*\d+)*\]")
-MESSAGE_ID_PATTERN = re.compile(r"(?m)^(\d+) ")
+RECEIPT_PATTERN = re.compile(r"\[(?:msg:\s*-?\d+)(?:,\s*msg:\s*-?\d+)*\]")
+MESSAGE_ID_PATTERN = re.compile(r"(?m)^(-?\d+) ")
 
 TONE = (
     "Write a concise dossier for a friend-group roast bot. Be concrete, never "
@@ -36,8 +36,8 @@ class Alias(pydantic.BaseModel):
     confidence: float = pydantic.Field(ge=0, le=1)
 
 
-class AliasOutput(pydantic.RootModel[list[Alias]]):
-    pass
+class AliasOutput(pydantic.BaseModel):
+    aliases: list[Alias]
 
 
 class PersonaOutput(pydantic.BaseModel):
@@ -50,8 +50,8 @@ class LoreItem(pydantic.BaseModel):
     receipts: list[int]
 
 
-class LoreOutput(pydantic.RootModel[list[LoreItem]]):
-    pass
+class LoreOutput(pydantic.BaseModel):
+    items: list[LoreItem]
 
 
 @dataclass(frozen=True)
@@ -126,7 +126,7 @@ def strip_invalid_receipts(sheet: str, allowed: set[int]) -> tuple[str, list[int
     def replace(match: re.Match[str]) -> str:
         valid = [
             int(value)
-            for value in re.findall(r"\d+", match.group())
+            for value in re.findall(r"-?\d+", match.group())
             if int(value) in allowed
         ]
         kept.extend(valid)
@@ -208,18 +208,28 @@ async def generate_object[OutputT: pydantic.BaseModel](
     for attempt in range(2):
         try:
             async with semaphore:
-                params = ai.InferenceRequestParams(
-                    output=ai.OutputParams(max_tokens=max_tokens)
-                ).with_temperature(0)
+                # Small models return empty or runaway structured output with
+                # default reasoning on (observed 2026-08); disable it.
+                params = (
+                    ai.InferenceRequestParams(
+                        output=ai.OutputParams(max_tokens=max_tokens)
+                    )
+                    .with_temperature(0)
+                    .with_reasoning_effort(None)
+                )
                 async with ai.stream(
                     model, messages, output_type=output_type, params=params
                 ) as stream:
                     async for _ in stream:
                         pass
                 return stream.output
-        except (ai.AIError, pydantic.ValidationError):
+        except (ai.AIError, pydantic.ValidationError) as error:
             if attempt == 0:
-                logger.warning("Chat memory model call failed; retrying: %s", label)
+                logger.warning(
+                    "Chat memory model call failed (%s); retrying: %s",
+                    type(error).__name__,
+                    label,
+                )
             else:
                 logger.exception(
                     "Chat memory model call failed twice; skipping: %s", label
@@ -314,7 +324,10 @@ async def build_aliases(
             [
                 ai.system_message(
                     f"{TONE} Extract lowercase nicknames, short names, and spellings "
-                    "people use for this member. Return only grounded aliases."
+                    "people use for this member. Return only grounded aliases. "
+                    "Exclude generic address words (bhai, bro, yaar, dude, sir, "
+                    "boss, guys) and other members' handles or names. Return at "
+                    "most 12 aliases, most common first."
                 ),
                 ai.user_message(
                     f"username={member.username}\nfirst_name={member.first_name or ''}\n\n"
@@ -322,10 +335,12 @@ async def build_aliases(
                 ),
             ],
             AliasOutput,
-            1200,
+            2000,
         )
         return (
-            [] if output is None else [(member.user_id, item) for item in output.root]
+            []
+            if output is None
+            else [(member.user_id, item) for item in output.aliases]
         )
 
     aliases = filter_aliases(
@@ -443,10 +458,12 @@ async def build_persona(
             f"persona chat={chat_id} user={member.user_id}",
             [
                 ai.system_message(
-                    f"{TONE} Update the member sheet in at most 700 words. Use these "
-                    "sections: Nicknames; Interests & obsessions; Opinions they hold; "
+                    f"{TONE} Update the member sheet. Hard limit: the whole sheet "
+                    "stays under 3500 characters; at most 5 bullets per section and "
+                    "3 receipts per bullet; drop the weakest bullets to fit. "
+                    "Sections: Nicknames; Interests & obsessions; Opinions they hold; "
                     "Habits & running behaviour; What others roast them for; Feuds & "
-                    "pairings; Signature lines (verbatim). Every bullet must end with "
+                    "pairings; Signature lines (verbatim). Every bullet ends with "
                     "receipts like [msg:12, msg:34]. Use only supplied receipt IDs."
                 ),
                 ai.user_message(
@@ -455,7 +472,7 @@ async def build_persona(
                 ),
             ],
             PersonaOutput,
-            5000,
+            8000,
         )
         if output is None:
             break
@@ -537,22 +554,22 @@ async def build_lore(
             f"lore chat={chat_id} end={source_end}",
             [
                 ai.system_message(
-                    f"{TONE} Extract running jokes, incidents, coined words, feuds, "
-                    "pairings, and memes. Return slug-like topics, summaries of at "
-                    "most 80 words, and real message-ID receipts. Merge any matching "
-                    "existing topic into one replacement summary."
+                    "You maintain the lore of a friend group's Telegram chat for a "
+                    "roast bot. From these chat windows, extract only things the group "
+                    "would still remember: running jokes, memorable incidents, coined "
+                    "words and nicknames, feuds, pairings, and memes. Skip one-off "
+                    "exchanges. Return at most 8 topics per call. Each summary explains "
+                    "in plain words who was involved, what happened, and why it stuck, "
+                    "in at most 60 words, with at most one short verbatim quote. Use "
+                    "real message-ID receipts. Reuse an existing topic slug when the "
+                    "material continues it, and return the merged summary. Hinglish "
+                    "is fine; never moralise."
                 ),
                 ai.user_message(
                     "Existing lore:\n"
-                    + json.dumps(
-                        [
-                            {
-                                "topic": item.topic,
-                                "summary": item.summary,
-                                "receipts": item.receipts,
-                            }
-                            for item in existing.values()
-                        ]
+                    + "\n".join(
+                        f"- {item.topic}: {item.summary[:200]}"
+                        for item in existing.values()
                     )
                     + "\n\nChat windows:\n"
                     + "\n".join(window.text for window in batch)
@@ -563,9 +580,9 @@ async def build_lore(
         )
         if output is None:
             break
-        if not output.root:
+        if not output.items:
             continue
-        merged = merge_lore(existing, output.root, allowed, source_end)
+        merged = merge_lore(existing, output.items, allowed, source_end)
         async with get_db() as conn:
             await conn.executemany(
                 """

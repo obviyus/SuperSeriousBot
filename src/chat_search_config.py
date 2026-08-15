@@ -1,5 +1,5 @@
 EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
-MEMORY_MODEL = "deepseek/deepseek-v4-flash-0731"
+MEMORY_MODEL = "openai/gpt-5.6-luna"
 ROUTER_MODEL = "qwen/qwen3.7-flash"
 EMBEDDING_DIMENSIONS = 1024
 UTTERANCE_EMBEDDING_DIMENSIONS = 256
