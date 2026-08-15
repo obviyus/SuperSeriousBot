@@ -3,7 +3,7 @@ import os
 import time
 import uuid
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Update
 from telegram.constants import ChatType
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
@@ -19,11 +19,7 @@ from management.chat_memory import (
     parse_export_file,
 )
 from management.chat_search import search_answer
-from management.search_events import (
-    record_search_event,
-    record_search_feedback,
-    set_search_answer_message_id,
-)
+from management.search_events import record_search_event
 from utils.command_limits import ensure_quota
 from utils.decorators import command
 from utils.messages import get_message, reply_markdown_or_plain
@@ -133,7 +129,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 else "I couldn't find anything about that."
             )
 
-    event_id = await record_search_event(
+    await record_search_event(
         chat_id=message.chat_id,
         user_id=message.from_user.id,
         message_id=message.message_id,
@@ -144,30 +140,11 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         citation_message_ids=result.citation_message_ids,
         duration_ms=int((time.monotonic() - search_start) * 1000),
     )
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton("👍", callback_data=f"search_fb:{event_id}:1"),
-                InlineKeyboardButton("👎", callback_data=f"search_fb:{event_id}:-1"),
-            ]
-        ]
-    )
-    answer_message = await reply_markdown_or_plain(
+    await reply_markdown_or_plain(
         message,
         answer,
         disable_web_page_preview=True,
-        reply_markup=keyboard,
     )
-    await set_search_answer_message_id(event_id, answer_message.message_id)
-
-
-async def search_feedback(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    if not query or not query.data:
-        return
-    _, event_id, vote = query.data.split(":")
-    await record_search_feedback(int(event_id), query.from_user.id, int(vote))
-    await query.answer("Noted")
 
 
 @command(

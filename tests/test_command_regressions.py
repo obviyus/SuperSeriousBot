@@ -424,7 +424,6 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 return self.status_message
 
         answer_message = SimpleNamespace(message_id=99)
-        answer_kwargs = {}
 
         async def search_answer(
             _chat_id,
@@ -437,9 +436,8 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 "Grounded answer", "search-model", [42], "persona"
             )
 
-        async def send_answer(_message, answer, **kwargs):
+        async def send_answer(_message, answer, **_kwargs):
             events.append(("answer", answer))
-            answer_kwargs.update(kwargs)
             return answer_message
 
         message = SearchMessage()
@@ -462,16 +460,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 search_answer,
             ),
             patch.object(search_module, "reply_markdown_or_plain", send_answer),
-            patch.object(
-                search_module,
-                "record_search_event",
-                AsyncMock(return_value=73),
-            ),
-            patch.object(
-                search_module,
-                "set_search_answer_message_id",
-                AsyncMock(),
-            ),
+            patch.object(search_module, "record_search_event", AsyncMock()),
             patch.object(search_module.time, "monotonic", return_value=10.0),
         ):
             await search_module.search(SimpleNamespace(), context)
@@ -487,11 +476,6 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 ("delete",),
                 ("answer", "Grounded answer"),
             ],
-        )
-        buttons = answer_kwargs["reply_markup"].inline_keyboard[0]
-        self.assertEqual(
-            [button.callback_data for button in buttons],
-            ["search_fb:73:1", "search_fb:73:-1"],
         )
 
     async def test_search_reports_provider_timeout(self):
@@ -845,7 +829,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row, (41, 8))
         self.assertEqual(user, ("ayaan", "Ayaan"))
 
-    async def test_search_event_and_feedback_are_persisted(self):
+    async def test_search_event_is_persisted(self):
         search_events = importlib.import_module("management.search_events")
         with tempfile.TemporaryDirectory() as directory:
             raw = search_database(f"{directory}/search.db")
@@ -855,7 +839,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 "get_db",
                 side_effect=lambda: connection_context(connection),
             ):
-                event_id = await search_events.record_search_event(
+                await search_events.record_search_event(
                     chat_id=-1001,
                     user_id=7,
                     message_id=42,
@@ -866,31 +850,15 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                     citation_message_ids=[11, 12],
                     duration_ms=321,
                 )
-                await search_events.set_search_answer_message_id(event_id, 99)
-                raw.execute(
-                    "INSERT INTO search_feedback (event_id, user_id, vote) VALUES (?, 7, 1)",
-                    (event_id,),
-                )
-                query = SimpleNamespace(
-                    data=f"search_fb:{event_id}:-1",
-                    from_user=SimpleNamespace(id=7),
-                    answer=AsyncMock(),
-                )
-                await search_module.search_feedback(
-                    SimpleNamespace(callback_query=query), SimpleNamespace()
-                )
             event = raw.execute(
-                "SELECT answer_message_id, lane, citation_message_ids, duration_ms "
+                "SELECT question, answer, lane, citation_message_ids, duration_ms "
                 "FROM search_events"
-            ).fetchone()
-            feedback = raw.execute(
-                "SELECT event_id, user_id, vote FROM search_feedback"
             ).fetchone()
             await connection.close()
 
-        self.assertEqual(event, (99, "persona", "[11, 12]", 321))
-        self.assertEqual(feedback, (event_id, 7, -1))
-        query.answer.assert_awaited_once_with("Noted")
+        self.assertEqual(
+            event, ("Who likes broccoli?", "Ayaan does.", "persona", "[11, 12]", 321)
+        )
 
     async def test_turso_adapter_matches_aiosqlite_call_shape(self):
         conn = db.TursoConnection(libsql.connect(":memory:", autocommit=True))

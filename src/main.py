@@ -24,7 +24,6 @@ from commands.football import sync_football_fixtures_job, worker_football_alerts
 from commands.habit import worker_habit_tracker
 from commands.highlight import highlight_worker
 from commands.remind import worker_reminder
-from commands.search import search_feedback
 from commands.sed import sed
 from config.db import (
     close_db,
@@ -161,7 +160,6 @@ def main():
                 MessageHandler(
                     filters.REPLY & filters.Regex(r"^s\/[\s\S]*\/[\s\S]*"), sed
                 ),
-                CallbackQueryHandler(search_feedback, pattern=r"^search_fb:"),
                 CallbackQueryHandler(commands.button_handler),
             ],
             3: [message_stats_handler, mention_handler],
