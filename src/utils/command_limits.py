@@ -8,6 +8,7 @@ from utils.admin import is_admin
 DEFAULT_DAILY_LIMITS: dict[str, int] = {
     "ask": 40,
     "edit": 20,
+    "video": 3,
     "search": 30,
     "tldr": 30,
     "song": 8,

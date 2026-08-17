@@ -48,6 +48,7 @@ COMMAND_MODULE_NAMES = (
     "transcribe",
     "translate",
     "ud",
+    "video",
     "weather",
     "whitelist",
 )

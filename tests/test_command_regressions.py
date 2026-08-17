@@ -37,6 +37,7 @@ song_module = importlib.import_module("commands.song")
 search_module = importlib.import_module("commands.search")
 tldr_module = importlib.import_module("commands.tldr")
 transcribe_module = importlib.import_module("commands.transcribe")
+video_module = importlib.import_module("commands.video")
 weather_module = importlib.import_module("commands.weather")
 messages_module = importlib.import_module("utils.messages")
 send_markdown_or_plain = messages_module.send_markdown_or_plain
@@ -363,9 +364,9 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             patch.object(ask_module, "openrouter_provider", return_value=provider),
             patch.object(
                 ask_module,
-                "load_reply_image",
+                "get_message_image_bytes",
                 AsyncMock(return_value=(b"source-image", "image/png")),
-            ) as load_reply_image,
+            ) as get_message_image_bytes,
         ):
             generate_message = FakeMessage()
             generate_message.from_user.username = "tester"
@@ -398,7 +399,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
         self.assertEqual(edited_content[1]["type"], "image_url")
-        self.assertEqual(load_reply_image.await_count, 1)
+        self.assertEqual(get_message_image_bytes.await_count, 1)
         self.assertEqual(len(generate_message.photos), 1)
         self.assertEqual(len(edit_message.photos), 1)
 
@@ -667,6 +668,59 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             await tldr_module.tldr(update, context)
 
         self.assertEqual(message.replies, ["I can only summarize text files."])
+
+    def test_video_workflow_adds_prompt_seed_and_first_frame(self):
+        workflow = video_module.build_workflow("A running corgi", 123, "corgi.jpg")
+
+        self.assertEqual(workflow["9"]["inputs"]["prompt"], "A running corgi")
+        self.assertEqual(workflow["13"]["inputs"]["noise_seed"], 123)
+        self.assertEqual(workflow["20"]["inputs"]["image"], "corgi.jpg")
+        self.assertEqual(workflow["9"]["inputs"]["first_frame"], ["20", 0])
+
+    def test_video_extracts_mp4_from_observed_comfy_output(self):
+        output = video_module.completed_video(
+            {
+                "job-1": {
+                    "outputs": {
+                        "18": {
+                            "images": [
+                                {
+                                    "filename": "video.mp4",
+                                    "subfolder": "video",
+                                    "type": "output",
+                                }
+                            ]
+                        }
+                    },
+                    "status": {"status_str": "success", "completed": True},
+                }
+            },
+            "job-1",
+        )
+
+        self.assertEqual(
+            output,
+            video_module.ComfyFile("video.mp4", "video", "output"),
+        )
+
+    async def test_video_missing_url_uses_user_facing_message(self):
+        message = FakeMessage()
+        update = SimpleNamespace(effective_user=message.from_user)
+        context = SimpleNamespace(args=["A", "running", "corgi"])
+
+        with (
+            patch.object(video_module, "get_message", return_value=message),
+            patch.object(video_module.config.API, "MINIMAX_H3_URL", ""),
+            patch.object(
+                video_module,
+                "ensure_command_available",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(video_module, "ensure_quota", AsyncMock(return_value=True)),
+        ):
+            await video_module.video(update, context)
+
+        self.assertEqual(message.replies, ["Video generation is not configured."])
 
     async def test_weather_missing_keys_uses_user_facing_message(self):
         message = FakeMessage()

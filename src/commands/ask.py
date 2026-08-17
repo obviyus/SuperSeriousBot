@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import io
-import mimetypes
 import time
 from datetime import timedelta
 
@@ -23,7 +22,7 @@ from config.logger import logger
 from config.options import config
 from utils.command_limits import ensure_quota
 from utils.decorators import command
-from utils.media import get_sticker_image_bytes
+from utils.media import get_message_image_bytes
 from utils.messages import get_message, reply_markdown_or_plain
 
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -52,37 +51,6 @@ def get_reply_context(reply: Message | None) -> str | None:
         return None
     reply_text = reply.text or reply.caption
     return reply_text.strip() if reply_text else None
-
-
-async def load_reply_image(
-    reply: Message,
-    bot,
-    *,
-    allow_image_document: bool = False,
-) -> tuple[bytes, str | None] | None:
-    if reply.photo:
-        photo = reply.photo[-1]
-        file = await bot.getFile(photo.file_id)
-        return bytes(await file.download_as_bytearray()), mimetypes.guess_type(
-            file.file_path or ""
-        )[0]
-    if reply.sticker:
-        sticker_payload = await get_sticker_image_bytes(reply, bot)
-        if not sticker_payload:
-            raise ValueError(
-                "Animated/video stickers aren't supported yet. Send a static sticker or image."
-            )
-        return sticker_payload
-    if (
-        allow_image_document
-        and reply.document
-        and (reply.document.mime_type or "").startswith("image/")
-    ):
-        file = await bot.getFile(reply.document.file_id)
-        return bytes(
-            await file.download_as_bytearray()
-        ), reply.document.mime_type or mimetypes.guess_type(file.file_path or "")[0]
-    return None
 
 
 def get_stream_cutoff(is_group: bool, content_length: int) -> int:
@@ -177,7 +145,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_image = None
     if reply:
         try:
-            reply_image = await load_reply_image(reply, context.bot)
+            reply_image = await get_message_image_bytes(reply, context.bot)
         except ValueError as exc:
             await message.reply_text(str(exc))
             return
@@ -308,10 +276,10 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_image = None
         if reply:
             try:
-                reply_image = await load_reply_image(
+                reply_image = await get_message_image_bytes(
                     reply,
                     context.bot,
-                    allow_image_document=True,
+                    allow_document=True,
                 )
             except ValueError as exc:
                 await message.reply_text(str(exc))

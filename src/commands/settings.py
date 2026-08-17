@@ -26,6 +26,7 @@ TOGGLES = (
     SettingToggle("auto_dl", "Auto download", "group_settings", "auto_dl"),
     SettingToggle("ask", "/ask", "command_whitelist", "ask"),
     SettingToggle("edit", "/edit", "command_whitelist", "edit"),
+    SettingToggle("video", "/video", "command_whitelist", "video"),
     SettingToggle("tr", "/tr", "command_whitelist", "tr"),
     SettingToggle("tldr", "/tldr", "command_whitelist", "tldr"),
     SettingToggle("search", "/search", "command_whitelist", "search"),
