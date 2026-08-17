@@ -6,7 +6,7 @@ import io
 import math
 
 import aiohttp
-from PIL import Image
+from PIL import Image, ImageOps
 from telegram import Message, Update
 from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
@@ -25,14 +25,13 @@ VIDEO_MODEL = "bytedance/seedance-2.0-mini"
 VIDEO_DURATION_SECONDS = 5
 VIDEO_RESOLUTION = "480p"
 TEXT_VIDEO_ASPECT_RATIO = "16:9"
-SUPPORTED_ASPECT_RATIOS = (
-    ("1:1", 1.0),
-    ("3:4", 3 / 4),
-    ("9:16", 9 / 16),
-    ("4:3", 4 / 3),
-    ("16:9", 16 / 9),
-    ("21:9", 21 / 9),
-    ("9:21", 9 / 21),
+VIDEO_FRAME_SIZES = (
+    ("1:1", (480, 480)),
+    ("3:4", (480, 640)),
+    ("9:16", (480, 854)),
+    ("4:3", (640, 480)),
+    ("16:9", (854, 480)),
+    ("21:9", (1120, 480)),
 )
 POLL_INTERVAL_SECONDS = 5
 POLL_ATTEMPTS = 180
@@ -103,18 +102,25 @@ async def video_rejection(response: aiohttp.ClientResponse) -> OpenRouterVideoEr
 
 
 def image_input(image_data: bytes) -> tuple[str, str]:
-    with Image.open(io.BytesIO(image_data)) as image:
+    with Image.open(io.BytesIO(image_data)) as source:
+        image = ImageOps.exif_transpose(source).convert("RGBA")
         source_ratio = image.width / image.height
-        mime_type = Image.MIME.get(image.format or "")
+        aspect_ratio, frame_size = min(
+            VIDEO_FRAME_SIZES,
+            key=lambda item: abs(math.log(source_ratio / (item[1][0] / item[1][1]))),
+        )
+        image.thumbnail(frame_size, Image.Resampling.LANCZOS)
+        offset = (
+            (frame_size[0] - image.width) // 2,
+            (frame_size[1] - image.height) // 2,
+        )
+        frame = Image.new("RGB", frame_size, "black")
+        frame.paste(image, offset, image)
 
-    if not mime_type:
-        raise ValueError("Unsupported source image format.")
-    aspect_ratio = min(
-        SUPPORTED_ASPECT_RATIOS,
-        key=lambda item: abs(math.log(source_ratio / item[1])),
-    )[0]
-    encoded = base64.b64encode(image_data).decode()
-    return aspect_ratio, f"data:{mime_type};base64,{encoded}"
+    output = io.BytesIO()
+    frame.save(output, format="JPEG", quality=92, subsampling=0, optimize=True)
+    encoded = base64.b64encode(output.getvalue()).decode()
+    return aspect_ratio, f"data:image/jpeg;base64,{encoded}"
 
 
 def build_video_request(

@@ -709,7 +709,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(request["generate_audio"])
         self.assertNotIn("frame_images", request)
 
-    def test_video_request_preserves_square_first_frame_shape(self):
+    def test_video_request_normalizes_square_first_frame_to_jpeg(self):
         source = io.BytesIO()
         Image.new("RGB", (512, 512), "red").save(source, format="PNG")
 
@@ -721,9 +721,33 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(request["aspect_ratio"], "1:1")
         first_frame = request["frame_images"][0]
         self.assertEqual(first_frame["frame_type"], "first_frame")
-        self.assertTrue(
-            first_frame["image_url"]["url"].startswith("data:image/png;base64,")
+        image_url = first_frame["image_url"]["url"]
+        self.assertTrue(image_url.startswith("data:image/jpeg;base64,"))
+        with Image.open(
+            io.BytesIO(base64.b64decode(image_url.partition(",")[2]))
+        ) as image:
+            self.assertEqual(image.size, (480, 480))
+
+    def test_video_request_letterboxes_without_stretching(self):
+        source = io.BytesIO()
+        Image.new("RGB", (1000, 500), "red").save(source, format="PNG")
+
+        request = video_module.build_video_request(
+            "A running corgi",
+            (source.getvalue(), "image/png"),
         )
+
+        self.assertEqual(request["aspect_ratio"], "16:9")
+        image_url = request["frame_images"][0]["image_url"]["url"]
+        with Image.open(
+            io.BytesIO(base64.b64decode(image_url.partition(",")[2]))
+        ) as image:
+            self.assertEqual(image.size, (854, 480))
+            self.assertEqual(image.getpixel((427, 0)), (0, 0, 0))
+            red, green, blue = image.getpixel((427, 240))
+            self.assertGreater(red, 240)
+            self.assertLess(green, 15)
+            self.assertLess(blue, 15)
 
     async def test_video_submission_explains_pre_generation_image_rejection(self):
         with self.assertRaises(video_module.OpenRouterVideoError) as caught:
