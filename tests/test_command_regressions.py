@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import libsql
+from PIL import Image
 from telegram import MessageEntity
 
 os.environ.setdefault("TELEGRAM_TOKEN", "test-token")
@@ -673,9 +674,31 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         workflow = video_module.build_workflow("A running corgi", 123, "corgi.jpg")
 
         self.assertEqual(workflow["9"]["inputs"]["prompt"], "A running corgi")
+        self.assertEqual(
+            (
+                workflow["9"]["inputs"]["width"],
+                workflow["9"]["inputs"]["height"],
+            ),
+            video_module.VIDEO_SIZE,
+        )
         self.assertEqual(workflow["13"]["inputs"]["noise_seed"], 123)
         self.assertEqual(workflow["20"]["inputs"]["image"], "corgi.jpg")
         self.assertEqual(workflow["9"]["inputs"]["first_frame"], ["20", 0])
+
+    def test_video_letterboxes_square_first_frame(self):
+        source = io.BytesIO()
+        Image.new("RGB", (512, 512), "red").save(source, format="PNG")
+
+        result = Image.open(
+            io.BytesIO(video_module.letterbox_first_frame(source.getvalue()))
+        )
+
+        self.assertEqual(result.size, video_module.VIDEO_SIZE)
+        self.assertEqual(result.getpixel((0, 240)), (0, 0, 0))
+        self.assertEqual(result.getpixel((191, 240)), (0, 0, 0))
+        self.assertEqual(result.getpixel((192, 240)), (255, 0, 0))
+        self.assertEqual(result.getpixel((671, 240)), (255, 0, 0))
+        self.assertEqual(result.getpixel((672, 240)), (0, 0, 0))
 
     def test_video_extracts_mp4_from_observed_comfy_output(self):
         output = video_module.completed_video(

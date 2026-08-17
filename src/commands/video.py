@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import aiohttp
+from PIL import Image, ImageOps
 from telegram import Message, Update
 from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
@@ -24,6 +25,7 @@ from utils.messages import get_message
 
 POLL_INTERVAL_SECONDS = 5
 POLL_ATTEMPTS = 180
+VIDEO_SIZE = (864, 480)
 WORKFLOW_PATH = Path(__file__).with_name("minimax_h3_workflow.json")
 VIDEO_JOB_LOCK = asyncio.Lock()
 
@@ -48,6 +50,8 @@ def build_workflow(
 ) -> dict:
     workflow = json.loads(WORKFLOW_PATH.read_text())
     workflow["9"]["inputs"]["prompt"] = prompt
+    workflow["9"]["inputs"]["width"] = VIDEO_SIZE[0]
+    workflow["9"]["inputs"]["height"] = VIDEO_SIZE[1]
     workflow["13"]["inputs"]["noise_seed"] = seed
     if first_frame:
         workflow["20"] = {
@@ -56,6 +60,25 @@ def build_workflow(
         }
         workflow["9"]["inputs"]["first_frame"] = ["20", 0]
     return workflow
+
+
+def letterbox_first_frame(image_data: bytes) -> bytes:
+    with Image.open(io.BytesIO(image_data)) as image:
+        source = ImageOps.contain(
+            ImageOps.exif_transpose(image).convert("RGBA"),
+            VIDEO_SIZE,
+            Image.Resampling.LANCZOS,
+        )
+
+    frame = Image.new("RGB", VIDEO_SIZE)
+    offset = (
+        (VIDEO_SIZE[0] - source.width) // 2,
+        (VIDEO_SIZE[1] - source.height) // 2,
+    )
+    frame.paste(source, offset, source)
+    output = io.BytesIO()
+    frame.save(output, format="PNG")
+    return output.getvalue()
 
 
 async def upload_image(
@@ -238,8 +261,8 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 first_frame = await upload_image(
                     session,
                     base_url,
-                    source_image[0],
-                    source_image[1],
+                    letterbox_first_frame(source_image[0]),
+                    "image/png",
                 )
             workflow = build_workflow(
                 prompt,

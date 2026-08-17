@@ -14,6 +14,7 @@ dependencies = [
   "howlongtobeatpy~=1.0.22",
   "ijson~=3.5.1",
   "libsql>=0.1.11",
+  "pillow>=12.3.0",
   "python-dotenv~=1.2.2",
   "python-telegram-bot[job-queue,rate-limiter,webhooks]~=22.8",
   "telegramify-markdown~=1.2.0",
