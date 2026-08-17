@@ -13,7 +13,7 @@ from telegram.ext import ContextTypes
 
 import commands
 from commands.ai import OPENROUTER_BASE_URL, OPENROUTER_HEADERS
-from commands.runtime import ensure_command_available
+from commands.runtime import HandledCommandError, ensure_command_available
 from config.logger import logger
 from config.options import config
 from utils.command_limits import ensure_quota
@@ -37,6 +37,69 @@ SUPPORTED_ASPECT_RATIOS = (
 POLL_INTERVAL_SECONDS = 5
 POLL_ATTEMPTS = 180
 VIDEO_JOB_LOCK = asyncio.Lock()
+VIDEO_REJECTION_MESSAGES = {
+    "authentication": "Video generation is temporarily unavailable.",
+    "content_policy_violation": "The image or prompt was rejected by the video safety filter.",
+    "image_content_policy_violation": "The image or prompt was rejected by the video safety filter.",
+    "image_download_failed": "The source image could not be read by the video service.",
+    "image_not_found": "The source image could not be read by the video service.",
+    "image_too_large": "That image is too large for video generation.",
+    "image_too_small": "That image is too small for video generation.",
+    "invalid_image": "That image cannot be read for video generation.",
+    "payment_required": "Video generation credits are unavailable.",
+    "rate_limit_exceeded": "The video service is busy. Try again shortly.",
+    "refusal": "The image or prompt was rejected by the video safety filter.",
+    "string_too_long": "The video prompt is too long.",
+    "unsupported_image_format": "That image format cannot be used for video.",
+}
+
+
+class OpenRouterVideoError(RuntimeError):
+    def __init__(
+        self,
+        status: int,
+        error_type: str | None,
+        detail: str | None,
+    ) -> None:
+        diagnostic = f"OpenRouter video rejected status={status}"
+        if error_type:
+            diagnostic += f" type={error_type}"
+        if detail:
+            diagnostic += f" detail={detail}"
+        super().__init__(diagnostic)
+        reason = VIDEO_REJECTION_MESSAGES.get(
+            error_type,
+            "The video request was rejected before generation.",
+        )
+        self.user_message = f"{reason} No video job was created."
+
+
+def safe_error_detail(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    detail = " ".join(value.split())
+    if len(detail) > 300 or "data:" in detail.lower() or "base64" in detail.lower():
+        return None
+    return detail
+
+
+async def video_rejection(response: aiohttp.ClientResponse) -> OpenRouterVideoError:
+    try:
+        data = await response.json(content_type=None)
+    except (aiohttp.ContentTypeError, ValueError):
+        data = None
+
+    error = data.get("error") if isinstance(data, dict) else None
+    metadata = error.get("metadata") if isinstance(error, dict) else None
+    error_type = metadata.get("error_type") if isinstance(metadata, dict) else None
+    if not isinstance(error_type, str):
+        error_type = data.get("error_type") if isinstance(data, dict) else None
+    if not isinstance(error_type, str):
+        error_type = None
+    detail = safe_error_detail(
+        error.get("message") if isinstance(error, dict) else None
+    )
+    return OpenRouterVideoError(response.status, error_type, detail)
 
 
 def image_input(image_data: bytes) -> tuple[str, str]:
@@ -87,6 +150,8 @@ async def submit_video(
         f"{OPENROUTER_BASE_URL}/videos",
         json=request,
     ) as response:
+        if response.status >= 400:
+            raise await video_rejection(response)
         response.raise_for_status()
         data = await response.json()
     job_id = data.get("id") if isinstance(data, dict) else None
@@ -180,6 +245,7 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     status = await message.reply_text(
         "Queued for a five-second video. Generation usually takes about two minutes."
     )
+    job_completed = False
     try:
         timeout = aiohttp.ClientTimeout(total=None, connect=30, sock_read=120)
         headers = {
@@ -193,6 +259,7 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             request = build_video_request(prompt, source_image)
             job_id = await submit_video(session, request)
             await wait_for_video(session, job_id)
+            job_completed = True
             video_bytes = await download_video(session, job_id)
 
         buffer = io.BytesIO(video_bytes)
@@ -215,6 +282,9 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await status.delete()
             except BadRequest:
                 pass
+    except OpenRouterVideoError as exc:
+        await replace_status(status, message, exc.user_message)
+        raise HandledCommandError(str(exc)) from exc
     except (
         aiohttp.ClientError,
         TelegramError,
@@ -223,10 +293,16 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         TypeError,
         ValueError,
         OSError,
-    ):
-        logger.exception("Video command failed")
+    ) as exc:
+        failure_message = (
+            "The video finished, but delivery failed. Don't retry yet; "
+            "that could create a duplicate charge."
+            if job_completed
+            else "Video generation failed. Please try again."
+        )
         await replace_status(
             status,
             message,
-            "Video generation failed. Please try again.",
+            failure_message,
         )
+        raise HandledCommandError("Video command failed") from exc

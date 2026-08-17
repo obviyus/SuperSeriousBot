@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import libsql
 
@@ -52,6 +52,35 @@ def command_stats_database(path: str):
 
 
 class ObservabilityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_handled_command_error_is_recorded_as_failed_without_second_reply(
+        self,
+    ):
+        async def command(_update, _context):
+            raise runtime.HandledCommandError("Video request rejected")
+
+        message = SimpleNamespace(
+            from_user=SimpleNamespace(id=7),
+            text="/video animate this",
+            reply_chat_action=AsyncMock(),
+            reply_text=AsyncMock(),
+            set_reaction=AsyncMock(),
+        )
+        finish = Mock()
+
+        def discard(coroutine, _name):
+            coroutine.close()
+
+        with (
+            patch.object(runtime, "get_message", return_value=message),
+            patch.object(runtime, "_is_blocked", return_value=False),
+            patch.object(runtime, "schedule_background_task", side_effect=discard),
+            patch.object(runtime, "finish_command_event", finish),
+        ):
+            await runtime.command_wrapper(command)(SimpleNamespace(), SimpleNamespace())
+
+        self.assertEqual(finish.call_args.args[2], "failed")
+        self.assertIsInstance(finish.call_args.args[4], runtime.HandledCommandError)
+
     async def test_command_event_records_input_outcome_and_debug_context(self):
         with tempfile.TemporaryDirectory() as directory:
             connection = command_stats_database(f"{directory}/usage.db")

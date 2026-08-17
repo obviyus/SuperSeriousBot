@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
 import libsql
 from PIL import Image
 from telegram import MessageEntity
@@ -183,6 +184,33 @@ class FailingSession:
         import aiohttp
 
         raise aiohttp.ClientError("network unavailable")
+
+
+class RejectedVideoResponse:
+    status = 400
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def json(self, **_kwargs):
+        return {
+            "error": {
+                "code": 400,
+                "message": "Unsupported image format",
+                "metadata": {"error_type": "unsupported_image_format"},
+            }
+        }
+
+    def raise_for_status(self):
+        raise aiohttp.ClientResponseError(None, (), status=self.status)
+
+
+class RejectedVideoSession:
+    def post(self, *_args, **_kwargs):
+        return RejectedVideoResponse()
 
 
 class FakeCursorForOpen:
@@ -695,6 +723,18 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(first_frame["frame_type"], "first_frame")
         self.assertTrue(
             first_frame["image_url"]["url"].startswith("data:image/png;base64,")
+        )
+
+    async def test_video_submission_explains_pre_generation_image_rejection(self):
+        with self.assertRaises(video_module.OpenRouterVideoError) as caught:
+            await video_module.submit_video(
+                RejectedVideoSession(),
+                video_module.build_video_request("Animate this", None),
+            )
+
+        self.assertEqual(
+            caught.exception.user_message,
+            "That image format cannot be used for video. No video job was created.",
         )
 
     async def test_video_missing_openrouter_key_uses_user_facing_message(self):

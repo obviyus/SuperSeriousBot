@@ -44,6 +44,10 @@ type CommandHandler_T = Callable[
 ]
 
 
+class HandledCommandError(Exception):
+    """The command already showed the user a specific failure message."""
+
+
 async def record_command_event(
     message: Message,
     command: str,
@@ -232,6 +236,9 @@ def command_wrapper(
             schedule_background_task(set_command_reaction(), "command-reaction")
 
             await fn(update, context)
+        except HandledCommandError as exc:
+            status = "failed"
+            error = exc
         except Exception as exc:
             status = "failed"
             error = exc
