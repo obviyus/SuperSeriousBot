@@ -670,70 +670,41 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(message.replies, ["I can only summarize text files."])
 
-    def test_video_workflow_adds_prompt_seed_and_first_frame(self):
-        workflow = video_module.build_workflow("A running corgi", 123, "corgi.jpg")
+    def test_video_request_uses_seedance_text_to_video_defaults(self):
+        request = video_module.build_video_request("A running corgi", None)
 
-        self.assertEqual(workflow["9"]["inputs"]["prompt"], "A running corgi")
-        self.assertEqual(
-            (
-                workflow["9"]["inputs"]["width"],
-                workflow["9"]["inputs"]["height"],
-            ),
-            video_module.VIDEO_SIZE,
-        )
-        self.assertEqual(workflow["13"]["inputs"]["noise_seed"], 123)
-        self.assertEqual(workflow["20"]["inputs"]["image"], "corgi.jpg")
-        self.assertEqual(workflow["9"]["inputs"]["first_frame"], ["20", 0])
+        self.assertEqual(request["model"], "bytedance/seedance-2.0-mini")
+        self.assertEqual(request["prompt"], "A running corgi")
+        self.assertEqual(request["duration"], 5)
+        self.assertEqual(request["resolution"], "480p")
+        self.assertEqual(request["aspect_ratio"], "16:9")
+        self.assertTrue(request["generate_audio"])
+        self.assertNotIn("frame_images", request)
 
-    def test_video_letterboxes_square_first_frame(self):
+    def test_video_request_preserves_square_first_frame_shape(self):
         source = io.BytesIO()
         Image.new("RGB", (512, 512), "red").save(source, format="PNG")
 
-        result = Image.open(
-            io.BytesIO(video_module.letterbox_first_frame(source.getvalue()))
+        request = video_module.build_video_request(
+            "A running corgi",
+            (source.getvalue(), "image/png"),
         )
 
-        self.assertEqual(result.size, video_module.VIDEO_SIZE)
-        self.assertEqual(result.getpixel((0, 240)), (0, 0, 0))
-        self.assertEqual(result.getpixel((191, 240)), (0, 0, 0))
-        self.assertEqual(result.getpixel((192, 240)), (255, 0, 0))
-        self.assertEqual(result.getpixel((671, 240)), (255, 0, 0))
-        self.assertEqual(result.getpixel((672, 240)), (0, 0, 0))
-
-    def test_video_extracts_mp4_from_observed_comfy_output(self):
-        output = video_module.completed_video(
-            {
-                "job-1": {
-                    "outputs": {
-                        "18": {
-                            "images": [
-                                {
-                                    "filename": "video.mp4",
-                                    "subfolder": "video",
-                                    "type": "output",
-                                }
-                            ]
-                        }
-                    },
-                    "status": {"status_str": "success", "completed": True},
-                }
-            },
-            "job-1",
+        self.assertEqual(request["aspect_ratio"], "1:1")
+        first_frame = request["frame_images"][0]
+        self.assertEqual(first_frame["frame_type"], "first_frame")
+        self.assertTrue(
+            first_frame["image_url"]["url"].startswith("data:image/png;base64,")
         )
 
-        self.assertEqual(
-            output,
-            video_module.ComfyFile("video.mp4", "video", "output"),
-        )
-
-    async def test_video_missing_url_uses_user_facing_message(self):
+    async def test_video_missing_openrouter_key_uses_user_facing_message(self):
         message = FakeMessage()
         update = SimpleNamespace(effective_user=message.from_user)
         context = SimpleNamespace(args=["A", "running", "corgi"])
 
         with (
             patch.object(video_module, "get_message", return_value=message),
-            patch.object(video_module.config.API, "MINIMAX_H3_URL", ""),
+            patch.object(video_module.config.API, "OPENROUTER_API_KEY", ""),
             patch.object(
                 video_module,
                 "ensure_command_available",
