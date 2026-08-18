@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import io
+import json
 import math
 
 import aiohttp
@@ -37,6 +38,9 @@ POLL_INTERVAL_SECONDS = 5
 POLL_ATTEMPTS = 180
 VIDEO_JOB_LOCK = asyncio.Lock()
 VIDEO_REJECTION_MESSAGES = {
+    "InputImageSensitiveContentDetected.PrivacyInformation": (
+        "That image was rejected because it appears to contain a real person."
+    ),
     "authentication": "Video generation is temporarily unavailable.",
     "content_policy_violation": "The image or prompt was rejected by the video safety filter.",
     "image_content_policy_violation": "The image or prompt was rejected by the video safety filter.",
@@ -82,6 +86,21 @@ def safe_error_detail(value: object) -> str | None:
     return detail
 
 
+def nested_provider_error_type(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    _, separator, body = value.partition(": ")
+    if not separator:
+        return None
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    error = data.get("error") if isinstance(data, dict) else None
+    error_type = error.get("code") if isinstance(error, dict) else None
+    return error_type if isinstance(error_type, str) else None
+
+
 async def video_rejection(response: aiohttp.ClientResponse) -> OpenRouterVideoError:
     try:
         data = await response.json(content_type=None)
@@ -90,14 +109,13 @@ async def video_rejection(response: aiohttp.ClientResponse) -> OpenRouterVideoEr
 
     error = data.get("error") if isinstance(data, dict) else None
     metadata = error.get("metadata") if isinstance(error, dict) else None
+    error_message = error.get("message") if isinstance(error, dict) else None
     error_type = metadata.get("error_type") if isinstance(metadata, dict) else None
     if not isinstance(error_type, str):
         error_type = data.get("error_type") if isinstance(data, dict) else None
     if not isinstance(error_type, str):
-        error_type = None
-    detail = safe_error_detail(
-        error.get("message") if isinstance(error, dict) else None
-    )
+        error_type = nested_provider_error_type(error_message)
+    detail = safe_error_detail(error_message)
     return OpenRouterVideoError(response.status, error_type, detail)
 
 

@@ -213,6 +213,25 @@ class RejectedVideoSession:
         return RejectedVideoResponse()
 
 
+class RejectedRealPersonVideoResponse(RejectedVideoResponse):
+    async def json(self, **_kwargs):
+        return {
+            "error": {
+                "code": 400,
+                "message": (
+                    'HTTP 400: {"error":{"code":"InputImageSensitiveContentDetected.'
+                    'PrivacyInformation","message":"The input image may contain a real '
+                    'person.","param":"","type":"BadRequest"}}'
+                ),
+            }
+        }
+
+
+class RejectedRealPersonVideoSession:
+    def post(self, *_args, **_kwargs):
+        return RejectedRealPersonVideoResponse()
+
+
 class FakeCursorForOpen:
     description = ()
     lastrowid = None
@@ -759,6 +778,19 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             caught.exception.user_message,
             "That image format cannot be used for video. No video job was created.",
+        )
+
+    async def test_video_submission_explains_real_person_rejection(self):
+        with self.assertRaises(video_module.OpenRouterVideoError) as caught:
+            await video_module.submit_video(
+                RejectedRealPersonVideoSession(),
+                video_module.build_video_request("Animate this", None),
+            )
+
+        self.assertEqual(
+            caught.exception.user_message,
+            "That image was rejected because it appears to contain a real person. "
+            "No video job was created.",
         )
 
     async def test_video_missing_openrouter_key_uses_user_facing_message(self):
