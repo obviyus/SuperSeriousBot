@@ -205,6 +205,21 @@ class SemanticSearchTests(unittest.TestCase):
 
 
 class ChatSearchTests(unittest.IsolatedAsyncioTestCase):
+    async def test_question_routing_uses_search_model(self):
+        search_model = chat_search.ai.Model(
+            id="openai/gpt-5.6-luna",
+            provider=commands_ai.openrouter_provider(),
+        )
+        with patch.object(
+            chat_search,
+            "generate_search_object",
+            AsyncMock(return_value=chat_search.RouteOutput(lane="fact")),
+        ) as generate:
+            lane = await chat_search.route_question(search_model, "What does Nathu do?")
+
+        self.assertEqual(lane, "fact")
+        self.assertIs(generate.call_args.args[0], search_model)
+
     async def test_query_expansion_has_room_for_reasoning(self):
         expansion = chat_search.QueryExpansion(
             semantic_queries=["who likes being hit"],

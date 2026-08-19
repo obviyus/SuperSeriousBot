@@ -12,7 +12,6 @@ from chat_search_config import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     QUERY_INSTRUCTION,
-    ROUTER_MODEL,
     UTTERANCE_EMBEDDING_DIMENSIONS,
     VECTOR_RESULT_COUNT,
 )
@@ -558,10 +557,9 @@ def merge_evidence(items, limit: int = MAX_EVIDENCE) -> list[SearchEvidence]:
     return merged
 
 
-async def route_question(question: str) -> Lane:
-    router = ai.Model(id=ROUTER_MODEL, provider=openrouter_provider())
+async def route_question(search_model: ai.Model, question: str) -> Lane:
     output = await generate_search_object(
-        router,
+        search_model,
         [ai.system_message(ROUTER_PROMPT), ai.user_message(question)],
         RouteOutput,
         max_tokens=100,
@@ -777,6 +775,7 @@ async def quote_handles(chat_id: int, quotes: list[Quote]) -> dict[int, str]:
 
 
 async def memory_answer(
+    search_model: ai.Model,
     chat_id: int,
     question: str,
     author_id: int | None,
@@ -805,7 +804,6 @@ async def memory_answer(
     if lane == "persona" and not allowed_ids:
         return None
 
-    search_model = await model("search")
     output = await generate_search_object(
         search_model,
         [
@@ -861,16 +859,20 @@ async def search_answer(
 ) -> SearchResult:
     status = on_status or _ignore_status
     await status("Working out who you mean")
-    participants = await resolve_participants(chat_id, question)
+    search_model, participants = await asyncio.gather(
+        model("search"),
+        resolve_participants(chat_id, question),
+    )
     await status("Picking an approach")
     routed_lane, sheets = await asyncio.gather(
-        route_question(question),
+        route_question(search_model, question),
         load_persona_sheets(chat_id),
     )
     lane = lane_for_memory(routed_lane, len(sheets))
     if lane in ("persona", "creative"):
         await status("Reading the dossiers")
         result = await memory_answer(
+            search_model,
             chat_id,
             question,
             author_id,
@@ -882,10 +884,7 @@ async def search_answer(
             return result
 
     await status("Planning searches")
-    search_model, identity_result = await asyncio.gather(
-        model("search"),
-        identity_evidence(chat_id, identity_terms(question)),
-    )
+    identity_result = await identity_evidence(chat_id, identity_terms(question))
     plan = await plan_search(search_model, question, identity_result)
     await status("Searching messages")
 
