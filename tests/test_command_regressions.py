@@ -284,7 +284,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             model_module.DEFAULT_MODELS["search"],
-            "openrouter/google/gemini-3-flash-preview",
+            "openrouter/openai/gpt-5.6-luna",
         )
         self.assertEqual(
             model_module.DEFAULT_MODELS["edit"],
