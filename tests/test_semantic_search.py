@@ -204,6 +204,34 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertEqual(answer, semantic_search.NO_SOLID_ANSWER)
 
 
+def _truncated_output_error() -> Exception:
+    try:
+        chat_search.QueryExpansion.model_validate_json('{"semantic_queries":["Wh')
+    except chat_search.pydantic.ValidationError as error:
+        return error
+    raise AssertionError("truncated JSON validated unexpectedly")
+
+
+class _FakeStream:
+    def __init__(self, output=None, error=None):
+        self.output = output
+        self._error = error
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self._error is not None:
+            raise self._error
+        raise StopAsyncIteration
+
+
 class ChatSearchTests(unittest.IsolatedAsyncioTestCase):
     async def test_question_routing_uses_search_model(self):
         search_model = chat_search.ai.Model(
@@ -239,6 +267,51 @@ class ChatSearchTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(generate.call_args.kwargs["max_tokens"], 2000)
+
+    async def test_plan_search_survives_invalid_expansion_output(self):
+        with patch.object(
+            chat_search,
+            "generate_search_object",
+            AsyncMock(side_effect=_truncated_output_error()),
+        ):
+            plan = await chat_search.plan_search(
+                chat_search.ai.Model(
+                    id="test",
+                    provider=commands_ai.openrouter_provider(),
+                ),
+                "who was the first to get a circumcision",
+                [],
+            )
+
+        self.assertEqual(
+            plan.semantic_queries, ["who was the first to get a circumcision"]
+        )
+        self.assertIn("circumcision", plan.lexical_terms)
+        self.assertEqual(plan.resolved_handles, [])
+
+    async def test_generate_search_object_retries_invalid_output_once(self):
+        expansion = chat_search.QueryExpansion(semantic_queries=["who likes chai"])
+        streams = iter(
+            [
+                _FakeStream(error=_truncated_output_error()),
+                _FakeStream(output=expansion),
+            ]
+        )
+
+        with patch.object(
+            chat_search.ai, "stream", lambda *args, **kwargs: next(streams)
+        ):
+            output = await chat_search.generate_search_object(
+                chat_search.ai.Model(
+                    id="test",
+                    provider=commands_ai.openrouter_provider(),
+                ),
+                [chat_search.ai.user_message("who likes chai")],
+                chat_search.QueryExpansion,
+                max_tokens=2000,
+            )
+
+        self.assertEqual(output, expansion)
 
     def test_alias_matching_prefers_bigrams_and_preserves_question_order(self):
         boss = chat_aliases.Participant(1, "@boss", "Boss")

@@ -17,6 +17,7 @@ from chat_search_config import (
 )
 from commands.ai import model, openrouter_provider
 from config.db import get_db
+from config.logger import logger
 from management.chat_aliases import Participant, resolve_participants
 from management.chat_search_cache import open_search_cache
 from management.chat_semantic_search import (
@@ -191,16 +192,25 @@ async def generate_search_object[OutputT: pydantic.BaseModel](
         .with_temperature(0)
         .with_reasoning_effort(reasoning_effort)
     )
-    async with asyncio.timeout(MODEL_TIMEOUT_SECONDS):
-        async with ai.stream(
-            search_model,
-            messages,
-            output_type=output_type,
-            params=params,
-        ) as stream:
-            async for _ in stream:
-                pass
-    return stream.output
+
+    async def attempt() -> OutputT:
+        async with asyncio.timeout(MODEL_TIMEOUT_SECONDS):
+            async with ai.stream(
+                search_model,
+                messages,
+                output_type=output_type,
+                params=params,
+            ) as stream:
+                async for _ in stream:
+                    pass
+        return stream.output
+
+    try:
+        return await attempt()
+    except pydantic.ValidationError:
+        # Gemini flash sometimes whitespace-loops until max_tokens truncates the
+        # structured output mid-JSON (observed 2026-08); one retry clears it.
+        return await attempt()
 
 
 async def plan_search(
@@ -213,24 +223,30 @@ async def plan_search(
         for token in re.findall(r"[@\w'-]+", question.casefold())
         if len(token) > 2 and token not in SEARCH_STOP_WORDS
     ]
-    expansion = await generate_search_object(
-        search_model,
-        [
-            ai.system_message(
-                "Expand a Telegram chat-memory question for retrieval. Return up to "
-                "three short semantic paraphrases using concrete observable language, "
-                "plus exact names, handles, phrases, slang variants, and synonyms for "
-                "lexical matching. Preserve the original predicate: someone doing, "
-                "liking, or being something must not become merely discussing or "
-                "mentioning it. Use any supplied identity clues to replace a person's "
-                "real name or nickname with their @handle in semantic queries. Do not "
-                "answer the question."
-            ),
-            ai.user_message(evidence_prompt(question, identity_clues)),
-        ],
-        QueryExpansion,
-        max_tokens=2000,
-    )
+    try:
+        expansion = await generate_search_object(
+            search_model,
+            [
+                ai.system_message(
+                    "Expand a Telegram chat-memory question for retrieval. Return up "
+                    "to three short semantic paraphrases using concrete observable "
+                    "language, plus exact names, handles, phrases, slang variants, and "
+                    "synonyms for lexical matching. Preserve the original predicate: "
+                    "someone doing, liking, or being something must not become merely "
+                    "discussing or mentioning it. Use any supplied identity clues to "
+                    "replace a person's real name or nickname with their @handle in "
+                    "semantic queries. Do not answer the question."
+                ),
+                ai.user_message(evidence_prompt(question, identity_clues)),
+            ],
+            QueryExpansion,
+            max_tokens=2000,
+        )
+    except pydantic.ValidationError:
+        # Expansion is best-effort: the raw question and its direct terms already
+        # make a searchable plan.
+        logger.warning("Query expansion failed twice; searching unexpanded")
+        expansion = QueryExpansion(semantic_queries=[question])
     return SearchPlan(
         semantic_queries=list(dict.fromkeys((question, *expansion.semantic_queries)))[
             :4
