@@ -21,6 +21,7 @@ os.environ.setdefault("TURSO_AUTH_TOKEN", "test-token")
 db = importlib.import_module("config.db")
 football = importlib.import_module("commands.football")
 migrate = importlib.import_module("migrate")
+stream_links = importlib.import_module("stream_links")
 
 
 def fixture(
@@ -65,9 +66,16 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
             self.fetch_match_odds,
         )
         self.odds_patch.start()
+        self.stream_patch = patch.object(
+            football,
+            "load_stream_urls",
+            AsyncMock(return_value={}),
+        )
+        self.stream_patch.start()
 
     async def asyncTearDown(self) -> None:
         self.odds_patch.stop()
+        self.stream_patch.stop()
         self.db_patch.stop()
         await self.connection.close()
 
@@ -408,7 +416,7 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
             away=0.15,
         )
 
-        text = football.fixture_alert_text([match], {match.provider_id: odds})
+        text = football.fixture_alert_text([match], {match.provider_id: odds}, {})
 
         self.assertIn("📊 <b>Polymarket odds</b>", text)
         self.assertIn(
@@ -423,12 +431,160 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         next_text = football.next_fixture_text(
             [match],
             {match.provider_id: odds},
+            {},
         )
         self.assertIn("📊 <b>Polymarket odds</b>", next_text)
         self.assertIn(
             "Arsenal <b>62%</b> · Draw <b>23%</b> · Coventry City <b>15%</b>",
             next_text,
         )
+
+    def test_alert_and_next_text_include_stream_links(self) -> None:
+        match = fixture("match-1", 1_800_000_000)
+        stream_urls = {
+            match.provider_id: "https://thestreameast.one/watch/premier-league/hull-city-manchester-united/8042911864"
+        }
+
+        alert_text = football.fixture_alert_text([match], {}, stream_urls)
+        next_text = football.next_fixture_text([match], {}, stream_urls)
+
+        for text in (alert_text, next_text):
+            self.assertIn(
+                'href="https://thestreameast.one/watch/premier-league/'
+                'hull-city-manchester-united/8042911864"',
+                text,
+            )
+            self.assertIn("📺 watch</a>", text)
+
+    def test_stream_link_parsing_and_matching(self) -> None:
+        page_html = (
+            '<li class="f1-podium--item "><a '
+            'href="https://thestreameast.one/watch/premier-league/'
+            'hull-city-manchester-united/8042911864" '
+            'class="f1-podium--link f1-bg--white ">'
+            '<span class="f1-podium--rank f1-bold--xs">Premier League</span>'
+            '<span class="d-md-inline ">Hull City vs Manchester United</span>'
+            "</a></li>"
+            '<li class="f1-podium--item "><a '
+            'href="https://thestreameast.one/watch/championship/'
+            'norwich-city-millwall/8043054914" '
+            'class="f1-podium--link f1-bg--white ">'
+            '<span class="f1-podium--rank f1-bold--xs">Championship</span>'
+            '<span class="d-md-inline f1-capitalize">Millwall vs Norwich City</span>'
+            "</a></li>"
+        )
+
+        links = stream_links.parse_stream_links(page_html)
+
+        self.assertEqual(len(links), 2)
+        self.assertEqual(
+            links[0].url,
+            "https://thestreameast.one/watch/premier-league/"
+            "hull-city-manchester-united/8042911864",
+        )
+        self.assertEqual(links[0].home_team, "Hull City")
+        self.assertEqual(links[0].away_team, "Manchester United")
+        self.assertEqual(
+            stream_links.match_stream_link(links, "Hull City", "Manchester United"),
+            links[0].url,
+        )
+        self.assertEqual(
+            stream_links.match_stream_link(links, "Norwich City", "Millwall"),
+            links[1].url,
+        )
+        self.assertIsNone(stream_links.match_stream_link(links, "Arsenal", "Chelsea"))
+        self.assertEqual(
+            stream_links.match_stream_link(
+                [
+                    stream_links.StreamLink(
+                        url="https://thestreameast.one/watch/premier-league/tottenham-arsenal/1",
+                        home_team="Tottenham",
+                        away_team="Arsenal",
+                    )
+                ],
+                "Tottenham Hotspur",
+                "Arsenal",
+            ),
+            "https://thestreameast.one/watch/premier-league/tottenham-arsenal/1",
+        )
+        self.assertIsNone(
+            stream_links.match_stream_link(
+                [
+                    stream_links.StreamLink(
+                        url="https://thestreameast.one/watch/premier-league/manchester-city-chelsea/1",
+                        home_team="Manchester City",
+                        away_team="Chelsea",
+                    )
+                ],
+                "Manchester United",
+                "Chelsea",
+            )
+        )
+        multiline_html = (
+            '<a href="https://thestreameast.one/watch/premier-league/arsenal-chelsea/1"\n'
+            '   class="f1-podium--link">\n'
+            "    <span\n"
+            '        class="d-md-inline ">\n'
+            "            Arsenal vs Chelsea\n"
+            "    </span>\n"
+            "</a>"
+        )
+        multiline_links = stream_links.parse_stream_links(multiline_html)
+        self.assertEqual(len(multiline_links), 1)
+        self.assertEqual(multiline_links[0].home_team, "Arsenal")
+        self.assertEqual(multiline_links[0].away_team, "Chelsea")
+
+    async def test_stream_lookup_is_graceful_when_site_fails(self) -> None:
+        self.stream_patch.stop()
+        try:
+            match = fixture("match-1", 1)
+            with patch.object(
+                football,
+                "fetch_stream_links",
+                AsyncMock(side_effect=football.aiohttp.ClientError("down")),
+            ):
+                result = await football.load_stream_urls([match])
+
+            self.assertEqual(result, {})
+        finally:
+            self.stream_patch.start()
+
+    async def test_stream_lookup_retries_until_required_links_found(self) -> None:
+        self.stream_patch.stop()
+        try:
+            match = fixture("match-1", 1)
+            links = [
+                stream_links.StreamLink(
+                    url="https://thestreameast.one/watch/premier-league/a-b/1",
+                    home_team="Arsenal",
+                    away_team="Coventry City",
+                )
+            ]
+            fetch = AsyncMock(side_effect=[[], [], links])
+
+            with (
+                patch.object(football, "fetch_stream_links", fetch),
+                patch.object(football, "STREAM_RETRY_DELAY_SECONDS", 0),
+            ):
+                graceful = await football.load_stream_urls([match])
+                self.assertEqual(graceful, {})
+                self.assertEqual(fetch.await_count, 1)
+
+                fetch.reset_mock()
+                fetch.side_effect = [[], [], links]
+                required = await football.load_stream_urls([match], required=True)
+
+            self.assertEqual(
+                required,
+                {
+                    match.provider_id: (
+                        "https://thestreameast.one/watch/premier-league/a-b/1"
+                    )
+                },
+            )
+            self.assertEqual(fetch.await_count, 3)
+        finally:
+            self.stream_patch.start()
 
     async def test_odds_lookup_keeps_completed_results_on_timeout(self) -> None:
         fixtures = [
@@ -489,6 +645,12 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
             [item.provider_id for item in odds_loader.await_args.args[0]],
             ["match-1", "match-2"],
         )
+        football.load_stream_urls.assert_awaited_once()
+        self.assertEqual(
+            [item.provider_id for item in football.load_stream_urls.await_args.args[0]],
+            ["match-1", "match-2"],
+        )
+        self.assertTrue(football.load_stream_urls.await_args.kwargs["required"])
 
     async def test_failed_delivery_retries_without_resending_successful_chats(
         self,
@@ -576,7 +738,13 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         bot = AsyncMock()
         context = SimpleNamespace(bot=bot)
 
-        delivered = await football.send_fixture_alerts(context, fixtures, {}, now)
+        delivered = await football.send_fixture_alerts(
+            context,
+            fixtures,
+            {},
+            {},
+            now,
+        )
 
         self.assertTrue(delivered)
         bot.send_message.assert_awaited_once()
@@ -607,7 +775,13 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         bot.send_message.side_effect = [None, football.TelegramError("temporary")]
         context = SimpleNamespace(bot=bot)
 
-        delivered = await football.send_fixture_alerts(context, [due_fixture], {}, now)
+        delivered = await football.send_fixture_alerts(
+            context,
+            [due_fixture],
+            {},
+            {},
+            now,
+        )
 
         self.assertFalse(delivered)
         bot.send_message.reset_mock()
@@ -616,6 +790,7 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
         delivered = await football.send_fixture_alerts(
             context,
             [due_fixture],
+            {},
             {},
             now + 60,
         )

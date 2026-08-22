@@ -18,6 +18,7 @@ from telegram.ext import ContextTypes
 from config.db import TursoRow, get_db
 from config.logger import logger
 from football_odds import MatchOdds, OddsFixture, event_url, fetch_match_odds
+from stream_links import StreamLink, fetch_stream_links, match_stream_link
 from utils.decorators import command
 from utils.messages import get_message
 
@@ -450,6 +451,35 @@ async def fetch_fixture_odds(
     return fixture.provider_id, odds
 
 
+STREAM_LOOKUP_ATTEMPTS = 3
+STREAM_RETRY_DELAY_SECONDS = 5
+
+
+async def load_stream_urls(
+    fixtures: list[FootballFixture],
+    *,
+    required: bool = False,
+) -> dict[str, str]:
+    if not fixtures:
+        return {}
+    attempts = STREAM_LOOKUP_ATTEMPTS if required else 1
+    for attempt in range(attempts):
+        try:
+            links: list[StreamLink] = await fetch_stream_links()
+        except (aiohttp.ClientError, TimeoutError, TypeError, ValueError):
+            logger.exception("Could not load StreamEast stream links")
+            links = []
+        urls = {
+            fixture.provider_id: url
+            for fixture in fixtures
+            if (url := match_stream_link(links, fixture.home_team, fixture.away_team))
+        }
+        if len(urls) == len(fixtures) or not required or attempt == attempts - 1:
+            return urls
+        await asyncio.sleep(STREAM_RETRY_DELAY_SECONDS)
+    return {}
+
+
 async def load_fixture_odds(
     fixtures: list[FootballFixture],
 ) -> dict[str, MatchOdds]:
@@ -612,9 +642,17 @@ def fixture_odds_line(fixture: FootballFixture, odds: MatchOdds) -> str:
     )
 
 
+def stream_link_line(stream_urls: dict[str, str], fixture: FootballFixture) -> str:
+    url = stream_urls.get(fixture.provider_id)
+    if not url:
+        return ""
+    return f' · <a href="{html.escape(url, quote=True)}">📺 watch</a>'
+
+
 def fixture_alert_text(
     fixtures: list[FootballFixture],
     odds_by_fixture: dict[str, MatchOdds],
+    stream_urls: dict[str, str],
 ) -> str:
     lines = ["⚽ <b>Kickoff in five minutes</b>"]
     ordered = sorted(
@@ -631,6 +669,7 @@ def fixture_alert_text(
         lines.extend(("", f"<b>{html.escape(competition_name)}</b>"))
         lines.extend(
             f"• {html.escape(fixture.home_team)} vs {html.escape(fixture.away_team)}"
+            f"{stream_link_line(stream_urls, fixture)}"
             for fixture in competition_fixtures
         )
     fixtures_with_odds = [
@@ -647,6 +686,7 @@ def fixture_alert_text(
 def next_fixture_text(
     fixtures: list[FootballFixture],
     odds_by_fixture: dict[str, MatchOdds],
+    stream_urls: dict[str, str],
 ) -> str:
     kickoff_time = fixtures[0].kickoff_time
     fallback_time = datetime.datetime.fromtimestamp(
@@ -667,6 +707,7 @@ def next_fixture_text(
         lines.extend(("", f"<b>{html.escape(competition_name)}</b>"))
         lines.extend(
             f"• {html.escape(fixture.home_team)} vs {html.escape(fixture.away_team)}"
+            f"{stream_link_line(stream_urls, fixture)}"
             for fixture in competition_fixtures
         )
     lines.extend(
@@ -695,13 +736,18 @@ async def send_fixture_alerts(
     context: ContextTypes.DEFAULT_TYPE,
     fixtures: list[FootballFixture],
     odds_by_fixture: dict[str, MatchOdds],
+    stream_urls: dict[str, str],
     delivery_time: int,
 ) -> bool:
     all_delivered = True
     for chat_id in await load_alert_chats():
         groups = await load_pending_member_groups(fixtures, chat_id)
         for pending_fixtures, members in groups:
-            alert_text = fixture_alert_text(pending_fixtures, odds_by_fixture)
+            alert_text = fixture_alert_text(
+                pending_fixtures,
+                odds_by_fixture,
+                stream_urls,
+            )
             for index in range(0, len(members), MENTIONS_PER_MESSAGE):
                 member_chunk = members[index : index + MENTIONS_PER_MESSAGE]
                 mention_text = " ".join(map(member_mention, member_chunk))
@@ -746,7 +792,10 @@ async def worker_football_alerts(context: ContextTypes.DEFAULT_TYPE) -> None:
             for fixture in await load_due_fixtures(now)
             if fixture.provider_id in verified_ids
         ]
-        odds_by_fixture = await load_fixture_odds(current_due_fixtures)
+        odds_by_fixture, stream_urls = await asyncio.gather(
+            load_fixture_odds(current_due_fixtures),
+            load_stream_urls(current_due_fixtures, required=True),
+        )
         for _, slot in groupby(
             current_due_fixtures, key=lambda fixture: fixture.kickoff_time
         ):
@@ -755,6 +804,7 @@ async def worker_football_alerts(context: ContextTypes.DEFAULT_TYPE) -> None:
                 context,
                 fixtures,
                 odds_by_fixture,
+                stream_urls,
                 now,
             ):
                 await mark_fixtures_alerted(fixtures, now)
@@ -776,9 +826,12 @@ async def next_match(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await message.reply_text("No upcoming Big Six matches found.")
         return
 
-    odds_by_fixture = await load_fixture_odds(fixtures)
+    odds_by_fixture, stream_urls = await asyncio.gather(
+        load_fixture_odds(fixtures),
+        load_stream_urls(fixtures),
+    )
     await message.reply_text(
-        next_fixture_text(fixtures, odds_by_fixture),
+        next_fixture_text(fixtures, odds_by_fixture, stream_urls),
         parse_mode=ParseMode.HTML,
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
