@@ -44,7 +44,17 @@ def image_data_url(image_data: bytes, mime_type: str | None) -> str:
 
 
 class OpenRouterImageError(RuntimeError):
-    pass
+    def __init__(self, status: int, detail: str | None) -> None:
+        diagnostic = f"OpenRouter image rejected status={status}"
+        if detail:
+            diagnostic += f" detail={detail}"
+        super().__init__(diagnostic)
+        self.user_message = (
+            "The generated image was rejected by content moderation. "
+            "Try a different prompt or source image."
+            if detail == "Generated image rejected by content moderation."
+            else "AI request failed. Please try again."
+        )
 
 
 def build_image_request(
@@ -80,10 +90,7 @@ async def image_rejection(response: aiohttp.ClientResponse) -> OpenRouterImageEr
     detail = " ".join(message.split()) if isinstance(message, str) else None
     if detail and (len(detail) > 300 or "base64" in detail.lower()):
         detail = None
-    diagnostic = f"OpenRouter image rejected status={response.status}"
-    if detail:
-        diagnostic += f" detail={detail}"
-    return OpenRouterImageError(diagnostic)
+    return OpenRouterImageError(response.status, detail)
 
 
 async def generate_image(request: dict[str, object]) -> bytes:
@@ -363,9 +370,12 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             io.BytesIO(image),
             caption=f"📝 Requested by {user_mention}\n🎨 Prompt: {prompt}",
         )
+    except OpenRouterImageError as exc:
+        logger.exception("Edit command failed")
+        await message.reply_text(exc.user_message)
+        raise HandledCommandError("Edit command failed") from exc
     except (
         aiohttp.ClientError,
-        OpenRouterImageError,
         TelegramError,
         TimeoutError,
         TypeError,

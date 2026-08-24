@@ -474,6 +474,50 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session.request, request)
         self.assertEqual(image, b"image-bytes")
 
+    async def test_edit_explains_content_moderation_rejection(self):
+        message = FakeMessage()
+        context = SimpleNamespace(args=["Remove", "their", "clothes"], bot=object())
+        rejection = ask_module.OpenRouterImageError(
+            400,
+            "Generated image rejected by content moderation.",
+        )
+
+        with (
+            patch.object(ask_module, "get_message", return_value=message),
+            patch.object(
+                ask_module,
+                "ensure_command_available",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(ask_module, "ensure_quota", AsyncMock(return_value=True)),
+            patch.object(
+                ask_module,
+                "model",
+                AsyncMock(return_value=SimpleNamespace(id="image-model")),
+            ),
+            patch.object(
+                ask_module,
+                "generate_image",
+                AsyncMock(side_effect=rejection),
+            ),
+            patch.object(ask_module.logger, "exception"),
+            self.assertRaises(ask_module.HandledCommandError),
+        ):
+            await ask_module.edit(
+                SimpleNamespace(effective_user=message.from_user),
+                context,
+            )
+
+        self.assertEqual(
+            message.replies,
+            [
+                (
+                    "The generated image was rejected by content moderation. "
+                    "Try a different prompt or source image."
+                )
+            ],
+        )
+
     async def test_search_streams_reasoning_then_replaces_it_with_the_answer(self):
         events = []
 
