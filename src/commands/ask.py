@@ -5,19 +5,15 @@ import time
 from datetime import timedelta
 
 import ai
-import openai
-from openai.types.chat import (
-    ChatCompletionContentPartParam,
-    ChatCompletionUserMessageParam,
-)
+import aiohttp
 from telegram import Message, Update
 from telegram.constants import ChatType
 from telegram.error import BadRequest, RetryAfter, TelegramError
 from telegram.ext import ContextTypes
 
 import commands
-from commands.ai import model, openrouter_provider, stream_model
-from commands.runtime import ensure_command_available
+from commands.ai import OPENROUTER_BASE_URL, OPENROUTER_HEADERS, model, stream_model
+from commands.runtime import HandledCommandError, ensure_command_available
 from config.logger import logger
 from config.options import config
 from utils.command_limits import ensure_quota
@@ -28,6 +24,7 @@ from utils.messages import get_message, reply_markdown_or_plain
 TELEGRAM_MESSAGE_LIMIT = 4096
 MIN_STREAM_EDIT_INTERVAL_SECONDS = 0.8
 ASK_WORD_LIMIT = 1000
+IMAGE_REQUEST_TIMEOUT_SECONDS = 360
 
 system_prompt = """You are @SuperSeriousBot in a Telegram chat. Be extremely concise.
 
@@ -44,6 +41,74 @@ def image_data_url(image_data: bytes, mime_type: str | None) -> str:
     if mime_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
         mime_type = "image/jpeg"
     return f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
+
+
+class OpenRouterImageError(RuntimeError):
+    pass
+
+
+def build_image_request(
+    model_id: str,
+    prompt: str,
+    source_image: tuple[bytes, str | None] | None,
+) -> dict[str, object]:
+    request: dict[str, object] = {
+        "model": model_id,
+        "prompt": (
+            f"Please edit this image according to the following description: {prompt}"
+            if source_image
+            else f"Please generate an image according to the following description: {prompt}"
+        ),
+    }
+    if source_image:
+        request["input_references"] = [
+            {
+                "type": "image_url",
+                "image_url": {"url": image_data_url(*source_image)},
+            }
+        ]
+    return request
+
+
+async def image_rejection(response: aiohttp.ClientResponse) -> OpenRouterImageError:
+    try:
+        data = await response.json(content_type=None)
+    except (aiohttp.ContentTypeError, ValueError):
+        data = None
+    error = data.get("error") if isinstance(data, dict) else None
+    message = error.get("message") if isinstance(error, dict) else None
+    detail = " ".join(message.split()) if isinstance(message, str) else None
+    if detail and (len(detail) > 300 or "base64" in detail.lower()):
+        detail = None
+    diagnostic = f"OpenRouter image rejected status={response.status}"
+    if detail:
+        diagnostic += f" detail={detail}"
+    return OpenRouterImageError(diagnostic)
+
+
+async def generate_image(request: dict[str, object]) -> bytes:
+    headers = {
+        "Authorization": f"Bearer {config.API.OPENROUTER_API_KEY}",
+        **OPENROUTER_HEADERS,
+    }
+    timeout = aiohttp.ClientTimeout(total=IMAGE_REQUEST_TIMEOUT_SECONDS)
+    async with (
+        aiohttp.ClientSession(headers=headers, timeout=timeout) as session,
+        session.post(f"{OPENROUTER_BASE_URL}/images", json=request) as response,
+    ):
+        if response.status >= 400:
+            raise await image_rejection(response)
+        response.raise_for_status()
+        data = await response.json()
+
+    images = data.get("data") if isinstance(data, dict) else None
+    first_image = images[0] if isinstance(images, list) and images else None
+    encoded_image = (
+        first_image.get("b64_json") if isinstance(first_image, dict) else None
+    )
+    if not isinstance(encoded_image, str):
+        raise TypeError("OpenRouter did not return image data.")
+    return base64.b64decode(encoded_image, validate=True)
 
 
 def get_reply_context(reply: Message | None) -> str | None:
@@ -285,80 +350,27 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await message.reply_text(str(exc))
                 return
 
-        content: list[ChatCompletionContentPartParam] = [
-            {
-                "type": "text",
-                "text": (
-                    f"Please edit this image according to the following description: {prompt}"
-                    if reply_image
-                    else f"Please generate an image according to the following description: {prompt}"
-                ),
-            }
-        ]
-        if reply_image:
-            content.append(
-                {
-                    "type": "image_url",
-                    "image_url": {"url": image_data_url(*reply_image)},
-                }
-            )
-
         image_model = await model("edit")
-        user_message: ChatCompletionUserMessageParam = {
-            "role": "user",
-            "content": content,
-        }
-        response = await openrouter_provider().sdk_client.chat.completions.create(
-            model=image_model.id,
-            messages=[user_message],
-            extra_body={"modalities": ["image", "text"]},
+        image = await generate_image(
+            build_image_request(image_model.id, prompt, reply_image)
         )
-        choice = response.choices[0] if response.choices else None
-        if choice is None:
-            await message.reply_text("No response received from AI. Please try again.")
-            return
-
-        finish_reason = choice.finish_reason or ""
-        if finish_reason and str(finish_reason).upper() in {
-            "CONTENT_FILTER",
-            "SAFETY",
-            "MODERATION",
-        }:
-            await message.reply_text(
-                "❌ This request was blocked by the AI due to content policies. Please try a different prompt."
-            )
-            return
-
-        ai_message = choice.message
-        if ai_message.model_extra:
-            images = ai_message.model_extra.get("images")
-            first_image = images[0] if isinstance(images, list) and images else None
-            image_url_data = (
-                first_image.get("image_url", {}).get("url")
-                if isinstance(first_image, dict)
-                else None
-            )
-            if isinstance(image_url_data, str) and image_url_data.startswith(
-                "data:image/"
-            ):
-                buffer = io.BytesIO(base64.b64decode(image_url_data.split(",", 1)[1]))
-                user_mention = (
-                    f"@{update.effective_user.username}"
-                    if update.effective_user.username
-                    else f"User {update.effective_user.id}"
-                )
-                await message.reply_photo(
-                    buffer,
-                    caption=f"📝 Requested by {user_mention}\n🎨 Prompt: {prompt}",
-                )
-                return
-
-        if ai_message.content:
-            await message.reply_text(f"{ai_message.content}\n\nNo image was generated.")
-            return
-
-        await message.reply_text("Could not generate image. Please try again.")
-
-    except (openai.OpenAIError, TelegramError, TimeoutError, TypeError, ValueError):
+        user_mention = (
+            f"@{update.effective_user.username}"
+            if update.effective_user.username
+            else f"User {update.effective_user.id}"
+        )
+        await message.reply_photo(
+            io.BytesIO(image),
+            caption=f"📝 Requested by {user_mention}\n🎨 Prompt: {prompt}",
+        )
+    except (
+        aiohttp.ClientError,
+        OpenRouterImageError,
+        TelegramError,
+        TimeoutError,
+        TypeError,
+        ValueError,
+    ) as exc:
         logger.exception("Edit command failed")
         await message.reply_text("AI request failed. Please try again.")
+        raise HandledCommandError("Edit command failed") from exc

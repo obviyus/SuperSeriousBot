@@ -367,34 +367,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(message.replies, ["AI is not configured for this command."])
 
     async def test_edit_generates_without_a_reply_and_edits_replied_images(self):
-        generated_image = base64.b64encode(b"generated-image").decode()
-        response = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    finish_reason="stop",
-                    message=SimpleNamespace(
-                        model_extra={
-                            "images": [
-                                {
-                                    "image_url": {
-                                        "url": f"data:image/png;base64,{generated_image}"
-                                    }
-                                }
-                            ]
-                        },
-                        content=None,
-                    ),
-                )
-            ]
-        )
-        create_completion = AsyncMock(return_value=response)
-        provider = SimpleNamespace(
-            sdk_client=SimpleNamespace(
-                chat=SimpleNamespace(
-                    completions=SimpleNamespace(create=create_completion)
-                )
-            )
-        )
+        generate_image = AsyncMock(return_value=b"generated-image")
         context = SimpleNamespace(args=["A", "tiny", "moon"], bot=object())
 
         with (
@@ -409,7 +382,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                 "model",
                 AsyncMock(return_value=SimpleNamespace(id="image-model")),
             ),
-            patch.object(ask_module, "openrouter_provider", return_value=provider),
+            patch.object(ask_module, "generate_image", generate_image),
             patch.object(
                 ask_module,
                 "get_message_image_bytes",
@@ -431,25 +404,75 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
                     SimpleNamespace(effective_user=edit_message.from_user), context
                 )
 
-        generated_content = create_completion.await_args_list[0].kwargs["messages"][0][
-            "content"
-        ]
-        edited_content = create_completion.await_args_list[1].kwargs["messages"][0][
-            "content"
-        ]
+        generated_request = generate_image.await_args_list[0].args[0]
+        edited_request = generate_image.await_args_list[1].args[0]
         self.assertEqual(
-            generated_content,
+            generated_request,
+            {
+                "model": "image-model",
+                "prompt": "Please generate an image according to the following description: A tiny moon",
+            },
+        )
+        self.assertEqual(edited_request["model"], "image-model")
+        self.assertEqual(
+            edited_request["prompt"],
+            "Please edit this image according to the following description: A tiny moon",
+        )
+        self.assertEqual(
+            edited_request["input_references"],
             [
                 {
-                    "type": "text",
-                    "text": "Please generate an image according to the following description: A tiny moon",
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,c291cmNlLWltYWdl"},
                 }
             ],
         )
-        self.assertEqual(edited_content[1]["type"], "image_url")
         self.assertEqual(get_message_image_bytes.await_count, 1)
         self.assertEqual(len(generate_message.photos), 1)
         self.assertEqual(len(edit_message.photos), 1)
+
+    async def test_generate_image_uses_openrouter_images_endpoint(self):
+        class ImageResponse:
+            status = 200
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+            def raise_for_status(self):
+                return None
+
+            async def json(self):
+                return {
+                    "data": [{"b64_json": base64.b64encode(b"image-bytes").decode()}]
+                }
+
+        class ImageSession:
+            def __init__(self):
+                self.url = None
+                self.request = None
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+            def post(self, url, *, json):
+                self.url = url
+                self.request = json
+                return ImageResponse()
+
+        session = ImageSession()
+        request = {"model": "openai/gpt-image-2", "prompt": "Draw a moon"}
+        with patch.object(aiohttp, "ClientSession", return_value=session):
+            image = await ask_module.generate_image(request)
+
+        self.assertEqual(session.url, "https://openrouter.ai/api/v1/images")
+        self.assertEqual(session.request, request)
+        self.assertEqual(image, b"image-bytes")
 
     async def test_search_streams_reasoning_then_replaces_it_with_the_answer(self):
         events = []
