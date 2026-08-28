@@ -5,20 +5,20 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-  "ai[openai]~=0.4.0",
+  "ai[openai]~=0.5.0",
   "aiohttp~=3.14.3",
   "async-lru~=2.3.0",
   "coloredlogs>=15.0.1",
-  "dateparser~=1.4.1",
+  "dateparser~=1.4.2",
   "googletrans>=4.0.2",
-  "howlongtobeatpy~=1.0.22",
+  "howlongtobeatpy~=1.0.23",
   "ijson~=3.5.1",
   "libsql>=0.1.11",
   "pillow>=12.3.0",
-  "python-dotenv~=1.2.2",
+  "python-dotenv~=1.2.3",
   "python-telegram-bot[job-queue,rate-limiter,webhooks]~=22.8",
   "telegramify-markdown~=1.2.0",
-  "yt-dlp~=2026.7.4",
+  "yt-dlp~=2026.8.19",
 ]
 
 
@@ -30,8 +30,8 @@ ignore = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "ruff>=0.16.0",
-    "ty>=0.0.63",
+    "ruff>=0.16.5",
+    "ty>=0.0.75",
 ]
 
 [tool.ty.environment]

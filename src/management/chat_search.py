@@ -15,7 +15,7 @@ from chat_search_config import (
     UTTERANCE_EMBEDDING_DIMENSIONS,
     VECTOR_RESULT_COUNT,
 )
-from commands.ai import model, openrouter_provider
+from commands.ai import model
 from config.db import get_db
 from config.logger import logger
 from management.chat_aliases import Participant, resolve_participants
