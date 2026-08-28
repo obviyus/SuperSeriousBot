@@ -31,10 +31,7 @@ async def backfill() -> None:
         return
 
     total_inserted = 0
-    while (
-        args.limit_utterances is None
-        or total_inserted < args.limit_utterances
-    ):
+    while args.limit_utterances is None or total_inserted < args.limit_utterances:
         batch_limit = INDEX_BATCH_WINDOWS
         if args.limit_utterances is not None:
             batch_limit = min(
