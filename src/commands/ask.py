@@ -5,7 +5,7 @@ import time
 from datetime import timedelta
 
 import ai
-import aiohttp
+import httpx2
 from telegram import Message, Update
 from telegram.constants import ChatType
 from telegram.error import BadRequest, RetryAfter, TelegramError
@@ -80,17 +80,17 @@ def build_image_request(
     return request
 
 
-async def image_rejection(response: aiohttp.ClientResponse) -> OpenRouterImageError:
+async def image_rejection(response: httpx2.Response) -> OpenRouterImageError:
     try:
-        data = await response.json(content_type=None)
-    except (aiohttp.ContentTypeError, ValueError):
+        data = response.json()
+    except ValueError:
         data = None
     error = data.get("error") if isinstance(data, dict) else None
     message = error.get("message") if isinstance(error, dict) else None
     detail = " ".join(message.split()) if isinstance(message, str) else None
     if detail and (len(detail) > 300 or "base64" in detail.lower()):
         detail = None
-    return OpenRouterImageError(response.status, detail)
+    return OpenRouterImageError(response.status_code, detail)
 
 
 async def generate_image(request: dict[str, object]) -> bytes:
@@ -98,15 +98,15 @@ async def generate_image(request: dict[str, object]) -> bytes:
         "Authorization": f"Bearer {config.API.OPENROUTER_API_KEY}",
         **OPENROUTER_HEADERS,
     }
-    timeout = aiohttp.ClientTimeout(total=IMAGE_REQUEST_TIMEOUT_SECONDS)
-    async with (
-        aiohttp.ClientSession(headers=headers, timeout=timeout) as session,
-        session.post(f"{OPENROUTER_BASE_URL}/images", json=request) as response,
-    ):
-        if response.status >= 400:
+    timeout = httpx2.Timeout(IMAGE_REQUEST_TIMEOUT_SECONDS)
+    async with httpx2.AsyncClient(
+        headers=headers, timeout=timeout, follow_redirects=True
+    ) as session:
+        response = await session.post(f"{OPENROUTER_BASE_URL}/images", json=request)
+        if response.status_code >= 400:
             raise await image_rejection(response)
         response.raise_for_status()
-        data = await response.json()
+        data = response.json()
 
     images = data.get("data") if isinstance(data, dict) else None
     first_image = images[0] if isinstance(images, list) and images else None
@@ -375,7 +375,7 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(exc.user_message)
         raise HandledCommandError("Edit command failed") from exc
     except (
-        aiohttp.ClientError,
+        httpx2.HTTPError,
         TelegramError,
         TimeoutError,
         TypeError,

@@ -14,7 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-import aiohttp
+import httpx2
 import libsql
 from PIL import Image
 from telegram import MessageEntity
@@ -131,7 +131,7 @@ class FakeMessage:
 class FakeResponse:
     def __init__(self, data: object = None, status: int = 200) -> None:
         self.data = {"data": []} if data is None else data
-        self.status = status
+        self.status_code = status
 
     async def __aenter__(self):
         return self
@@ -139,7 +139,7 @@ class FakeResponse:
     async def __aexit__(self, *_args):
         return None
 
-    async def json(self):
+    def json(self):
         return self.data
 
 
@@ -167,7 +167,7 @@ class FakeSession:
     async def __aexit__(self, *_args):
         return None
 
-    def get(self, *_args, **_kwargs):
+    async def get(self, *_args, **_kwargs):
         if len(self.responses) > 1:
             return self.responses.pop(0)
         return self.responses[0]
@@ -180,14 +180,14 @@ class FailingSession:
     async def __aexit__(self, *_args):
         return None
 
-    def get(self, *_args, **_kwargs):
-        import aiohttp
+    async def get(self, *_args, **_kwargs):
+        import httpx2
 
-        raise aiohttp.ClientError("network unavailable")
+        raise httpx2.HTTPError("network unavailable")
 
 
 class RejectedVideoResponse:
-    status = 400
+    status_code = 400
 
     async def __aenter__(self):
         return self
@@ -195,7 +195,7 @@ class RejectedVideoResponse:
     async def __aexit__(self, *_args):
         return None
 
-    async def json(self, **_kwargs):
+    def json(self, **_kwargs):
         return {
             "error": {
                 "code": 400,
@@ -205,16 +205,20 @@ class RejectedVideoResponse:
         }
 
     def raise_for_status(self):
-        raise aiohttp.ClientResponseError(None, (), status=self.status)
+        request = httpx2.Request("POST", "https://openrouter.ai/api/v1/videos")
+        response = httpx2.Response(self.status_code, request=request)
+        raise httpx2.HTTPStatusError(
+            "Video request rejected", request=request, response=response
+        )
 
 
 class RejectedVideoSession:
-    def post(self, *_args, **_kwargs):
+    async def post(self, *_args, **_kwargs):
         return RejectedVideoResponse()
 
 
 class RejectedRealPersonVideoResponse(RejectedVideoResponse):
-    async def json(self, **_kwargs):
+    def json(self, **_kwargs):
         return {
             "error": {
                 "code": 400,
@@ -228,7 +232,7 @@ class RejectedRealPersonVideoResponse(RejectedVideoResponse):
 
 
 class RejectedRealPersonVideoSession:
-    def post(self, *_args, **_kwargs):
+    async def post(self, *_args, **_kwargs):
         return RejectedRealPersonVideoResponse()
 
 
@@ -433,7 +437,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_generate_image_uses_openrouter_images_endpoint(self):
         class ImageResponse:
-            status = 200
+            status_code = 200
 
             async def __aenter__(self):
                 return self
@@ -444,7 +448,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             def raise_for_status(self):
                 return None
 
-            async def json(self):
+            def json(self):
                 return {
                     "data": [{"b64_json": base64.b64encode(b"image-bytes").decode()}]
                 }
@@ -460,14 +464,14 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, *_args):
                 return None
 
-            def post(self, url, *, json):
+            async def post(self, url, *, json):
                 self.url = url
                 self.request = json
                 return ImageResponse()
 
         session = ImageSession()
         request = {"model": "openai/gpt-image-2", "prompt": "Draw a moon"}
-        with patch.object(aiohttp, "ClientSession", return_value=session):
+        with patch.object(httpx2, "AsyncClient", return_value=session):
             image = await ask_module.generate_image(request)
 
         self.assertEqual(session.url, "https://openrouter.ai/api/v1/images")
@@ -898,7 +902,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(define_module, "get_message", return_value=message),
-            patch("aiohttp.ClientSession", return_value=FailingSession()),
+            patch("httpx2.AsyncClient", return_value=FailingSession()),
         ):
             await define_module.define(SimpleNamespace(), context)
 
@@ -909,7 +913,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(meme_module, "get_message", return_value=message),
-            patch("aiohttp.ClientSession", return_value=FakeSession(FakeResponse({}))),
+            patch("httpx2.AsyncClient", return_value=FakeSession(FakeResponse({}))),
         ):
             await meme_module.meme(SimpleNamespace(), SimpleNamespace())
 
@@ -923,7 +927,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(meme_module, "get_message", return_value=message),
             patch(
-                "aiohttp.ClientSession",
+                "httpx2.AsyncClient",
                 return_value=FakeSession(nsfw, sfw),
             ),
         ):
@@ -943,7 +947,7 @@ class CommandRegressionTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch.object(weather_module.config.API, "WAQI_API_KEY", "waqi-key"),
             patch(
-                "aiohttp.ClientSession",
+                "httpx2.AsyncClient",
                 return_value=FakeSession(FakeResponse({"location": {}})),
             ),
         ):

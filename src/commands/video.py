@@ -6,7 +6,7 @@ import io
 import json
 import math
 
-import aiohttp
+import httpx2
 from PIL import Image, ImageOps
 from telegram import Message, Update
 from telegram.error import BadRequest, TelegramError
@@ -101,10 +101,10 @@ def nested_provider_error_type(value: object) -> str | None:
     return error_type if isinstance(error_type, str) else None
 
 
-async def video_rejection(response: aiohttp.ClientResponse) -> OpenRouterVideoError:
+async def video_rejection(response: httpx2.Response) -> OpenRouterVideoError:
     try:
-        data = await response.json(content_type=None)
-    except (aiohttp.ContentTypeError, ValueError):
+        data = response.json()
+    except ValueError:
         data = None
 
     error = data.get("error") if isinstance(data, dict) else None
@@ -116,7 +116,7 @@ async def video_rejection(response: aiohttp.ClientResponse) -> OpenRouterVideoEr
     if not isinstance(error_type, str):
         error_type = nested_provider_error_type(error_message)
     detail = safe_error_detail(error_message)
-    return OpenRouterVideoError(response.status, error_type, detail)
+    return OpenRouterVideoError(response.status_code, error_type, detail)
 
 
 def image_input(image_data: bytes) -> tuple[str, str]:
@@ -167,17 +167,17 @@ def build_video_request(
 
 
 async def submit_video(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     request: dict[str, object],
 ) -> str:
-    async with session.post(
+    response = await session.post(
         f"{OPENROUTER_BASE_URL}/videos",
         json=request,
-    ) as response:
-        if response.status >= 400:
-            raise await video_rejection(response)
-        response.raise_for_status()
-        data = await response.json()
+    )
+    if response.status_code >= 400:
+        raise await video_rejection(response)
+    response.raise_for_status()
+    data = response.json()
     job_id = data.get("id") if isinstance(data, dict) else None
     if not isinstance(job_id, str):
         raise TypeError("OpenRouter did not return a video job ID.")
@@ -185,13 +185,13 @@ async def submit_video(
 
 
 async def wait_for_video(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     job_id: str,
 ) -> None:
     for _ in range(POLL_ATTEMPTS):
-        async with session.get(f"{OPENROUTER_BASE_URL}/videos/{job_id}") as response:
-            response.raise_for_status()
-            data = await response.json()
+        response = await session.get(f"{OPENROUTER_BASE_URL}/videos/{job_id}")
+        response.raise_for_status()
+        data = response.json()
         status = data.get("status") if isinstance(data, dict) else None
         if status == "completed":
             logger.info(
@@ -209,14 +209,12 @@ async def wait_for_video(
 
 
 async def download_video(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     job_id: str,
 ) -> bytes:
-    async with session.get(
-        f"{OPENROUTER_BASE_URL}/videos/{job_id}/content"
-    ) as response:
-        response.raise_for_status()
-        return await response.read()
+    response = await session.get(f"{OPENROUTER_BASE_URL}/videos/{job_id}/content")
+    response.raise_for_status()
+    return response.content
 
 
 async def replace_status(status: Message | None, message: Message, text: str) -> None:
@@ -271,14 +269,16 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     job_completed = False
     try:
-        timeout = aiohttp.ClientTimeout(total=None, connect=30, sock_read=120)
+        timeout = httpx2.Timeout(None, connect=30, read=120)
         headers = {
             "Authorization": f"Bearer {api_key}",
             **OPENROUTER_HEADERS,
         }
         async with (
             VIDEO_JOB_LOCK,
-            aiohttp.ClientSession(headers=headers, timeout=timeout) as session,
+            httpx2.AsyncClient(
+                headers=headers, timeout=timeout, follow_redirects=True
+            ) as session,
         ):
             request = build_video_request(prompt, source_image)
             job_id = await submit_video(session, request)
@@ -310,7 +310,7 @@ async def video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await replace_status(status, message, exc.user_message)
         raise HandledCommandError(str(exc)) from exc
     except (
-        aiohttp.ClientError,
+        httpx2.HTTPError,
         TelegramError,
         TimeoutError,
         RuntimeError,

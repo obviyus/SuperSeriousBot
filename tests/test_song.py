@@ -82,6 +82,9 @@ class SongTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_song_sends_audio_urls_with_long_timeout(self):
         class FakeSession:
+            def __init__(self, **_kwargs: object) -> None:
+                pass
+
             async def __aenter__(self):
                 return self
 
@@ -145,7 +148,7 @@ class SongTests(unittest.IsolatedAsyncioTestCase):
                     }
                 ),
             ),
-            patch.object(song_module.aiohttp, "ClientSession", FakeSession),
+            patch.object(song_module.httpx2, "AsyncClient", FakeSession),
         ):
             await song_module.song(update, context)
 

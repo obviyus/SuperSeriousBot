@@ -541,7 +541,7 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
             with patch.object(
                 football,
                 "fetch_stream_links",
-                AsyncMock(side_effect=football.aiohttp.ClientError("down")),
+                AsyncMock(side_effect=football.httpx2.HTTPError("down")),
             ):
                 result = await football.load_stream_urls([match])
 
@@ -811,7 +811,7 @@ class FootballTests(unittest.IsolatedAsyncioTestCase):
 
         async def fetch(_session, competition, _now):
             if competition.slug == "uefa.champions":
-                raise football.aiohttp.ClientError("temporary")
+                raise football.httpx2.HTTPError("temporary")
             return [
                 fixture(
                     competition.slug,

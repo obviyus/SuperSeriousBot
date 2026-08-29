@@ -25,20 +25,18 @@ async def define(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await commands.usage_string(message, define)
         return
 
-    import aiohttp
+    import httpx2
 
     try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
+        async with httpx2.AsyncClient(follow_redirects=True) as session:
+            response = await session.get(
                 DICTIONARY_API_ENDPOINT.format(" ".join(context.args))
-            ) as response,
-        ):
-            if response.status != 200:
+            )
+            if response.status_code != 200:
                 await message.reply_text(text="Word not found.")
                 return
-            data = await response.json()
-    except aiohttp.ClientError:
+            data = response.json()
+    except httpx2.HTTPError:
         await message.reply_text(text="Could not fetch a definition right now.")
         return
     if not isinstance(data, list) or not data or not isinstance(data[0], dict):

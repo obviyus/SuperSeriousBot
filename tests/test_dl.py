@@ -5,7 +5,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 from urllib.parse import urlparse
 
-import aiohttp
+import httpx2
 
 os.environ.setdefault("TELEGRAM_TOKEN", "test-token")
 os.environ.setdefault("QUOTE_CHANNEL_ID", "1")
@@ -34,7 +34,7 @@ class DownloadTests(IsolatedAsyncioTestCase):
 
         with (
             patch.object(dl.config.API, "COBALT_URL", "http://cobalt/"),
-            patch.object(dl.aiohttp, "ClientSession", return_value=session),
+            patch.object(dl.httpx2, "AsyncClient", return_value=session),
             patch.object(
                 dl,
                 "_request_cobalt",
@@ -67,7 +67,7 @@ class DownloadTests(IsolatedAsyncioTestCase):
 
         with (
             patch.object(dl.config.API, "COBALT_URL", "http://cobalt/"),
-            patch.object(dl.aiohttp, "ClientSession", return_value=session),
+            patch.object(dl.httpx2, "AsyncClient", return_value=session),
             patch.object(
                 dl,
                 "_request_cobalt",
@@ -95,7 +95,7 @@ class DownloadTests(IsolatedAsyncioTestCase):
 
         with (
             patch.object(dl.config.API, "COBALT_URL", "http://cobalt/"),
-            patch.object(dl.aiohttp, "ClientSession", return_value=session),
+            patch.object(dl.httpx2, "AsyncClient", return_value=session),
             patch.object(
                 dl,
                 "_request_cobalt",
@@ -127,11 +127,11 @@ class DownloadTests(IsolatedAsyncioTestCase):
 
         with (
             patch.object(dl.config.API, "COBALT_URL", "http://cobalt/"),
-            patch.object(dl.aiohttp, "ClientSession", return_value=session),
+            patch.object(dl.httpx2, "AsyncClient", return_value=session),
             patch.object(
                 dl,
                 "_request_cobalt",
-                AsyncMock(side_effect=aiohttp.ClientConnectionError("offline")),
+                AsyncMock(side_effect=httpx2.ConnectError("offline")),
             ),
             patch.object(dl, "_fetch_with_yt_dlp", AsyncMock()) as fallback,
         ):

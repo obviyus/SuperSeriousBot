@@ -16,7 +16,7 @@ from utils.messages import get_message
     description="Get a two part joke.",
 )
 async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    import aiohttp
+    import httpx2
 
     message = get_message(update)
     if not message:
@@ -24,18 +24,16 @@ async def joke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     setup = "Here's a joke..."
     punchline = "(joke delivery unavailable)"
     try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
+        async with httpx2.AsyncClient(follow_redirects=True) as session:
+            resp = await session.get(
                 "https://v2.jokeapi.dev/joke/Any",
                 params={"type": "twopart"},
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp,
-        ):
-            data = await resp.json()
+                timeout=httpx2.Timeout(10),
+            )
+            data = resp.json()
             setup = data.get("setup", setup)
             punchline = data.get("delivery", punchline)
-    except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+    except (httpx2.HTTPError, TimeoutError, ValueError) as exc:
         logger.debug("Joke API unavailable: %s", exc)
 
     await message.reply_text(text=setup)

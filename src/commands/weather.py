@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import html
 
-import aiohttp
+import httpx2
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -52,12 +52,12 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        async with httpx2.AsyncClient(follow_redirects=True) as session:
+            response = await session.get(
                 WEATHER_ENDPOINT,
                 params={"key": weatherapi_token, "q": query, "aqi": "yes"},
-            ) as response:
-                raw_weather = await response.json()
+            )
+            raw_weather = response.json()
             if "error" in raw_weather:
                 await message.reply_text(WEATHER_ERROR_TEXT)
                 return
@@ -85,11 +85,11 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "pm2_5": format_pollutant(air_quality.get("pm2_5")),
                 "pm10": format_pollutant(air_quality.get("pm10")),
             }
-            async with session.get(
+            response = await session.get(
                 WAQI_ENDPOINT.format(lat=data["latitude"], lng=data["longitude"]),
                 params={"token": waqi_token},
-            ) as response:
-                raw_aqi = await response.json()
+            )
+            raw_aqi = response.json()
             if raw_aqi.get("status") != "ok":
                 await message.reply_text(WEATHER_ERROR_TEXT)
                 return
@@ -99,7 +99,7 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 if aqi_value is None or aqi_value == "-"
                 else str(int(aqi_value))
             )
-    except (aiohttp.ClientError, KeyError, TypeError, ValueError):
+    except (httpx2.HTTPError, KeyError, TypeError, ValueError):
         await message.reply_text(WEATHER_ERROR_TEXT)
         return
 

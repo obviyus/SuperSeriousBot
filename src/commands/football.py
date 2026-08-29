@@ -4,7 +4,7 @@ import html
 from dataclasses import dataclass
 from itertools import groupby
 
-import aiohttp
+import httpx2
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -196,21 +196,21 @@ def parse_scoreboard_event(value: object, competition: Competition) -> FootballF
 
 
 async def fetch_competition_fixtures(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     competition: Competition,
     now: datetime.datetime,
 ) -> list[FootballFixture]:
     fixtures: list[FootballFixture] = []
     for start_date, end_date in season_date_ranges(now):
-        async with session.get(
+        response = await session.get(
             ESPN_SCOREBOARD_URL.format(competition=competition.slug),
             params={
                 "dates": f"{start_date:%Y%m%d}-{end_date:%Y%m%d}",
                 "limit": "1000",
             },
-        ) as response:
-            response.raise_for_status()
-            payload = required_mapping(await response.json(), "response")
+        )
+        response.raise_for_status()
+        payload = required_mapping(response.json(), "response")
 
         fixtures.extend(
             parse_scoreboard_event(event, competition)
@@ -220,16 +220,16 @@ async def fetch_competition_fixtures(
 
 
 async def fetch_fixture(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     fixture: FootballFixture,
 ) -> FootballFixture:
     competition = COMPETITIONS_BY_SLUG[fixture.competition]
-    async with session.get(
+    response = await session.get(
         ESPN_SUMMARY_URL.format(competition=competition.slug),
         params={"event": fixture.provider_id},
-    ) as response:
-        response.raise_for_status()
-        payload = required_mapping(await response.json(), "response")
+    )
+    response.raise_for_status()
+    payload = required_mapping(response.json(), "response")
 
     header = required_mapping(payload.get("header"), "header")
     provider_id = required_string(header.get("id"), "header.id")
@@ -310,15 +310,17 @@ async def reconcile_competition_fixtures(
 async def sync_football_fixtures() -> int:
     async with FIXTURE_UPDATE_LOCK:
         now = datetime.datetime.now(datetime.UTC)
-        timeout = aiohttp.ClientTimeout(total=30)
+        timeout = httpx2.Timeout(30)
         fixture_count = 0
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with httpx2.AsyncClient(
+            timeout=timeout, follow_redirects=True
+        ) as session:
             for competition in COMPETITIONS:
                 try:
                     fixtures = await fetch_competition_fixtures(
                         session, competition, now
                     )
-                except (aiohttp.ClientError, TimeoutError, TypeError, ValueError):
+                except (httpx2.HTTPError, TimeoutError, TypeError, ValueError):
                     logger.exception("Could not sync %s fixtures", competition.name)
                     continue
                 fixtures = [
@@ -410,12 +412,12 @@ async def verify_fixtures(fixtures: list[FootballFixture]) -> set[str]:
         if fixture.provider_id in candidate_ids
     ]
     verified_ids: set[str] = set()
-    timeout = aiohttp.ClientTimeout(total=15)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    timeout = httpx2.Timeout(15)
+    async with httpx2.AsyncClient(timeout=timeout, follow_redirects=True) as session:
         for fixture in fixtures:
             try:
                 current_fixture = await fetch_fixture(session, fixture)
-            except (aiohttp.ClientError, TimeoutError, TypeError, ValueError):
+            except (httpx2.HTTPError, TimeoutError, TypeError, ValueError):
                 logger.exception(
                     "Could not verify football fixture %s", fixture.provider_id
                 )
@@ -426,7 +428,7 @@ async def verify_fixtures(fixtures: list[FootballFixture]) -> set[str]:
 
 
 async def fetch_fixture_odds(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     fixture: FootballFixture,
 ) -> tuple[str, MatchOdds | None]:
     odds_fixture = OddsFixture(
@@ -442,7 +444,7 @@ async def fetch_fixture_odds(
     )
     try:
         odds = await fetch_match_odds(session, odds_fixture)
-    except (aiohttp.ClientError, TimeoutError, TypeError, ValueError, KeyError):
+    except (httpx2.HTTPError, TimeoutError, TypeError, ValueError, KeyError):
         logger.exception(
             "Could not fetch Polymarket odds for fixture %s",
             fixture.provider_id,
@@ -466,7 +468,7 @@ async def load_stream_urls(
     for attempt in range(attempts):
         try:
             links: list[StreamLink] = await fetch_stream_links()
-        except (aiohttp.ClientError, TimeoutError, TypeError, ValueError):
+        except (httpx2.HTTPError, TimeoutError, TypeError, ValueError):
             logger.exception("Could not load StreamEast stream links")
             links = []
         urls = {
@@ -485,9 +487,11 @@ async def load_fixture_odds(
 ) -> dict[str, MatchOdds]:
     if not fixtures:
         return {}
-    timeout = aiohttp.ClientTimeout(total=ODDS_LOOKUP_TIMEOUT_SECONDS)
+    timeout = httpx2.Timeout(ODDS_LOOKUP_TIMEOUT_SECONDS)
     headers = {"User-Agent": "SuperSeriousBot/Football-Odds"}
-    async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+    async with httpx2.AsyncClient(
+        timeout=timeout, headers=headers, follow_redirects=True
+    ) as session:
         tasks = [
             asyncio.create_task(fetch_fixture_odds(session, fixture))
             for fixture in fixtures

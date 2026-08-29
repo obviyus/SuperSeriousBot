@@ -92,7 +92,7 @@ Rules:
 )
 async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Generate a TLDR for YouTube videos, URLs, replied text, or text files."""
-    import aiohttp
+    import httpx2
 
     message = get_message(update)
     if not message or not message.from_user:
@@ -129,22 +129,20 @@ async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 if nano_api_key:
                     headers["x-api-key"] = nano_api_key
 
-                async with (
-                    aiohttp.ClientSession(
-                        timeout=aiohttp.ClientTimeout(total=60)
-                    ) as session,
-                    session.post(
+                async with httpx2.AsyncClient(
+                    timeout=httpx2.Timeout(60), follow_redirects=True
+                ) as session:
+                    response = await session.post(
                         "https://nano-gpt.com/api/youtube-transcribe",
                         headers=headers,
                         json={"urls": [f"https://www.youtube.com/watch?v={video_id}"]},
-                    ) as response,
-                ):
-                    if response.status != 200:
+                    )
+                    if response.status_code != 200:
                         await message.reply_text(
                             "Could not retrieve transcript for this video."
                         )
                         return
-                    data = await response.json()
+                    data = response.json()
                 transcripts = data.get("transcripts")
                 if not transcripts or not transcripts[0].get("transcript"):
                     await message.reply_text(
@@ -165,7 +163,7 @@ async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 return
             except (
                 ai.AIError,
-                aiohttp.ClientError,
+                httpx2.HTTPError,
                 KeyError,
                 RuntimeError,
                 TimeoutError,
@@ -182,20 +180,18 @@ async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if nano_api_key:
                 headers["x-api-key"] = nano_api_key
 
-            async with (
-                aiohttp.ClientSession() as session,
-                session.post(
+            async with httpx2.AsyncClient(follow_redirects=True) as session:
+                response = await session.post(
                     "https://nano-gpt.com/api/scrape-urls",
                     headers=headers,
                     json={"urls": [url_str]},
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response,
-            ):
-                if response.status == 402:
+                    timeout=httpx2.Timeout(30),
+                )
+                if response.status_code == 402:
                     await message.reply_text("I couldn't read that URL right now.")
                     return
                 response.raise_for_status()
-                data = await response.json()
+                data = response.json()
 
             results = data.get("results", [])
             if not results or not results[0].get("success"):
@@ -215,7 +211,7 @@ async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             summary_prompt = "Please create a TLDR summary of this content:"
             response_suffix = f"\n\n<b>Source:</b> {html.escape(url_str)}"
             error_subject = url_str
-        except aiohttp.ClientError as e:
+        except httpx2.HTTPError as e:
             logger.error(f"Error fetching content from {url_str}: {e}")
             await message.reply_text(
                 "Failed to fetch content from the URL. Please check if the URL is accessible."
@@ -275,7 +271,7 @@ async def tldr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except (
         ai.AIError,
-        aiohttp.ClientError,
+        httpx2.HTTPError,
         RuntimeError,
         TimeoutError,
         TypeError,

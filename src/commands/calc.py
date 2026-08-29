@@ -29,28 +29,26 @@ async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("❌ Invalid query")
         return
 
-    import aiohttp
+    import httpx2
 
     try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
+        async with httpx2.AsyncClient(follow_redirects=True) as session:
+            response = await session.get(
                 WOLFRAM_SHORT_QUERY,
                 params={"i": query, "appid": config.API.WOLFRAM_APP_ID},
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response,
-        ):
-            if response.status == 200:
-                result = await response.text()
-            elif response.status == 501:
+                timeout=httpx2.Timeout(10),
+            )
+            if response.status_code == 200:
+                result = response.text
+            elif response.status_code == 501:
                 result = "❌ I couldn't understand that query."
-            elif response.status == 403:
+            elif response.status_code == 403:
                 result = "❌ Calculation service is not configured."
             else:
                 result = "❌ Calculation service is unavailable."
     except TimeoutError:
         result = "❌ Request timed out"
-    except aiohttp.ClientError as e:
+    except httpx2.HTTPError as e:
         result = f"❌ Connection error: {e!s}"
 
     await message.reply_text(result)

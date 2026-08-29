@@ -2,7 +2,7 @@ import html
 import re
 from dataclasses import dataclass
 
-import aiohttp
+import httpx2
 
 STREAM_ROOT_URL = "https://thestreameast.one/"
 STREAM_LOOKUP_TIMEOUT_SECONDS = 5
@@ -81,10 +81,10 @@ def match_stream_link(
 
 
 async def fetch_stream_links() -> list[StreamLink]:
-    timeout = aiohttp.ClientTimeout(total=STREAM_LOOKUP_TIMEOUT_SECONDS)
-    async with (
-        aiohttp.ClientSession(timeout=timeout, headers=BROWSER_HEADERS) as session,
-        session.get(STREAM_ROOT_URL) as response,
-    ):
+    timeout = httpx2.Timeout(STREAM_LOOKUP_TIMEOUT_SECONDS)
+    async with httpx2.AsyncClient(
+        timeout=timeout, headers=BROWSER_HEADERS, follow_redirects=True
+    ) as session:
+        response = await session.get(STREAM_ROOT_URL)
         response.raise_for_status()
-        return parse_stream_links(await response.text())
+        return parse_stream_links(response.text)

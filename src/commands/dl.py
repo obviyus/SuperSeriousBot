@@ -4,7 +4,7 @@ import json
 from html.parser import HTMLParser
 from urllib.parse import ParseResult, urlparse
 
-import aiohttp
+import httpx2
 from telegram import InputFile, InputMediaPhoto, InputMediaVideo, Message, Update
 from telegram.constants import ChatType, ReactionEmoji
 from telegram.error import BadRequest
@@ -23,12 +23,8 @@ MAX_MEDIA_COUNT = 10
 MAX_DOWNLOAD_SIZE = 47 * (1 << 20)
 DOWNLOAD_CHUNK_SIZE = 256 * 1024
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
-COBALT_TIMEOUT = aiohttp.ClientTimeout(
-    total=45, connect=10, sock_connect=10, sock_read=30
-)
-MEDIA_TIMEOUT = aiohttp.ClientTimeout(
-    total=120, connect=10, sock_connect=10, sock_read=45
-)
+COBALT_TIMEOUT = httpx2.Timeout(45, connect=10, read=30)
+MEDIA_TIMEOUT = httpx2.Timeout(120, connect=10, read=45)
 
 
 def _cobalt_endpoint() -> str | None:
@@ -74,27 +70,26 @@ async def _is_auto_dl_enabled(chat_id: int) -> bool:
 
 
 async def _request_cobalt(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     endpoint: str,
     target: str,
 ) -> dict:
-    async with session.post(
+    resp = await session.post(
         endpoint,
         headers={
             "Accept": "application/json",
             "Content-Type": "application/json",
         },
         json={"url": target},
-    ) as resp:
-        try:
-            data = await resp.json()
-        except (aiohttp.ContentTypeError, json.JSONDecodeError):
-            text = await resp.text()
-            raise RuntimeError(
-                f"Cobalt non-JSON response: {resp.status} {text[:120]}"
-            ) from None
-        if resp.status != 200 and data.get("status") != "error":
-            raise RuntimeError(f"Cobalt HTTP {resp.status}: {data}")
+    )
+    try:
+        data = resp.json()
+    except json.JSONDecodeError:
+        raise RuntimeError(
+            f"Cobalt non-JSON response: {resp.status_code} {resp.text[:120]}"
+        ) from None
+    if resp.status_code != 200 and data.get("status") != "error":
+        raise RuntimeError(f"Cobalt HTTP {resp.status_code}: {data}")
     return data
 
 
@@ -126,7 +121,7 @@ def _extract_with_yt_dlp(target: str) -> tuple[str, str]:
 
 async def _fetch_with_yt_dlp(
     message: Message,
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     target: str,
 ) -> None:
     media_url, filename = await asyncio.to_thread(_extract_with_yt_dlp, target)
@@ -135,18 +130,18 @@ async def _fetch_with_yt_dlp(
 
 async def _fetch_instagram_image(
     message: Message,
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     target: str,
 ) -> None:
-    async with session.get(
+    resp = await session.get(
         target,
         headers={"User-Agent": "Mozilla/5.0"},
         timeout=MEDIA_TIMEOUT,
-    ) as resp:
-        if resp.status != 200:
-            raise RuntimeError(f"Instagram page fetch failed: {resp.status}")
-        parser = InstagramImageParser()
-        parser.feed(await resp.text())
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Instagram page fetch failed: {resp.status_code}")
+    parser = InstagramImageParser()
+    parser.feed(resp.text)
 
     if not parser.image_url:
         raise RuntimeError("Instagram post has no image metadata")
@@ -158,15 +153,17 @@ async def _fetch_instagram_image(
 
 async def _fetch_and_send(
     message: Message,
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     url: str,
     filename: str | None,
 ) -> None:
     try:
-        async with session.get(url, timeout=MEDIA_TIMEOUT) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                raise RuntimeError(f"Download failed: {resp.status} {text[:120]}")
+        async with session.stream("GET", url, timeout=MEDIA_TIMEOUT) as resp:
+            if resp.status_code != 200:
+                await resp.aread()
+                raise RuntimeError(
+                    f"Download failed: {resp.status_code} {resp.text[:120]}"
+                )
 
             content_length_header = resp.headers.get("Content-Length")
             expected_size = (
@@ -179,7 +176,7 @@ async def _fetch_and_send(
 
             buffer = io.BytesIO()
             downloaded = 0
-            async for chunk in resp.content.iter_chunked(DOWNLOAD_CHUNK_SIZE):
+            async for chunk in resp.aiter_bytes(DOWNLOAD_CHUNK_SIZE):
                 if not chunk:
                     continue
                 downloaded += len(chunk)
@@ -208,7 +205,7 @@ async def _fetch_and_send(
     except BadRequest as e:
         logger.error(f"Failed to send media: {e}")
         await message.reply_text("Media unavailable or too large.")
-    except (aiohttp.ClientError, OSError, TimeoutError) as e:
+    except (httpx2.HTTPError, OSError, TimeoutError) as e:
         logger.error(f"Failed to download media: {e}")
         await message.reply_text("Failed to download media.")
 
@@ -221,11 +218,13 @@ async def _download_media(message: Message, url: ParseResult) -> None:
         return
 
     try:
-        async with aiohttp.ClientSession(timeout=COBALT_TIMEOUT) as session:
+        async with httpx2.AsyncClient(
+            timeout=COBALT_TIMEOUT, follow_redirects=True
+        ) as session:
             target = url.geturl()
             try:
                 data = await _request_cobalt(session, endpoint, target)
-            except (aiohttp.ClientError, RuntimeError, TimeoutError) as e:
+            except (httpx2.HTTPError, RuntimeError, TimeoutError) as e:
                 if _is_instagram_reel(url):
                     logger.warning(
                         "Cobalt failed for Instagram Reel; using yt-dlp: %s", e
@@ -306,7 +305,7 @@ async def _download_media(message: Message, url: ParseResult) -> None:
                 "Download service returned an unsupported response."
             )
     except (
-        aiohttp.ClientError,
+        httpx2.HTTPError,
         KeyError,
         RuntimeError,
         TimeoutError,

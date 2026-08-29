@@ -4,7 +4,7 @@ import math
 import re
 from dataclasses import dataclass
 
-import aiohttp
+import httpx2
 
 from config.logger import logger
 
@@ -78,7 +78,7 @@ def string_mapping(value: object) -> dict[str, object] | None:
 
 
 async def search_polymarket(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     fixture: OddsFixture,
 ) -> list[dict[str, object]]:
     events: dict[str, dict[str, object]] = {}
@@ -87,7 +87,7 @@ async def search_polymarket(
         " ".join(tracked_teams(fixture)),
     }
     for query in queries:
-        async with session.get(
+        response = await session.get(
             POLYMARKET_SEARCH_URL,
             params={
                 "q": query,
@@ -95,9 +95,9 @@ async def search_polymarket(
                 "limit_per_type": 50,
                 "search_profiles": "false",
             },
-        ) as response:
-            response.raise_for_status()
-            payload = string_mapping(await response.json())
+        )
+        response.raise_for_status()
+        payload = string_mapping(response.json())
         event_values = payload.get("events") if payload is not None else None
         if not isinstance(event_values, list):
             raise TypeError("Polymarket search returned an invalid response.")
@@ -198,7 +198,7 @@ def extract_odds(event: dict[str, object], fixture: OddsFixture) -> MatchOdds | 
 
 
 async def fetch_match_odds(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     fixture: OddsFixture,
 ) -> MatchOdds | None:
     events = await search_polymarket(session, fixture)

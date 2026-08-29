@@ -19,19 +19,19 @@ async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     if not message:
         return
 
-    import aiohttp
+    import httpx2
 
     try:
-        async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=10)
+        async with httpx2.AsyncClient(
+            timeout=httpx2.Timeout(10), follow_redirects=True
         ) as session:
             url = None
             for _ in range(MEME_FETCH_ATTEMPTS):
-                async with session.get(MEME_API_URL) as response:
-                    if response.status != 200:
-                        await message.reply_text("Could not fetch a meme right now.")
-                        return
-                    data = await response.json()
+                response = await session.get(MEME_API_URL)
+                if response.status_code != 200:
+                    await message.reply_text("Could not fetch a meme right now.")
+                    return
+                data = response.json()
                 if data.get("nsfw"):
                     continue
                 url = data.get("url")
@@ -40,7 +40,7 @@ async def meme(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
             if not url:
                 await message.reply_text("Could not fetch a SFW meme right now.")
                 return
-    except (aiohttp.ClientError, KeyError, TypeError):
+    except (httpx2.HTTPError, KeyError, TypeError):
         await message.reply_text("Could not fetch a meme right now.")
         return
 

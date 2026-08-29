@@ -23,7 +23,7 @@ ANIMAL_APIS: dict[str, tuple[str, Callable]] = {
 )
 async def animal(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle animal image request."""
-    import aiohttp
+    import httpx2
 
     message = update.effective_message
     if not message:
@@ -40,13 +40,13 @@ async def animal(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(f"Unknown animal: {animal_choice}")
         return
 
-    async with aiohttp.ClientSession() as session:
+    async with httpx2.AsyncClient(follow_redirects=True) as session:
         try:
             url, extract_url = ANIMAL_APIS[animal_choice]
-            async with session.get(url) as response:
-                data = await response.json()
+            response = await session.get(url)
+            data = response.json()
             await message.reply_photo(extract_url(data))
-        except (aiohttp.ClientError, KeyError, IndexError, TypeError):
+        except (httpx2.HTTPError, KeyError, IndexError, TypeError):
             await message.reply_text(
                 f"Failed to fetch {animal_choice} image. Please try again later."
             )

@@ -30,6 +30,8 @@ logging_config = {
         },
         "httpx": {"level": "WARNING"},
         "httpcore": {"level": "WARNING"},
+        "httpx2": {"level": "WARNING"},
+        "httpcore2": {"level": "WARNING"},
     },
 }
 

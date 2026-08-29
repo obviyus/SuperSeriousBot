@@ -27,7 +27,7 @@ GOODREADS_API = {
     api_key="GOODREADS_API_KEY",
 )
 async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    import aiohttp
+    import httpx2
 
     message = get_message(update)
     if not message:
@@ -37,27 +37,27 @@ async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     params = {"q": " ".join(context.args), "key": config.API.GOODREADS_API_KEY}
-    async with aiohttp.ClientSession() as session:
+    async with httpx2.AsyncClient(follow_redirects=True) as session:
         try:
-            async with session.get(GOODREADS_API["SEARCH"], params=params) as response:
-                if response.status != 200:
-                    await message.reply_text("❌ No book found matching your query.")
-                    return
-                root = ET.fromstring(await response.text())
-                book_id = root.findtext(".//work/best_book/id")
+            response = await session.get(GOODREADS_API["SEARCH"], params=params)
+            if response.status_code != 200:
+                await message.reply_text("❌ No book found matching your query.")
+                return
+            root = ET.fromstring(response.text)
+            book_id = root.findtext(".//work/best_book/id")
             if not book_id:
                 await message.reply_text("❌ No book found matching your query.")
                 return
 
-            async with session.get(
+            response = await session.get(
                 GOODREADS_API["BOOK"],
                 params={"id": book_id, "key": config.API.GOODREADS_API_KEY},
-            ) as response:
-                if response.status != 200:
-                    await message.reply_text("❌ No book found matching your query.")
-                    return
-                root = ET.fromstring(await response.text())
-        except (ET.ParseError, aiohttp.ClientError):
+            )
+            if response.status_code != 200:
+                await message.reply_text("❌ No book found matching your query.")
+                return
+            root = ET.fromstring(response.text)
+        except (ET.ParseError, httpx2.HTTPError):
             await message.reply_text("❌ No book found matching your query.")
             return
 

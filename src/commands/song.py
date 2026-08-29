@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import ai
-import aiohttp
+import httpx2
 import pydantic
 from telegram import InputMediaAudio, Update
 from telegram.error import TelegramError
@@ -81,24 +81,24 @@ def kie_headers() -> dict[str, str]:
 
 
 async def kie_json(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     method: str,
     path: str,
     *,
     json_data: JsonObject | None = None,
     params: dict[str, str] | None = None,
 ) -> JsonObject:
-    async with session.request(
+    response = await session.request(
         method,
         f"{KIE_API_URL}{path}",
         headers=kie_headers(),
         json=json_data,
         params=params,
-    ) as response:
-        data = await response.json()
-        if response.status != 200 or data.get("code") != 200:
-            raise RuntimeError(str(data.get("msg") or "KIE request failed"))
-        return data
+    )
+    data = response.json()
+    if response.status_code != 200 or data.get("code") != 200:
+        raise RuntimeError(str(data.get("msg") or "KIE request failed"))
+    return data
 
 
 async def plan_song(user_prompt: str) -> SongPlan:
@@ -124,7 +124,7 @@ async def plan_song(user_prompt: str) -> SongPlan:
 
 
 async def create_task(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     path: str,
     payload: JsonObject,
 ) -> str:
@@ -136,7 +136,7 @@ async def create_task(
 
 
 async def poll_task(
-    session: aiohttp.ClientSession,
+    session: httpx2.AsyncClient,
     path: str,
     task_id: str,
     final_status: str,
@@ -221,7 +221,7 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     progress = await message.reply_text("Writing banger lyrics...")
 
     try:
-        async with aiohttp.ClientSession() as session:
+        async with httpx2.AsyncClient(follow_redirects=True) as session:
             song_plan = await plan_song(user_prompt)
 
             await progress.edit_text("Turning lyrics into songs...")
@@ -262,7 +262,7 @@ async def song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             connect_timeout=30,
         )
     except (
-        aiohttp.ClientError,
+        httpx2.HTTPError,
         ai.AIError,
         RuntimeError,
         TelegramError,

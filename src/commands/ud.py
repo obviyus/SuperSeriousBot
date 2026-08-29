@@ -59,21 +59,19 @@ async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def _fetch_ud_entries(url: str, params: dict | None = None) -> list[dict]:
-    import aiohttp
+    import httpx2
 
     try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
+        async with httpx2.AsyncClient(follow_redirects=True) as session:
+            response = await session.get(
                 url,
                 headers={"User-Agent": "SuperSeriousBot", "Accept": "application/json"},
                 params=params,
-            ) as response,
-        ):
-            if response.status != 200:
+            )
+            if response.status_code != 200:
                 return []
-            data = await response.json()
-    except aiohttp.ClientError:
+            data = response.json()
+    except httpx2.HTTPError:
         return []
     if "error" in data or not data.get("list"):
         return []
