@@ -1,4 +1,5 @@
 # project specific
+node_modules/
 config.yaml
 ssgbot.env
 .vscode
