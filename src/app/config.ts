@@ -14,10 +14,10 @@ export interface ApiConfig {
 export interface AppConfig {
   readonly admins: ReadonlySet<string>;
   readonly api: ApiConfig;
-  readonly databaseDirectory: string;
   readonly loggingChannelId?: number;
   readonly port: number;
   readonly quoteChannelId: number;
+  readonly stateDirectory: string;
   readonly telegramToken: string;
   readonly tursoAuthToken: string;
   readonly tursoDatabaseUrl: string;
@@ -78,12 +78,12 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
       ...(weatherApiKey === undefined ? {} : { weatherApiKey }),
       ...(wolframAppId === undefined ? {} : { wolframAppId }),
     },
-    databaseDirectory: optional(environment, "DATABASE_DIRECTORY") ?? "./db",
     ...(loggingChannelId === undefined
       ? {}
       : { loggingChannelId: integer(environment, "LOGGING_CHANNEL_ID") }),
     port,
     quoteChannelId: integer(environment, "QUOTE_CHANNEL_ID"),
+    stateDirectory: optional(environment, "TELLY_STATE_DIRECTORY") ?? "./db",
     telegramToken: required(environment, "TELEGRAM_TOKEN"),
     tursoAuthToken: required(environment, "TURSO_AUTH_TOKEN"),
     tursoDatabaseUrl: required(environment, "TURSO_DATABASE_URL"),

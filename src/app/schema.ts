@@ -32,7 +32,7 @@ const statements = [
   )`,
   `CREATE TABLE IF NOT EXISTS command_whitelist (
     command TEXT NOT NULL,
-    whitelist_type TEXT NOT NULL DEFAULT 'USER',
+    whitelist_type TEXT NOT NULL DEFAULT 'user',
     whitelist_id INTEGER NOT NULL,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (command, whitelist_type, whitelist_id)
@@ -49,16 +49,15 @@ const statements = [
     chat_id INTEGER PRIMARY KEY,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fts INTEGER NOT NULL DEFAULT 0,
-    steam_offers INTEGER NOT NULL DEFAULT 0,
-    ask_model TEXT DEFAULT 'openrouter/x-ai/grok-4.3',
-    edit_model TEXT DEFAULT 'openrouter/google/gemini-3.1-flash-image-preview',
-    tr_model TEXT DEFAULT 'google/gemini-2.5-flash',
-    tldr_model TEXT DEFAULT 'openrouter/google/gemini-3-flash-preview',
-    ask_thinking TEXT DEFAULT 'none',
+    ask_model TEXT,
+    edit_model TEXT,
+    tr_model TEXT,
+    tldr_model TEXT,
+    ask_thinking TEXT,
     auto_dl INTEGER NOT NULL DEFAULT 0,
-    search_model TEXT DEFAULT 'openrouter/openai/gpt-5.6-luna',
-    cron_model TEXT DEFAULT 'openrouter/x-ai/grok-4.3',
-    song_model TEXT DEFAULT 'openrouter/x-ai/grok-4.3'
+    search_model TEXT,
+    cron_model TEXT,
+    song_model TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS user_stats (
     user_id INTEGER PRIMARY KEY,
@@ -137,6 +136,81 @@ const statements = [
   )`,
   `CREATE INDEX IF NOT EXISTS quote_recent_history_chat_time_index
     ON quote_recent_history (chat_id, shown_time)`,
+  `CREATE TABLE IF NOT EXISTS summon_groups (
+    id INTEGER PRIMARY KEY,
+    chat_id INTEGER NOT NULL,
+    group_name TEXT NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    creator_id INTEGER NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS summon_groups_chat_name_unique
+    ON summon_groups (chat_id, group_name COLLATE NOCASE)`,
+  `CREATE TABLE IF NOT EXISTS summon_group_members (
+    group_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (group_id, user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS habit (
+    id INTEGER PRIMARY KEY,
+    chat_id INTEGER NOT NULL,
+    habit_name TEXT NOT NULL,
+    weekly_goal INTEGER NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    creator_id INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS habit_members (
+    habit_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (habit_id, user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS habit_log (
+    id INTEGER PRIMARY KEY,
+    habit_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS highlights (
+    id INTEGER PRIMARY KEY,
+    string TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    chat_id INTEGER NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    enabled INTEGER NOT NULL DEFAULT 1
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS highlights_chat_user_string_unique
+    ON highlights (chat_id, user_id, string COLLATE NOCASE)`,
+  `CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY,
+    chat_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    target_time INTEGER NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    claim_time INTEGER,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS reminders_due_claim_index
+    ON reminders (target_time, claim_time)`,
+  `CREATE TABLE IF NOT EXISTS user_command_limits (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    command TEXT NOT NULL,
+    \`limit\` INTEGER NOT NULL,
+    current_usage INTEGER NOT NULL DEFAULT 0,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS user_command_limits_user_command_unique
+    ON user_command_limits (user_id, command)`,
+  `CREATE TABLE IF NOT EXISTS tldw (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    summary TEXT,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
 ] as const;
 
 export function initializeDatabase(database: Database) {

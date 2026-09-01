@@ -1,4 +1,11 @@
-import { defineBot, every } from "telly";
+import {
+  answerCallback,
+  callbackQuery,
+  defineBot,
+  every,
+  on,
+  routes,
+} from "telly";
 
 import {
   answer,
@@ -12,22 +19,46 @@ import { informationCommands } from "./features/information.ts";
 import { moderationCommands } from "./features/moderation.ts";
 import { statsCommands } from "./features/stats.ts";
 import { storageCommands } from "./features/storage.ts";
+import { settingsCallback, settingsCommands } from "./features/settings.ts";
+import { summonFeature } from "./features/summon.ts";
+import { habitFeature } from "./features/habit.ts";
+import { highlightFeature } from "./features/highlight.ts";
+import { reminderFeature } from "./features/reminders.ts";
 import { trackingHandler } from "./features/tracking.ts";
+import { askCommands } from "./features/ask.ts";
+import { contentCommands } from "./features/content.ts";
+import { catalogCommands } from "./features/catalog.ts";
+import { reactionHandler, sedHandler } from "./features/passive.ts";
+import { downloadFeature } from "./features/download.ts";
 
 export function createSuperSeriousBot(dependencies: AppDependencies) {
+  const summon = summonFeature(dependencies);
+  const habit = habitFeature(dependencies);
+  const highlight = highlightFeature(dependencies);
+  const reminders = reminderFeature(dependencies);
+  const downloads = downloadFeature(dependencies);
   const featureCommands = [
     ...basicCommands(dependencies),
     ...informationCommands(dependencies),
     ...moderationCommands(dependencies),
     ...statsCommands(dependencies),
     ...storageCommands(dependencies),
+    ...settingsCommands(dependencies),
+    ...summon.commands,
+    ...habit.commands,
+    ...highlight.commands,
+    ...reminders.commands,
+    ...askCommands(dependencies),
+    ...contentCommands(dependencies),
+    ...catalogCommands(dependencies),
+    ...downloads.commands,
   ];
   const help: CommandDefinition = {
     description: "Show every enabled command.",
     example: "/help",
     names: ["help"],
-    run: ({ message }) => answer(message, featureCommands.map((definition) =>
-      `/${definition.names[0]} — ${definition.description}`
+    run: ({ message }) => answer(message, botCommands(featureCommands, dependencies).map((command) =>
+      `/${command.command} — ${command.description}`
     ).join("\n")),
     usage: "/help",
   };
@@ -37,7 +68,20 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
     definitions,
     handler: every(
       defineBot({ commands: commandHandlers(definitions, dependencies) }),
+      routes(
+        settingsCallback(dependencies),
+        summon.callback,
+        habit.callback,
+        highlight.callback,
+        on(callbackQuery(), ({ callbackQuery: query }) =>
+          answerCallback(query, { text: "This button expired." })),
+      ),
+      sedHandler,
+      reactionHandler(dependencies),
       trackingHandler(dependencies),
+      highlight.handler,
+      downloads.handler,
     ),
+    workers: { habit: habit.worker, reminders: reminders.worker },
   };
 }

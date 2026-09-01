@@ -211,6 +211,120 @@ function friendsCommand(dependencies: AppDependencies): CommandDefinition {
   };
 }
 
+function sparkline(values: ReadonlyArray<number>): string {
+  const levels = "▁▂▃▄▅▆▇█";
+  const maximum = Math.max(...values, 1);
+  return values.map((value) => levels[Math.min(
+    levels.length - 1,
+    Math.floor(value / maximum * (levels.length - 1)),
+  )]).join("");
+}
+
+function userStatsCommand(dependencies: AppDependencies): CommandDefinition {
+  return {
+    description: "Show a user's weekly activity and other stats in this group.",
+    example: "/ustats @obviyus",
+    names: ["ustats", "ustat", "userstats"],
+    run: Effect.fn("userStats")(function* (match) {
+      const named = match.args[0]?.startsWith("@") === true
+        ? yield* dependencies.database.one(
+            "SELECT user_id, username FROM user_stats WHERE LOWER(username) = ?",
+            [match.args[0]?.slice(1).toLowerCase() ?? ""],
+          )
+        : undefined;
+      const target = named === undefined
+        ? match.message.replyToMessage?.from ?? match.message.from
+        : {
+            firstName: rowString(named, "username"),
+            id: rowNumber(named, "user_id"),
+            isBot: false,
+            username: rowString(named, "username"),
+          };
+      if (target === undefined) {
+        return yield* answer(match.message, "Couldn't resolve target user. Usage: /ustats [@username]");
+      }
+      const rows = yield* dependencies.database.all(
+        `WITH user_daily AS (
+           SELECT DATE(create_time, 'localtime') AS value, COUNT(*) AS count
+           FROM chat_stats
+           WHERE chat_id = ? AND user_id = ?
+             AND create_time >= DATE('now', '-6 days', 'localtime')
+           GROUP BY value
+         ), group_week AS (
+           SELECT COUNT(*) AS count FROM chat_stats
+           WHERE chat_id = ? AND create_time >= DATE('now', '-6 days', 'localtime')
+         ), top_hour AS (
+           SELECT strftime('%H', create_time, 'localtime') AS value
+           FROM chat_stats WHERE chat_id = ? AND user_id = ?
+             AND create_time >= DATE('now', '-30 days', 'localtime')
+           GROUP BY value ORDER BY COUNT(*) DESC LIMIT 1
+         ), top_day AS (
+           SELECT strftime('%w', create_time, 'localtime') AS value
+           FROM chat_stats WHERE chat_id = ? AND user_id = ?
+             AND create_time >= DATE('now', '-90 days', 'localtime')
+           GROUP BY value ORDER BY COUNT(*) DESC LIMIT 1
+         ), lifetime AS (
+           SELECT COUNT(*) AS count FROM chat_stats WHERE chat_id = ? AND user_id = ?
+         )
+         SELECT 'daily' AS kind, value, count FROM user_daily
+         UNION ALL SELECT 'group', NULL, count FROM group_week
+         UNION ALL SELECT 'hour', value, NULL FROM top_hour
+         UNION ALL SELECT 'day', value, NULL FROM top_day
+         UNION ALL SELECT 'lifetime', NULL, count FROM lifetime`,
+        [
+          match.message.chat.id,
+          target.id,
+          match.message.chat.id,
+          match.message.chat.id,
+          target.id,
+          match.message.chat.id,
+          target.id,
+          match.message.chat.id,
+          target.id,
+        ],
+      );
+      const days = Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(dependencies.now());
+        date.setUTCDate(date.getUTCDate() - (6 - index));
+        return date.toISOString().slice(0, 10);
+      });
+      const daily = new Map(rows.filter((row) => row["kind"] === "daily").map((row) => [
+        rowString(row, "value"),
+        rowNumber(row, "count"),
+      ]));
+      const counts = days.map((day) => daily.get(day) ?? 0);
+      const week = counts.reduce((sum, count) => sum + count, 0);
+      const value = (kind: string, field: string) => {
+        const row = rows.find((candidate) => candidate["kind"] === kind);
+        return row === undefined || row[field] === null ? undefined : row[field];
+      };
+      const group = Number(value("group", "count") ?? 0);
+      const lifetime = Number(value("lifetime", "count") ?? 0);
+      const hour = value("hour", "value");
+      const day = value("day", "value");
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const labels = days.map((date) => new Date(`${date}T00:00:00Z`).toLocaleDateString("en", {
+        timeZone: "UTC",
+        weekday: "short",
+      }));
+      const bars = counts.map((count, index) => {
+        const width = Math.round(count / Math.max(...counts, 1) * 20);
+        return `${labels[index]} | ${"█".repeat(width).padEnd(20)} ${count}`;
+      }).join("\n");
+      const name = target.username ?? target.firstName;
+      if (week === 0) return yield* answer(match.message, {
+        parseMode: "HTML",
+        text: `User stats for <b>${html.escape(name)}</b> in <b>${html.escape(match.message.chat.title ?? String(match.message.chat.id))}</b>\n\nNo messages in the last 7 days.`,
+      });
+      return yield* answer(match.message, {
+        parseMode: "HTML",
+        text: `User stats for <b>${html.escape(name)}</b> in <b>${html.escape(match.message.chat.title ?? String(match.message.chat.id))}</b>\n\nLast 7d: <b>${week}</b> msgs (${group === 0 ? "0.0" : (week / group * 100).toFixed(1)}% of group) • avg ${(week / 7).toFixed(2)}/day\nLifetime in this chat: <b>${lifetime}</b> msgs\nMost active hour: <b>${hour === undefined ? "-" : `${String(hour).padStart(2, "0")}:00`}</b>\nMost active day: <b>${day === undefined ? "-" : dayNames[Number(day)]}</b>\n\n<pre>${bars}</pre>\nSparkline: <code>${sparkline(counts)}</code>`,
+      });
+    }),
+    usage: "/ustats [username]",
+  };
+}
+
 export function statsCommands(dependencies: AppDependencies): ReadonlyArray<CommandDefinition> {
   return [
     seenCommand(dependencies),
@@ -220,5 +334,6 @@ export function statsCommands(dependencies: AppDependencies): ReadonlyArray<Comm
     totalCommand(dependencies, false),
     botStatsCommand(dependencies),
     friendsCommand(dependencies),
+    userStatsCommand(dependencies),
   ];
 }

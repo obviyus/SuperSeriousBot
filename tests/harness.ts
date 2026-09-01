@@ -15,9 +15,9 @@ export function testConfig(api: ApiConfig = {}): AppConfig {
   return {
     admins: new Set(["1"]),
     api,
-    databaseDirectory: "./db",
     port: 8_443,
     quoteChannelId: -1001,
+    stateDirectory: "./db",
     telegramToken: token,
     tursoAuthToken: "test",
     tursoDatabaseUrl: ":memory:",

@@ -15,6 +15,13 @@ export interface TextResponse {
   readonly status: number;
 }
 
+export interface BytesResponse {
+  readonly contentType?: string;
+  readonly data: Uint8Array;
+  readonly fileName?: string;
+  readonly status: number;
+}
+
 export type Fetch = (
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -67,7 +74,41 @@ export class Http {
     );
   }
 
-  private request(
+  bytes(
+    service: string,
+    url: string | URL,
+    maximumBytes: number,
+    init?: RequestInit,
+  ): Effect.Effect<BytesResponse, HttpError> {
+    return this.request(service, url, init).pipe(
+      Effect.flatMap((response) => {
+        const declared = Number(response.headers.get("content-length"));
+        if (Number.isFinite(declared) && declared > maximumBytes) {
+          return Effect.fail(new HttpError({ description: "Response is too large", service }));
+        }
+        return Effect.tryPromise({
+          try: () => response.arrayBuffer(),
+          catch: (error) => new HttpError({ description: errorDescription(error), service }),
+        }).pipe(Effect.flatMap((buffer) => {
+          if (buffer.byteLength > maximumBytes) return Effect.fail(new HttpError({
+            description: "Response is too large",
+            service,
+          }));
+          const disposition = response.headers.get("content-disposition");
+          const fileName = disposition?.match(/filename\*?=(?:UTF-8''|["']?)([^"';]+)/iu)?.[1];
+          const contentType = response.headers.get("content-type") ?? undefined;
+          return Effect.succeed({
+            ...(contentType === undefined ? {} : { contentType }),
+            data: new Uint8Array(buffer),
+            ...(fileName === undefined ? {} : { fileName: decodeURIComponent(fileName) }),
+            status: response.status,
+          });
+        }));
+      }),
+    );
+  }
+
+  response(
     service: string,
     url: string | URL,
     init?: RequestInit,
@@ -76,5 +117,13 @@ export class Http {
       try: () => this.send(url, { ...init, signal: init?.signal ?? AbortSignal.timeout(60_000) }),
       catch: (error) => new HttpError({ description: errorDescription(error), service }),
     });
+  }
+
+  private request(
+    service: string,
+    url: string | URL,
+    init?: RequestInit,
+  ): Effect.Effect<Response, HttpError> {
+    return this.response(service, url, init);
   }
 }

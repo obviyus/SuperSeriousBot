@@ -62,10 +62,7 @@ test("insult command gives a polite fallback when its provider is unavailable", 
   const send: Fetch = async () => {
     throw new Error("network unavailable");
   };
-  const { app, bot, database, fake } = await fixture(send, [
-    FakeBotApiReply.ok(true),
-    FakeBotApiReply.ok(true),
-  ]);
+  const { app, bot, database, fake } = await fixture(send);
 
   try {
     await app.run(bot.handler(commandUpdate("/insult", 83)));
@@ -84,10 +81,7 @@ test("blocked command stops before its provider and records the outcome", async 
     providerCalls += 1;
     return new Response("{}");
   };
-  const { app, bot, database, fake } = await fixture(send, [
-    FakeBotApiReply.ok(true),
-    FakeBotApiReply.ok(true),
-  ]);
+  const { app, bot, database, fake } = await fixture(send);
   await Effect.runPromise(database.execute(
     "INSERT INTO command_blocklist (user_id, command, blocked_by) VALUES (?, ?, ?)",
     [1, "fox", 9],
