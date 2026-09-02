@@ -10,8 +10,10 @@
   "scripts": {
     "check": "bun run typecheck && bun test",
     "dev": "bun --watch src/main.ts",
+    "operator": "bun src/operator.ts",
     "start": "bun src/main.ts",
     "test": "bun test",
+    "test:e2e": "bun tests/e2e/run.mjs",
     "typecheck": "tsc --project tsconfig.json"
   },
   "dependencies": {

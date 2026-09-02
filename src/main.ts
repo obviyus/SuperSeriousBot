@@ -23,7 +23,10 @@ import {
   reportUpdateErrors,
   runtimeJobs,
   scheduleRuntimeJobs,
+  waitForWebhook,
 } from "./runtime.ts";
+
+const allowedUpdates = ["message", "callback_query"] as const;
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -42,7 +45,12 @@ async function main(): Promise<void> {
   const inbox = await SqliteInbox.open(join(config.stateDirectory, "telly-inbox.db"));
   const jobStore = await SqliteJobs.open(join(config.stateDirectory, "telly-jobs.db"));
   const jobs = runtimeJobs(dependencies, bot, jobStore);
-  const app = Application.make({ inbox, jobs, token: config.telegramToken });
+  const app = Application.make({
+    ...(config.telegramApiRoot === undefined ? {} : { apiRoot: config.telegramApiRoot }),
+    inbox,
+    jobs,
+    token: config.telegramToken,
+  });
   const handler = reportUpdateErrors(bot.handler, config.loggingChannelId);
   try {
     await app.run(setMyCommands({ commands: bot.commands }));
@@ -56,7 +64,7 @@ async function main(): Promise<void> {
       }));
     }
     if (config.updater === "polling") {
-      await app.runPolling(handler);
+      await app.runPolling(handler, { allowedUpdates });
       return;
     }
     const secretToken = createHash("sha256").update(config.telegramToken).digest("hex");
@@ -66,11 +74,12 @@ async function main(): Promise<void> {
       const baseUrl = config.webhookUrl;
       if (baseUrl === undefined) throw new Error("WEBHOOK_URL must be set for webhook mode");
       await app.run(setWebhook({
+        allowedUpdates,
         secretToken,
         url: `${baseUrl.replace(/\/+$/u, "")}/telegram`,
       }));
       console.log(`Webhook listening on port ${config.port}`);
-      await webhook.completed;
+      await waitForWebhook(webhook);
     } finally {
       await server.stop();
     }

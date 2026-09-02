@@ -160,18 +160,34 @@ function consumeQuota(
     user === undefined ||
     isAdmin(dependencies, user.id)
   ) return Effect.succeed(true);
+  return useCommandQuota(
+    dependencies,
+    match.message,
+    commandName(match),
+    definition.dailyLimit,
+  );
+}
+
+export function useCommandQuota(
+  dependencies: AppDependencies,
+  message: Message,
+  command: string,
+  dailyLimit: number,
+) {
+  const user = message.from;
+  if (user === undefined || isAdmin(dependencies, user.id)) return Effect.succeed(true);
   return dependencies.database.execute(
     `INSERT INTO user_command_limits (user_id, command, \`limit\`, current_usage)
      VALUES (?, ?, ?, 1)
      ON CONFLICT(user_id, command) DO UPDATE SET
        current_usage = current_usage + 1
      WHERE current_usage < \`limit\``,
-    [user.id, commandName(match), definition.dailyLimit],
+    [user.id, command, dailyLimit],
   ).pipe(
     Effect.flatMap((result) => result.rowsAffected > 0
       ? Effect.succeed(true)
       : answer(
-          match.message,
+          message,
           "Daily limit for this command reached. Try again tomorrow.",
         ).pipe(Effect.as(false))),
   );

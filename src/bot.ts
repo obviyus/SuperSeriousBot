@@ -30,6 +30,11 @@ import { contentCommands } from "./features/content.ts";
 import { catalogCommands } from "./features/catalog.ts";
 import { reactionHandler, sedHandler } from "./features/passive.ts";
 import { downloadFeature } from "./features/download.ts";
+import { cronFeature } from "./features/cron.ts";
+import { songCommand } from "./features/song.ts";
+import { videoCommand } from "./features/video.ts";
+import { footballFeature } from "./features/football.ts";
+import { searchFeature } from "./features/search.ts";
 
 export function createSuperSeriousBot(dependencies: AppDependencies) {
   const summon = summonFeature(dependencies);
@@ -37,6 +42,9 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
   const highlight = highlightFeature(dependencies);
   const reminders = reminderFeature(dependencies);
   const downloads = downloadFeature(dependencies);
+  const cron = cronFeature(dependencies);
+  const football = footballFeature(dependencies);
+  const search = searchFeature(dependencies);
   const featureCommands = [
     ...basicCommands(dependencies),
     ...informationCommands(dependencies),
@@ -52,6 +60,11 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
     ...contentCommands(dependencies),
     ...catalogCommands(dependencies),
     ...downloads.commands,
+    ...cron.commands,
+    songCommand(dependencies),
+    videoCommand(dependencies),
+    ...football.commands,
+    ...search.commands,
   ];
   const help: CommandDefinition = {
     description: "Show every enabled command.",
@@ -73,6 +86,8 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
         summon.callback,
         habit.callback,
         highlight.callback,
+        cron.callback,
+        football.callback,
         on(callbackQuery(), ({ callbackQuery: query }) =>
           answerCallback(query, { text: "This button expired." })),
       ),
@@ -82,6 +97,12 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
       highlight.handler,
       downloads.handler,
     ),
-    workers: { habit: habit.worker, reminders: reminders.worker },
+    workers: {
+      cron: cron.worker,
+      football: football.workers,
+      habit: habit.worker,
+      reminders: reminders.worker,
+      search: search.workers,
+    },
   };
 }

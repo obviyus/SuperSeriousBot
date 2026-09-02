@@ -51,3 +51,37 @@ test("reminder worker sends and removes each claimed reminder", async () => {
   });
   expect(remaining).toBeUndefined();
 });
+
+test("reminder worker parks a reminder after five failed deliveries", async () => {
+  const offline: Fetch = async () => new Response("{}");
+  const failures = Array.from({ length: 5 }, () => FakeBotApiReply.reject({
+    description: "Forbidden: bot was blocked by the user",
+    errorCode: 403,
+  }));
+  const { app, bot, database } = await fixture(offline, failures);
+  await Effect.runPromise(database.execute(
+    "INSERT INTO reminders (id, chat_id, user_id, title, target_time) VALUES (?, ?, ?, ?, ?)",
+    [92, -1007, 1, "Unreachable", 1],
+  ));
+
+  try {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await app.run(bot.workers.reminders());
+      await Effect.runPromise(database.execute(
+        "UPDATE reminders SET claim_time = 1 WHERE id = ?",
+        [92],
+      ));
+    }
+    await app.run(bot.workers.reminders());
+  } finally {
+    await app.close();
+  }
+  const reminder = await Effect.runPromise(database.one(
+    "SELECT attempt_count, last_error FROM reminders WHERE id = ?",
+    [92],
+  ));
+  database.close();
+
+  expect(reminder?.["attempt_count"]).toBe(5);
+  expect(reminder?.["last_error"]).toContain("bot was blocked by the user");
+});

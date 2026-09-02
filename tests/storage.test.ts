@@ -125,3 +125,61 @@ test("addquote forwards the replied message and saves its archive identity", asy
   expect(stored?.["saver_user_id"]).toBe(1);
   expect(stored?.["forwarded_message_id"]).toBe(700);
 });
+
+test("addquote rejects a protected replied message before forwarding", async () => {
+  const { app, bot, database, fake } = await fixture(offline);
+  const update = commandUpdate("/addquote", 504);
+  if (update.message === undefined) throw new Error("Expected command message");
+  const protectedQuote: Update = {
+    ...update,
+    message: {
+      ...update.message,
+      replyToMessage: {
+        chat: update.message.chat,
+        date: 1_699_999_999,
+        from: { firstName: "Alice", id: 2, isBot: false },
+        hasProtectedContent: true,
+        messageId: 500,
+        text: "Do not forward this",
+      },
+    },
+  };
+
+  try {
+    await app.run(bot.handler(protectedQuote));
+  } finally {
+    await app.close();
+  }
+  const stored = await Effect.runPromise(database.all("SELECT id FROM quote_db"));
+  database.close();
+
+  expect(fake.requests.some((request) => request.method === "forwardMessage")).toBe(false);
+  expect(stored).toHaveLength(0);
+  expect(fake.requests.find((request) => request.method === "sendMessage")?.params).toMatchObject({
+    text: "This is protected and cannot be forwarded.",
+  });
+});
+
+test("quote removes a legacy row that has no archived message", async () => {
+  const { app, bot, database, fake } = await fixture(offline);
+  await Effect.runPromise(database.execute(
+    `INSERT INTO quote_db (
+      id, message_id, chat_id, message_user_id, saver_user_id, forwarded_message_id
+    ) VALUES (?, ?, ?, ?, ?, NULL)`,
+    [91, 501, -1007, 2, 1],
+  ));
+
+  try {
+    await app.run(bot.handler(commandUpdate("/quote", 505)));
+  } finally {
+    await app.close();
+  }
+  const stored = await Effect.runPromise(database.all("SELECT id FROM quote_db"));
+  database.close();
+
+  expect(fake.requests.some((request) => request.method === "forwardMessage")).toBe(false);
+  expect(stored).toHaveLength(0);
+  expect(fake.requests.find((request) => request.method === "sendMessage")?.params).toMatchObject({
+    text: "Quoted message deleted. Removing the quote.",
+  });
+});

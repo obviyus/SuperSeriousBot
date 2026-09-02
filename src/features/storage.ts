@@ -162,7 +162,7 @@ function addQuoteCommand(dependencies: AppDependencies): CommandDefinition {
       if (saver === undefined || quoted?.from === undefined) {
         return yield* usage(match.message, definition);
       }
-      if (match.message.hasProtectedContent === true) {
+      if (quoted.hasProtectedContent === true) {
         return yield* answer(match.message, "This is protected and cannot be forwarded.");
       }
       const existing = yield* dependencies.database.one(
@@ -247,10 +247,18 @@ function quoteCommand(dependencies: AppDependencies): CommandDefinition {
         "INSERT INTO quote_recent_history (chat_id, quote_id) VALUES (?, ?)",
         [match.message.chat.id, rowNumber(row, "id")],
       );
+      const forwardedMessageId = row["forwarded_message_id"];
+      if (typeof forwardedMessageId !== "number") {
+        yield* dependencies.database.batch([
+          { sql: "DELETE FROM quote_recent_history WHERE quote_id = ?", args: [rowNumber(row, "id")] },
+          { sql: "DELETE FROM quote_db WHERE id = ?", args: [rowNumber(row, "id")] },
+        ]);
+        return yield* answer(match.message, "Quoted message deleted. Removing the quote.");
+      }
       const delivery = yield* Effect.result(forwardMessage({
         chatId: match.message.chat.id,
         fromChatId: dependencies.config.quoteChannelId,
-        messageId: rowNumber(row, "forwarded_message_id"),
+        messageId: forwardedMessageId,
       }));
       if (delivery._tag === "Success") return;
       yield* dependencies.database.batch([

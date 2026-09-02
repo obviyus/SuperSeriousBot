@@ -33,10 +33,14 @@ const StreamResponse = Schema.Struct({
 const ImageResponse = Schema.Struct({
   data: Schema.Array(Schema.Struct({ b64_json: Schema.String })),
 });
+const EmbeddingResponse = Schema.Struct({
+  data: Schema.Array(Schema.Struct({ embedding: Schema.Array(Schema.Number) })),
+});
 
 interface GenerateOptions {
   readonly extraBody?: Readonly<Record<string, unknown>>;
   readonly maxTokens?: number;
+  readonly model?: string;
   readonly temperature?: number;
 }
 
@@ -208,13 +212,47 @@ export class Ai {
     );
   }
 
+  embeddings(inputs: ReadonlyArray<string>, dimensions: number) {
+    return this.dependencies.http.json(
+      "openrouter-embeddings",
+      "https://openrouter.ai/api/v1/embeddings",
+      EmbeddingResponse,
+      {
+        body: JSON.stringify({
+          dimensions,
+          input: inputs,
+          model: "qwen/qwen3-embedding-8b",
+          provider: { sort: "latency" },
+        }),
+        headers: headers(this.dependencies),
+        method: "POST",
+      },
+    ).pipe(
+      Effect.flatMap((response) => {
+        const embeddings = response.data.data.map((item) => item.embedding);
+        return embeddings.length === inputs.length && embeddings.every((item) =>
+          item.length === dimensions)
+          ? Effect.succeed(embeddings)
+          : Effect.fail(new AiError({
+              description: "OpenRouter returned invalid embedding dimensions",
+              operation: "embeddings",
+            }));
+      }),
+      Effect.mapError((error) => error instanceof AiError
+        ? error
+        : new AiError({ description: error.description, operation: "embeddings" })),
+    );
+  }
+
   private body(
     command: ModelCommand,
     messages: ReadonlyArray<AiMessage>,
     options: GenerateOptions,
   ) {
     return Effect.all({
-      model: getModel(this.dependencies, command),
+      model: options.model === undefined
+        ? getModel(this.dependencies, command)
+        : Effect.succeed(options.model),
       thinking: command === "ask" ? getThinking(this.dependencies) : Effect.succeed("none"),
     }).pipe(Effect.map(({ model, thinking }) => ({
       ...options.extraBody,

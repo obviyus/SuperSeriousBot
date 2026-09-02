@@ -19,6 +19,7 @@ export interface AppConfig {
   readonly quoteChannelId: number;
   readonly stateDirectory: string;
   readonly telegramToken: string;
+  readonly telegramApiRoot?: string;
   readonly tursoAuthToken: string;
   readonly tursoDatabaseUrl: string;
   readonly updater: Updater;
@@ -66,6 +67,7 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
   const weatherApiKey = optional(environment, "WEATHERAPI_API_KEY");
   const wolframAppId = optional(environment, "WOLFRAM_APP_ID");
   const loggingChannelId = optional(environment, "LOGGING_CHANNEL_ID");
+  const telegramApiRoot = optional(environment, "TELEGRAM_API_ROOT");
   return {
     admins: new Set((optional(environment, "ADMINS") ?? "").split(/\s+/u).filter(Boolean)),
     api: {
@@ -84,6 +86,7 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
     port,
     quoteChannelId: integer(environment, "QUOTE_CHANNEL_ID"),
     stateDirectory: optional(environment, "TELLY_STATE_DIRECTORY") ?? "./db",
+    ...(telegramApiRoot === undefined ? {} : { telegramApiRoot }),
     telegramToken: required(environment, "TELEGRAM_TOKEN"),
     tursoAuthToken: required(environment, "TURSO_AUTH_TOKEN"),
     tursoDatabaseUrl: required(environment, "TURSO_DATABASE_URL"),

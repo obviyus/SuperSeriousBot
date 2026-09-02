@@ -14,6 +14,7 @@ import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
 
 const claimLeaseSeconds = 5 * 60;
+const maximumAttempts = 5;
 
 function telegramTime(unix: number, fallback: string, format?: string): string {
   const formatAttribute = format === undefined ? "" : ` format="${format}"`;
@@ -89,9 +90,10 @@ export function reminderFeature(dependencies: AppDependencies) {
     const now = Math.floor(dependencies.now().getTime() / 1_000);
     const rows = yield* dependencies.database.all(
       `SELECT id, title, target_time, user_id, chat_id FROM reminders
-       WHERE target_time <= ? AND (claim_time IS NULL OR claim_time <= ?)
+       WHERE target_time <= ? AND attempt_count < ?
+         AND (claim_time IS NULL OR claim_time <= ?)
        ORDER BY target_time LIMIT 50`,
-      [now, now - claimLeaseSeconds],
+      [now, maximumAttempts, now - claimLeaseSeconds],
     );
     for (const row of rows) {
       const id = rowNumber(row, "id");

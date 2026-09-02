@@ -10,6 +10,7 @@ import {
   type JobStoreService,
   type Update,
   type UpdateHandler,
+  type Webhook,
 } from "telly";
 
 import { resetCommandLimits } from "./app/command.ts";
@@ -17,6 +18,35 @@ import type { AppDependencies } from "./app/dependencies.ts";
 import type { createSuperSeriousBot } from "./bot.ts";
 
 type BotRuntime = ReturnType<typeof createSuperSeriousBot>;
+
+export interface ShutdownSignals {
+  readonly off: (event: "SIGINT" | "SIGTERM", listener: () => void) => unknown;
+  readonly once: (event: "SIGINT" | "SIGTERM", listener: () => void) => unknown;
+}
+
+export async function waitForWebhook(
+  webhook: Webhook,
+  signals?: ShutdownSignals,
+): Promise<void> {
+  const source = signals ?? {
+    off: (event: "SIGINT" | "SIGTERM", listener: () => void) =>
+      Reflect.apply(process.removeListener, process, [event, listener]),
+    once: (event: "SIGINT" | "SIGTERM", listener: () => void) => event === "SIGINT"
+      ? process.once("SIGINT", listener)
+      : process.once("SIGTERM", listener),
+  };
+  const stop = () => {
+    webhook.stop().catch(() => undefined);
+  };
+  source.once("SIGINT", stop);
+  source.once("SIGTERM", stop);
+  try {
+    await webhook.completed;
+  } finally {
+    source.off("SIGINT", stop);
+    source.off("SIGTERM", stop);
+  }
+}
 
 export function runtimeJobs(
   dependencies: AppDependencies,
@@ -28,6 +58,18 @@ export function runtimeJobs(
       payload: Schema.Struct({}),
       run: () => runtime.workers.habit(),
     }),
+    cron: job({
+      payload: Schema.Struct({}),
+      run: () => runtime.workers.cron(),
+    }),
+    footballAlerts: job({
+      payload: Schema.Struct({}),
+      run: () => runtime.workers.football.notify(),
+    }),
+    footballSync: job({
+      payload: Schema.Struct({}),
+      run: () => runtime.workers.football.sync(),
+    }),
     quotas: job({
       payload: Schema.Struct({}),
       run: () => resetCommandLimits(dependencies),
@@ -35,6 +77,14 @@ export function runtimeJobs(
     reminders: job({
       payload: Schema.Struct({}),
       run: () => runtime.workers.reminders(),
+    }),
+    searchIndex: job({
+      payload: Schema.Struct({}),
+      run: () => runtime.workers.search.index(),
+    }),
+    searchMemory: job({
+      payload: Schema.Struct({}),
+      run: () => runtime.workers.search.memory(),
     }),
   }, { store });
 }
@@ -49,6 +99,21 @@ export function scheduleRuntimeJobs(
       every: "1 minute",
       payload: {},
     }),
+    jobs.schedule("cron", {
+      at: new Date("2026-01-01T00:00:00Z"),
+      every: "1 minute",
+      payload: {},
+    }),
+    jobs.schedule("footballAlerts", {
+      at: new Date("2026-01-01T00:00:00Z"),
+      every: "1 minute",
+      payload: {},
+    }),
+    jobs.schedule("footballSync", {
+      at: new Date("2026-01-01T03:00:00Z"),
+      every: "1 day",
+      payload: {},
+    }),
     jobs.schedule("habit", {
       at: new Date("2026-01-01T14:30:00Z"),
       every: "1 day",
@@ -56,6 +121,16 @@ export function scheduleRuntimeJobs(
     }),
     jobs.schedule("quotas", {
       at: new Date("2026-01-01T18:30:00Z"),
+      every: "1 day",
+      payload: {},
+    }),
+    jobs.schedule("searchIndex", {
+      at: new Date("2026-01-01T00:00:30Z"),
+      every: "15 minutes",
+      payload: {},
+    }),
+    jobs.schedule("searchMemory", {
+      at: new Date("2026-01-01T03:00:00Z"),
       every: "1 day",
       payload: {},
     }),
