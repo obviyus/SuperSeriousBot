@@ -27,6 +27,9 @@ const trackedTeams = new Set([
   "Tottenham Hotspur",
 ]);
 const scheduled = "STATUS_SCHEDULED";
+const espnHeaders = {
+  "user-agent": "SuperSeriousBot/1.0 (+https://github.com/obviyus/SuperSeriousBot)",
+};
 const footballLock = Semaphore.makeUnsafe(1);
 const FootballCallback = callbackData("football", Schema.Struct({
   action: Schema.Literals(["join", "leave"]),
@@ -175,7 +178,9 @@ function syncFixtures(dependencies: AppDependencies) {
         for (const [start, end] of seasonRanges(dependencies.now())) {
           const url = new URL(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.slug}/scoreboard`);
           url.search = new URLSearchParams({ dates: `${start}-${end}`, limit: "1000" }).toString();
-          const response = yield* dependencies.http.json("espn", url, Scoreboard);
+          const response = yield* dependencies.http.json("espn", url, Scoreboard, {
+            headers: espnHeaders,
+          });
           fixtures.push(...response.data.events.flatMap((event) => {
             const data = event.competitions[0];
             return data === undefined ? [] : [fixtureFrom(event.id, competition.slug, competition.name, data)];
@@ -220,7 +225,7 @@ function verifyFixture(dependencies: AppDependencies, fixture: Fixture) {
   if (competition === undefined) return Effect.succeed(undefined);
   const url = new URL(`https://site.api.espn.com/apis/site/v2/sports/soccer/${fixture.competition}/summary`);
   url.searchParams.set("event", fixture.providerId);
-  return dependencies.http.json("espn", url, Summary).pipe(
+  return dependencies.http.json("espn", url, Summary, { headers: espnHeaders }).pipe(
     Effect.flatMap((response) => {
       const data = response.data.header.competitions[0];
       if (data === undefined) return Effect.succeed(undefined);

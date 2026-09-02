@@ -82,7 +82,9 @@ async function storeFixture(
 }
 
 test("football sync keeps syncing after one competition fails", async () => {
-  const send: Fetch = async (input) => {
+  let userAgent = "";
+  const send: Fetch = async (input, init) => {
+    userAgent = new Headers(init?.headers).get("user-agent") ?? "";
     const url = String(input);
     if (url.includes("/eng.1/")) throw new Error("Premier League is unavailable");
     if (url.includes("/uefa.champions/")) return new Response(JSON.stringify({
@@ -108,6 +110,9 @@ test("football sync keeps syncing after one competition fails", async () => {
     home_team: "Liverpool",
     provider_id: "ucl-7",
   });
+  expect(userAgent).toBe(
+    "SuperSeriousBot/1.0 (+https://github.com/obviyus/SuperSeriousBot)",
+  );
 });
 
 test("next command renders odds and a matching watch link", async () => {
