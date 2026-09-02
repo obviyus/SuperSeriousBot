@@ -57,7 +57,8 @@ const statements = [
     auto_dl INTEGER NOT NULL DEFAULT 0,
     search_model TEXT,
     cron_model TEXT,
-    song_model TEXT
+    song_model TEXT,
+    video_model TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS user_stats (
     user_id INTEGER PRIMARY KEY,
@@ -365,6 +366,11 @@ export function initializeDatabase(database: Database) {
       if (!names.has(name)) yield* database.execute(
         `ALTER TABLE cron_tasks ADD COLUMN ${name} ${definition}`,
       );
+    }
+    const groupSettingColumns = yield* database.all("PRAGMA table_info(group_settings)");
+    const groupSettingNames = new Set(groupSettingColumns.map((row) => row["name"]));
+    if (!groupSettingNames.has("video_model")) {
+      yield* database.execute("ALTER TABLE group_settings ADD COLUMN video_model TEXT");
     }
   });
 }

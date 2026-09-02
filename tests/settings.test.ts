@@ -18,7 +18,7 @@ test("model command updates every AI model in one database write", async () => {
   }
   const row = await Effect.runPromise(database.one(
     `SELECT ask_model, cron_model, edit_model, search_model,
-            song_model, tr_model, tldr_model
+            song_model, tr_model, tldr_model, video_model
      FROM group_settings WHERE chat_id = -1`,
   ));
   database.close();
@@ -30,8 +30,30 @@ test("model command updates every AI model in one database write", async () => {
   expect(row?.["song_model"]).toBe("openrouter/test/model");
   expect(row?.["tr_model"]).toBe("openrouter/test/model");
   expect(row?.["tldr_model"]).toBe("openrouter/test/model");
+  expect(row?.["video_model"]).toBe("openrouter/test/model");
   const reply = fake.requests.find((request) => request.method === "sendMessage");
   expect(reply?.params).toMatchObject({ text: expect.stringContaining("All command models") });
+});
+
+test("model command configures video generation", async () => {
+  const { app, bot, database, fake } = await fixture(offline, presence());
+
+  try {
+    await app.run(bot.handler(commandUpdate(
+      "/model video openrouter/bytedance/seedance-test",
+      605,
+    )));
+  } finally {
+    await app.close();
+  }
+  const row = await Effect.runPromise(database.one(
+    "SELECT video_model FROM group_settings WHERE chat_id = -1",
+  ));
+  database.close();
+
+  expect(row?.["video_model"]).toBe("openrouter/bytedance/seedance-test");
+  const reply = fake.requests.find((request) => request.method === "sendMessage");
+  expect(reply?.params).toMatchObject({ text: expect.stringContaining("Model for <b>/video</b>") });
 });
 
 test("model command presents configured models in a native rich table", async () => {

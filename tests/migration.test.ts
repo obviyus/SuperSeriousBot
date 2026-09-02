@@ -38,7 +38,7 @@ test("database from all 33 Python migrations preserves rows during TypeScript in
     [9],
   ));
   const setting = await Effect.runPromise(database.one(
-    "SELECT fts, auto_dl, search_model FROM group_settings WHERE chat_id = ?",
+    "SELECT fts, auto_dl, search_model, video_model FROM group_settings WHERE chat_id = ?",
     [-1007],
   ));
   const cronColumns = await Effect.runPromise(database.all("PRAGMA table_info(cron_tasks)"));
@@ -53,6 +53,7 @@ test("database from all 33 Python migrations preserves rows during TypeScript in
     auto_dl: 1,
     fts: 1,
     search_model: "openrouter/google/gemini-3-flash-preview",
+    video_model: null,
   });
   expect(cronColumns.map((row) => row["name"])).toEqual(expect.arrayContaining([
     "next_run_time",
