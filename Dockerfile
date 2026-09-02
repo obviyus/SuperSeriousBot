@@ -1,56 +1,33 @@
-FROM python:3.13-slim AS build
+FROM oven/bun:1.4.0-slim AS dependencies
 
-WORKDIR /src
+WORKDIR /app
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY package.json bun.lock ./
+COPY vendor/ ./vendor/
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    cargo \
-    ca-certificates \
-    cmake \
-    pkg-config \
-    rustc \
-    && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --production
 
-ENV UV_LINK_MODE=copy \
-    UV_COMPILE_BYTECODE=1 \
-    UV_PYTHON_DOWNLOADS=never \
-    UV_PYTHON=python3.13 \
-    UV_PROJECT_ENVIRONMENT=/app
+FROM oven/bun:1.4.0-slim AS runtime
 
-COPY pyproject.toml uv.lock ./
-
-RUN --mount=type=cache,target=/root/.cache \
-    sh -c 'uv sync --locked --no-dev --no-install-project & pid=$!; while kill -0 "$pid" 2>/dev/null; do sleep 10; echo "uv sync still running"; done; wait "$pid"'
-
-COPY src/ ./src/
-COPY migrations/ ./migrations/
-RUN --mount=type=cache,target=/root/.cache \
-    uv pip install --python=$UV_PROJECT_ENVIRONMENT --no-deps .
-
-FROM python:3.13-slim AS runtime
-
-RUN groupadd --system app \
-    && useradd --system --home /app --gid app app \
-    && install -d -o app -g app /app/db \
-    && DEBIAN_FRONTEND=noninteractive apt-get update \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
         dumb-init \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=mwader/static-ffmpeg:latest /ffmpeg /usr/local/bin/
-COPY --from=build --chown=app:app /app /app
-COPY --from=build --chown=app:app /src/src /app/src
-COPY --from=build --chown=app:app /src/migrations /app/migrations
-
-ENV PATH="/app/bin:$PATH"
+        ffmpeg \
+        yt-dlp \
+    && rm -rf /var/lib/apt/lists/* \
+    && install -d -o bun -g bun /app/db
 
 WORKDIR /app
-USER app
+
+COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules
+COPY --chown=bun:bun package.json ./
+COPY --chown=bun:bun src/ ./src/
+
+USER bun
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["python", "src/main.py"]
+CMD ["bun", "src/main.ts"]
 
 LABEL org.opencontainers.image.source="https://github.com/obviyus/SuperSeriousBot"

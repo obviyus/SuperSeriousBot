@@ -1,113 +1,107 @@
 <p align="center">
-    <img src="assets/logo.png" style="background: white; border-radius: 10%; padding: 10px" alt="Logo" width="200px">
+  <img src="assets/logo.png" alt="SuperSeriousBot" width="200">
 </p>
 
-<p align="center">
-  <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/m/obviyus/SuperSeriousBot">
-  <img alt="Build" src="https://github.com/obviyus/SuperSeriousBot/actions/workflows/release.yml/badge.svg">
-  <img alt="Docker Image Size" src="https://ghcr-badge.egpl.dev/obviyus/superseriousbot/size">
-</p>
-<p align="center">
-  <a href="https://github.com/obviyus/SuperSeriousBot/blob/master/LICENSE"><img alt="GitHub license" src="https://img.shields.io/github/license/obviyus/SuperSeriousBot"></a>
-  <img alt="GitHub release (latest by date including pre-releases)" src="https://img.shields.io/github/v/release/obviyus/superseriousbot?include_prereleases">
-</p>
-<p align="center">
-   <a href="https://t.me/superseriousbot"><img alt="Telegram Link" src="https://img.shields.io/badge/Telegram-%40SuperSeriousBot-blue"></a>
-</p>
+<h1 align="center">SuperSeriousBot</h1>
 
-<h2 align="center">SuperSeriousBot</h2>
-<p align="center">A modular, asynchronous, highly-configurable, plug and play Telegram bot built using the fantastic <a href="https://github.com/python-telegram-bot/python-telegram-bot"><code>python-telegram-bot</code></a> library.</p>
+<p align="center">A Telegram group bot built with TypeScript, Bun, Effect, and Telly.</p>
 
-## Introduction
+SuperSeriousBot has grown with its groups for years. It combines AI, media, search, reminders, social tools, and group history in one bot.
 
-SuperSeriousBot is a plug-and-play Telegram group bot with dozens of commands — AI, media, stats, moderation — where every API-key-gated feature quietly disables itself when its key is missing. Run a bare-bones instance or a fully-loaded one from the same code.
+## Features
 
-## ✨ Features
+- AI: `/ask`, `/edit`, `/video`, `/song`, `/tldr`, and `/tr`
+- Group memory: semantic `/search`, citations, member personas, and group lore
+- Media: `/set`, `/get`, `/dl`, automatic reel downloads, memes, and quotes
+- Social: `/summon`, `/habit`, `/highlight`, reactions, mentions, and `sed` corrections
+- Utilities: reminders, scheduled AI tasks, football alerts, weather, books, games, and translation
+- Operations: durable Telly inboxes and jobs, polling or webhooks, command quotas, and failure records
 
-Current command set includes:
+Run `/help` to see the commands enabled by the configured API keys.
 
-- AI features: `/ask`, `/edit`, `/video`, `/tldr`, `/tr`, `/song`, `/model`, `/thinking`
-- Object store + media: `/set`, `/get`, `/dl`, `/meme`, `/joke`
-- Language + utility: `/tl`, `/define`, `/ud`, `/calc`, `/book`
-- Group utilities: `/remind`, `/habit`, `/summon`, `/highlight`
-- Stats + moderation: `/stats`, `/gstats`, `/ustats`, `/seen`, `/block`, `/unblock`, `/whitelist`
-- Social graph: `/friends`
-- Weather + quotes: `/weather`, `/addquote`, `/quote`
+## Run locally
 
-Notes:
+Requirements:
 
-- No standalone caption command. Image captioning is done by replying to an image/sticker with `/ask`.
-- Most API-key commands are auto-disabled when keys are missing; some validate at runtime (for example `/weather`).
-- Send `/help` to [@SuperSeriousBot](https://t.me/superseriousbot) for the live command list.
-
-## 🏗 Usage
-
-### Configuration
-
-Before you can begin, you'll need to get a token and API keys for your bot. You can get the token from [@BotFather](https://t.me/botfather).
-
-Run the following command to generate an empty environment file:
+- Bun 1.4
+- `ffmpeg`
+- `yt-dlp`
 
 ```bash
-$ git clone https://github.com/obviyus/SuperSeriousBot
-$ cp .env.example ssgbot.env
+git clone https://github.com/obviyus/SuperSeriousBot
+cd SuperSeriousBot
+cp .env.example .env
+bun install --frozen-lockfile
+bun run dev
 ```
 
-Fill `ssgbot.env`.
+Required environment values:
 
-Required:
+- `TELEGRAM_TOKEN`: token from [@BotFather](https://t.me/BotFather)
+- `QUOTE_CHANNEL_ID`: private channel used to archive quotes
+- `TURSO_DATABASE_URL`: LibSQL or Turso database URL
+- `TURSO_AUTH_TOKEN`: database token
 
-- `TELEGRAM_TOKEN`
-- `QUOTE_CHANNEL_ID`
-- `COBALT_URL` for `/dl`
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
+Optional integrations:
 
-Optional:
+- `OPENROUTER_API_KEY`: AI, image, video, transcription, summaries, search, and cron
+- `OPENROUTER_BASE_URL`: optional OpenRouter-compatible endpoint for local testing
+- `KIE_API_KEY`: song generation
+- `COBALT_URL`: media downloads
+- `NANO_GPT_API_KEY`: URL and YouTube extraction
+- `GOODREADS_API_KEY`, `WOLFRAM_APP_ID`, `WEATHERAPI_API_KEY`, and `WAQI_API_KEY`
 
-- `OPENROUTER_API_KEY` for `/ask`, `/edit`, `/tldr`, `/tr`, `/song`
-- `MINIMAX_H3_URL` for `/video`
-- `WAQI_API_KEY` for `/weather` AQI
-- `WEATHERAPI_API_KEY` for `/weather`
-- `GOODREADS_API_KEY` for `/book`
-- `KIE_API_KEY` for `/song`
-- `WOLFRAM_APP_ID` for `/calc`
-- `ADMINS`, `UPDATER`, `WEBHOOK_URL`, `LOGGING_CHANNEL_ID` for bot ops
+Operations:
 
-### Running
+- `ADMINS`: space-separated Telegram user IDs
+- `UPDATER`: `polling` or `webhook`
+- `WEBHOOK_URL`: public base URL in webhook mode
+- `PORT`: webhook server port, default `8443`
+- `LOGGING_CHANNEL_ID`: optional Telegram failure log
+- `TELLY_STATE_DIRECTORY`: local inbox and job database directory, default `./db`
+- `TELEGRAM_API_ROOT`: custom Bot API root for local Test Server harnesses
 
-SuperSeriousBot is run via Docker. The latest image can always be found at: `ghcr.io/obviyus/SuperSeriousBot`.
-
-To start the bot you only need `docker-compose.yaml` and a valid `ssgbot.env` file.
+## Run with Docker
 
 ```bash
-$ docker compose up --build
+cp .env.example ssgbot.env
+docker compose up --build
 ```
 
-## Development
+The image installs `ffmpeg` and `yt-dlp`. The `db` volume stores Telly's durable inbox and scheduled jobs.
 
-Local dev (without Docker):
+## Develop
 
 ```bash
-$ uv sync
-$ uv run python src/main.py
+bun run check
 ```
 
-### Operator diagnostics
+The test suite drives the real Telly handler against its hermetic Bot API fake. It also checks compatibility with the schema produced by all 33 Python migrations.
 
-Command history and failures are stored in Turso and available as structured JSON:
+The local Test Server harness uses leased QA credentials from the Telly skill:
 
 ```bash
-uv run src/command_usage.py
-uv run src/command_usage.py --command search --days 30
-uv run src/command_usage.py --status failed
+bun run test:e2e
+TELEGRAM_E2E_GROUP=1 bun run test:e2e
+TELEGRAM_E2E_WEBHOOK=1 bun run test:e2e
 ```
 
-## Recommended Reading
+Operator commands:
 
-- [Telegram API documentation](https://core.telegram.org/bots/api)
-- [`python-telegram-bot` documentation](https://python-telegram-bot.readthedocs.io/)
+```bash
+bun run operator usage --days 30 --status failed
+bun run operator search-index --chat-id -1001234567890
+bun run operator search-memory --chat-id -1001234567890
+```
+
+## Stack
+
+- [Telly](https://github.com/obviyus/telly) owns Telegram transport, updates, routing, persistence, and jobs.
+- [Vercel AI SDK](https://ai-sdk.dev) owns text, structured output, streaming, embeddings, images, and video.
+- [Effect](https://effect.website) owns typed effects, services, interruption, concurrency, and shutdown.
+- [Bun](https://bun.com) owns packages, tests, development, and the production runtime.
+- [Turso](https://turso.tech) stores bot and search data.
 
 ## Contributing
 
-All commit messages **must** conform to the [Angular Commit Message conventions](https://github.com/angular/angular/blob/master/CONTRIBUTING.md#-commit-message-format).
+Use [Angular commit messages](https://github.com/angular/angular/blob/main/CONTRIBUTING.md#-commit-message-format).
