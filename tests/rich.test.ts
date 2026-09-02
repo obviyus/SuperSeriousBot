@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { Application, BotApiError } from "telly";
 import { FakeBotApi, FakeBotApiReply } from "telly/testing";
 
-import { replyRich, richMessageLimit } from "../src/app/rich.ts";
+import { replyBlocks, replyRich, rich, richMessageLimit } from "../src/app/rich.ts";
 import { commandUpdate, sentMessage, token } from "./harness.ts";
 
 function sourceMessage() {
@@ -71,4 +71,26 @@ test("rich reply sends text beyond Telegram's rich limit as a document", async (
     fileName: "long-answer.txt",
     size: richMessageLimit + 1,
   });
+});
+
+test("rich blocks preserve group replies, private responses, and keyboards", async () => {
+  const fake = FakeBotApi.make({ token });
+  const app = Application.make({ httpClient: fake.layer, rateLimit: false, token });
+  const group = sourceMessage();
+  const direct = { ...group, chat: { id: 77, type: "private" as const } };
+  const replyMarkup = { inlineKeyboard: [[{ callbackData: "open", text: "Open" }]] };
+
+  try {
+    await app.run(replyBlocks(group, [rich.heading("Group result")], { replyMarkup }));
+    await app.run(replyBlocks(direct, [rich.heading("Private result")]));
+  } finally {
+    await app.close();
+  }
+
+  expect(fake.requests[0]?.params).toMatchObject({
+    reply_markup: { inline_keyboard: [[{ callback_data: "open", text: "Open" }]] },
+    reply_parameters: { message_id: group.messageId },
+    rich_message: { blocks: [{ text: "Group result", type: "heading" }] },
+  });
+  expect(fake.requests[1]?.params).not.toHaveProperty("reply_parameters");
 });

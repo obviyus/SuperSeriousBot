@@ -120,6 +120,7 @@ try {
 
   const webhookMode = process.env.TELEGRAM_E2E_WEBHOOK === "1";
   const aiMode = process.env.TELEGRAM_E2E_AI === "1";
+  const staticRichMode = process.env.TELEGRAM_E2E_STATIC_RICH === "1";
   let openrouterBaseUrl = "";
   if (aiMode) {
     mockAi = Bun.serve({
@@ -224,6 +225,15 @@ try {
           { atMs: 1_500, text: "/ask answer with the test marker", type: "send" },
         ],
       }
+    : staticRichMode
+    ? {
+        actions: [
+          { atMs: 0, text: "/help", type: "send" },
+          { atMs: 1_000, text: "/model", type: "send" },
+          { atMs: 2_000, text: "/thinking", type: "send" },
+          ...(groupMode ? [{ atMs: 3_000, text: "/settings", type: "send" }] : []),
+        ],
+      }
     : groupMode
     ? {
         actions: [
@@ -248,7 +258,7 @@ try {
     "--scenario",
     scenarioPath,
     "--seconds",
-    groupMode ? "15" : "8",
+    groupMode || staticRichMode ? "15" : "8",
     "--record",
     eventsPath,
     "--output",
@@ -270,6 +280,14 @@ try {
       aiRequests.length === 1 &&
       aiRequests[0]?.body?.reasoning?.effort === "high" &&
       aiRequests[0]?.userAgent?.includes("ai-sdk/openrouter/3.0.0") === true
+    : staticRichMode
+    ? revisions.some((text) => text.includes("SuperSeriousBot commands")) &&
+      revisions.some((text) => text.includes("Current AI models")) &&
+      revisions.some((text) => text.includes("AI thinking level")) &&
+      (!groupMode || revisions.some((text) => text.includes("Group settings"))) &&
+      events.filter((event) =>
+        event.isSut === true && event.contentType === "messageRichMessage"
+      ).length >= (groupMode ? 4 : 3)
     : groupMode
     ? revisions.some((text) => text.includes("[alpha] (1 members)")) &&
       revisions.some((text) => text.includes("Created a new habit #walk")) &&

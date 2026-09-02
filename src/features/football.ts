@@ -3,15 +3,17 @@ import {
   answerCallback,
   callbackData,
   Effect,
-  html,
   Schema,
-  sendMessage,
+  sendRichMessage,
+  type InputRichBlock,
+  type RichText,
 } from "telly";
 
 import { callbackRoute } from "../app/callback.ts";
 import { answer, type CommandDefinition } from "../app/command.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { replyBlocks, rich } from "../app/rich.ts";
 
 const competitions = [
   { name: "Premier League", slug: "eng.1" },
@@ -334,26 +336,45 @@ function streamLinks(dependencies: AppDependencies) {
 }
 
 function renderFixtures(fixtures: ReadonlyArray<Fixture>, odds: ReadonlyMap<string, Odds>, streams: ReadonlyArray<{ readonly away: string; readonly home: string; readonly url: string }>, heading: string) {
-  const lines = [heading];
+  const blocks: Array<InputRichBlock> = [rich.heading(heading)];
   let competition = "";
   for (const fixture of fixtures) {
     if (fixture.competitionName !== competition) {
       competition = fixture.competitionName;
-      lines.push("", `<b>${html.escape(competition)}</b>`);
+      blocks.push(rich.heading(competition, 4));
     }
     const stream = streams.find((item) =>
       hasTeam(item.home, fixture.homeTeam) && hasTeam(item.away, fixture.awayTeam) ||
       hasTeam(item.home, fixture.awayTeam) && hasTeam(item.away, fixture.homeTeam));
-    lines.push(`• ${html.escape(fixture.homeTeam)} vs ${html.escape(fixture.awayTeam)}${stream === undefined ? "" : ` · <a href="${stream.url}">📺 watch</a>`}`);
+    const matchup: RichText = [
+      `${fixture.homeTeam} vs ${fixture.awayTeam}`,
+      ...(stream === undefined ? [] : [" · ", rich.link("📺 watch", stream.url)]),
+    ];
+    blocks.push(rich.list([matchup]));
   }
-  lines.push("", `<tg-time unix="${fixtures[0]?.kickoffTime ?? 0}" format="r">Kickoff</tg-time>`, "", "📊 <b>Polymarket odds</b>");
-  for (const fixture of fixtures) {
-    const value = odds.get(fixture.providerId);
-    lines.push(value === undefined
-      ? `• ${html.escape(fixture.homeTeam)} vs ${html.escape(fixture.awayTeam)}: not available yet`
-      : `• ${html.escape(fixture.homeTeam)} <b>${(value.home * 100).toFixed(0)}%</b> · Draw <b>${(value.draw * 100).toFixed(0)}%</b> · ${html.escape(fixture.awayTeam)} <b>${(value.away * 100).toFixed(0)}%</b> · <a href="https://polymarket.com/event/${value.slug}">market</a>`);
-  }
-  return lines.join("\n");
+  blocks.push(rich.paragraph(rich.dateTime(
+    fixtures[0]?.kickoffTime ?? 0,
+    "r",
+    "Kickoff",
+  )));
+  const table = rich.table([
+    ["Match", "Home", "Draw", "Away", "Market"],
+    ...fixtures.map((fixture) => {
+      const value = odds.get(fixture.providerId);
+      return value === undefined
+        ? [`${fixture.homeTeam} vs ${fixture.awayTeam}`, "—", "—", "—", "Pending"]
+        : [
+            `${fixture.homeTeam} vs ${fixture.awayTeam}`,
+            `${(value.home * 100).toFixed(0)}%`,
+            `${(value.draw * 100).toFixed(0)}%`,
+            `${(value.away * 100).toFixed(0)}%`,
+            rich.link("Polymarket", `https://polymarket.com/event/${encodeURIComponent(value.slug)}`),
+          ];
+    }),
+  ], { header: true });
+  blocks.push(rich.heading("📊 Polymarket odds", 4));
+  blocks.push({ ...table, isCompact: true, isStriped: true });
+  return blocks;
 }
 
 export function footballFeature(dependencies: AppDependencies) {
@@ -377,11 +398,10 @@ export function footballFeature(dependencies: AppDependencies) {
         streamLinks(dependencies),
       ], { concurrency: "unbounded" });
       const odds = new Map(oddsValues.filter((entry): entry is readonly [string, Odds] => entry[1] !== undefined));
-      yield* answer(match.message, {
-        linkPreviewOptions: { isDisabled: true },
-        parseMode: "HTML",
-        text: renderFixtures(fixtures, odds, streams, "⚽ <b>Next Big Six match</b>"),
-      });
+      yield* replyBlocks(
+        match.message,
+        renderFixtures(fixtures, odds, streams, "⚽ Next Big Six match"),
+      );
     }),
     usage: "/next",
   };
@@ -479,13 +499,22 @@ export function footballFeature(dependencies: AppDependencies) {
         !delivered.has(`${fixture.providerId}:${rowNumber(member, "user_id")}`)));
       for (let index = 0; index < members.length; index += 5) {
         const chunk = members.slice(index, index + 5);
-        const mentions = chunk.map((member) => `<a href="tg://user?id=${rowNumber(member, "user_id")}">${html.escape(rowString(member, "display_name"))}</a>`).join(" ");
-        const result = yield* Effect.result(sendMessage({
+        const mentions: RichText = chunk.flatMap((member, index) => [
+          ...(index === 0 ? [] : [" "]),
+          rich.link(
+            rowString(member, "display_name"),
+            `tg://user?id=${rowNumber(member, "user_id")}`,
+          ),
+        ]);
+        const result = yield* Effect.result(sendRichMessage({
           chatId,
-          linkPreviewOptions: { isDisabled: true },
-          parseMode: "HTML",
           replyMarkup: keyboard(),
-          text: `${renderFixtures(fixtures, odds, streams, "⚽ <b>Kickoff in five minutes</b>")}\n\n${mentions}`,
+          richMessage: {
+            blocks: [
+              ...renderFixtures(fixtures, odds, streams, "⚽ Kickoff in five minutes"),
+              rich.paragraph(mentions),
+            ],
+          },
         }));
         if (result._tag === "Failure") continue;
         yield* Effect.forEach(chunk, (member) => Effect.forEach(fixtures, (fixture) =>

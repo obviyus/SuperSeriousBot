@@ -6,7 +6,6 @@ import {
   editMessageReplyMarkup,
   editMessageText,
   Effect,
-  html,
   Schema,
 } from "telly";
 
@@ -20,7 +19,7 @@ import {
 } from "../app/command.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
-import { richMarkdownPrompt, sendRich } from "../app/rich.ts";
+import { replyBlocks, rich, richMarkdownPrompt, sendRich } from "../app/rich.ts";
 
 const defaultTimezone = "Asia/Kolkata";
 const CronDraft = Schema.Struct({
@@ -74,6 +73,27 @@ function deleteKeyboard(taskId: number) {
       ...CronCallback.button("🗑️ Delete", { taskId }),
       style: "danger" as const,
     }]],
+  };
+}
+
+function cronTaskDetails(task: {
+  readonly cronExpr: string;
+  readonly id: number;
+  readonly next: number;
+  readonly timezone: string;
+  readonly title: string;
+}) {
+  return {
+    blocks: [{
+      ...rich.table([
+        ["Schedule", rich.code(task.cronExpr)],
+        ["Timezone", rich.code(task.timezone)],
+        ["Next run", rich.dateTime(task.next, "wDT", "scheduled")],
+      ]),
+      isCompact: true as const,
+    }],
+    summary: [rich.code(`#${task.id}`), " ", rich.bold(task.title)],
+    type: "details" as const,
   };
 }
 
@@ -140,13 +160,17 @@ export function cronFeature(dependencies: AppDependencies) {
           [match.message.chat.id, user.id],
         );
         if (rows.length === 0) return yield* usage(match.message, definition);
-        const entries = rows.map((row) =>
-          `<code>${rowNumber(row, "id")}</code>. <b>${html.escape(rowString(row, "title"))}</b>\n<code>${html.escape(rowString(row, "cron_expr"))}</code> <code>${html.escape(rowString(row, "timezone"))}</code>\nNext: <tg-time unix="${rowNumber(row, "next_run_time")}" format="wDT">scheduled</tg-time>`
-        );
-        return yield* answer(match.message, {
-          parseMode: "HTML",
-          text: `<b>Your cron tasks in this chat:</b>\n\n${entries.join("\n\n")}`,
-        });
+        return yield* replyBlocks(match.message, [
+          rich.heading("🕰️ Your scheduled AI tasks"),
+          ...rows.map((row) => cronTaskDetails({
+            cronExpr: rowString(row, "cron_expr"),
+            id: rowNumber(row, "id"),
+            next: rowNumber(row, "next_run_time"),
+            timezone: rowString(row, "timezone"),
+            title: rowString(row, "title"),
+          })),
+          rich.footer(["Manage a task with ", rich.code("/cron run <id>"), " or ", rich.code("/cron del <id>")]),
+        ]);
       }
       const action = match.args[0]?.toLowerCase();
       if (action === "del" || action === "run") {
@@ -211,8 +235,10 @@ export function cronFeature(dependencies: AppDependencies) {
       yield* editMessageText({
         chatId: status.chat.id,
         messageId: status.messageId,
-        parseMode: "HTML",
-        text: `Created cron task <code>${id}</code>.\n\n<b>${html.escape(draft.title)}</b>\n<code>${html.escape(draft.cronExpr)}</code> <code>${html.escape(draft.timezone)}</code>\nNext: <tg-time unix="${draft.next}" format="wDT">scheduled</tg-time>`,
+        richMessage: { blocks: [
+          rich.heading("✅ Scheduled AI task created", 3),
+          cronTaskDetails({ id, ...draft }),
+        ] },
       });
     }),
     usage: "/cron [schedule + task]\n/cron del [id]\n/cron run [id]",

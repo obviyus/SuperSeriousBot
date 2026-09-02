@@ -10,7 +10,7 @@ import {
   scheduleRuntimeJobs,
   waitForWebhook,
 } from "../src/runtime.ts";
-import { fixture, testConfig, token } from "./harness.ts";
+import { commandUpdate, fixture, richContent, testConfig, token } from "./harness.ts";
 
 const offline: Fetch = async () => new Response("{}");
 
@@ -40,6 +40,23 @@ test("bot registers every migrated command name", async () => {
     "thinking", "tl", "tldr", "tldw", "tr", "ud", "unblock", "unwhitelist", "users",
     "userstats", "ustat", "ustats", "video", "w", "weather", "whitelist",
   ]);
+});
+
+test("help presents enabled commands as a native rich list", async () => {
+  const { app, bot, database, fake } = await fixture(offline);
+
+  try {
+    await app.run(bot.handler(commandUpdate("/help", 7_001)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
+  expect(content.text).toContain("/ping");
+  expect(content.text).toContain("Pong.");
+  expect(content.types).toContain("list");
 });
 
 test("runtime registers every recurring worker", async () => {

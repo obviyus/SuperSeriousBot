@@ -6,6 +6,7 @@ import type { Fetch } from "../src/app/http.ts";
 import {
   commandUpdate,
   fixture,
+  richContent,
   testConfig,
 } from "./harness.ts";
 
@@ -29,11 +30,11 @@ test("define command renders the first dictionary meaning", async () => {
     database.close();
   }
 
-  const reply = fake.requests.find((request) => request.method === "sendMessage");
-  expect(reply?.params).toMatchObject({
-    parse_mode: "HTML",
-    text: "<b>posthumous</b>\n🗣️ /ˈpɒstjʊməs/\n\n<b>adjective</b>\n  -  Existing after death.\n\nSynonyms:\n  - late\n  - postmortem",
-  });
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
+  expect(content.text).toContain("Existing after death.");
+  expect(content.text).toContain("late");
+  expect(content.types).toContain("details");
 });
 
 test("Urban Dictionary command selects the highest-voted definition", async () => {
@@ -64,13 +65,11 @@ test("Urban Dictionary command selects the highest-voted definition", async () =
     database.close();
   }
 
-  const reply = fake.requests.find((request) => request.method === "sendMessage");
-  expect(reply?.params).toMatchObject({
-    text: expect.stringContaining("strong definition"),
-  });
-  expect(reply?.params).not.toMatchObject({
-    text: expect.stringContaining("weak definition"),
-  });
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
+  expect(content.text).toContain("strong definition");
+  expect(content.text).not.toContain("weak definition");
+  expect(content.types).toContain("blockquote");
 });
 
 test("calculation command explains an unrecognized query", async () => {
@@ -154,10 +153,10 @@ test("weather command stores the resolved location and renders air quality", asy
   ));
   database.close();
 
-  const reply = fake.requests.find((request) => request.method === "sendMessage");
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
   expect(cached?.["address"]).toBe("Berlin, Berlin, Germany");
   expect(cached?.["latitude"]).toBe(52.52);
-  expect(reply?.params).toMatchObject({
-    text: expect.stringContaining("🛰 <b>AQI:</b> 42"),
-  });
+  expect(content.text).toContain("AQI\n42");
+  expect(content.types).toContain("table");
 });

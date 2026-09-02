@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { Effect, type Update } from "telly";
 
 import type { Fetch } from "../src/app/http.ts";
-import { commandUpdate, fixture } from "./harness.ts";
+import { commandUpdate, fixture, richContent } from "./harness.ts";
 
 const kickoff = Math.floor(new Date("2026-09-01T12:05:00Z").getTime() / 1_000);
 
@@ -52,13 +52,6 @@ function streamPage() {
   return `<a href="https://thestreameast.one/watch/premier-league/arsenal-coventry/1">
     <span class="d-md-inline ">Arsenal vs Coventry City</span>
   </a>`;
-}
-
-function requestText(params: unknown): string {
-  if (typeof params !== "object" || params === null) throw new Error("Telegram request missing");
-  const text = Reflect.get(params, "text");
-  if (typeof text !== "string") throw new Error("Telegram request has no text");
-  return text;
 }
 
 async function storeFixture(
@@ -129,14 +122,12 @@ test("next command renders odds and a matching watch link", async () => {
     database.close();
   }
 
-  const message = fake.requests.find((request) => request.method === "sendMessage");
-  const text = requestText(message?.params);
-  expect(message?.params).toMatchObject({
-    link_preview_options: { is_disabled: true },
-    parse_mode: "HTML",
-  });
-  expect(text).toContain("Arsenal <b>62%</b> · Draw <b>23%</b> · Coventry City <b>15%</b>");
-  expect(text).toContain("📺 watch</a>");
+  const message = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(message?.params);
+  expect(content.text).toContain("Arsenal vs Coventry City");
+  expect(content.text).toContain("62%\n23%\n15%");
+  expect(content.text).toContain("📺 watch");
+  expect(content.types).toContain("table");
 });
 
 test("football buttons join and leave the current group", async () => {
@@ -220,11 +211,12 @@ test("football worker delivers rich alerts once per member", async () => {
   ));
   database.close();
 
-  const alerts = fake.requests.filter((request) => request.method === "sendMessage");
-  const text = requestText(alerts[0]?.params);
+  const alerts = fake.requests.filter((request) => request.method === "sendRichMessage");
+  const content = richContent(alerts[0]?.params);
   expect(alerts).toHaveLength(1);
-  expect(text).toContain("Arsenal <b>62%</b>");
-  expect(text).toContain("Ayaan &amp; Co");
+  expect(content.text).toContain("Arsenal vs Coventry City");
+  expect(content.text).toContain("62%");
+  expect(content.text).toContain("Ayaan & Co");
   expect(deliveries).toHaveLength(1);
   expect(fixtureRow?.["alert_time"]).toBe(Math.floor(new Date("2026-09-01T12:00:00Z").getTime() / 1_000));
 });

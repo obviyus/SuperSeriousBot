@@ -1,4 +1,5 @@
 import { createClient } from "@libsql/client";
+import { Predicate } from "effect";
 import { Application, Effect, type Update } from "telly";
 import { FakeBotApi, FakeBotApiReply } from "telly/testing";
 
@@ -93,6 +94,22 @@ export function openRouterEmbeddings(requestBody: string): Response {
     model: "qwen/qwen3-embedding-8b",
     object: "list",
   }), { headers: { "content-type": "application/json" } });
+}
+
+export function richContent(params: unknown): {
+  readonly text: string;
+  readonly types: ReadonlyArray<string>;
+} {
+  const types: Array<string> = [];
+  const read = (value: unknown): ReadonlyArray<string> => {
+    if (typeof value === "string") return [value];
+    if (Array.isArray(value)) return value.flatMap(read);
+    if (!Predicate.isObject(value)) return [];
+    if (typeof value["type"] === "string") types.push(value["type"]);
+    return ["text", "summary", "blocks", "items", "cells"].flatMap((key) => read(value[key]));
+  };
+  const richMessage = Predicate.isObject(params) ? params["rich_message"] : undefined;
+  return { text: read(richMessage).join("\n"), types };
 }
 
 export async function fixture(

@@ -3,7 +3,7 @@ import { Effect } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
-import { commandUpdate, fixture } from "./harness.ts";
+import { commandUpdate, fixture, richContent } from "./harness.ts";
 
 const offline: Fetch = async () => new Response("{}");
 
@@ -25,8 +25,10 @@ test("remind command parses relative time and preserves the title", async () => 
 
   expect(row?.["title"]).toBe("Make tea");
   expect(row?.["target_time"]).toBe(1_788_271_200);
-  const reply = fake.requests.find((request) => request.method === "sendMessage");
-  expect(reply?.params).toMatchObject({ text: expect.stringContaining("Make tea") });
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
+  expect(content.text).toContain("Make tea");
+  expect(content.types).toContain("date_time");
 });
 
 test("reminder worker sends and removes each claimed reminder", async () => {

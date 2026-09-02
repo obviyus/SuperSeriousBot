@@ -8,6 +8,7 @@ import {
 } from "../app/command.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { replyBlocks, rich } from "../app/rich.ts";
 
 function adminOnly(dependencies: AppDependencies, userId: number | undefined) {
   return userId !== undefined && isAdmin(dependencies, userId);
@@ -77,13 +78,19 @@ function blocklistCommand(dependencies: AppDependencies): CommandDefinition {
          FROM command_blocklist ORDER BY blocked_at DESC`,
       );
       if (rows.length === 0) return yield* answer(match.message, "No blocked users found.");
-      const items = rows.map((row) =>
-        `User: <code>${rowNumber(row, "user_id")}</code>\nCommand: /${html.escape(rowString(row, "command"))}\nBlocked by: <code>${rowNumber(row, "blocked_by")}</code>\nWhen: ${html.escape(rowString(row, "blocked_at"))}`
-      ).join("\n\n");
-      return yield* answer(match.message, {
-        parseMode: "HTML",
-        text: `🚫 <b>Command Blocklist:</b>\n\n${items}`,
-      });
+      const table = rich.table([
+        ["User", "Command", "Blocked by", "When"],
+        ...rows.map((row) => [
+          rich.code(String(rowNumber(row, "user_id"))),
+          rich.command(`/${rowString(row, "command")}`),
+          rich.code(String(rowNumber(row, "blocked_by"))),
+          rich.code(rowString(row, "blocked_at")),
+        ]),
+      ], { header: true });
+      return yield* replyBlocks(match.message, [
+        rich.heading("🚫 Command blocklist"),
+        { ...table, isCompact: true, isStriped: true },
+      ]);
     }),
     usage: "/blocklist",
   };

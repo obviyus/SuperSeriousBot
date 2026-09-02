@@ -11,6 +11,7 @@ SuperSeriousBot has grown with its groups for years. It combines AI, media, sear
 ## Features
 
 - AI: native rich replies, semantic search, image and video generation, custom songs, summaries, and transcription
+- Native Telegram UI: rich tables, lists, details, charts, dates, links, and command dashboards
 - Group memory: semantic `/search`, citations, member personas, and group lore
 - Media: `/set`, `/get`, `/dl`, automatic reel downloads, memes, and quotes
 - Social: `/summon`, `/habit`, `/highlight`, reactions, mentions, and `sed` corrections
@@ -83,6 +84,7 @@ The local Test Server harness uses leased QA credentials from the Telly skill:
 ```bash
 bun run test:e2e
 TELEGRAM_E2E_GROUP=1 bun run test:e2e
+TELEGRAM_E2E_STATIC_RICH=1 TELEGRAM_E2E_GROUP=1 bun run test:e2e
 TELEGRAM_E2E_WEBHOOK=1 bun run test:e2e
 ```
 

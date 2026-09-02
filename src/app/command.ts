@@ -1,6 +1,5 @@
 import {
   Effect,
-  html,
   reply,
   respond,
   respondTo,
@@ -18,6 +17,7 @@ import { Predicate } from "effect";
 import type { ApiConfig } from "./config.ts";
 import { isAdmin } from "./admin.ts";
 import type { AppDependencies } from "./dependencies.ts";
+import { replyBlocks, rich } from "./rich.ts";
 
 export type CommandEffect = Effect.Effect<unknown, unknown, Bot>;
 
@@ -43,11 +43,13 @@ export function usage(
   message: ConversationMessage,
   definition: Pick<CommandDefinition, "description" | "example" | "usage">,
 ) {
-  return answer(message, {
-    linkPreviewOptions: { isDisabled: true },
-    parseMode: "HTML",
-    text: `${html.escape(definition.description)}\n\n<b>Usage:</b>\n<pre>${html.escape(definition.usage)}</pre>\n\n<b>Example:</b>\n<pre>${html.escape(definition.example)}</pre>`,
-  });
+  return replyBlocks(message, [
+    rich.paragraph(definition.description),
+    rich.heading("Usage", 4),
+    rich.pre(definition.usage),
+    rich.heading("Example", 4),
+    rich.pre(definition.example),
+  ]);
 }
 
 function enabled(definition: CommandDefinition, dependencies: AppDependencies): boolean {

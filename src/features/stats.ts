@@ -7,6 +7,7 @@ import {
 } from "../app/command.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { replyBlocks, rich } from "../app/rich.ts";
 
 function readableTime(now: Date, input: string): string {
   const seconds = Math.abs(now.getTime() - new Date(input).getTime()) / 1_000;
@@ -50,14 +51,18 @@ function statsCommand(dependencies: AppDependencies, todayOnly: boolean): Comman
       const total = rows.reduce((sum, row) => sum + rowNumber(row, "user_count"), 0);
       if (total === 0) return yield* answer(match.message, "No messages recorded.");
       const title = match.message.chat.title ?? String(match.message.chat.id);
-      const lines = rows.map((row) => {
-        const count = rowNumber(row, "user_count");
-        return `<code>${(count / total * 100).toFixed(1).padStart(4)}% - ${html.escape(rowString(row, "name"))}</code>`;
-      });
-      return yield* answer(match.message, {
-        parseMode: "HTML",
-        text: `Stats for <b>${html.escape(title)}:</b>\n\n${lines.join("\n")}\n\nTotal messages: <b>${total}</b>`,
-      });
+      const table = rich.table([
+        ["Member", "Messages", "Share"],
+        ...rows.map((row) => {
+          const count = rowNumber(row, "user_count");
+          return [rowString(row, "name"), rich.code(String(count)), `${(count / total * 100).toFixed(1)}%`];
+        }),
+      ], { header: true });
+      return yield* replyBlocks(match.message, [
+        rich.heading(`${todayOnly ? "📊 Today's activity" : "📈 Group activity"} — ${title}`),
+        { ...table, isCompact: true, isStriped: true },
+        rich.footer(["Total messages: ", rich.bold(String(total))]),
+      ]);
     }),
     usage: todayOnly ? "/stats" : "/gstats",
   };
@@ -139,13 +144,18 @@ function botStatsCommand(dependencies: AppDependencies): CommandDefinition {
          FROM command_stats GROUP BY command ORDER BY command_count DESC LIMIT 10`,
       );
       const totalRow = yield* dependencies.database.one("SELECT COUNT(*) AS total FROM command_stats");
-      const lines = rows.map((row) =>
-        `<code>${String(rowNumber(row, "command_count")).padStart(4)} - /${html.escape(rowString(row, "command"))}</code>`
-      );
-      return yield* answer(match.message, {
-        parseMode: "HTML",
-        text: `Stats for <b>@${html.escape(bot.username ?? bot.firstName)}:</b>\n\n${lines.join("\n")}\n\nTotal: <b>${totalRow === undefined ? 0 : rowNumber(totalRow, "total")}</b>`,
-      });
+      const table = rich.table([
+        ["Command", "Runs"],
+        ...rows.map((row) => [
+          rich.command(`/${rowString(row, "command")}`),
+          rich.code(String(rowNumber(row, "command_count"))),
+        ]),
+      ], { header: true });
+      return yield* replyBlocks(match.message, [
+        rich.heading(`🤖 @${bot.username ?? bot.firstName} command stats`),
+        { ...table, isBordered: true, isCompact: true },
+        rich.footer(["Total runs: ", rich.bold(String(totalRow === undefined ? 0 : rowNumber(totalRow, "total")))]),
+      ]);
     }),
     usage: "/botstats",
   };
@@ -199,13 +209,16 @@ function friendsCommand(dependencies: AppDependencies): CommandDefinition {
       }
       const outgoing = rows.filter((row) => row["direction"] === "out").slice(0, 3);
       const incoming = rows.filter((row) => row["direction"] === "in").slice(0, 3);
-      const render = (heading: string, arrow: string, values: typeof rows) => values.length === 0
-        ? ""
-        : `\n\n${heading}${values.map((row) => `\n<code>${String(rowNumber(row, "weight")).padStart(6)} ${arrow} ${html.escape(rowString(row, "name"))}</code>`).join("")}`;
-      return yield* answer(match.message, {
-        parseMode: "HTML",
-        text: `From the social graph of <b>${html.escape(match.message.chat.title ?? String(match.message.chat.id))}</b>:${render("You have the strongest connections to:", "⟶", outgoing)}${render("You have the strongest connections from:", "←", incoming)}`,
-      });
+      const table = rich.table([
+        ["Direction", "Member", "Interactions"],
+        ...outgoing.map((row) => ["You →", rowString(row, "name"), rich.code(String(rowNumber(row, "weight")))]),
+        ...incoming.map((row) => ["You ←", rowString(row, "name"), rich.code(String(rowNumber(row, "weight")))]),
+      ], { header: true });
+      return yield* replyBlocks(match.message, [
+        rich.heading(`🕸️ Your social graph — ${match.message.chat.title ?? String(match.message.chat.id)}`),
+        { ...table, isCompact: true, isStriped: true },
+        rich.footer("Arrows show who mentions or replies to whom."),
+      ]);
     }),
     usage: "/friends",
   };
@@ -312,14 +325,26 @@ function userStatsCommand(dependencies: AppDependencies): CommandDefinition {
         return `${labels[index]} | ${"█".repeat(width).padEnd(20)} ${count}`;
       }).join("\n");
       const name = target.username ?? target.firstName;
-      if (week === 0) return yield* answer(match.message, {
-        parseMode: "HTML",
-        text: `User stats for <b>${html.escape(name)}</b> in <b>${html.escape(match.message.chat.title ?? String(match.message.chat.id))}</b>\n\nNo messages in the last 7 days.`,
-      });
-      return yield* answer(match.message, {
-        parseMode: "HTML",
-        text: `User stats for <b>${html.escape(name)}</b> in <b>${html.escape(match.message.chat.title ?? String(match.message.chat.id))}</b>\n\nLast 7d: <b>${week}</b> msgs (${group === 0 ? "0.0" : (week / group * 100).toFixed(1)}% of group) • avg ${(week / 7).toFixed(2)}/day\nLifetime in this chat: <b>${lifetime}</b> msgs\nMost active hour: <b>${hour === undefined ? "-" : `${String(hour).padStart(2, "0")}:00`}</b>\nMost active day: <b>${day === undefined ? "-" : dayNames[Number(day)]}</b>\n\n<pre>${bars}</pre>\nSparkline: <code>${sparkline(counts)}</code>`,
-      });
+      const heading = rich.heading(`📊 ${name} — ${match.message.chat.title ?? String(match.message.chat.id)}`);
+      if (week === 0) return yield* replyBlocks(match.message, [
+        heading,
+        rich.paragraph("No messages in the last 7 days."),
+      ]);
+      const table = rich.table([
+        ["Metric", "Value"],
+        ["Last 7 days", `${week} messages`],
+        ["Group share", `${group === 0 ? "0.0" : (week / group * 100).toFixed(1)}%`],
+        ["Daily average", (week / 7).toFixed(2)],
+        ["Lifetime", `${lifetime} messages`],
+        ["Most active hour", hour === undefined ? "—" : `${String(hour).padStart(2, "0")}:00`],
+        ["Most active day", day === undefined ? "—" : dayNames[Number(day)] ?? "—"],
+      ], { header: true });
+      return yield* replyBlocks(match.message, [
+        heading,
+        { ...table, isCompact: true, isStriped: true },
+        rich.pre(bars),
+        rich.footer(["7-day sparkline: ", rich.code(sparkline(counts))]),
+      ]);
     }),
     usage: "/ustats [username]",
   };
