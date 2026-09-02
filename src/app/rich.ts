@@ -8,10 +8,13 @@ import {
   sendMessage,
   sendRichMessage,
   type BotApiError,
+  type ConversationMessage,
   type ConversationTarget,
+  type InputRichBlock,
   type InlineKeyboardMarkup,
   type Message,
   type ReplyTarget,
+  type RichText,
 } from "telly";
 
 const plainMessageLimit = 4_096;
@@ -27,6 +30,53 @@ interface RichOptions {
 }
 
 type RichTarget = ConversationTarget | ReplyTarget;
+
+export const rich = {
+  bold: (text: RichText): RichText => ({ text, type: "bold" }),
+  code: (text: RichText): RichText => ({ text, type: "code" }),
+  command: (command: string): RichText => ({
+    botCommand: command,
+    text: command,
+    type: "bot_command",
+  }),
+  dateTime: (unixTime: number, dateTimeFormat: string, text: RichText): RichText => ({
+    dateTimeFormat,
+    text,
+    type: "date_time",
+    unixTime,
+  }),
+  footer: (text: RichText): InputRichBlock => ({ text, type: "footer" }),
+  heading: (text: RichText, size = 2): InputRichBlock => ({ size, text, type: "heading" }),
+  link: (text: RichText, url: string): RichText => ({ text, type: "url", url }),
+  list: (
+    items: ReadonlyArray<RichText>,
+    options: { readonly ordered?: boolean } = {},
+  ): InputRichBlock => ({
+    items: items.map((text, index) => ({
+      blocks: [{ text, type: "paragraph" }],
+      ...(options.ordered === true ? { type: "1", value: index + 1 } : {}),
+    })),
+    type: "list",
+  }),
+  paragraph: (text: RichText): InputRichBlock => ({ text, type: "paragraph" }),
+  pre: (text: RichText): InputRichBlock => ({ text, type: "pre" }),
+  table: (
+    rows: ReadonlyArray<ReadonlyArray<RichText>>,
+    options: { readonly header?: boolean } = {},
+  ): InputRichBlock => ({
+    cells: rows.map((row, rowIndex) => row.map((text) => ({
+      align: "left",
+      text,
+      valign: "middle",
+      ...(options.header === true && rowIndex === 0 ? { isHeader: true as const } : {}),
+    }))),
+    type: "table",
+  }),
+} as const;
+
+function conversationTarget(message: ConversationMessage): RichTarget {
+  return message.chat.type === "private" ? respondTo(message) : replyTo(message);
+}
 
 function plain(target: RichTarget, text: string, options: RichOptions) {
   const replyMarkup = {
@@ -64,12 +114,23 @@ function sendAt(target: RichTarget, text: string, options: RichOptions) {
 }
 
 export const replyRich = Effect.fn("replyRich")(function* (
-  message: Message,
+  message: ConversationMessage,
   text: string,
   options: RichOptions = {},
 ) {
-  const target = message.chat.type === "private" ? respondTo(message) : replyTo(message);
-  return yield* sendAt(target, text, options);
+  return yield* sendAt(conversationTarget(message), text, options);
+});
+
+export const replyBlocks = Effect.fn("replyBlocks")(function* (
+  message: ConversationMessage,
+  blocks: ReadonlyArray<InputRichBlock>,
+  options: Pick<RichOptions, "replyMarkup"> = {},
+) {
+  return yield* sendRichMessage({
+    ...conversationTarget(message),
+    ...(options.replyMarkup === undefined ? {} : { replyMarkup: options.replyMarkup }),
+    richMessage: { blocks },
+  });
 });
 
 export const sendRich = Effect.fn("sendRich")(function* (

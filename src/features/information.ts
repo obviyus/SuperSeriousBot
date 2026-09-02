@@ -1,6 +1,5 @@
 import {
   Effect,
-  html,
   Schema,
 } from "telly";
 
@@ -11,6 +10,7 @@ import {
 } from "../app/command.ts";
 import { rowNumber } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { replyBlocks, rich } from "../app/rich.ts";
 import { truncate } from "../app/text.ts";
 
 const DictionaryResponse = Schema.Array(Schema.Struct({
@@ -86,17 +86,21 @@ function definitionCommand(dependencies: AppDependencies): CommandDefinition {
       const phonetic = entry.phonetics?.find((item) => item.text !== undefined)?.text;
       const meaning = entry.meanings?.[0];
       const firstDefinition = meaning?.definitions?.[0];
-      let text = `<b>${html.escape(entry.word)}</b>`;
-      if (phonetic !== undefined) text += `\n🗣️ ${html.escape(phonetic)}`;
+      const blocks = [rich.heading(`📖 ${entry.word}`)];
+      if (phonetic !== undefined) blocks.push(rich.paragraph(["🗣️ ", rich.code(phonetic)]));
       if (meaning?.partOfSpeech !== undefined && firstDefinition !== undefined) {
-        text += `\n\n<b>${html.escape(meaning.partOfSpeech)}</b>`;
-        text += `\n  -  ${html.escape(firstDefinition.definition)}`;
+        blocks.push(rich.heading(meaning.partOfSpeech, 4));
+        blocks.push(rich.paragraph(firstDefinition.definition));
         const synonyms = firstDefinition.synonyms?.slice(0, 2) ?? [];
         if (synonyms.length > 0) {
-          text += `\n\nSynonyms:${synonyms.map((synonym) => `\n  - ${html.escape(synonym)}`).join("")}`;
+          blocks.push({
+            blocks: [rich.list(synonyms)],
+            summary: "Synonyms",
+            type: "details",
+          });
         }
       }
-      return yield* answer(match.message, { parseMode: "HTML", text });
+      return yield* replyBlocks(match.message, blocks);
     }),
     usage: "/define [word]",
   };
@@ -131,12 +135,21 @@ function urbanDictionaryCommand(dependencies: AppDependencies): CommandDefinitio
       const permalink = URL.canParse(entry.permalink) && ["http:", "https:"].includes(
         new URL(entry.permalink).protocol,
       ) ? entry.permalink : "";
-      const prefix = wordOfTheDay ? `📅 Word of the Day (${entry.date ?? "Today"}):\n\n` : "";
-      return yield* answer(match.message, {
-        linkPreviewOptions: { isDisabled: true },
-        parseMode: "HTML",
-        text: `${html.escape(prefix)}<a href="${html.escape(permalink)}"><b>${html.escape(entry.word)}</b></a>\n\n${html.escape(truncate(entry.definition, 1_000))}\n\n<i>${html.escape(truncate(entry.example, 1_000))}</i>\n\n<pre>👍 x ${entry.thumbs_up}</pre>`,
-      });
+      const title = permalink.length === 0
+        ? entry.word
+        : rich.link(entry.word, permalink);
+      return yield* replyBlocks(match.message, [
+        rich.heading(wordOfTheDay ? ["📅 Word of the day — ", title] : ["📚 ", title]),
+        rich.paragraph(truncate(entry.definition, 1_000)),
+        {
+          blocks: [rich.paragraph(truncate(entry.example, 1_000))],
+          type: "blockquote",
+        },
+        rich.footer([
+          `👍 ${entry.thumbs_up}`,
+          ...(wordOfTheDay ? [` · ${entry.date ?? "Today"}`] : []),
+        ]),
+      ]);
     }),
     usage: "/ud [word] or /ud",
   };
@@ -301,10 +314,21 @@ function weatherCommand(dependencies: AppDependencies): CommandDefinition {
       const renderedAqi = aqiValue === undefined || aqiValue === "-"
         ? "Unavailable"
         : String(Math.trunc(Number(aqiValue)));
-      return yield* answer(match.message, {
-        parseMode: "HTML",
-        text: `<b>${html.escape(address)}</b>\n\n${html.escape(current.condition.text)}\n\n🌡️ <b>Temperature:</b> ${current.temp_c.toFixed(1)} °C\n🫠 <b>Feels like:</b> ${current.feelslike_c.toFixed(1)} °C\n💦 <b>Humidity:</b> ${current.humidity}%\n💨 <b>Wind:</b> ${current.wind_kph.toFixed(1)} km/h ${html.escape(current.wind_dir)}\n🛰 <b>AQI:</b> ${renderedAqi}\n🌫 <b>PM2.5:</b> ${pollutant(current.air_quality?.pm2_5)}\n🏭 <b>PM10:</b> ${pollutant(current.air_quality?.pm10)}`,
-      });
+      const table = rich.table([
+        ["Measure", "Value"],
+        ["🌡️ Temperature", `${current.temp_c.toFixed(1)} °C`],
+        ["🫠 Feels like", `${current.feelslike_c.toFixed(1)} °C`],
+        ["💦 Humidity", `${current.humidity}%`],
+        ["💨 Wind", `${current.wind_kph.toFixed(1)} km/h ${current.wind_dir}`],
+        ["🛰 AQI", renderedAqi],
+        ["🌫 PM2.5", pollutant(current.air_quality?.pm2_5)],
+        ["🏭 PM10", pollutant(current.air_quality?.pm10)],
+      ], { header: true });
+      return yield* replyBlocks(match.message, [
+        rich.heading(`🌦️ ${address}`),
+        rich.paragraph(current.condition.text),
+        { ...table, isCompact: true, isStriped: true },
+      ]);
     }),
     usage: "/w [location]",
   };

@@ -3,7 +3,7 @@ import { Effect, type Update } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
-import { commandUpdate, fixture } from "./harness.ts";
+import { commandUpdate, fixture, richContent } from "./harness.ts";
 
 const offline: Fetch = async () => new Response("{}");
 const presence = () => [FakeBotApiReply.ok(true), FakeBotApiReply.ok(true)] as const;
@@ -34,12 +34,29 @@ test("model command updates every AI model in one database write", async () => {
   expect(reply?.params).toMatchObject({ text: expect.stringContaining("All command models") });
 });
 
+test("model command presents configured models in a native rich table", async () => {
+  const { app, bot, database, fake } = await fixture(offline, presence());
+
+  try {
+    await app.run(bot.handler(commandUpdate("/model", 604)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
+  expect(content.text).toContain("/ask");
+  expect(content.text).toContain("openrouter/x-ai/grok-4.3");
+  expect(content.types).toContain("table");
+});
+
 test("settings callback toggles message search and redraws the keyboard", async () => {
   const { app, bot, database, fake } = await fixture(offline, presence());
 
   try {
     await app.run(bot.handler(commandUpdate("/settings", 602)));
-    const sent = fake.requests.find((request) => request.method === "sendMessage");
+    const sent = fake.requests.find((request) => request.method === "sendRichMessage");
     if (typeof sent?.params !== "object" || sent.params === null) {
       throw new Error("Settings command sent no parameters");
     }
@@ -95,4 +112,5 @@ test("settings callback toggles message search and redraws the keyboard", async 
   expect(Reflect.get(edit.params, "chat_id")).toBe(-1007);
   expect(Reflect.get(edit.params, "message_id")).toBe(91);
   expect(firstText).toBe("On - Message search");
+  expect(richContent(edit.params).text).toContain("Group settings");
 });

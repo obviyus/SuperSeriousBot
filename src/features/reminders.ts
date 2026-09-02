@@ -12,14 +12,10 @@ import {
 } from "../app/command.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { replyBlocks, rich } from "../app/rich.ts";
 
 const claimLeaseSeconds = 5 * 60;
 const maximumAttempts = 5;
-
-function telegramTime(unix: number, fallback: string, format?: string): string {
-  const formatAttribute = format === undefined ? "" : ` format="${format}"`;
-  return `<tg-time unix="${unix}"${formatAttribute}>${html.escape(fallback)}</tg-time>`;
-}
 
 export function parseReminderTime(text: string, now: Date): Date | undefined {
   const hasIst = /\bIST\b/iu.test(text);
@@ -46,15 +42,20 @@ export function reminderFeature(dependencies: AppDependencies) {
           [user.id, match.message.chat.id],
         );
         if (rows.length === 0) return yield* usage(match.message, definition);
-        const items = rows.map((row, index) => {
+        const items = rows.map((row) => {
           const target = rowNumber(row, "target_time");
           const fallback = new Date(target * 1_000).toISOString().replace("T", " ").slice(0, 16);
-          return `${index + 1}. <code>${html.escape(rowString(row, "title"))}</code> ${telegramTime(target, `${fallback} UTC`, "r")}`;
+          return [
+            rich.code(rowString(row, "title")),
+            " — ",
+            rich.dateTime(target, "r", `${fallback} UTC`),
+          ];
         });
-        return yield* answer(match.message, {
-          parseMode: "HTML",
-          text: `⏰ Your reminders in this chat:\n\n${items.join("\n")}`,
-        });
+        return yield* replyBlocks(match.message, [
+          rich.heading("⏰ Your reminders"),
+          rich.list(items, { ordered: true }),
+          rich.footer("Times update automatically in Telegram."),
+        ]);
       }
       const separator = match.argText.indexOf(" - ");
       if (separator === -1) return yield* usage(match.message, definition);
@@ -79,10 +80,14 @@ export function reminderFeature(dependencies: AppDependencies) {
         "INSERT INTO reminders (chat_id, user_id, title, target_time) VALUES (?, ?, ?, ?)",
         [match.message.chat.id, user.id, title, unix],
       );
-      return yield* answer(match.message, {
-        parseMode: "HTML",
-        text: `I will remind you about <code>${html.escape(title)}</code> on ${telegramTime(unix, target.toISOString(), "wDT")}`,
-      });
+      return yield* replyBlocks(match.message, [
+        rich.heading("⏰ Reminder scheduled", 3),
+        rich.paragraph(["I will remind you about ", rich.code(title), " on ", rich.dateTime(
+          unix,
+          "wDT",
+          target.toISOString(),
+        )]),
+      ]);
     }),
     usage: "/remind [reminder name] - [target time]",
   };

@@ -3,7 +3,7 @@ import { Effect } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
-import { commandUpdate, fixture } from "./harness.ts";
+import { commandUpdate, fixture, richContent } from "./harness.ts";
 
 const offline: Fetch = async () => new Response("{}");
 const presence = () => [FakeBotApiReply.ok(true), FakeBotApiReply.ok(true)] as const;
@@ -28,6 +28,26 @@ test("block command prevents the selected user from using one command", async ()
   expect(reply?.params).toMatchObject({
     text: "✅ User <code>77</code> blocked from using /weather",
   });
+});
+
+test("blocklist presents moderation records in a native rich table", async () => {
+  const { app, bot, database, fake } = await fixture(offline, presence());
+  await Effect.runPromise(database.execute(
+    "INSERT INTO command_blocklist (user_id, command, blocked_by) VALUES (?, ?, ?)",
+    [77, "weather", 1],
+  ));
+
+  try {
+    await app.run(bot.handler(commandUpdate("/blocklist", 304)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
+  expect(content.text).toContain("77\n/weather\n1");
+  expect(content.types).toContain("table");
 });
 
 test("unblock command reports when no matching block exists", async () => {

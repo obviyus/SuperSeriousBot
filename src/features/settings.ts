@@ -17,6 +17,7 @@ import {
 } from "../app/command.ts";
 import { rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { replyBlocks, rich } from "../app/rich.ts";
 
 export const defaultModels = {
   ask: "openrouter/x-ai/grok-4.3",
@@ -99,13 +100,18 @@ function modelCommand(dependencies: AppDependencies): CommandDefinition {
         const models = yield* Effect.all(Object.fromEntries(
           modelCommands.map((name) => [name, getModel(dependencies, name)]),
         ));
-        const lines = modelCommands.map((name) =>
-          `• <b>/${name}</b>: <code>${html.escape(models[name] ?? defaultModels[name])}</code>`
-        );
-        return yield* answer(match.message, {
-          parseMode: "HTML",
-          text: `📋 <b>Current AI Models:</b>\n\n${lines.join("\n")}\n\n<b>Usage:</b> <code>/model &lt;command&gt; &lt;model_name&gt;</code>`,
-        });
+        const table = rich.table([
+          ["Command", "Model"],
+          ...modelCommands.map((name) => [
+            rich.command(`/${name}`),
+            rich.code(models[name] ?? defaultModels[name]),
+          ]),
+        ], { header: true });
+        return yield* replyBlocks(match.message, [
+          rich.heading("📋 Current AI models"),
+          { ...table, isBordered: true, isCompact: true },
+          rich.footer(["Usage: ", rich.code("/model <command> <model_name>")]),
+        ]);
       }
       const requested = match.args[0]?.toLowerCase();
       const targets = requested === "all"
@@ -150,10 +156,12 @@ function thinkingCommand(dependencies: AppDependencies): CommandDefinition {
       const level = match.args[0]?.toLowerCase();
       if (level === undefined) {
         const current = yield* getThinking(dependencies);
-        return yield* answer(match.message, {
-          parseMode: "HTML",
-          text: `🧠 <b>AI Thinking Level</b>\n\nCurrent level: <code>${html.escape(current)}</code>\n\nAvailable: none, minimal, low, medium, high`,
-        });
+        return yield* replyBlocks(match.message, [
+          rich.heading("🧠 AI thinking level"),
+          rich.paragraph(["Current level: ", rich.code(current)]),
+          rich.list(thinkingLevels.map((candidate) => rich.code(candidate))),
+          rich.footer(["Usage: ", rich.code("/thinking <level>")]),
+        ]);
       }
       if (!thinkingLevels.some((candidate) => candidate === level)) {
         return yield* answer(match.message, `❌ Invalid thinking level: ${level}`);
@@ -223,6 +231,14 @@ function keyboard(chatId: number, states: Readonly<Record<ToggleKey, boolean>>) 
   };
 }
 
+function settingsBlocks(chatId: number) {
+  return [
+    rich.heading("⚙️ Group settings"),
+    rich.paragraph(["Chat: ", rich.code(String(chatId))]),
+    rich.footer("Use the buttons below to enable or disable each feature."),
+  ];
+}
+
 function settingsCommand(dependencies: AppDependencies): CommandDefinition {
   return {
     description: "Manage this group's bot settings.",
@@ -237,10 +253,8 @@ function settingsCommand(dependencies: AppDependencies): CommandDefinition {
         return yield* answer(match.message, "Only group admins can change settings.");
       }
       const states = yield* settingStates(dependencies, match.message.chat.id);
-      return yield* answer(match.message, {
-        parseMode: "HTML",
+      return yield* replyBlocks(match.message, settingsBlocks(match.message.chat.id), {
         replyMarkup: keyboard(match.message.chat.id, states),
-        text: `<b>Group settings</b>\n<code>${match.message.chat.id}</code>`,
       });
     }),
     usage: "/settings",
@@ -295,9 +309,8 @@ export function settingsCallback(dependencies: AppDependencies) {
     if ("ephemeralMessageId" in target) return;
     yield* ignoreUnchangedMessage(editMessageText({
       ...target,
-      parseMode: "HTML",
+      richMessage: { blocks: settingsBlocks(data.chatId) },
       replyMarkup: keyboard(data.chatId, next),
-      text: `<b>Group settings</b>\n<code>${data.chatId}</code>`,
     }));
   }));
 }

@@ -3,7 +3,7 @@ import { Effect, type Update } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
-import { commandUpdate, fixture } from "./harness.ts";
+import { commandUpdate, fixture, richContent } from "./harness.ts";
 
 const offline: Fetch = async () => new Response("{}");
 
@@ -78,12 +78,11 @@ test("group stats ranks members by their message share", async () => {
     database.close();
   }
 
-  const reply = fake.requests.find((request) => request.method === "sendMessage");
-  const text = typeof reply?.params === "object" && reply.params !== null
-    ? Reflect.get(reply.params, "text")
-    : undefined;
-  expect(text).toContain("66.7% - Ayaan");
-  expect(text).toContain("33.3% - Alice");
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
+  expect(content.text).toContain("Ayaan\n2\n66.7%");
+  expect(content.text).toContain("Alice\n1\n33.3%");
+  expect(content.types).toContain("table");
 });
 
 test("friends command renders incoming and outgoing social edges", async () => {
@@ -106,10 +105,9 @@ test("friends command renders incoming and outgoing social edges", async () => {
     database.close();
   }
 
-  const reply = fake.requests.find((request) => request.method === "sendMessage");
-  const text = typeof reply?.params === "object" && reply.params !== null
-    ? Reflect.get(reply.params, "text")
-    : undefined;
-  expect(text).toContain("2 ⟶ Alice");
-  expect(text).toContain("1 ← Bob");
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
+  expect(content.text).toContain("You →\nAlice\n2");
+  expect(content.text).toContain("You ←\nBob\n1");
+  expect(content.types).toContain("table");
 });

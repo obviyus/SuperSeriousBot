@@ -8,12 +8,12 @@ import {
 } from "telly";
 
 import {
-  answer,
   botCommands,
   commandHandlers,
   type CommandDefinition,
 } from "./app/command.ts";
 import type { AppDependencies } from "./app/dependencies.ts";
+import { replyBlocks, rich } from "./app/rich.ts";
 import { basicCommands } from "./features/basic.ts";
 import { informationCommands } from "./features/information.ts";
 import { moderationCommands } from "./features/moderation.ts";
@@ -70,9 +70,14 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
     description: "Show every enabled command.",
     example: "/help",
     names: ["help"],
-    run: ({ message }) => answer(message, botCommands(featureCommands, dependencies).map((command) =>
-      `/${command.command} — ${command.description}`
-    ).join("\n")),
+    run: ({ message }) => replyBlocks(message, [
+      rich.heading("📺 SuperSeriousBot commands"),
+      rich.list(botCommands(featureCommands, dependencies).map((command) => [
+        rich.command(`/${command.command}`),
+        ` — ${command.description}`,
+      ])),
+      rich.footer("Only commands enabled by this bot's current integrations are shown."),
+    ]),
     usage: "/help",
   };
   const definitions = [help, ...featureCommands];
