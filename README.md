@@ -10,7 +10,7 @@ SuperSeriousBot has grown with its groups for years. It combines AI, media, sear
 
 ## Features
 
-- AI: `/ask`, `/edit`, `/video`, `/song`, `/tldr`, and `/tr`
+- AI: native rich replies, semantic search, image and video generation, custom songs, summaries, and transcription
 - Group memory: semantic `/search`, citations, member personas, and group lore
 - Media: `/set`, `/get`, `/dl`, automatic reel downloads, memes, and quotes
 - Social: `/summon`, `/habit`, `/highlight`, reactions, mentions, and `sed` corrections

@@ -33,6 +33,7 @@ test("ask command streams the OpenRouter answer into Telegram", async () => {
     expect(body.stream).toBe(true);
     expect(body.plugins).toEqual([{ engine: "native", id: "web", max_results: 20 }]);
     expect(body.reasoning).toEqual({ effort: "high" });
+    expect(JSON.stringify(body.messages)).toContain("Telegram Rich Markdown");
     return openRouterStream("Hello from AI");
   };
   const { app, bot, database, fake } = await fixture(send, [], aiConfig());
@@ -48,11 +49,12 @@ test("ask command streams the OpenRouter answer into Telegram", async () => {
     database.close();
   }
 
-  const reply = fake.requests.find((request) => request.method === "sendMessage");
-  const text = typeof reply?.params === "object" && reply.params !== null
-    ? Reflect.get(reply.params, "text")
-    : undefined;
-  expect(text).toContain("Hello from AI");
+  const preview = fake.requests.find((request) => request.method === "sendMessage");
+  const final = fake.requests.find((request) => request.method === "editMessageText");
+  expect(preview?.params).toMatchObject({ text: "Hello from AI" });
+  expect(final?.params).toMatchObject({
+    rich_message: { markdown: "Hello from AI" },
+  });
 });
 
 test("ask command records a rejected AI SDK stream as a failure", async () => {

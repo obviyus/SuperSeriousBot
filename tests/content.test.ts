@@ -5,7 +5,7 @@ import { FakeBotApiReply } from "telly/testing";
 import type { Fetch } from "../src/app/http.ts";
 import { commandUpdate, fixture, openRouterText, testConfig } from "./harness.ts";
 
-test("tldr returns a cached YouTube summary without calling providers", async () => {
+test("tldr returns a cached YouTube summary as a rich message without providers", async () => {
   let providerCalls = 0;
   const send: Fetch = async () => {
     providerCalls += 1;
@@ -43,12 +43,11 @@ test("tldr returns a cached YouTube summary without calling providers", async ()
     database.close();
   }
 
-  const reply = fake.requests.find((request) => request.method === "sendMessage");
-  const text = typeof reply?.params === "object" && reply.params !== null
-    ? Reflect.get(reply.params, "text")
-    : undefined;
   expect(providerCalls).toBe(0);
-  expect(text).toContain("Cached answer");
+  expect(fake.requests.at(-1)).toMatchObject({
+    method: "sendRichMessage",
+    params: { rich_message: { markdown: "- Cached answer" } },
+  });
 });
 
 test("tldr fetches and caches a fresh YouTube transcript summary", async () => {
@@ -92,8 +91,12 @@ test("tldr fetches and caches a fresh YouTube transcript summary", async () => {
     summary: "- The camera is compact.\n- Stabilization is excellent.",
     user_id: 1,
   });
-  const reply = fake.requests.filter((request) => request.method === "sendMessage").at(-1);
-  expect(reply?.params).toMatchObject({ text: expect.stringContaining("Stabilization is excellent") });
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  expect(reply?.params).toMatchObject({
+    rich_message: {
+      markdown: expect.stringContaining("Stabilization is excellent"),
+    },
+  });
 });
 
 function silentWav(): Uint8Array {
@@ -123,7 +126,12 @@ test("tr command downloads audio, transcodes it, and sends the transcript", asyn
   let audioInput = "";
   const send: Fetch = async (_input, init) => {
     const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
-    audioInput = body.messages?.[0]?.content?.[1]?.input_audio?.data ?? "";
+    const audio = body.messages?.flatMap((message: { readonly content?: unknown }) =>
+      Array.isArray(message.content) ? message.content : []
+    ).find((part: { readonly input_audio?: { readonly data?: string } }) =>
+      part.input_audio?.data !== undefined
+    );
+    audioInput = audio?.input_audio?.data ?? "";
     return openRouterText("The speaker asks for a camera recommendation.");
   };
   const source = silentWav();
@@ -175,8 +183,10 @@ test("tr command downloads audio, transcodes it, and sends the transcript", asyn
   }
 
   expect(Buffer.from(audioInput, "base64").subarray(0, 4).toString()).toBe("RIFF");
-  const reply = fake.requests.filter((request) => request.method === "sendMessage").at(-1);
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
   expect(reply?.params).toMatchObject({
-    text: expect.stringContaining("camera recommendation"),
+    rich_message: {
+      markdown: expect.stringContaining("camera recommendation"),
+    },
   });
 });

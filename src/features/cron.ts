@@ -20,7 +20,7 @@ import {
 } from "../app/command.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
-import { sendMarkdownOrPlain } from "../app/markdown.ts";
+import { richMarkdownPrompt, sendRich } from "../app/rich.ts";
 
 const defaultTimezone = "Asia/Kolkata";
 const CronDraft = Schema.Struct({
@@ -89,6 +89,7 @@ function runTask(dependencies: AppDependencies, ai: Ai, task: CronTask) {
     ).join("\n\n") || "No previous runs.";
     const start = dependencies.now().toISOString();
     const result = yield* ai.complete("cron", [
+      { content: richMarkdownPrompt, role: "system" },
       {
         content: "Run the saved task now. Be concise but complete. Return only the Telegram message to send.",
         role: "system",
@@ -104,12 +105,11 @@ function runTask(dependencies: AppDependencies, ai: Ai, task: CronTask) {
       [task.userId],
     );
     const username = usernameRow === undefined ? String(task.userId) : rowString(usernameRow, "username");
-    yield* sendMarkdownOrPlain(
+    yield* sendRich(
       task.chatId,
       `⏰ **${task.title}**\n\n${result.trim()}\n\n@${username}`,
       {
         documentName: "cron-result.txt",
-        linkPreviewDisabled: true,
         replyMarkup: deleteKeyboard(task.id),
       },
     );

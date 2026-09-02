@@ -90,10 +90,12 @@ test("cron worker delivers one due task and schedules its next run", async () =>
   ));
   database.close();
 
-  const delivered = fake.requests.find((request) => request.method === "sendMessage");
+  const delivered = fake.requests.find((request) => request.method === "sendRichMessage");
   expect(delivered?.params).toMatchObject({
     chat_id: -1007,
-    text: expect.stringContaining("The camera costs *₹42,000*"),
+    rich_message: {
+      markdown: expect.stringContaining("The camera costs **₹42,000**"),
+    },
   });
   expect(run).toMatchObject({ result_text: "The camera costs **₹42,000**.", status: "success" });
   expect(task).toMatchObject({ attempt_count: 1, claim_time: null, next_run_time: 1_788_339_600 });
