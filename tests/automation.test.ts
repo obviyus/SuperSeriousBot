@@ -4,7 +4,7 @@ import { FakeBotApiReply } from "telly/testing";
 import sharp from "sharp";
 
 import type { Fetch } from "../src/app/http.ts";
-import { commandUpdate, fixture, sentMessage, testConfig } from "./harness.ts";
+import { commandUpdate, fixture, openRouterText, sentMessage, testConfig } from "./harness.ts";
 
 async function allow(
   database: Awaited<ReturnType<typeof fixture>>["database"],
@@ -18,18 +18,12 @@ async function allow(
 }
 
 test("cron command stores the AI-planned schedule", async () => {
-  const send: Fetch = async () => new Response(JSON.stringify({
-    choices: [{
-      message: {
-        content: JSON.stringify({
+  const send: Fetch = async () => openRouterText(JSON.stringify({
           cronExpr: "0 9 * * *",
           task: "Check the DJI camera price and report it.",
           timezone: "Asia/Kolkata",
           title: "DJI price check",
-        }),
-      },
-    }],
-  }));
+        }));
   const config = {
     ...testConfig({ openrouterApiKey: "openrouter-test" }),
     admins: new Set<string>(),
@@ -64,9 +58,7 @@ test("cron command stores the AI-planned schedule", async () => {
 });
 
 test("cron worker delivers one due task and schedules its next run", async () => {
-  const send: Fetch = async () => new Response(JSON.stringify({
-    choices: [{ message: { content: "The camera costs **₹42,000**." } }],
-  }));
+  const send: Fetch = async () => openRouterText("The camera costs **₹42,000**.");
   const config = {
     ...testConfig({ openrouterApiKey: "openrouter-test" }),
     admins: new Set<string>(),
@@ -110,13 +102,11 @@ test("cron worker delivers one due task and schedules its next run", async () =>
 test("song command delivers both generated tracks", async () => {
   const send: Fetch = async (input) => {
     const url = String(input);
-    if (url.includes("chat/completions")) return new Response(JSON.stringify({
-      choices: [{ message: { content: JSON.stringify({
+    if (url.includes("chat/completions")) return openRouterText(JSON.stringify({
         lyricsLines: ["[Verse]", "Spreadsheets dance tonight"],
         style: "disco funk",
         title: "Cell Party",
-      }) } }],
-    }));
+      }));
     if (url.endsWith("/generate")) return new Response(JSON.stringify({
       code: 200,
       data: { taskId: "song-job-7" },
@@ -172,12 +162,21 @@ test("video command delivers the completed generated video", async () => {
   const send: Fetch = async (input, init) => {
     const url = String(input);
     if (url.endsWith("/videos") && init?.method === "POST") {
-      return new Response(JSON.stringify({ id: "video-job-9" }));
+      return new Response(JSON.stringify({
+        id: "video-job-9",
+        polling_url: "https://openrouter.ai/api/v1/videos/video-job-9",
+        status: "pending",
+      }), { headers: { "content-type": "application/json" } });
     }
-    if (url.endsWith("/content")) {
+    if (url === "https://media.test/video-job-9.mp4") {
       return new Response("generated-video", { headers: { "content-type": "video/mp4" } });
     }
-    return new Response(JSON.stringify({ status: "completed" }));
+    return new Response(JSON.stringify({
+      id: "video-job-9",
+      polling_url: "https://openrouter.ai/api/v1/videos/video-job-9",
+      status: "completed",
+      unsigned_urls: ["https://media.test/video-job-9.mp4"],
+    }), { headers: { "content-type": "application/json" } });
   };
   const config = {
     ...testConfig({ openrouterApiKey: "openrouter-test" }),
@@ -217,10 +216,21 @@ test("video command downloads and frames a replied photo", async () => {
     const url = String(input);
     if (url.endsWith("/videos") && init?.method === "POST") {
       submitted = JSON.parse(String(init.body));
-      return new Response(JSON.stringify({ id: "video-image-job" }));
+      return new Response(JSON.stringify({
+        id: "video-image-job",
+        polling_url: "https://openrouter.ai/api/v1/videos/video-image-job",
+        status: "pending",
+      }), { headers: { "content-type": "application/json" } });
     }
-    if (url.endsWith("/content")) return new Response("generated-video");
-    return new Response(JSON.stringify({ status: "completed" }));
+    if (url === "https://media.test/video-image-job.mp4") {
+      return new Response("generated-video", { headers: { "content-type": "video/mp4" } });
+    }
+    return new Response(JSON.stringify({
+      id: "video-image-job",
+      polling_url: "https://openrouter.ai/api/v1/videos/video-image-job",
+      status: "completed",
+      unsigned_urls: ["https://media.test/video-image-job.mp4"],
+    }), { headers: { "content-type": "application/json" } });
   };
   const config = {
     ...testConfig({ openrouterApiKey: "openrouter-test" }),

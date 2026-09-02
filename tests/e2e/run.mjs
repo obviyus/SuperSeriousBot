@@ -90,6 +90,8 @@ let credential;
 let proxy;
 let bot;
 let tunnel;
+let mockAi;
+const aiRequests = [];
 try {
   fs.mkdirSync(proofDirectory, { recursive: true });
   credential = await credentialModule.acquireTelegramTestCredential({
@@ -117,6 +119,31 @@ try {
   }
 
   const webhookMode = process.env.TELEGRAM_E2E_WEBHOOK === "1";
+  const aiMode = process.env.TELEGRAM_E2E_AI === "1";
+  let openrouterBaseUrl = "";
+  if (aiMode) {
+    mockAi = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      async fetch(request) {
+        const body = await request.json();
+        aiRequests.push({ body, userAgent: request.headers.get("user-agent") });
+        fs.writeFileSync(
+          path.join(proofDirectory, "ai-requests.json"),
+          `${JSON.stringify(aiRequests, null, 2)}\n`,
+        );
+        const chunks = [
+          { choices: [{ delta: { content: "AI_SDK_E2E_OK", role: "assistant" }, finish_reason: null, index: 0 }], id: "e2e", model: "test/model" },
+          { choices: [{ delta: {}, finish_reason: "stop", index: 0 }], id: "e2e", model: "test/model" },
+        ];
+        return new Response(
+          `${chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("")}data: [DONE]\n\n`,
+          { headers: { "content-type": "text/event-stream" } },
+        );
+      },
+    });
+    openrouterBaseUrl = `http://127.0.0.1:${mockAi.port}`;
+  }
   const webhookPort = webhookMode ? await freePort() : 8_443;
   let webhookUrl = "";
   if (webhookMode) {
@@ -163,7 +190,8 @@ try {
       KIE_API_KEY: "",
       LOGGING_CHANNEL_ID: "",
       NANO_GPT_API_KEY: "",
-      OPENROUTER_API_KEY: "",
+      OPENROUTER_API_KEY: aiMode ? "e2e-test" : "",
+      OPENROUTER_BASE_URL: openrouterBaseUrl,
       PORT: String(webhookPort),
       QUOTE_CHANNEL_ID: groupMode ? chatTarget : credential.groupId,
       TELEGRAM_API_ROOT: proxy.apiRoot,
@@ -188,7 +216,15 @@ try {
   const eventsPath = path.join(proofDirectory, "events.ndjson");
   const summaryPath = path.join(proofDirectory, "summary.json");
   const scenarioPath = path.join(scratch, "scenario.json");
-  fs.writeFileSync(scenarioPath, JSON.stringify(groupMode
+  fs.writeFileSync(scenarioPath, JSON.stringify(aiMode
+    ? {
+        actions: [
+          { atMs: 0, text: "/start", type: "send" },
+          { atMs: 750, text: "/thinking high", type: "send" },
+          { atMs: 1_500, text: "/ask answer with the test marker", type: "send" },
+        ],
+      }
+    : groupMode
     ? {
         actions: [
           { atMs: 0, text: "/summon alpha", type: "send" },
@@ -224,7 +260,13 @@ try {
   const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
   const events = Array.isArray(summary.timeline) ? summary.timeline : [];
   const revisions = Array.isArray(summary.sutRevisionTexts) ? summary.sutRevisionTexts : [];
-  const proven = groupMode
+  const proven = aiMode
+    ? revisions.some((text) => text.includes("AI_SDK_E2E_OK")) &&
+      revisions.some((text) => text.includes("Thinking level updated")) &&
+      aiRequests.length === 1 &&
+      aiRequests[0]?.body?.reasoning?.effort === "high" &&
+      aiRequests[0]?.userAgent?.includes("ai-sdk/openrouter/3.0.0") === true
+    : groupMode
     ? revisions.some((text) => text.includes("[alpha] (1 members)")) &&
       revisions.some((text) => text.includes("Created a new habit #walk")) &&
       revisions.some((text) => text.includes("Football alerts enabled")) &&
@@ -240,6 +282,7 @@ try {
 } finally {
   if (bot?.exitCode === null) bot.kill("SIGTERM");
   if (tunnel?.exitCode === null) tunnel.kill("SIGTERM");
+  mockAi?.stop(true);
   await proxy?.close().catch(() => undefined);
   await credential?.release().catch(() => undefined);
   fs.rmSync(scratch, { force: true, recursive: true });

@@ -3,7 +3,13 @@ import { Effect } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
-import { commandUpdate, fixture, sentMessage, testConfig } from "./harness.ts";
+import {
+  commandUpdate,
+  fixture,
+  openRouterStream,
+  sentMessage,
+  testConfig,
+} from "./harness.ts";
 
 function aiConfig() {
   return {
@@ -25,13 +31,15 @@ test("ask command streams the OpenRouter answer into Telegram", async () => {
     const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
     expect(body.model).toBe("x-ai/grok-4.3");
     expect(body.stream).toBe(true);
-    return new Response(
-      `data: {"choices":[{"delta":{"content":"Hello from AI"}}]}\n\ndata: [DONE]\n\n`,
-      { headers: { "content-type": "text/event-stream" } },
-    );
+    expect(body.plugins).toEqual([{ engine: "native", id: "web", max_results: 20 }]);
+    expect(body.reasoning).toEqual({ effort: "high" });
+    return openRouterStream("Hello from AI");
   };
   const { app, bot, database, fake } = await fixture(send, [], aiConfig());
   await allow(database, "ask");
+  await Effect.runPromise(database.execute(
+    "INSERT INTO group_settings (chat_id, ask_thinking) VALUES (-1, 'high')",
+  ));
 
   try {
     await app.run(bot.handler(commandUpdate("/ask hello", 901)));
@@ -47,13 +55,39 @@ test("ask command streams the OpenRouter answer into Telegram", async () => {
   expect(text).toContain("Hello from AI");
 });
 
+test("ask command records a rejected AI SDK stream as a failure", async () => {
+  const send: Fetch = async () => new Response(JSON.stringify({
+    error: { code: 401, message: "Invalid OpenRouter key" },
+  }), { headers: { "content-type": "application/json" }, status: 401 });
+  const { app, bot, database, fake } = await fixture(send, [], aiConfig());
+  await allow(database, "ask");
+
+  try {
+    await app.run(bot.handler(commandUpdate("/ask hello", 904)));
+  } finally {
+    await app.close();
+  }
+  const command = await Effect.runPromise(database.one(
+    "SELECT status, error_type, error_message FROM command_stats WHERE message_id = ?",
+    [904],
+  ));
+  database.close();
+
+  expect(command).toMatchObject({
+    error_type: "AiError",
+    status: "failed",
+  });
+  expect(command?.["error_message"]).toContain("Invalid OpenRouter key");
+  expect(fake.requests.find((request) => request.method === "sendMessage")?.params).toMatchObject({
+    text: "Something went wrong. Please try again.",
+  });
+});
+
 test("ask command stops before OpenRouter after its daily limit", async () => {
   let providerCalls = 0;
   const send: Fetch = async () => {
     providerCalls += 1;
-    return new Response(
-      `data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n`,
-    );
+    return openRouterStream("ok");
   };
   const { app, bot, database, fake } = await fixture(send, [], aiConfig());
   await allow(database, "ask");
@@ -100,4 +134,29 @@ test("edit command sends the generated OpenRouter image", async () => {
   expect(photo?.contentType).toBe("multipart/form-data");
   expect(Object.values(photo?.files ?? {})[0]?.size).toBe(15);
   expect(photo?.params).toMatchObject({ caption: expect.stringContaining("tiny moon") });
+});
+
+test("edit command explains an AI SDK moderation rejection", async () => {
+  const send: Fetch = async () => new Response(JSON.stringify({
+    error: {
+      code: "moderation",
+      message: "Generated image rejected by content moderation",
+    },
+  }), { headers: { "content-type": "application/json" }, status: 400 });
+  const { app, bot, database, fake } = await fixture(send, [
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+  ], aiConfig());
+  await allow(database, "edit");
+
+  try {
+    await app.run(bot.handler(commandUpdate("/edit unsafe request", 903)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  expect(fake.requests.find((request) => request.method === "sendMessage")?.params).toMatchObject({
+    text: "The generated image was rejected by content moderation. Try a different prompt or source image.",
+  });
 });

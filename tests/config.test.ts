@@ -14,12 +14,16 @@ test("config loads polling defaults and trims optional values", () => {
     ...required,
     ADMINS: " 1   2 ",
     OPENROUTER_API_KEY: " openrouter-test ",
+    OPENROUTER_BASE_URL: " http://127.0.0.1:9100 ",
     TELEGRAM_API_ROOT: " http://127.0.0.1:9000 ",
   });
 
   expect(config).toMatchObject({
     admins: new Set(["1", "2"]),
-    api: { openrouterApiKey: "openrouter-test" },
+    api: {
+      openrouterApiKey: "openrouter-test",
+      openrouterBaseUrl: "http://127.0.0.1:9100",
+    },
     port: 8_443,
     telegramApiRoot: "http://127.0.0.1:9000",
     updater: "polling",

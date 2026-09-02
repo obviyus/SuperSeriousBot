@@ -6,6 +6,7 @@ export interface ApiConfig {
   readonly kieApiKey?: string;
   readonly nanoGptApiKey?: string;
   readonly openrouterApiKey?: string;
+  readonly openrouterBaseUrl?: string;
   readonly waqiApiKey?: string;
   readonly weatherApiKey?: string;
   readonly wolframAppId?: string;
@@ -63,6 +64,7 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
   const kieApiKey = optional(environment, "KIE_API_KEY");
   const nanoGptApiKey = optional(environment, "NANO_GPT_API_KEY");
   const openrouterApiKey = optional(environment, "OPENROUTER_API_KEY");
+  const openrouterBaseUrl = optional(environment, "OPENROUTER_BASE_URL");
   const waqiApiKey = optional(environment, "WAQI_API_KEY");
   const weatherApiKey = optional(environment, "WEATHERAPI_API_KEY");
   const wolframAppId = optional(environment, "WOLFRAM_APP_ID");
@@ -76,6 +78,7 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
       ...(kieApiKey === undefined ? {} : { kieApiKey }),
       ...(nanoGptApiKey === undefined ? {} : { nanoGptApiKey }),
       ...(openrouterApiKey === undefined ? {} : { openrouterApiKey }),
+      ...(openrouterBaseUrl === undefined ? {} : { openrouterBaseUrl }),
       ...(waqiApiKey === undefined ? {} : { waqiApiKey }),
       ...(weatherApiKey === undefined ? {} : { weatherApiKey }),
       ...(wolframAppId === undefined ? {} : { wolframAppId }),

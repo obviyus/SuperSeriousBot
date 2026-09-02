@@ -11,7 +11,7 @@ import {
   usage,
 } from "../app/command.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
-import { imageDataUrl, messageImage } from "../app/media.ts";
+import { messageImage } from "../app/media.ts";
 import { editMarkdownOrPlain, replyMarkdownOrPlain } from "../app/markdown.ts";
 
 const telegramLimit = 4_096;
@@ -58,7 +58,7 @@ function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
             { text: replyContext === undefined
               ? prompt
               : `Reply context:\n${replyContext}\n\nUser request:\n${prompt}`, type: "text" },
-            { image_url: { url: imageDataUrl(image) }, type: "image_url" },
+            { data: image.bytes, mediaType: image.mimeType, type: "file" },
           ],
           role: "user",
         });
@@ -70,39 +70,41 @@ function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
         messages.push({ content: query, role: "user" });
       }
       const stream = yield* ai.stream("ask", messages);
-      let content = "";
-      let sent: Message | undefined;
-      let lastLength = 0;
-      let lastEdit = 0;
-      while (true) {
-        const next = yield* streamChunk(stream);
-        if (next.done) break;
-        content = `${content}${next.value}`.slice(0, telegramLimit);
-        if (content.length === 0) continue;
-        if (sent === undefined) {
-          sent = yield* replyMarkdownOrPlain(match.message, content, {
-            linkPreviewDisabled: true,
-          });
+      return yield* Effect.gen(function* () {
+        let content = "";
+        let sent: Message | undefined;
+        let lastLength = 0;
+        let lastEdit = 0;
+        while (true) {
+          const next = yield* streamChunk(stream);
+          if (next.done) break;
+          content = `${content}${next.value}`.slice(0, telegramLimit);
+          if (content.length === 0) continue;
+          if (sent === undefined) {
+            sent = yield* replyMarkdownOrPlain(match.message, content, {
+              linkPreviewDisabled: true,
+            });
+            lastLength = content.length;
+            continue;
+          }
+          const cutoff = streamCutoff(match.message.chat.type !== "private", content.length);
+          const now = dependencies.monotonicMilliseconds();
+          if (content.length - lastLength < cutoff || now - lastEdit < 800) continue;
+          yield* editMarkdownOrPlain(sent.chat.id, sent.messageId, content);
           lastLength = content.length;
-          continue;
+          lastEdit = now;
         }
-        const cutoff = streamCutoff(match.message.chat.type !== "private", content.length);
-        const now = dependencies.monotonicMilliseconds();
-        if (content.length - lastLength < cutoff || now - lastEdit < 800) continue;
-        yield* editMarkdownOrPlain(sent.chat.id, sent.messageId, content);
-        lastLength = content.length;
-        lastEdit = now;
-      }
-      if (content.length === 0) {
-        return yield* answer(match.message, "No response received from AI. Please try again.");
-      }
-      if (sent === undefined) {
-        yield* replyMarkdownOrPlain(match.message, content, { linkPreviewDisabled: true });
-        return;
-      }
-      if (content.length !== lastLength) {
-        yield* editMarkdownOrPlain(sent.chat.id, sent.messageId, content);
-      }
+        if (content.length === 0) {
+          return yield* answer(match.message, "No response received from AI. Please try again.");
+        }
+        if (sent === undefined) {
+          yield* replyMarkdownOrPlain(match.message, content, { linkPreviewDisabled: true });
+          return;
+        }
+        if (content.length !== lastLength) {
+          yield* editMarkdownOrPlain(sent.chat.id, sent.messageId, content);
+        }
+      }).pipe(Effect.ensuring(Effect.sync(() => stream.abort())));
     }),
     usage: "/ask [query]",
   };
@@ -123,10 +125,7 @@ function editCommand(ai: Ai): CommandDefinition {
       }
       const replied = match.message.replyToMessage;
       const source = replied === undefined ? undefined : yield* messageImage(replied, true);
-      const generated = yield* ai.image(
-        match.argText,
-        source === undefined ? undefined : imageDataUrl(source),
-      ).pipe(Effect.catch((error) => answer(
+      const generated = yield* ai.image(match.argText, source).pipe(Effect.catch((error) => answer(
         match.message,
         error._tag === "AiError" && error.description === "moderation"
           ? "The generated image was rejected by content moderation. Try a different prompt or source image."
@@ -136,10 +135,12 @@ function editCommand(ai: Ai): CommandDefinition {
       const requester = match.message.from?.username === undefined
         ? `User ${match.message.from?.id ?? "unknown"}`
         : `@${match.message.from.username}`;
+      const buffer = new ArrayBuffer(generated.byteLength);
+      new Uint8Array(buffer).set(generated);
       yield* sendPhoto({
         caption: `📝 Requested by ${requester}\n🎨 Prompt: ${match.argText}`,
         chatId: match.message.chat.id,
-        photo: new File([generated], "generated.png", { type: "image/png" }),
+        photo: new File([buffer], "generated.png", { type: "image/png" }),
       });
     }),
     usage: "/edit [prompt]",

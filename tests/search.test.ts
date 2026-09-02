@@ -10,7 +10,14 @@ import {
   selectEvidence,
   type SourceMessage,
 } from "../src/features/search.ts";
-import { commandUpdate, fixture, sentMessage, testConfig } from "./harness.ts";
+import {
+  commandUpdate,
+  fixture,
+  openRouterEmbeddings,
+  openRouterText,
+  sentMessage,
+  testConfig,
+} from "./harness.ts";
 
 const model = "qwen/qwen3-embedding-8b";
 
@@ -21,13 +28,6 @@ function messages(count: number): ReadonlyArray<SourceMessage> {
     messageId: index + 1,
     text: `message ${index + 1}`,
     userId: index < 2 ? 1 : 2,
-  }));
-}
-
-function embeddingResponse(body: string) {
-  const request = JSON.parse(body) as { dimensions: number; input: ReadonlyArray<string> };
-  return new Response(JSON.stringify({
-    data: request.input.map(() => ({ embedding: Array(request.dimensions).fill(0.01) })),
   }));
 }
 
@@ -76,7 +76,7 @@ test("search evidence removes overlaps and owns valid citation links", () => {
 });
 
 test("search index replaces growing tail windows", async () => {
-  const send: Fetch = async (_input, init) => embeddingResponse(String(init?.body));
+  const send: Fetch = async (_input, init) => openRouterEmbeddings(String(init?.body));
   const config = testConfig({ openrouterApiKey: "openrouter-test" });
   const { app, bot, database } = await fixture(send, [], config);
   await Effect.runPromise(database.batch([
@@ -123,13 +123,11 @@ test("search index replaces growing tail windows", async () => {
 
 test("search command answers from indexed evidence with a Telegram citation", async () => {
   const send: Fetch = async (input, init) => {
-    if (String(input).includes("embeddings")) return embeddingResponse(String(init?.body));
-    return new Response(JSON.stringify({
-      choices: [{ message: { content: JSON.stringify({
+    if (String(input).includes("embeddings")) return openRouterEmbeddings(String(init?.body));
+    return openRouterText(JSON.stringify({
         answer: "Nathu is a product designer.",
         citations: [1],
-      }) } }],
-    }));
+      }));
   };
   const config = {
     ...testConfig({ openrouterApiKey: "openrouter-test" }),
@@ -252,7 +250,7 @@ test("memory worker stores filtered personas, aliases, and lore", async () => {
     const content = completion === 1
       ? { aliases: [{ alias: "  NatHu  ", confidence: 0.9 }, { alias: "bro", confidence: 1 }], sheet: "Designs excellent products [msg:200, msg:999]" }
       : { items: [{ receipts: [200, 999], summary: "The group debates cameras.", topic: "camera-war" }] };
-    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(content) } }] }));
+    return openRouterText(JSON.stringify(content));
   };
   const config = testConfig({ openrouterApiKey: "openrouter-test" });
   const { app, bot, database } = await fixture(send, [], config);

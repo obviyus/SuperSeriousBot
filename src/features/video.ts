@@ -4,10 +4,10 @@ import {
   deleteMessage,
   editMessageText,
   Effect,
-  Schema,
   sendVideo,
 } from "telly";
 
+import { Ai, type AiError } from "../app/ai.ts";
 import {
   answer,
   type CommandDefinition,
@@ -16,8 +16,6 @@ import {
 import type { AppDependencies } from "../app/dependencies.ts";
 import { imageDataUrl, messageImage, type ImageData } from "../app/media.ts";
 
-const SubmitVideo = Schema.Struct({ id: Schema.String });
-const VideoStatus = Schema.Struct({ status: Schema.String });
 const videoLock = Semaphore.makeUnsafe(1);
 const frames = [
   ["1:1", 480, 480],
@@ -27,15 +25,6 @@ const frames = [
   ["16:9", 854, 480],
   ["21:9", 1_120, 480],
 ] as const;
-
-function videoHeaders(dependencies: AppDependencies): HeadersInit {
-  return {
-    authorization: `Bearer ${dependencies.config.api.openrouterApiKey ?? ""}`,
-    "content-type": "application/json",
-    "http-referer": "https://superserio.us",
-    "x-title": "SuperSeriousBot",
-  };
-}
 
 function prepareImage(image: ImageData) {
   return Effect.tryPromise({
@@ -55,13 +44,16 @@ function prepareImage(image: ImageData) {
         background: "black",
         fit: "contain",
       }).jpeg({ chromaSubsampling: "4:4:4", quality: 92 }).toBuffer();
-      return { aspectRatio: frame[0], imageUrl: imageDataUrl({ bytes, mimeType: "image/jpeg" }) };
+      return {
+        aspectRatio: frame[0],
+        firstFrame: imageDataUrl({ bytes, mimeType: "image/jpeg" }),
+      };
     },
     catch: (error) => new Error(error instanceof Error ? error.message : String(error)),
   });
 }
 
-function rejectionText(body: string): string {
+function failureText(error: AiError): string {
   const types: ReadonlyArray<readonly [string, string]> = [
     ["InputImageSensitiveContentDetected.PrivacyInformation", "That image was rejected because it appears to contain a real person."],
     ["content_policy_violation", "The image or prompt was rejected by the video safety filter."],
@@ -72,10 +64,14 @@ function rejectionText(body: string): string {
     ["payment_required", "Video generation credits are unavailable."],
     ["rate_limit_exceeded", "The video service is busy. Try again shortly."],
   ];
-  return `${types.find(([type]) => body.includes(type))?.[1] ?? "The video request was rejected before generation."} No video job was created.`;
+  const known = types.find(([type]) => error.description.includes(type))?.[1];
+  return known === undefined
+    ? "Video generation failed. Please try again."
+    : `${known} No video job was created.`;
 }
 
 export function videoCommand(dependencies: AppDependencies): CommandDefinition {
+  const ai = new Ai(dependencies);
   const definition: CommandDefinition = {
     apiKey: "openrouterApiKey",
     availability: "whitelist",
@@ -95,72 +91,18 @@ export function videoCommand(dependencies: AppDependencies): CommandDefinition {
       );
       let completed = false;
       const program = Effect.gen(function* () {
-        const response = yield* dependencies.http.response(
-          "openrouter-video",
-          "https://openrouter.ai/api/v1/videos",
-          {
-            body: JSON.stringify({
-              aspect_ratio: prepared?.aspectRatio ?? "16:9",
-              duration: 5,
-              ...(prepared === undefined
-                ? {}
-                : {
-                    frame_images: [{
-                      frame_type: "first_frame",
-                      image_url: { url: prepared.imageUrl },
-                      type: "image_url",
-                    }],
-                  }),
-              generate_audio: true,
-              model: "bytedance/seedance-2.0-mini",
-              prompt: match.argText,
-              resolution: "480p",
-            }),
-            headers: videoHeaders(dependencies),
-            method: "POST",
-          },
-        );
-        const body = yield* Effect.tryPromise({
-          try: () => response.text(),
-          catch: () => new Error("Could not read video response"),
-        });
-        if (!response.ok) {
-          yield* editMessageText({
-            chatId: progress.chat.id,
-            messageId: progress.messageId,
-            text: rejectionText(body),
-          });
-          return;
-        }
-        const jobId = Schema.decodeUnknownSync(SubmitVideo)(JSON.parse(body)).id;
-        for (let attempt = 0; attempt < 180; attempt += 1) {
-          const status = yield* dependencies.http.json(
-            "openrouter-video",
-            `https://openrouter.ai/api/v1/videos/${encodeURIComponent(jobId)}`,
-            VideoStatus,
-            { headers: videoHeaders(dependencies) },
-          );
-          if (status.data.status === "completed") {
-            completed = true;
-            break;
-          }
-          if (status.data.status === "failed") return yield* Effect.die(
-            new Error("OpenRouter video generation failed"),
-          );
-          if (!["pending", "in_progress"].includes(status.data.status)) {
-            return yield* Effect.die(new Error("OpenRouter returned an invalid video status"));
-          }
-          yield* Effect.sleep("5 seconds");
-        }
-        if (!completed) return yield* Effect.die(new Error("Video generation timed out"));
-        const video = yield* dependencies.http.bytes(
-          "openrouter-video",
-          `https://openrouter.ai/api/v1/videos/${encodeURIComponent(jobId)}/content`,
-          50 * 1_024 * 1_024,
-          { headers: videoHeaders(dependencies) },
-        );
-        const buffer = new ArrayBuffer(video.data.byteLength);
-        new Uint8Array(buffer).set(video.data);
+        const bytes = yield* ai.video(match.argText, {
+          aspectRatio: prepared?.aspectRatio ?? "16:9",
+          ...(prepared === undefined ? {} : { firstFrame: prepared.firstFrame }),
+        }).pipe(Effect.catch((error) => editMessageText({
+          chatId: progress.chat.id,
+          messageId: progress.messageId,
+          text: failureText(error),
+        }).pipe(Effect.as(undefined))));
+        if (bytes === undefined) return;
+        completed = true;
+        const buffer = new ArrayBuffer(bytes.byteLength);
+        new Uint8Array(buffer).set(bytes);
         const requester = match.message.from?.username === undefined
           ? `User ${match.message.from?.id ?? "unknown"}`
           : `@${match.message.from.username}`;

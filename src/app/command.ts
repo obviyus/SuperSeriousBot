@@ -13,6 +13,7 @@ import {
   type ConversationMessageOptions,
   type Message,
 } from "telly";
+import { Predicate } from "effect";
 
 import type { ApiConfig } from "./config.ts";
 import { isAdmin } from "./admin.ts";
@@ -123,6 +124,14 @@ function recordCommand(
 ) {
   const user = match.message.from;
   if (user === undefined) return Effect.void;
+  const described = Predicate.isObject(error) ? Reflect.get(error, "description") : undefined;
+  const message = typeof described === "string"
+    ? described
+    : error instanceof Error
+    ? error.message
+    : error === undefined
+    ? null
+    : String(error);
   return dependencies.database.execute(
     `INSERT INTO command_stats (
       command, user_id, chat_id, message_id, username, input_text,
@@ -138,7 +147,7 @@ function recordCommand(
       status,
       Math.max(0, Math.round(dependencies.monotonicMilliseconds() - start)),
       error instanceof Error ? error.name : null,
-      error instanceof Error ? error.message : error === undefined ? null : String(error),
+      message,
       error instanceof Error ? error.stack ?? null : null,
     ],
   ).pipe(

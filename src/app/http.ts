@@ -32,7 +32,7 @@ function errorDescription(error: unknown): string {
 }
 
 export class Http {
-  constructor(private readonly send: Fetch = fetch) {}
+  constructor(readonly fetch: Fetch = globalThis.fetch) {}
 
   json<A>(
     service: string,
@@ -114,7 +114,7 @@ export class Http {
     init?: RequestInit,
   ): Effect.Effect<Response, HttpError> {
     return Effect.tryPromise({
-      try: () => this.send(url, { ...init, signal: init?.signal ?? AbortSignal.timeout(60_000) }),
+      try: () => this.fetch(url, { ...init, signal: init?.signal ?? AbortSignal.timeout(60_000) }),
       catch: (error) => new HttpError({ description: errorDescription(error), service }),
     });
   }

@@ -196,8 +196,9 @@ function transcribeCommand(ai: Ai): CommandDefinition {
         content: [
           { text: `You are transcribing a ${audio.source}. ${instruction}`, type: "text" },
           {
-            input_audio: { data: Buffer.from(wav).toString("base64"), format: "wav" },
-            type: "input_audio",
+            data: wav,
+            mediaType: "audio/wav",
+            type: "file",
           },
         ],
         role: "user",

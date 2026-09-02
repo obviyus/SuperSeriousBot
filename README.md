@@ -45,6 +45,7 @@ Required environment values:
 Optional integrations:
 
 - `OPENROUTER_API_KEY`: AI, image, video, transcription, summaries, search, and cron
+- `OPENROUTER_BASE_URL`: optional OpenRouter-compatible endpoint for local testing
 - `KIE_API_KEY`: song generation
 - `COBALT_URL`: media downloads
 - `NANO_GPT_API_KEY`: URL and YouTube extraction
@@ -96,7 +97,8 @@ bun run operator search-memory --chat-id -1001234567890
 ## Stack
 
 - [Telly](https://github.com/obviyus/telly) owns Telegram transport, updates, routing, persistence, and jobs.
-- [Effect](https://effect.website) owns typed effects, services, concurrency, and shutdown.
+- [Vercel AI SDK](https://ai-sdk.dev) owns text, structured output, streaming, embeddings, images, and video.
+- [Effect](https://effect.website) owns typed effects, services, interruption, concurrency, and shutdown.
 - [Bun](https://bun.com) owns packages, tests, development, and the production runtime.
 - [Turso](https://turso.tech) stores bot and search data.
 

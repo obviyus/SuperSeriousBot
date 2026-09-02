@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@libsql/client": "0.17.4",
+    "@openrouter/ai-sdk-provider": "3.0.0",
+    "ai": "7.0.89",
     "chrono-node": "2.10.1",
     "cron-parser": "5.10.0",
     "effect": "4.0.0-rc.112",

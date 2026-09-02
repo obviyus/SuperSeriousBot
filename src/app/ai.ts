@@ -1,41 +1,31 @@
+import { createOpenRouter, type OpenRouterProvider } from "@openrouter/ai-sdk-provider";
+import {
+  APICallError,
+  embedMany,
+  experimental_generateVideo as generateVideo,
+  generateImage,
+  generateText,
+  Output,
+  streamText,
+  type ModelMessage,
+} from "ai";
 import { Effect, Schema } from "telly";
 
 import type { AppDependencies } from "./dependencies.ts";
-import { type ModelCommand, getModel, getThinking, normalizeModelName } from "../features/settings.ts";
+import { imageDataUrl, type ImageData } from "./media.ts";
+import {
+  type ModelCommand,
+  getModel,
+  getThinking,
+  normalizeModelName,
+} from "../features/settings.ts";
 
-export type AiMessage = {
-  readonly content: string | ReadonlyArray<
-    | { readonly text: string; readonly type: "text" }
-    | { readonly image_url: { readonly url: string }; readonly type: "image_url" }
-    | {
-      readonly input_audio: { readonly data: string; readonly format: string };
-      readonly type: "input_audio";
-    }
-  >;
-  readonly role: "assistant" | "system" | "user";
-};
+export type AiMessage = ModelMessage;
 
 export class AiError extends Schema.TaggedError<AiError>()("AiError", {
   description: Schema.String,
   operation: Schema.String,
 }) {}
-
-const CompletionResponse = Schema.Struct({
-  choices: Schema.Array(Schema.Struct({
-    message: Schema.Struct({ content: Schema.String }),
-  })),
-});
-const StreamResponse = Schema.Struct({
-  choices: Schema.Array(Schema.Struct({
-    delta: Schema.Struct({ content: Schema.optionalKey(Schema.String) }),
-  })),
-});
-const ImageResponse = Schema.Struct({
-  data: Schema.Array(Schema.Struct({ b64_json: Schema.String })),
-});
-const EmbeddingResponse = Schema.Struct({
-  data: Schema.Array(Schema.Struct({ embedding: Schema.Array(Schema.Number) })),
-});
 
 interface GenerateOptions {
   readonly extraBody?: Readonly<Record<string, unknown>>;
@@ -44,68 +34,88 @@ interface GenerateOptions {
   readonly temperature?: number;
 }
 
+export interface AiStream {
+  readonly abort: () => void;
+  readonly next: () => Promise<IteratorResult<string>>;
+}
+
+const ReasoningLevelSchema = Schema.Literals(["none", "minimal", "low", "medium", "high"]);
+type ReasoningLevel = typeof ReasoningLevelSchema.Type;
+
 function description(error: unknown): string {
+  if (
+    APICallError.isInstance(error) &&
+    error.responseBody?.includes("Generated image rejected by content moderation") === true
+  ) return "moderation";
+  if (APICallError.isInstance(error) && error.responseBody !== undefined) {
+    return error.responseBody;
+  }
   return error instanceof Error ? error.message : String(error);
 }
 
-function apiKey(dependencies: AppDependencies): string {
-  const value = dependencies.config.api.openrouterApiKey;
-  if (value === undefined) throw new AiError({
-    description: "OpenRouter is not configured",
-    operation: "configure",
-  });
-  return value;
+function failure(operation: string, error: unknown): AiError {
+  return error instanceof AiError
+    ? error
+    : new AiError({ description: description(error), operation });
 }
 
-function headers(dependencies: AppDependencies): HeadersInit {
+function standardSchema<A>(
+  schema: Schema.Codec<A, unknown, never, never>,
+) {
+  return Schema.toStandardJSONSchemaV1(Schema.toStandardSchemaV1(schema));
+}
+
+function prompt(messages: ReadonlyArray<AiMessage>) {
+  const instructions = messages.flatMap((message) => message.role === "system"
+    ? [message.content]
+    : []).join("\n\n");
+  const modelMessages = messages.filter((message) => message.role !== "system");
   return {
-    authorization: `Bearer ${apiKey(dependencies)}`,
-    "content-type": "application/json",
-    "http-referer": "https://superserio.us",
-    "x-title": "SuperSeriousBot",
+    ...(instructions.length === 0 ? {} : { instructions }),
+    messages: modelMessages,
   };
 }
 
-function firstContent(response: typeof CompletionResponse.Type): string {
-  const content = response.choices[0]?.message.content;
-  if (content === undefined) throw new AiError({
-    description: "OpenRouter returned no content",
-    operation: "complete",
-  });
-  return content;
-}
-
 export class Ai {
-  constructor(private readonly dependencies: AppDependencies) {}
+  private readonly openrouter: OpenRouterProvider | undefined;
+
+  constructor(private readonly dependencies: AppDependencies) {
+    const apiKey = dependencies.config.api.openrouterApiKey;
+    const providerFetch = Object.assign(
+      (input: RequestInfo | URL, init?: RequestInit) => dependencies.http.fetch(input, init),
+      { preconnect: globalThis.fetch.preconnect },
+    );
+    this.openrouter = apiKey === undefined
+      ? undefined
+      : createOpenRouter({
+          apiKey,
+          appName: "SuperSeriousBot",
+          appUrl: "https://superserio.us",
+          ...(dependencies.config.api.openrouterBaseUrl === undefined
+            ? {}
+            : { baseURL: dependencies.config.api.openrouterBaseUrl }),
+          compatibility: "strict",
+          fetch: providerFetch,
+        });
+  }
 
   complete(
     command: ModelCommand,
     messages: ReadonlyArray<AiMessage>,
     options: GenerateOptions = {},
-  ): Effect.Effect<string, AiError | import("./database.ts").DatabaseError> {
-    return this.body(command, messages, options).pipe(
-      Effect.flatMap((body) => this.dependencies.http.json(
-        "openrouter",
-        "https://openrouter.ai/api/v1/chat/completions",
-        CompletionResponse,
-        { body: JSON.stringify(body), headers: headers(this.dependencies), method: "POST" },
-      )),
-      Effect.flatMap((response) => response.status >= 200 && response.status < 300
-        ? Effect.try({
-            try: () => firstContent(response.data),
-            catch: (error) => error instanceof AiError
-              ? error
-              : new AiError({ description: description(error), operation: "complete" }),
-          })
-        : Effect.fail(new AiError({
-            description: `OpenRouter rejected the request with status ${response.status}`,
-            operation: "complete",
-          }))),
-      Effect.mapError((error) => error._tag === "DatabaseError"
-        ? error
-        : error instanceof AiError
-        ? error
-        : new AiError({ description: error.description, operation: "complete" })),
+  ) {
+    return this.settings(command, options).pipe(
+      Effect.flatMap(({ model, reasoning }) => Effect.tryPromise({
+        try: (signal) => generateText({
+          abortSignal: signal,
+          ...(options.maxTokens === undefined ? {} : { maxOutputTokens: options.maxTokens }),
+          ...prompt(messages),
+          model: this.languageModel(command, model, options, reasoning),
+          ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
+        }),
+        catch: (error) => failure("complete", error),
+      })),
+      Effect.map((result) => result.text),
     );
   }
 
@@ -115,25 +125,22 @@ export class Ai {
     schema: Schema.Codec<A, unknown, never, never>,
     options: GenerateOptions = {},
   ) {
-    const document = Schema.toJsonSchemaDocument(schema);
-    return this.complete(command, messages, {
-      ...options,
-      extraBody: {
-        ...options.extraBody,
-        response_format: {
-          json_schema: { name: `${command}_response`, schema: document, strict: true },
-          type: "json_schema",
-        },
-      },
-    }).pipe(
-      Effect.flatMap((content) => Effect.try({
-        try: () => JSON.parse(content),
-        catch: (error) => new AiError({ description: description(error), operation: "decode" }),
+    return this.settings(command, options).pipe(
+      Effect.flatMap(({ model, reasoning }) => Effect.tryPromise({
+        try: (signal) => generateText({
+          abortSignal: signal,
+          ...(options.maxTokens === undefined ? {} : { maxOutputTokens: options.maxTokens }),
+          ...prompt(messages),
+          model: this.languageModel(command, model, options, reasoning),
+          output: Output.object({
+            name: `${command}_response`,
+            schema: standardSchema(schema),
+          }),
+          ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
+        }),
+        catch: (error) => failure("object", error),
       })),
-      Effect.flatMap((value) => Schema.decodeUnknownEffect(schema)(value)),
-      Effect.mapError((error) => error instanceof AiError || error._tag === "DatabaseError"
-        ? error
-        : new AiError({ description: error.message, operation: "decode" })),
+      Effect.map((result) => result.output),
     );
   }
 
@@ -142,169 +149,185 @@ export class Ai {
     messages: ReadonlyArray<AiMessage>,
     options: GenerateOptions = {},
   ) {
-    return this.body(command, messages, options).pipe(
-      Effect.flatMap((body) => this.dependencies.http.response(
-        "openrouter",
-        "https://openrouter.ai/api/v1/chat/completions",
-        {
-          body: JSON.stringify({ ...body, stream: true }),
-          headers: headers(this.dependencies),
-          method: "POST",
+    return this.settings(command, options).pipe(
+      Effect.flatMap(({ model, reasoning }) => Effect.try({
+        try: (): AiStream => {
+          const controller = new AbortController();
+          let streamFailure: { readonly error: unknown } | undefined;
+          const result = streamText({
+            abortSignal: controller.signal,
+            ...(options.maxTokens === undefined ? {} : { maxOutputTokens: options.maxTokens }),
+            ...prompt(messages),
+            model: this.languageModel(command, model, options, reasoning),
+            onError: ({ error }) => {
+              streamFailure = { error };
+            },
+            ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
+          });
+          const iterator = result.textStream[Symbol.asyncIterator]();
+          return {
+            abort: () => {
+              controller.abort();
+              void iterator.return?.();
+            },
+            next: async () => {
+              const next = await iterator.next();
+              if (next.done && streamFailure !== undefined) throw streamFailure.error;
+              return next;
+            },
+          };
         },
-      )),
-      Effect.flatMap((response) => {
-        if (!response.ok || response.body === null) return Effect.fail(new AiError({
-          description: `OpenRouter stream failed with status ${response.status}`,
-          operation: "stream",
-        }));
-        return Effect.succeed(readStream(response.body));
-      }),
-      Effect.mapError((error) => error._tag === "DatabaseError"
-        ? error
-        : error instanceof AiError
-        ? error
-        : new AiError({ description: error.description, operation: "stream" })),
+        catch: (error) => failure("stream", error),
+      })),
     );
   }
 
-  image(prompt: string, sourceImage?: string) {
+  image(prompt: string, source?: ImageData) {
     return getModel(this.dependencies, "edit").pipe(
-      Effect.flatMap((model) => this.dependencies.http.response(
-        "openrouter-images",
-        "https://openrouter.ai/api/v1/images",
-        {
-          body: JSON.stringify({
-            ...(sourceImage === undefined
-              ? {}
-              : { input_references: [{ image_url: { url: sourceImage }, type: "image_url" }] }),
-            model: normalizeModelName(model),
-            prompt: sourceImage === undefined
-              ? `Please generate an image according to the following description: ${prompt}`
-              : `Please edit this image according to the following description: ${prompt}`,
-          }),
-          headers: headers(this.dependencies),
-          method: "POST",
-        },
-      )),
-      Effect.flatMap((response) => Effect.tryPromise({
-        try: () => response.text(),
-        catch: (error) => new AiError({ description: description(error), operation: "image" }),
-      }).pipe(Effect.flatMap((body) => {
-        if (!response.ok) return Effect.fail(new AiError({
-          description: body.includes("Generated image rejected by content moderation")
-            ? "moderation"
-            : `OpenRouter image failed with status ${response.status}`,
-          operation: "image",
-        }));
-        return Effect.try({
-          try: () => {
-            const parsed = Schema.decodeUnknownSync(ImageResponse)(JSON.parse(body));
-            const encoded = parsed.data[0]?.b64_json;
-            if (encoded === undefined) throw new Error("OpenRouter returned no image");
-            return Uint8Array.from(Buffer.from(encoded, "base64"));
-          },
-          catch: (error) => new AiError({ description: description(error), operation: "image" }),
-        });
-      }))),
-      Effect.mapError((error) => error._tag === "DatabaseError" || error instanceof AiError
-        ? error
-        : new AiError({ description: error.description, operation: "image" })),
+      Effect.flatMap((model) => Effect.tryPromise({
+        try: (signal) => generateImage({
+          abortSignal: signal,
+          model: this.provider().imageModel(normalizeModelName(model)),
+          prompt: source === undefined
+            ? `Please generate an image according to the following description: ${prompt}`
+            : {
+                images: [imageDataUrl(source)],
+                text: `Please edit this image according to the following description: ${prompt}`,
+              },
+        }),
+        catch: (error) => failure("image", error),
+      })),
+      Effect.map((result) => result.image.uint8Array),
     );
+  }
+
+  video(
+    prompt: string,
+    options: {
+      readonly aspectRatio: `${number}:${number}`;
+      readonly firstFrame?: string;
+    },
+  ) {
+    return Effect.tryPromise({
+      try: (signal) => generateVideo({
+        abortSignal: signal,
+        aspectRatio: options.aspectRatio,
+        download: ({ url, abortSignal }) => this.downloadVideo(url, abortSignal),
+        duration: 5,
+        model: this.provider().videoModel("bytedance/seedance-2.0-mini", {
+          extraBody: { resolution: "480p" },
+          generateAudio: true,
+          maxPollTimeMs: 15 * 60_000,
+        }),
+        prompt: options.firstFrame === undefined
+          ? prompt
+          : { image: options.firstFrame, text: prompt },
+      }),
+      catch: (error) => failure("video", error),
+    }).pipe(Effect.map((result) => result.video.uint8Array));
   }
 
   embeddings(inputs: ReadonlyArray<string>, dimensions: number) {
-    return this.dependencies.http.json(
-      "openrouter-embeddings",
-      "https://openrouter.ai/api/v1/embeddings",
-      EmbeddingResponse,
-      {
-        body: JSON.stringify({
-          dimensions,
-          input: inputs,
-          model: "qwen/qwen3-embedding-8b",
+    return Effect.tryPromise({
+      try: (signal) => embedMany({
+        abortSignal: signal,
+        model: this.provider().textEmbeddingModel("qwen/qwen3-embedding-8b", {
+          extraBody: { dimensions },
           provider: { sort: "latency" },
         }),
-        headers: headers(this.dependencies),
-        method: "POST",
-      },
-    ).pipe(
-      Effect.flatMap((response) => {
-        const embeddings = response.data.data.map((item) => item.embedding);
-        return embeddings.length === inputs.length && embeddings.every((item) =>
-          item.length === dimensions)
+        values: [...inputs],
+      }),
+      catch: (error) => failure("embeddings", error),
+    }).pipe(
+      Effect.flatMap(({ embeddings }) =>
+        embeddings.length === inputs.length && embeddings.every((item) =>
+            item.length === dimensions)
           ? Effect.succeed(embeddings)
           : Effect.fail(new AiError({
               description: "OpenRouter returned invalid embedding dimensions",
               operation: "embeddings",
-            }));
-      }),
-      Effect.mapError((error) => error instanceof AiError
-        ? error
-        : new AiError({ description: error.description, operation: "embeddings" })),
+            }))
+      ),
     );
   }
 
-  private body(
+  private languageModel(
     command: ModelCommand,
-    messages: ReadonlyArray<AiMessage>,
+    model: string,
     options: GenerateOptions,
+    reasoning: ReasoningLevel,
   ) {
+    const id = normalizeModelName(model);
+    return this.provider()(id, {
+      ...(options.extraBody === undefined ? {} : { extraBody: { ...options.extraBody } }),
+      ...(command === "ask" && id.startsWith("x-ai/")
+        ? { plugins: [{ engine: "native" as const, id: "web" as const, max_results: 20 }] }
+        : {}),
+      ...(command === "ask" && reasoning !== "none"
+        ? { reasoning: { effort: reasoning } }
+        : {}),
+    });
+  }
+
+  private async downloadVideo(
+    url: URL,
+    abortSignal?: AbortSignal,
+  ): Promise<{ readonly data: Uint8Array; readonly mediaType: string | undefined }> {
+    const response = await this.dependencies.http.fetch(
+      url,
+      abortSignal === undefined ? {} : { signal: abortSignal },
+    );
+    if (!response.ok) throw new Error(`Video download failed with status ${response.status}`);
+    const maximumBytes = 50 * 1_024 * 1_024;
+    const declared = Number(response.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > maximumBytes) {
+      throw new Error("Generated video is too large");
+    }
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > maximumBytes) throw new Error("Generated video is too large");
+    return {
+      data: new Uint8Array(buffer),
+      mediaType: response.headers.get("content-type") ?? undefined,
+    };
+  }
+
+  private provider(): OpenRouterProvider {
+    if (this.openrouter === undefined) {
+      throw new AiError({
+        description: "OpenRouter is not configured",
+        operation: "configure",
+      });
+    }
+    return this.openrouter;
+  }
+
+  private settings(command: ModelCommand, options: GenerateOptions) {
     return Effect.all({
       model: options.model === undefined
         ? getModel(this.dependencies, command)
         : Effect.succeed(options.model),
       thinking: command === "ask" ? getThinking(this.dependencies) : Effect.succeed("none"),
-    }).pipe(Effect.map(({ model, thinking }) => ({
-      ...options.extraBody,
-      messages,
-      model: normalizeModelName(model),
-      ...(options.maxTokens === undefined ? {} : { max_tokens: options.maxTokens }),
-      ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
-      ...(command === "ask" && normalizeModelName(model).startsWith("x-ai/")
-        ? {
-            tools: [{
-              parameters: { engine: "native", max_total_results: 20 },
-              type: "openrouter:web_search",
-            }],
-          }
-        : {}),
-      ...(command === "ask" && thinking !== "none"
-        ? { reasoning: { effort: thinking } }
-        : {}),
-    })));
+    }).pipe(
+      Effect.flatMap(({ model, thinking }) =>
+        Schema.decodeUnknownEffect(ReasoningLevelSchema)(thinking).pipe(
+          Effect.map((reasoning) => ({ model, reasoning })),
+          Effect.mapError((error) => new AiError({
+            description: error.message,
+            operation: "configure",
+          })),
+        )
+      ),
+    );
   }
 }
 
-async function* readStream(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let pending = "";
-  try {
-    while (true) {
-      const next = await reader.read();
-      pending += decoder.decode(next.value, { stream: !next.done });
-      const events = pending.split("\n\n");
-      pending = events.pop() ?? "";
-      for (const event of events) {
-        for (const line of event.split("\n")) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6);
-          if (data === "[DONE]") return;
-          const decoded = Schema.decodeUnknownSync(StreamResponse)(JSON.parse(data));
-          const content = decoded.choices[0]?.delta.content;
-          if (content !== undefined) yield content;
-        }
-      }
-      if (next.done) return;
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-export function streamChunk(stream: AsyncGenerator<string>) {
+export function streamChunk(stream: AiStream) {
   return Effect.tryPromise({
-    try: () => stream.next(),
-    catch: (error) => new AiError({ description: description(error), operation: "stream" }),
+    try: (signal) => {
+      const abort = () => stream.abort();
+      signal.addEventListener("abort", abort, { once: true });
+      return stream.next().finally(() => signal.removeEventListener("abort", abort));
+    },
+    catch: (error) => failure("stream", error),
   });
 }

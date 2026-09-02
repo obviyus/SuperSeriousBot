@@ -48,6 +48,53 @@ export function sentMessage(messageId: number) {
   });
 }
 
+export function openRouterText(content: string): Response {
+  return new Response(JSON.stringify({
+    choices: [{
+      finish_reason: "stop",
+      index: 0,
+      message: { content, role: "assistant" },
+    }],
+    id: "generation-test",
+    model: "test/model",
+    provider: "test",
+  }), { headers: { "content-type": "application/json" } });
+}
+
+export function openRouterStream(...content: ReadonlyArray<string>): Response {
+  const chunks = content.map((text, index) => `data: ${JSON.stringify({
+    choices: [{
+      delta: { ...(index === 0 ? { role: "assistant" } : {}), content: text },
+      finish_reason: null,
+      index: 0,
+    }],
+    id: "generation-test",
+    model: "test/model",
+  })}\n\n`);
+  chunks.push(`data: ${JSON.stringify({
+    choices: [{ delta: {}, finish_reason: "stop", index: 0 }],
+    id: "generation-test",
+    model: "test/model",
+  })}\n\n`, "data: [DONE]\n\n");
+  return new Response(chunks.join(""), { headers: { "content-type": "text/event-stream" } });
+}
+
+export function openRouterEmbeddings(requestBody: string): Response {
+  const request = JSON.parse(requestBody) as {
+    readonly dimensions: number;
+    readonly input: ReadonlyArray<string>;
+  };
+  return new Response(JSON.stringify({
+    data: request.input.map((_, index) => ({
+      embedding: Array(request.dimensions).fill(0.01),
+      index,
+      object: "embedding",
+    })),
+    model: "qwen/qwen3-embedding-8b",
+    object: "list",
+  }), { headers: { "content-type": "application/json" } });
+}
+
 export async function fixture(
   send: Fetch,
   replies: ReadonlyArray<FakeBotApiReply> = [],

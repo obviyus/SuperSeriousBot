@@ -3,7 +3,7 @@ import { Effect, type Update } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
-import { commandUpdate, fixture, testConfig } from "./harness.ts";
+import { commandUpdate, fixture, openRouterText, testConfig } from "./harness.ts";
 
 test("tldr returns a cached YouTube summary without calling providers", async () => {
   let providerCalls = 0;
@@ -54,9 +54,7 @@ test("tldr returns a cached YouTube summary without calling providers", async ()
 test("tldr fetches and caches a fresh YouTube transcript summary", async () => {
   const send: Fetch = async (input) => String(input).includes("youtube-transcribe")
     ? new Response(JSON.stringify({ transcripts: [{ transcript: "A detailed camera review." }] }))
-    : new Response(JSON.stringify({
-        choices: [{ message: { content: "- The camera is compact.\n- Stabilization is excellent." } }],
-      }));
+    : openRouterText("- The camera is compact.\n- Stabilization is excellent.");
   const config = {
     ...testConfig({ nanoGptApiKey: "nano-test", openrouterApiKey: "openrouter-test" }),
     admins: new Set<string>(),
@@ -126,9 +124,7 @@ test("tr command downloads audio, transcodes it, and sends the transcript", asyn
   const send: Fetch = async (_input, init) => {
     const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
     audioInput = body.messages?.[0]?.content?.[1]?.input_audio?.data ?? "";
-    return new Response(JSON.stringify({
-      choices: [{ message: { content: "The speaker asks for a camera recommendation." } }],
-    }));
+    return openRouterText("The speaker asks for a camera recommendation.");
   };
   const source = silentWav();
   const config = {
