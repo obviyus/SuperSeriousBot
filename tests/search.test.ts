@@ -122,8 +122,11 @@ test("search index replaces growing tail windows", async () => {
 });
 
 test("search command answers from indexed evidence with a Telegram citation", async () => {
+  let modelMessages = "";
   const send: Fetch = async (input, init) => {
     if (String(input).includes("embeddings")) return openRouterEmbeddings(String(init?.body));
+    const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
+    modelMessages = JSON.stringify(body.messages);
     return openRouterText(JSON.stringify({
         answer: "Nathu is a product designer.",
         citations: [1],
@@ -163,11 +166,12 @@ test("search command answers from indexed evidence with a Telegram citation", as
   ));
   database.close();
 
-  const replies = fake.requests.filter((request) => request.method === "sendMessage");
-  const params = replies.at(-1)?.params;
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const params = reply?.params;
   if (typeof params !== "object" || params === null) throw new Error("Search reply missing");
-  const text = Reflect.get(params, "text");
-  expect(text).toContain("Nathu is a product designer\\.");
+  const text = Reflect.get(Reflect.get(params, "rich_message"), "markdown");
+  expect(modelMessages).toContain("Telegram Rich Markdown");
+  expect(text).toContain("Nathu is a product designer.");
   expect(text).toContain("https://t.me/c/7/24");
   expect(event).toMatchObject({ citation_message_ids: "[24]" });
 });

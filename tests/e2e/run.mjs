@@ -133,7 +133,7 @@ try {
           `${JSON.stringify(aiRequests, null, 2)}\n`,
         );
         const chunks = [
-          { choices: [{ delta: { content: "AI_SDK_E2E_OK", role: "assistant" }, finish_reason: null, index: 0 }], id: "e2e", model: "test/model" },
+          { choices: [{ delta: { content: "## AI_SDK_E2E_OK\n\n- Native rich list", role: "assistant" }, finish_reason: null, index: 0 }], id: "e2e", model: "test/model" },
           { choices: [{ delta: {}, finish_reason: "stop", index: 0 }], id: "e2e", model: "test/model" },
         ];
         return new Response(
@@ -263,6 +263,10 @@ try {
   const proven = aiMode
     ? revisions.some((text) => text.includes("AI_SDK_E2E_OK")) &&
       revisions.some((text) => text.includes("Thinking level updated")) &&
+      events.some((event) =>
+        event.kind === "edit" &&
+        event.contentType === "messageRichMessage"
+      ) &&
       aiRequests.length === 1 &&
       aiRequests[0]?.body?.reasoning?.effort === "high" &&
       aiRequests[0]?.userAgent?.includes("ai-sdk/openrouter/3.0.0") === true

@@ -15,7 +15,7 @@ import {
 } from "../app/command.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
-import { replyMarkdownOrPlain } from "../app/markdown.ts";
+import { replyRich, richMarkdownPrompt } from "../app/rich.ts";
 import { getModel, normalizeModelName } from "./settings.ts";
 
 const embeddingModel = "qwen/qwen3-embedding-8b";
@@ -366,6 +366,7 @@ function searchCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition
           ...evidence.map((item, index) => `[Evidence ${index + 1}]\n${item.text}`),
         ].join("\n\n").slice(0, 240_000);
         const output = yield* ai.object("search", [
+          { content: richMarkdownPrompt, role: "system" },
           {
             content: `Answer in one to three sentences using only supplied evidence. Return ${noAnswer} when evidence is insufficient. citations must list every evidence number that directly supports the answer.`,
             role: "system",
@@ -396,7 +397,7 @@ function searchCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition
           Math.round(dependencies.monotonicMilliseconds() - start),
         ],
       );
-      yield* replyMarkdownOrPlain(match.message, result.answer, { linkPreviewDisabled: true });
+      yield* replyRich(match.message, result.answer);
     }),
     usage: "/search [question]",
   };

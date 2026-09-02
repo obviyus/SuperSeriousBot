@@ -16,7 +16,7 @@ import {
 } from "../app/command.ts";
 import { rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
-import { replyMarkdownOrPlain } from "../app/markdown.ts";
+import { replyRich, richMarkdownPrompt } from "../app/rich.ts";
 
 const TranscriptResponse = Schema.Struct({
   transcripts: Schema.Array(Schema.Struct({
@@ -59,6 +59,7 @@ export function youtubeVideoId(url: URL): string | undefined {
 
 function summarize(ai: Ai, text: string, context: string) {
   return ai.complete("tldr", [
+    { content: richMarkdownPrompt, role: "system" },
     {
       content: `Summarize the content${context.length === 0 ? "" : ` (${context})`} in 3-6 concise bullet points. Return only the bullets.`,
       role: "system",
@@ -85,7 +86,7 @@ function tldrCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
             [videoId],
           );
           if (cached !== undefined) {
-            return yield* replyMarkdownOrPlain(match.message, rowString(cached, "summary"));
+            return yield* replyRich(match.message, rowString(cached, "summary"));
           }
           const response = yield* dependencies.http.json(
             "nano-gpt-youtube",
@@ -111,7 +112,7 @@ function tldrCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
             "INSERT INTO tldw (video_id, summary, user_id) VALUES (?, ?, ?)",
             [videoId, summary, match.message.from?.id ?? 0],
           );
-          return yield* replyMarkdownOrPlain(match.message, summary);
+          return yield* replyRich(match.message, summary);
         }
         const response = yield* dependencies.http.json(
           "nano-gpt-scrape",
@@ -134,10 +135,9 @@ function tldrCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
           return yield* answer(match.message, "I couldn't read that URL.");
         }
         const summary = yield* summarize(ai, source, "a web page");
-        return yield* replyMarkdownOrPlain(
+        return yield* replyRich(
           match.message,
           `${summary}\n\nSource: ${url}`,
-          { linkPreviewDisabled: true },
         );
       }
       const replied = match.message.replyToMessage;
@@ -150,12 +150,12 @@ function tldrCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
         const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
         if (text.trim().length === 0) return yield* answer(match.message, "That file is empty.");
         const summary = yield* summarize(ai, text, `file ${replied.document.fileName ?? "document"}`);
-        return yield* replyMarkdownOrPlain(match.message, summary);
+        return yield* replyRich(match.message, summary);
       }
       const text = replied.text ?? replied.caption;
       if (text === undefined) return yield* usage(match.message, definition);
       const summary = yield* summarize(ai, text, "a replied message");
-      return yield* replyMarkdownOrPlain(match.message, summary);
+      return yield* replyRich(match.message, summary);
     }),
     usage: "/tldr with a URL, or reply to text or a text file",
   };
@@ -192,17 +192,20 @@ function transcribeCommand(ai: Ai): CommandDefinition {
       const instruction = match.argText.length === 0
         ? "Transcribe this audio. Begin immediately without commentary and keep it readable for Telegram."
         : match.argText;
-      const transcript = yield* ai.complete("tr", [{
-        content: [
-          { text: `You are transcribing a ${audio.source}. ${instruction}`, type: "text" },
-          {
-            data: wav,
-            mediaType: "audio/wav",
-            type: "file",
-          },
-        ],
-        role: "user",
-      }]).pipe(Effect.catch(() => answer(
+      const transcript = yield* ai.complete("tr", [
+        { content: richMarkdownPrompt, role: "system" },
+        {
+          content: [
+            { text: `You are transcribing a ${audio.source}. ${instruction}`, type: "text" },
+            {
+              data: wav,
+              mediaType: "audio/wav",
+              type: "file",
+            },
+          ],
+          role: "user",
+        },
+      ]).pipe(Effect.catch(() => answer(
         match.message,
         "Transcription failed. Please try again.",
       ).pipe(Effect.as(undefined))));
@@ -210,9 +213,8 @@ function transcribeCommand(ai: Ai): CommandDefinition {
       if (transcript.trim().length === 0) {
         return yield* answer(match.message, "No transcript was returned. Please try again.");
       }
-      yield* replyMarkdownOrPlain(match.message, transcript.trim(), {
+      yield* replyRich(match.message, transcript.trim(), {
         documentName: "transcript.txt",
-        linkPreviewDisabled: true,
       });
     }),
     usage: "/tr [optional instructions] as a reply to audio",

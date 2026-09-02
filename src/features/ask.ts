@@ -1,4 +1,5 @@
 import {
+  editMessageText,
   Effect,
   sendPhoto,
   type Message,
@@ -12,9 +13,13 @@ import {
 } from "../app/command.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
 import { messageImage } from "../app/media.ts";
-import { editMarkdownOrPlain, replyMarkdownOrPlain } from "../app/markdown.ts";
+import {
+  editRich,
+  richMarkdownPrompt,
+  richMessageLimit,
+} from "../app/rich.ts";
 
-const telegramLimit = 4_096;
+const plainPreviewLimit = 4_096;
 const wordLimit = 1_000;
 const systemPrompt = `You are @SuperSeriousBot in a Telegram chat. Be extremely concise.
 
@@ -50,7 +55,10 @@ function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
         return yield* answer(match.message, `Please reply to a message under ${wordLimit} words.`);
       }
       const image = replied === undefined ? undefined : yield* messageImage(replied);
-      const messages: Array<AiMessage> = [{ content: systemPrompt, role: "system" }];
+      const messages: Array<AiMessage> = [
+        { content: systemPrompt, role: "system" },
+        { content: richMarkdownPrompt, role: "system" },
+      ];
       if (image !== undefined) {
         const prompt = query.length === 0 ? "Describe this image in detail." : query;
         messages.push({
@@ -78,32 +86,32 @@ function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
         while (true) {
           const next = yield* streamChunk(stream);
           if (next.done) break;
-          content = `${content}${next.value}`.slice(0, telegramLimit);
+          content = `${content}${next.value}`.slice(0, richMessageLimit);
           if (content.length === 0) continue;
+          const preview = content.slice(0, plainPreviewLimit);
           if (sent === undefined) {
-            sent = yield* replyMarkdownOrPlain(match.message, content, {
-              linkPreviewDisabled: true,
+            sent = yield* answer(match.message, {
+              linkPreviewOptions: { isDisabled: true },
+              text: preview,
             });
-            lastLength = content.length;
+            lastLength = preview.length;
             continue;
           }
-          const cutoff = streamCutoff(match.message.chat.type !== "private", content.length);
+          const cutoff = streamCutoff(match.message.chat.type !== "private", preview.length);
           const now = dependencies.monotonicMilliseconds();
-          if (content.length - lastLength < cutoff || now - lastEdit < 800) continue;
-          yield* editMarkdownOrPlain(sent.chat.id, sent.messageId, content);
-          lastLength = content.length;
+          if (preview.length - lastLength < cutoff || now - lastEdit < 800) continue;
+          yield* editMessageText({
+            chatId: sent.chat.id,
+            messageId: sent.messageId,
+            text: preview,
+          });
+          lastLength = preview.length;
           lastEdit = now;
         }
-        if (content.length === 0) {
+        if (sent === undefined) {
           return yield* answer(match.message, "No response received from AI. Please try again.");
         }
-        if (sent === undefined) {
-          yield* replyMarkdownOrPlain(match.message, content, { linkPreviewDisabled: true });
-          return;
-        }
-        if (content.length !== lastLength) {
-          yield* editMarkdownOrPlain(sent.chat.id, sent.messageId, content);
-        }
+        yield* editRich(sent, content);
       }).pipe(Effect.ensuring(Effect.sync(() => stream.abort())));
     }),
     usage: "/ask [query]",
