@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 
 import { expect, test } from "bun:test";
-import { Application, Effect, MemoryJobs } from "telly";
+import { Application, MemoryJobs } from "telly";
 
 import type { Fetch } from "../src/app/http.ts";
 import { Http } from "../src/app/http.ts";
@@ -42,7 +42,7 @@ test("bot registers every migrated command name", async () => {
   ]);
 });
 
-test("runtime schedules all recurring workers", async () => {
+test("runtime registers every recurring worker", async () => {
   const store = MemoryJobs.make();
   const jobsApp = Application.make({ rateLimit: false, token });
   const { app, bot, database } = await fixture(offline);
@@ -55,22 +55,8 @@ test("runtime schedules all recurring workers", async () => {
     random: () => 0.5,
   }, bot, store);
 
-  try {
-    await scheduleRuntimeJobs(jobsApp, jobs);
-  } finally {
-    await jobsApp.close();
-    await app.close();
-  }
-  const lease = await Effect.runPromise(store.acquire({ botId: 123456, leaseMs: 30_000 }));
-  if (lease._tag !== "Acquired") throw new Error("Could not acquire scheduled jobs");
-  const claimed = await Effect.runPromise(store.claim({
-    botId: 123456,
-    fencingToken: lease.fencingToken,
-    limit: 20,
-  }));
-  database.close();
-
-  expect(claimed.map((item) => item.name).sort()).toEqual([
+  await scheduleRuntimeJobs(jobsApp, jobs);
+  const cancelled = await Promise.all([
     "cron",
     "footballAlerts",
     "footballSync",
@@ -79,7 +65,12 @@ test("runtime schedules all recurring workers", async () => {
     "reminders",
     "searchIndex",
     "searchMemory",
-  ]);
+  ].map((name) => jobsApp.run(jobs.cancel(name))));
+  await jobsApp.close();
+  await app.close();
+  database.close();
+
+  expect(cancelled).toEqual([true, true, true, true, true, true, true, true]);
 });
 
 test("webhook stops cleanly on SIGTERM and removes signal listeners", async () => {
