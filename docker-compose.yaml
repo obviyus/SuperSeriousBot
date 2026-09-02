@@ -1,12 +1,10 @@
-version: "3"
+name: superseriousbot
+
 services:
-  ssgbot:
-    # image: ghcr.io/obviyus/superseriousbot:latest
+  bot:
     build: .
-    volumes:
-      - ./db/:/app/db/
-      - ./src:/app/src
-      - ./vis/:/app/vis/
     env_file:
       - ssgbot.env
     restart: unless-stopped
+    volumes:
+      - ./db:/app/db
