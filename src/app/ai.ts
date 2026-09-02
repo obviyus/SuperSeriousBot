@@ -208,23 +208,27 @@ export class Ai {
       readonly firstFrame?: string;
     },
   ) {
-    return Effect.tryPromise({
-      try: (signal) => generateVideo({
-        abortSignal: signal,
-        aspectRatio: options.aspectRatio,
-        download: ({ url, abortSignal }) => this.downloadVideo(url, abortSignal),
-        duration: 5,
-        model: this.provider().videoModel("bytedance/seedance-2.0-mini", {
-          extraBody: { resolution: "480p" },
-          generateAudio: true,
-          maxPollTimeMs: 15 * 60_000,
+    return getModel(this.dependencies, "video").pipe(
+      Effect.flatMap((model) => Effect.tryPromise({
+        try: (signal) => generateVideo({
+          abortSignal: signal,
+          aspectRatio: options.aspectRatio,
+          download: ({ url, abortSignal }) => this.downloadVideo(url, abortSignal),
+          duration: 5,
+          model: this.provider().videoModel(normalizeModelName(model), {
+            extraBody: { resolution: "480p" },
+            generateAudio: true,
+            maxPollTimeMs: 15 * 60_000,
+          }),
+          prompt: options.firstFrame === undefined
+            ? prompt
+            : { image: options.firstFrame, text: prompt },
         }),
-        prompt: options.firstFrame === undefined
-          ? prompt
-          : { image: options.firstFrame, text: prompt },
-      }),
-      catch: (error) => failure("video", error),
-    }).pipe(Effect.map((result) => result.video.uint8Array));
+        catch: (error) => failure("video", error),
+      })),
+      Effect.map((result) => result.video.uint8Array),
+      Effect.mapError((error) => failure("video", error)),
+    );
   }
 
   embeddings(inputs: ReadonlyArray<string>, dimensions: number) {

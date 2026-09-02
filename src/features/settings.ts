@@ -27,6 +27,7 @@ export const defaultModels = {
   song: "openrouter/x-ai/grok-4.3",
   tldr: "openrouter/google/gemini-3-flash-preview",
   tr: "google/gemini-2.5-flash",
+  video: "openrouter/bytedance/seedance-2.0-mini",
 } as const;
 
 export type ModelCommand = keyof typeof defaultModels;
@@ -40,6 +41,7 @@ const modelColumns: Readonly<Record<ModelCommand, string>> = {
   song: "song_model",
   tldr: "tldr_model",
   tr: "tr_model",
+  video: "video_model",
 };
 const thinkingLevels = ["none", "minimal", "low", "medium", "high"] as const;
 
@@ -89,7 +91,7 @@ export function getThinking(dependencies: AppDependencies) {
 
 function modelCommand(dependencies: AppDependencies): CommandDefinition {
   return {
-    description: "Set AI models for commands: ask, cron, edit, search, song, tr, tldr.",
+    description: `Set AI models for commands: ${modelCommands.join(", ")}.`,
     example: "/model ask openrouter/x-ai/grok-4.3",
     names: ["model"],
     run: Effect.fn("modelSettings")(function* (match) {
@@ -123,7 +125,7 @@ function modelCommand(dependencies: AppDependencies): CommandDefinition {
       if (targets.length === 0 || nextModel.length === 0) {
         return yield* answer(
           match.message,
-          "❌ Specify a valid command and model name. Commands: ask, cron, edit, search, song, tr, tldr, all",
+          `❌ Specify a valid command and model name. Commands: ${modelCommands.join(", ")}, all`,
         );
       }
       const columns = targets.map((target) => modelColumns[target]);

@@ -161,9 +161,11 @@ test("song command delivers both generated tracks", async () => {
 });
 
 test("video command delivers the completed generated video", async () => {
+  let submitted: Record<string, unknown> = {};
   const send: Fetch = async (input, init) => {
     const url = String(input);
     if (url.endsWith("/videos") && init?.method === "POST") {
+      submitted = JSON.parse(String(init.body));
       return new Response(JSON.stringify({
         id: "video-job-9",
         polling_url: "https://openrouter.ai/api/v1/videos/video-job-9",
@@ -192,6 +194,10 @@ test("video command delivers the completed generated video", async () => {
     FakeBotApiReply.ok(true),
   ], config);
   await allow(database, "video");
+  await Effect.runPromise(database.execute(
+    "INSERT INTO group_settings (chat_id, video_model) VALUES (-1, ?)",
+    ["openrouter/bytedance/seedance-configured"],
+  ));
 
   try {
     await app.run(bot.handler(commandUpdate("/video a corgi on a glassy wave", 2_004)));
@@ -207,6 +213,7 @@ test("video command delivers the completed generated video", async () => {
     caption: expect.stringContaining("a corgi on a glassy wave"),
     chat_id: "-1007",
   });
+  expect(submitted["model"]).toBe("bytedance/seedance-configured");
 });
 
 test("video command downloads and frames a replied photo", async () => {
