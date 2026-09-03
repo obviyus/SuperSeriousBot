@@ -57,6 +57,47 @@ test("ask command streams the OpenRouter answer into Telegram", async () => {
   });
 });
 
+test("ask command includes a replied rich answer as context", async () => {
+  let submitted = "";
+  const send: Fetch = async (_input, init) => {
+    submitted = typeof init?.body === "string" ? init.body : "";
+    return openRouterStream("Detailed answer");
+  };
+  const { app, bot, database } = await fixture(send, [], aiConfig());
+  await allow(database, "ask");
+  const base = commandUpdate("/ask give detailed use cases", 905);
+  if (base.message === undefined) throw new Error("Expected ask message");
+  const update = {
+    ...base,
+    message: {
+      ...base.message,
+      replyToMessage: {
+        chat: base.message.chat,
+        date: base.message.date - 1,
+        from: { firstName: "Super Serious Bot", id: 2, isBot: true },
+        messageId: 904,
+        richMessage: {
+          blocks: [{
+            text: "Browser-based remote desktop only. No official SSH access.",
+            type: "paragraph" as const,
+          }],
+        },
+      },
+    },
+  };
+
+  try {
+    await app.run(bot.handler(update));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  expect(submitted).toContain("Reply context:");
+  expect(submitted).toContain("Browser-based remote desktop only. No official SSH access.");
+  expect(submitted).toContain("give detailed use cases");
+});
+
 test("ask command records a rejected AI SDK stream as a failure", async () => {
   const send: Fetch = async () => new Response(JSON.stringify({
     error: { code: 401, message: "Invalid OpenRouter key" },
