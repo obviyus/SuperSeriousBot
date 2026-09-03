@@ -231,7 +231,7 @@
 
     "strnum": ["strnum@2.4.2", "", { "dependencies": { "anynum": "^1.0.1" } }, "sha512-rDG3Ah4TV0k1hWvLSzkZtMmLN9+eS+h3knq4MP6A42Y3Yh5qGNnOUs1jJkoSr8FG5dsL28c7KgkIBzSEykqtuw=="],
 
-    "telly": ["telly@vendor/telly-0.0.0.tgz", { "dependencies": { "@libsql/client": "0.17.4", "effect": "4.0.0-rc.112" } }, "sha512-clIMBOhThXFYKsJrfE1JxzQPwTLs2d6KpG1fl17P01wn9BBtN9J7CE/jSIlnV0R2ok+cBX/kj3A0lE8HaVd/Ag=="],
+    "telly": ["telly@vendor/telly-0.0.0.tgz", { "dependencies": { "@libsql/client": "0.17.4", "effect": "4.0.0-rc.112" } }, "sha512-s0uwy0wDGctffwopDx+z/BEgiuk3A7obxbo0APSuJrWP6pB8RY75+JqAYv/r2ZT2blV+1CbmWXsGh9LMsobwYg=="],
 
     "tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 

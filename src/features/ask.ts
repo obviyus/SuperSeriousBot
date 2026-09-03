@@ -55,7 +55,10 @@ function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
       if (replyContext !== undefined && words(replyContext) > wordLimit) {
         return yield* answer(match.message, `Please reply to a message under ${wordLimit} words.`);
       }
-      const image = replied === undefined ? undefined : yield* messageImage(replied);
+      const attachedImage = yield* messageImage(match.message);
+      const image = attachedImage === undefined && replied !== undefined
+        ? yield* messageImage(replied)
+        : attachedImage;
       const messages: Array<AiMessage> = [
         { content: systemPrompt, role: "system" },
         { content: richMarkdownPrompt, role: "system" },
@@ -133,7 +136,10 @@ function editCommand(ai: Ai): CommandDefinition {
         return yield* answer(match.message, "Please provide a prompt describing the image.");
       }
       const replied = match.message.replyToMessage;
-      const source = replied === undefined ? undefined : yield* messageImage(replied, true);
+      const attachedImage = yield* messageImage(match.message, true);
+      const source = attachedImage === undefined && replied !== undefined
+        ? yield* messageImage(replied, true)
+        : attachedImage;
       const generated = yield* ai.image(match.argText, source).pipe(Effect.catch((error) => answer(
         match.message,
         error._tag === "AiError" && error.description === "moderation"
