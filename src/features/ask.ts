@@ -1,6 +1,7 @@
 import {
   editMessageText,
   Effect,
+  messageText,
   sendPhoto,
   type Message,
 } from "telly";
@@ -47,7 +48,7 @@ function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
     run: Effect.fn("ask")(function* (match) {
       let query = match.argText;
       const replied = match.message.replyToMessage;
-      const replyContext = replied?.text ?? replied?.caption;
+      const replyContext = replied === undefined ? undefined : messageText(replied);
       if (words(query) > wordLimit) {
         return yield* answer(match.message, `Please keep your query under ${wordLimit} words.`);
       }
