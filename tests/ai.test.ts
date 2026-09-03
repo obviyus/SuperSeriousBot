@@ -33,7 +33,9 @@ test("ask command streams the OpenRouter answer into Telegram", async () => {
     expect(body.stream).toBe(true);
     expect(body.plugins).toEqual([{ engine: "native", id: "web", max_results: 20 }]);
     expect(body.reasoning).toEqual({ effort: "high" });
-    expect(JSON.stringify(body.messages)).toContain("Telegram Rich Markdown");
+    const messages = JSON.stringify(body.messages);
+    expect(messages).toContain("Telegram Rich Markdown");
+    expect(messages).toContain("Write prices with ISO currency codes such as USD 48,500");
     return openRouterStream("Hello from AI");
   };
   const { app, bot, database, fake } = await fixture(send, [], aiConfig());

@@ -22,6 +22,7 @@ export const richMessageLimit = 32_768;
 
 export const richMarkdownPrompt = `Format the user-visible answer as Telegram Rich Markdown.
 Use GitHub-flavored Markdown headings, lists, task lists, blockquotes, fenced code, tables, links, dividers, footnotes, and math when useful. Use ==text== for highlighting and ||text|| for spoilers.
+Write prices with ISO currency codes such as USD 48,500, never with dollar symbols. Use $...$ only for intentional mathematical expressions.
 Return only the answer without an outer code fence. Do not emit HTML, media, or buttons. Keep the answer under 32,768 characters.`;
 
 interface RichOptions {
