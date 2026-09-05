@@ -60,17 +60,17 @@ const Summary = Schema.Struct({
 const Market = Schema.Struct({
   active: Schema.Boolean,
   closed: Schema.Boolean,
-  outcomePrices: Schema.String,
+  outcomePrices: Schema.optionalKey(Schema.String),
   outcomes: Schema.String,
   question: Schema.String,
-  sportsMarketType: Schema.String,
+  sportsMarketType: Schema.optionalKey(Schema.String),
 });
 const Polymarket = Schema.Struct({
   events: Schema.Array(Schema.Struct({
     active: Schema.Boolean,
     closed: Schema.Boolean,
     endDate: Schema.String,
-    eventDate: Schema.String,
+    eventDate: Schema.optionalKey(Schema.String),
     id: Schema.Union([Schema.String, Schema.Number]),
     markets: Schema.Array(Market),
     slug: Schema.String,
@@ -254,6 +254,7 @@ function hasTeam(text: string, team: string): boolean {
 }
 
 function yesPrice(market: typeof Market.Type): number | undefined {
+  if (market.outcomePrices === undefined) return undefined;
   const outcomes = Schema.decodeUnknownSync(Schema.Array(Schema.String))(JSON.parse(market.outcomes));
   const prices = Schema.decodeUnknownSync(Schema.Array(Schema.String))(JSON.parse(market.outcomePrices));
   const index = outcomes.indexOf("Yes");

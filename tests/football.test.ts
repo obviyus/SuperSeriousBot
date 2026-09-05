@@ -130,6 +130,80 @@ test("next command renders odds and a matching watch link", async () => {
   expect(content.types).toContain("table");
 });
 
+test("next command keeps match odds when search also returns season markets", async () => {
+  const response = {
+    events: [
+      ...polymarket().events,
+      {
+        active: true,
+        closed: false,
+        endDate: "2027-07-01T00:00:00Z",
+        id: "season-market",
+        markets: [
+          {
+            active: true,
+            closed: false,
+            outcomePrices: '["0.35", "0.65"]',
+            outcomes: '["Yes", "No"]',
+            question: "Will Arsenal win the 2026-27 Premier League?",
+          },
+          {
+            active: false,
+            closed: false,
+            outcomes: '["Yes", "No"]',
+            question: "Will another team win the 2026-27 Premier League?",
+          },
+        ],
+        slug: "epl-2027-champion",
+        title: "EPL: 2027 Champion",
+      },
+    ],
+  };
+  const send: Fetch = async (input) => String(input).includes("polymarket")
+    ? new Response(JSON.stringify(response))
+    : new Response("");
+  const { app, bot, database, fake } = await fixture(send);
+  await storeFixture(database);
+
+  try {
+    await app.run(bot.handler(commandUpdate("/next", 4_005)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const message = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(message?.params);
+  expect(content.text).toContain("62%\n23%\n15%");
+  expect(content.text).not.toContain("Pending");
+});
+
+test("next command leaves odds pending when a match market has no price", async () => {
+  const response = polymarket();
+  const { outcomePrices, ...unpriced } = response.events[0]!.markets[0]!;
+  const send: Fetch = async (input) => String(input).includes("polymarket")
+    ? new Response(JSON.stringify({
+        events: [{
+          ...response.events[0],
+          markets: [unpriced, ...response.events[0]!.markets.slice(1)],
+        }],
+      }))
+    : new Response("");
+  const { app, bot, database, fake } = await fixture(send);
+  await storeFixture(database);
+
+  try {
+    await app.run(bot.handler(commandUpdate("/next", 4_006)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const message = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(message?.params);
+  expect(content.text).toContain("Arsenal vs Coventry City\n—\n—\n—\nPending");
+});
+
 test("football buttons join and leave the current group", async () => {
   const offline: Fetch = async () => new Response("{}");
   const { app, bot, database, fake } = await fixture(offline);
