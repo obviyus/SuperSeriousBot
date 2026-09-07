@@ -31,7 +31,6 @@ interface GenerateOptions {
   readonly extraBody?: Readonly<Record<string, unknown>>;
   readonly maxTokens?: number;
   readonly model?: string;
-  readonly temperature?: number;
 }
 
 export interface AiStream {
@@ -111,7 +110,6 @@ export class Ai {
           ...(options.maxTokens === undefined ? {} : { maxOutputTokens: options.maxTokens }),
           ...prompt(messages),
           model: this.languageModel(command, model, options, reasoning),
-          ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
         }),
         catch: (error) => failure("complete", error),
       })),
@@ -136,7 +134,6 @@ export class Ai {
             name: `${command}_response`,
             schema: standardSchema(schema),
           }),
-          ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
         }),
         catch: (error) => failure("object", error),
       })),
@@ -162,7 +159,6 @@ export class Ai {
             onError: ({ error }) => {
               streamFailure = { error };
             },
-            ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
           });
           const iterator = result.textStream[Symbol.asyncIterator]();
           return {

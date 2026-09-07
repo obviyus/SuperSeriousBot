@@ -50,6 +50,24 @@ test("search windows overlap while utterances retain speaker ownership", () => {
   ]);
 });
 
+test("utterances keep the final message after a twelve-message group", () => {
+  const utterances = buildUtterances(messages(15).slice(2));
+  expect(utterances.map((item) => [item.startMessageId, item.endMessageId, item.messageCount])).toEqual([
+    [3, 14, 12],
+    [15, 15, 1],
+  ]);
+  expect(buildUtterances([])).toEqual([]);
+});
+
+test("utterances split only after a pause longer than five minutes", () => {
+  const utterances = buildUtterances([
+    { author: "@alice", userId: 1, messageId: 1, text: "first", createTime: "2026-09-07T10:00:00Z" },
+    { author: "@alice", userId: 1, messageId: 2, text: "second", createTime: "2026-09-07T10:05:00Z" },
+    { author: "@alice", userId: 1, messageId: 3, text: "third", createTime: "2026-09-07T10:10:01Z" },
+  ]);
+  expect(utterances.map((item) => item.text)).toEqual(["1 first\n2 second", "3 third"]);
+});
+
 test("search evidence removes overlaps and owns valid citation links", () => {
   const evidence = [
     { citationMessageId: 24, endMessageId: 24, endTime: "b", messageCount: 24, score: 0.8, startMessageId: 1, startTime: "a", text: "first" },

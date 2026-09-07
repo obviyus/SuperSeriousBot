@@ -5,17 +5,12 @@ export class HttpError extends Schema.TaggedError<HttpError>()("HttpError", {
   service: Schema.String,
 }) {}
 
-export interface JsonResponse<A> {
+interface HttpResponse<A> {
   readonly data: A;
   readonly status: number;
 }
 
-export interface TextResponse {
-  readonly data: string;
-  readonly status: number;
-}
-
-export interface BytesResponse {
+interface BytesResponse {
   readonly contentType?: string;
   readonly data: Uint8Array;
   readonly fileName?: string;
@@ -39,7 +34,7 @@ export class Http {
     url: string | URL,
     schema: Schema.Codec<A, unknown, never, never>,
     init?: RequestInit,
-  ): Effect.Effect<JsonResponse<A>, HttpError> {
+  ): Effect.Effect<HttpResponse<A>, HttpError> {
     return this.request(service, url, init).pipe(
       Effect.flatMap((response) =>
         Effect.tryPromise({
@@ -63,7 +58,7 @@ export class Http {
     service: string,
     url: string | URL,
     init?: RequestInit,
-  ): Effect.Effect<TextResponse, HttpError> {
+  ): Effect.Effect<HttpResponse<string>, HttpError> {
     return this.request(service, url, init).pipe(
       Effect.flatMap((response) =>
         Effect.tryPromise({
@@ -108,7 +103,7 @@ export class Http {
     );
   }
 
-  response(
+  private request(
     service: string,
     url: string | URL,
     init?: RequestInit,
@@ -117,13 +112,5 @@ export class Http {
       try: () => this.fetch(url, { ...init, signal: init?.signal ?? AbortSignal.timeout(60_000) }),
       catch: (error) => new HttpError({ description: errorDescription(error), service }),
     });
-  }
-
-  private request(
-    service: string,
-    url: string | URL,
-    init?: RequestInit,
-  ): Effect.Effect<Response, HttpError> {
-    return this.response(service, url, init);
   }
 }

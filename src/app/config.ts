@@ -1,4 +1,4 @@
-export type Updater = "polling" | "webhook";
+type Updater = "polling" | "webhook";
 
 export interface ApiConfig {
   readonly cobaltUrl?: string;

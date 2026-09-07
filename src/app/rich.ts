@@ -7,7 +7,6 @@ import {
   sendDocument,
   sendMessage,
   sendRichMessage,
-  type BotApiError,
   type ConversationMessage,
   type ConversationTarget,
   type InputRichBlock,
@@ -16,6 +15,8 @@ import {
   type ReplyTarget,
   type RichText,
 } from "telly";
+
+import { ignoreUnchangedMessage } from "./callback.ts";
 
 const plainMessageLimit = 4_096;
 export const richMessageLimit = 32_768;
@@ -142,19 +143,14 @@ export const sendRich = Effect.fn("sendRich")(function* (
   return yield* sendAt({ chatId }, text, options);
 });
 
-function notModified(error: BotApiError): boolean {
-  return error.reason._tag === "TelegramRejected" &&
-    error.reason.description.toLowerCase().includes("message is not modified");
-}
-
 export const editRich = Effect.fn("editRich")(function* (message: Message, text: string) {
   if (text.length <= richMessageLimit) {
-    const edited = yield* Effect.result(editMessageText({
+    const edited = yield* Effect.result(ignoreUnchangedMessage(editMessageText({
       chatId: message.chat.id,
       messageId: message.messageId,
       richMessage: { markdown: text },
-    }));
-    if (edited._tag === "Success" || notModified(edited.failure)) return;
+    })));
+    if (edited._tag === "Success") return;
     if (edited.failure.reason._tag !== "TelegramRejected") {
       return yield* Effect.fail(edited.failure);
     }

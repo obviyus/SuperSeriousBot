@@ -19,7 +19,7 @@ import { rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
 import { replyBlocks, rich } from "../app/rich.ts";
 
-export const defaultModels = {
+const defaultModels = {
   ask: "openrouter/x-ai/grok-4.3",
   cron: "openrouter/x-ai/grok-4.3",
   edit: "openrouter/google/gemini-3.1-flash-image-preview",
@@ -33,29 +33,19 @@ export const defaultModels = {
 export type ModelCommand = keyof typeof defaultModels;
 
 const modelCommands = Object.keys(defaultModels) as ReadonlyArray<ModelCommand>;
-const modelColumns: Readonly<Record<ModelCommand, string>> = {
-  ask: "ask_model",
-  cron: "cron_model",
-  edit: "edit_model",
-  search: "search_model",
-  song: "song_model",
-  tldr: "tldr_model",
-  tr: "tr_model",
-  video: "video_model",
-};
 const thinkingLevels = ["none", "minimal", "low", "medium", "high"] as const;
 
 const toggleDefinitions = [
-  { key: "fts", label: "Message search", table: "group_settings", value: "fts" },
-  { key: "auto_dl", label: "Auto download", table: "group_settings", value: "auto_dl" },
-  { key: "ask", label: "/ask", table: "command_whitelist", value: "ask" },
-  { key: "edit", label: "/edit", table: "command_whitelist", value: "edit" },
-  { key: "video", label: "/video", table: "command_whitelist", value: "video" },
-  { key: "tr", label: "/tr", table: "command_whitelist", value: "tr" },
-  { key: "tldr", label: "/tldr", table: "command_whitelist", value: "tldr" },
-  { key: "search", label: "/search", table: "command_whitelist", value: "search" },
-  { key: "cron", label: "/cron", table: "command_whitelist", value: "cron" },
-  { key: "song", label: "/song", table: "command_whitelist", value: "song" },
+  { key: "fts", label: "Message search", table: "group_settings" },
+  { key: "auto_dl", label: "Auto download", table: "group_settings" },
+  { key: "ask", label: "/ask", table: "command_whitelist" },
+  { key: "edit", label: "/edit", table: "command_whitelist" },
+  { key: "video", label: "/video", table: "command_whitelist" },
+  { key: "tr", label: "/tr", table: "command_whitelist" },
+  { key: "tldr", label: "/tldr", table: "command_whitelist" },
+  { key: "search", label: "/search", table: "command_whitelist" },
+  { key: "cron", label: "/cron", table: "command_whitelist" },
+  { key: "song", label: "/song", table: "command_whitelist" },
 ] as const;
 
 type ToggleKey = (typeof toggleDefinitions)[number]["key"];
@@ -75,7 +65,7 @@ export function normalizeModelName(value: string): string {
 
 export function getModel(dependencies: AppDependencies, command: ModelCommand) {
   return dependencies.database.one(
-    `SELECT ${modelColumns[command]} AS model FROM group_settings WHERE chat_id = -1`,
+    `SELECT ${command}_model AS model FROM group_settings WHERE chat_id = -1`,
   ).pipe(Effect.map((row) => row === undefined || row["model"] === null
     ? defaultModels[command]
     : rowString(row, "model")));
@@ -128,7 +118,7 @@ function modelCommand(dependencies: AppDependencies): CommandDefinition {
           `❌ Specify a valid command and model name. Commands: ${modelCommands.join(", ")}, all`,
         );
       }
-      const columns = targets.map((target) => modelColumns[target]);
+      const columns = targets.map((target) => `${target}_model`);
       yield* dependencies.database.execute(
         `INSERT INTO group_settings (chat_id, ${columns.join(", ")})
          VALUES (-1, ${columns.map(() => "?").join(", ")})
@@ -191,43 +181,26 @@ function canManage(dependencies: AppDependencies, chatId: number, userId: number
 
 function settingStates(dependencies: AppDependencies, chatId: number) {
   return Effect.gen(function* () {
-    const states: Record<ToggleKey, boolean> = {
-      ask: false,
-      auto_dl: false,
-      cron: false,
-      edit: false,
-      fts: false,
-      search: false,
-      song: false,
-      tldr: false,
-      tr: false,
-      video: false,
-    };
     const setting = yield* dependencies.database.one(
       "SELECT fts, auto_dl FROM group_settings WHERE chat_id = ?",
       [chatId],
     );
-    states.fts = setting?.["fts"] === 1;
-    states.auto_dl = setting?.["auto_dl"] === 1;
     const rows = yield* dependencies.database.all(
       `SELECT command FROM command_whitelist
        WHERE whitelist_type = 'chat' AND whitelist_id = ?`,
       [chatId],
     );
-    for (const row of rows) {
-      const command = rowString(row, "command");
-      if (toggleDefinitions.some((toggle) => toggle.key === command)) {
-        states[command as ToggleKey] = true;
-      }
-    }
-    return states;
+    const commands = new Set(rows.map((row) => rowString(row, "command")));
+    return new Set(toggleDefinitions.filter((toggle) =>
+      (toggle.table === "group_settings" && setting?.[toggle.key] === 1) || commands.has(toggle.key)
+    ).map((toggle) => toggle.key));
   });
 }
 
-function keyboard(chatId: number, states: Readonly<Record<ToggleKey, boolean>>) {
+function keyboard(chatId: number, states: ReadonlySet<ToggleKey>) {
   return {
     inlineKeyboard: toggleDefinitions.map((toggle) => [SettingsCallback.button(
-      `${states[toggle.key] ? "On" : "Off"} - ${toggle.label}`,
+      `${states.has(toggle.key) ? "On" : "Off"} - ${toggle.label}`,
       { chatId, key: toggle.key },
     )]),
   };
@@ -268,8 +241,8 @@ function setToggle(dependencies: AppDependencies, chatId: number, key: ToggleKey
   if (toggle === undefined) return Effect.die(new Error(`Unknown setting: ${key}`));
   if (toggle.table === "group_settings") {
     return dependencies.database.execute(
-      `INSERT INTO group_settings (chat_id, ${toggle.value}) VALUES (?, ?)
-       ON CONFLICT(chat_id) DO UPDATE SET ${toggle.value} = excluded.${toggle.value}`,
+      `INSERT INTO group_settings (chat_id, ${toggle.key}) VALUES (?, ?)
+       ON CONFLICT(chat_id) DO UPDATE SET ${toggle.key} = excluded.${toggle.key}`,
       [chatId, enabled],
     );
   }
@@ -277,12 +250,12 @@ function setToggle(dependencies: AppDependencies, chatId: number, key: ToggleKey
     ? dependencies.database.execute(
         `INSERT OR IGNORE INTO command_whitelist (command, whitelist_type, whitelist_id)
          VALUES (?, 'chat', ?)`,
-        [toggle.value, chatId],
+        [toggle.key, chatId],
       )
     : dependencies.database.execute(
         `DELETE FROM command_whitelist
          WHERE command = ? AND whitelist_type = 'chat' AND whitelist_id = ?`,
-        [toggle.value, chatId],
+        [toggle.key, chatId],
       );
 }
 
@@ -301,7 +274,7 @@ export function settingsCallback(dependencies: AppDependencies) {
       });
     }
     const states = yield* settingStates(dependencies, data.chatId);
-    const enabled = !states[data.key];
+    const enabled = !states.has(data.key);
     yield* setToggle(dependencies, data.chatId, data.key, enabled);
     const next = yield* settingStates(dependencies, data.chatId);
     yield* answerCallback(callbackQuery, {

@@ -7,12 +7,7 @@ import {
 
 import { rowNumber } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
-
-function link(chatId: number, username: string | undefined, messageId: number): string | null {
-  if (username !== undefined) return `https://t.me/${username}/${messageId}`;
-  const id = String(chatId);
-  return id.startsWith("-100") ? `https://t.me/c/${id.slice(4)}/${messageId}` : null;
-}
+import { messageLink } from "../app/links.ts";
 
 function userIdForMention(dependencies: AppDependencies, username: string) {
   return dependencies.database.one(
@@ -81,7 +76,7 @@ export function trackingHandler(dependencies: AppDependencies): UpdateHandler<ne
           user.username,
           user.firstName,
           dependencies.now().toISOString(),
-          link(message.chat.id, message.chat.username, message.messageId),
+          messageLink(message.chat.id, message.messageId, message.chat.username) ?? null,
         ],
       );
     }

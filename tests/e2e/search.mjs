@@ -68,7 +68,7 @@ const result = await withTelegramRun(async (scope) => {
     ]));
     database.close();
     const ready = new Promise((resolveReady, reject) => {
-      child = spawn("bun", ["src/main.ts"], { cwd: repository, env: {
+      child = spawn("bun", [join(repository, "src", "main.ts")], { cwd: repository, env: {
         ...process.env, TELEGRAM_TOKEN: credential.sutToken, TELEGRAM_API_ROOT: proxy.apiRoot,
         ADMINS: credential.testerUserId, QUOTE_CHANNEL_ID: String(chatId), LOGGING_CHANNEL_ID: "",
         TURSO_DATABASE_URL: databaseUrl, TURSO_AUTH_TOKEN: "test", UPDATER: "polling",

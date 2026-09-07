@@ -150,12 +150,10 @@ function editCommand(ai: Ai): CommandDefinition {
       const requester = match.message.from?.username === undefined
         ? `User ${match.message.from?.id ?? "unknown"}`
         : `@${match.message.from.username}`;
-      const buffer = new ArrayBuffer(generated.byteLength);
-      new Uint8Array(buffer).set(generated);
       yield* sendPhoto({
         caption: `📝 Requested by ${requester}\n🎨 Prompt: ${match.argText}`,
         chatId: match.message.chat.id,
-        photo: new File([buffer], "generated.png", { type: "image/png" }),
+        photo: new File([new Uint8Array(generated)], "generated.png", { type: "image/png" }),
       });
     }),
     usage: "/edit [prompt]",

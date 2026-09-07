@@ -7,6 +7,7 @@ import {
 } from "../app/command.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { messageLink } from "../app/links.ts";
 import { replyBlocks, rich } from "../app/rich.ts";
 
 function readableTime(now: Date, input: string): string {
@@ -90,13 +91,8 @@ function seenCommand(dependencies: AppDependencies): CommandDefinition {
         return yield* answer(match.message, `@${username} has never been seen in this chat.`);
       }
       const messageId = rowNumber(row, "message_id");
-      const chatId = String(match.message.chat.id);
-      const messageLink = match.message.chat.username === undefined && chatId.startsWith("-100")
-        ? `https://t.me/c/${chatId.slice(4)}/${messageId}`
-        : match.message.chat.username === undefined
-        ? undefined
-        : `https://t.me/${match.message.chat.username}/${messageId}`;
-      const link = messageLink === undefined ? "" : `\n\n🔗 <a href="${messageLink}">Link</a>`;
+      const url = messageLink(match.message.chat.id, messageId, match.message.chat.username);
+      const link = url === undefined ? "" : `\n\n🔗 <a href="${url}">Link</a>`;
       return yield* answer(match.message, {
         linkPreviewOptions: { isDisabled: true },
         parseMode: "HTML",
