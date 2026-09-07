@@ -11,9 +11,11 @@
     "check": "bun run typecheck && bun test",
     "dev": "bun --watch src/main.ts",
     "operator": "bun src/operator.ts",
+    "search:evaluate": "bun src/evaluate-search.ts",
     "start": "bun src/main.ts",
     "test": "bun test",
     "test:e2e": "bun tests/e2e/run.mjs",
+    "test:e2e:search": "node --experimental-transform-types tests/e2e/search.mjs",
     "typecheck": "tsc --project tsconfig.json"
   },
   "dependencies": {

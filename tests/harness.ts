@@ -129,5 +129,5 @@ export async function fixture(
   };
   const fake = FakeBotApi.make({ replies, token });
   const app = Application.make({ httpClient: fake.layer, rateLimit: false, token });
-  return { app, bot: createSuperSeriousBot(dependencies), database, fake };
+  return { app, bot: createSuperSeriousBot(dependencies), database, dependencies, fake };
 }
