@@ -62,6 +62,14 @@ Operations:
 - `TELLY_STATE_DIRECTORY`: local inbox and job database directory, default `./db`
 - `TELEGRAM_API_ROOT`: custom Bot API root for local Test Server harnesses
 
+Evaluate search with a private JSON file containing `[{ "chatId": -100123, "question": "Who is the biggest tech nerd here?" }]`:
+
+```bash
+bun run search:evaluate /path/to/private-questions.json
+```
+
+This reads chat data and calls the configured AI service without sending Telegram messages or writing search events. Each answer gets a fresh review against its complete context. Results are printed as JSON lines. Keep question files and reports private.
+
 ## Run with Docker
 
 ```bash
