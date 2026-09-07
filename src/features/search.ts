@@ -1,3 +1,4 @@
+import { chunksOf, lastNonEmpty } from "effect/Array";
 import {
   deleteMessage,
   downloadFile,
@@ -15,6 +16,7 @@ import {
 } from "../app/command.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { messageLink } from "../app/links.ts";
 import { replyRich } from "../app/rich.ts";
 import { getModel, normalizeModelName } from "./settings.ts";
 
@@ -99,24 +101,17 @@ export function buildWindows(messages: ReadonlyArray<SourceMessage>): ReadonlyAr
 }
 
 export function buildUtterances(messages: ReadonlyArray<SourceMessage>): ReadonlyArray<SearchWindow & { readonly userId: number; readonly author: string }> {
-  const groups: Array<Array<SourceMessage>> = [];
-  let current: Array<SourceMessage> = [];
+  const groups: Array<[SourceMessage, ...Array<SourceMessage>]> = [];
   for (const message of messages) {
-    const previous = current.at(-1);
-    const gap = previous === undefined
-      ? 0
-      : new Date(message.createTime).getTime() - new Date(previous.createTime).getTime();
-    if (previous !== undefined && (previous.userId !== message.userId || gap > 300_000 || current.length === 12)) {
-      groups.push(current);
-      current = [];
-    }
-    current.push(message);
+    const current = groups.at(-1);
+    if (current === undefined || current[0].userId !== message.userId || current.length === 12 ||
+      new Date(message.createTime).getTime() - new Date(lastNonEmpty(current).createTime).getTime() > 300_000) {
+      groups.push([message]);
+    } else current.push(message);
   }
-  if (current.length > 0) groups.push(current);
   return groups.map((group) => {
     const first = group[0];
-    const last = group.at(-1);
-    if (first === undefined || last === undefined) throw new Error("Empty utterance group");
+    const last = lastNonEmpty(group);
     return {
       author: first.author,
       endMessageId: last.messageId,
@@ -153,10 +148,6 @@ function sourceMessages(dependencies: AppDependencies, chatId: number) {
   }))));
 }
 
-function vectorJson(values: ReadonlyArray<number>): string {
-  return JSON.stringify(values);
-}
-
 function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
   return Effect.gen(function* () {
     const messages = yield* sourceMessages(dependencies, chatId);
@@ -172,8 +163,7 @@ function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
        WHERE chat_id = ? AND embedding_model = ? AND embedding_dimension = 256`,
       [chatId, embeddingModel],
     )).map((row) => `${rowNumber(row, "start_message_id")}:${rowNumber(row, "end_message_id")}`));
-    for (const batch of Array.from({ length: Math.ceil(windows.length / 64) }, (_, index) =>
-      windows.slice(index * 64, index * 64 + 64))) {
+    for (const batch of chunksOf(windows, 64)) {
       const missing = batch.filter((window) => !indexedWindows.has(`${window.startMessageId}:${window.endMessageId}`));
       if (missing.length === 0) continue;
       const embeddings = yield* ai.embeddings(missing.map((window) => window.text), 1_024);
@@ -191,7 +181,7 @@ function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
             window.endTime,
             window.messageCount,
             window.text,
-            vectorJson(embeddings[index] ?? []),
+            JSON.stringify(embeddings[index]!),
             embeddingModel,
           ],
         );
@@ -203,8 +193,7 @@ function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
         );
       }), { concurrency: 1, discard: true });
     }
-    for (const batch of Array.from({ length: Math.ceil(utterances.length / 64) }, (_, index) =>
-      utterances.slice(index * 64, index * 64 + 64))) {
+    for (const batch of chunksOf(utterances, 64)) {
       const missing = batch.filter((utterance) => !indexedUtterances.has(`${utterance.startMessageId}:${utterance.endMessageId}`));
       if (missing.length === 0) continue;
       const embeddings = yield* ai.embeddings(missing.map((item) => item.text), 256);
@@ -223,7 +212,7 @@ function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
           item.endTime,
           item.messageCount,
           item.text,
-          vectorJson(embeddings[index] ?? []),
+          JSON.stringify(embeddings[index]!),
           embeddingModel,
         ],
       ), { concurrency: 1, discard: true });
@@ -253,8 +242,8 @@ function evidenceFromWindows(
        )`}
      ORDER BY score DESC LIMIT 12`,
     authorId === undefined
-      ? [vectorJson(vector), chatId, embeddingModel]
-      : [vectorJson(vector), chatId, embeddingModel, authorId],
+      ? [JSON.stringify(vector), chatId, embeddingModel]
+      : [JSON.stringify(vector), chatId, embeddingModel, authorId],
   ).pipe(Effect.map((rows): ReadonlyArray<SearchEvidence> => rows.map((row) => ({
     citationMessageId: rowNumber(row, "end_message_id"),
     endMessageId: rowNumber(row, "end_message_id"),
@@ -281,11 +270,6 @@ export function selectEvidence(values: ReadonlyArray<SearchEvidence>): ReadonlyA
   return selected;
 }
 
-function messageLink(chatId: number, messageId: number): string | undefined {
-  const value = String(chatId);
-  return value.startsWith("-100") ? `https://t.me/c/${value.slice(4)}/${messageId}` : undefined;
-}
-
 export function renderSearchAnswer(
   output: typeof SearchAnswer.Type,
   evidence: ReadonlyArray<{ readonly citationMessageId: number }>,
@@ -295,12 +279,11 @@ export function renderSearchAnswer(
   const indexes = [...new Set(output.citations)];
   if (answer.length === 0 || answer === noAnswer || indexes.some((index) =>
     index < 1 || index > evidence.length)) return { answer: noAnswer, citations: [] };
-  const references = indexes.flatMap((index) => {
+  const citations = [...new Set(indexes.flatMap((index) => {
     const item = evidence[index - 1];
-    return item === undefined ? [] : [{ index, messageId: item.citationMessageId }];
-  }).filter((item, index, items) => items.findIndex((other) => other.messageId === item.messageId) === index);
-  const citations = references.map((item) => item.messageId);
-  const links = references.flatMap(({ messageId }, index) => {
+    return item === undefined ? [] : [item.citationMessageId];
+  }))];
+  const links = citations.flatMap((messageId, index) => {
     const link = messageLink(chatId, messageId);
     return link === undefined ? [] : [`[${index + 1}](${link})`];
   });
@@ -538,8 +521,7 @@ function importCommand(dependencies: AppDependencies): CommandDefinition {
         messageId: status.messageId,
         text: `Importing ${rows.length.toLocaleString()} messages...`,
       });
-      for (const batch of Array.from({ length: Math.ceil(rows.length / 200) }, (_, index) =>
-        rows.slice(index * 200, index * 200 + 200))) {
+      for (const batch of chunksOf(rows, 200)) {
         yield* dependencies.database.batch(batch.map(({ message, text, userId }) => ({
           args: [
             match.message.chat.id,

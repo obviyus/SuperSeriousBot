@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { Effect, Schema } from "telly";
 
-export class AudioConversionError extends Schema.TaggedError<AudioConversionError>()(
+class AudioConversionError extends Schema.TaggedError<AudioConversionError>()(
   "AudioConversionError",
   { description: Schema.String },
 ) {}

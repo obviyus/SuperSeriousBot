@@ -40,7 +40,7 @@ function firstLink(message: Message): URL | undefined {
   return message.replyToMessage === undefined ? undefined : firstLink(message.replyToMessage);
 }
 
-export function youtubeVideoId(url: URL): string | undefined {
+function youtubeVideoId(url: URL): string | undefined {
   const host = url.hostname.replace(/^www\./u, "");
   if (host === "youtu.be") return url.pathname.slice(1).split("/", 1)[0] || undefined;
   if (!new Set([

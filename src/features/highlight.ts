@@ -18,6 +18,7 @@ import {
 import { callbackRoute, ignoreUnchangedMessage } from "../app/callback.ts";
 import { rowNumber, rowString } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { messageLink } from "../app/links.ts";
 
 const HighlightCallback = callbackData("highlight", Schema.Struct({
   highlightId: Schema.Int,
@@ -47,12 +48,6 @@ function highlightKeyboard(
         : [[{ style: "primary" as const, text: "Start DM", url: `https://t.me/${botUsername}` }]]),
     ],
   })));
-}
-
-function messageLink(chatId: number, username: string | undefined, messageId: number): string {
-  if (username !== undefined) return `https://t.me/${username}/${messageId}`;
-  const value = String(chatId);
-  return value.startsWith("-100") ? `https://t.me/c/${value.slice(4)}/${messageId}` : "";
 }
 
 export function highlightFeature(dependencies: AppDependencies) {
@@ -147,7 +142,7 @@ export function highlightFeature(dependencies: AppDependencies) {
             style: "danger",
           }]],
         },
-        text: `Your highlight <code>${html.escape(keyword)}</code> was mentioned in <b>${html.escape(message.chat.title ?? String(message.chat.id))}</b> by <a href="tg://user?id=${sender.id}">${html.escape(sender.firstName)}</a>.\n\n🔗 <a href="${messageLink(message.chat.id, message.chat.username, message.messageId)}">Link</a>`,
+        text: `Your highlight <code>${html.escape(keyword)}</code> was mentioned in <b>${html.escape(message.chat.title ?? String(message.chat.id))}</b> by <a href="tg://user?id=${sender.id}">${html.escape(sender.firstName)}</a>.\n\n🔗 <a href="${messageLink(message.chat.id, message.messageId, message.chat.username) ?? ""}">Link</a>`,
       }));
     }
   }, Effect.catch((error) => Effect.logError("Highlight worker failed").pipe(

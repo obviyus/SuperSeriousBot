@@ -17,7 +17,7 @@ import { replyBlocks, rich } from "../app/rich.ts";
 const claimLeaseSeconds = 5 * 60;
 const maximumAttempts = 5;
 
-export function parseReminderTime(text: string, now: Date): Date | undefined {
+function parseReminderTime(text: string, now: Date): Date | undefined {
   const hasIst = /\bIST\b/iu.test(text);
   const normalized = text.replace(/\bIST\b/giu, "").trim();
   return parseDate(

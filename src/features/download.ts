@@ -60,9 +60,7 @@ function sendBytes(
     Effect.flatMap((response) => {
       if (response.status !== 200) return Effect.fail(new Error("Media download failed"));
       const name = fileName ?? response.fileName ?? "file";
-      const buffer = new ArrayBuffer(response.data.byteLength);
-      new Uint8Array(buffer).set(response.data);
-      const file = new File([buffer], name, {
+      const file = new File([new Uint8Array(response.data)], name, {
         type: response.contentType ?? "application/octet-stream",
       });
       const lower = name.toLowerCase();

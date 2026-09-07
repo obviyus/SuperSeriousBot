@@ -160,13 +160,21 @@ test("addquote rejects a protected replied message before forwarding", async () 
   });
 });
 
-test("quote removes a legacy row that has no archived message", async () => {
-  const { app, bot, database, fake } = await fixture(offline);
+for (const [reason, archivedMessageId] of [["missing archive id", null], ["rejected forwarding", 700]] as const)
+test(`quote removes an unavailable message after ${reason}`, async () => {
+  const { app, bot, database, fake } = await fixture(offline, [
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+    ...(archivedMessageId === null ? [] : [FakeBotApiReply.reject({
+      description: "Bad Request: message to forward not found",
+      errorCode: 400,
+    })]),
+  ]);
   await Effect.runPromise(database.execute(
     `INSERT INTO quote_db (
       id, message_id, chat_id, message_user_id, saver_user_id, forwarded_message_id
-    ) VALUES (?, ?, ?, ?, ?, NULL)`,
-    [91, 501, -1007, 2, 1],
+    ) VALUES (?, ?, ?, ?, ?, ?)`,
+    [91, 501, -1007, 2, 1, archivedMessageId],
   ));
 
   try {
@@ -177,7 +185,7 @@ test("quote removes a legacy row that has no archived message", async () => {
   const stored = await Effect.runPromise(database.all("SELECT id FROM quote_db"));
   database.close();
 
-  expect(fake.requests.some((request) => request.method === "forwardMessage")).toBe(false);
+  expect(fake.requests.some((request) => request.method === "forwardMessage")).toBe(archivedMessageId !== null);
   expect(stored).toHaveLength(0);
   expect(fake.requests.find((request) => request.method === "sendMessage")?.params).toMatchObject({
     text: "Quoted message deleted. Removing the quote.",

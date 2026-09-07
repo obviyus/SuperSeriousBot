@@ -101,8 +101,6 @@ export function videoCommand(dependencies: AppDependencies): CommandDefinition {
         }).pipe(Effect.as(undefined))));
         if (bytes === undefined) return;
         completed = true;
-        const buffer = new ArrayBuffer(bytes.byteLength);
-        new Uint8Array(buffer).set(bytes);
         const requester = match.message.from?.username === undefined
           ? `User ${match.message.from?.id ?? "unknown"}`
           : `@${match.message.from.username}`;
@@ -113,7 +111,7 @@ export function videoCommand(dependencies: AppDependencies): CommandDefinition {
           caption: `🎬 Requested by ${requester}\n📝 Prompt: ${prompt}`,
           chatId: match.message.chat.id,
           supportsStreaming: true,
-          video: new File([buffer], "seedance.mp4", { type: "video/mp4" }),
+          video: new File([new Uint8Array(bytes)], "seedance.mp4", { type: "video/mp4" }),
         }));
         if (delivered._tag === "Failure") {
           yield* editMessageText({

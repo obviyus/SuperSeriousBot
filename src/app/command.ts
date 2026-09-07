@@ -160,25 +160,6 @@ function recordCommand(
   );
 }
 
-function consumeQuota(
-  definition: CommandDefinition,
-  dependencies: AppDependencies,
-  match: CommandMatch,
-) {
-  const user = match.message.from;
-  if (
-    definition.dailyLimit === undefined ||
-    user === undefined ||
-    isAdmin(dependencies, user.id)
-  ) return Effect.succeed(true);
-  return useCommandQuota(
-    dependencies,
-    match.message,
-    commandName(match),
-    definition.dailyLimit,
-  );
-}
-
 export function useCommandQuota(
   dependencies: AppDependencies,
   message: Message,
@@ -238,7 +219,9 @@ export function commandHandlers(
           return yield* answer(match.message, "❌ You are blocked from using this command.");
         }
         if (!(yield* ensureAvailable(definition, dependencies, match))) return;
-        if (!(yield* consumeQuota(definition, dependencies, match))) return;
+        if (definition.dailyLimit !== undefined && !(yield* useCommandQuota(
+          dependencies, match.message, commandName(match), definition.dailyLimit,
+        ))) return;
         yield* commandPresence(match.message);
         return yield* definition.run(match);
       }).pipe(

@@ -248,19 +248,14 @@ function quoteCommand(dependencies: AppDependencies): CommandDefinition {
         [match.message.chat.id, rowNumber(row, "id")],
       );
       const forwardedMessageId = row["forwarded_message_id"];
-      if (typeof forwardedMessageId !== "number") {
-        yield* dependencies.database.batch([
-          { sql: "DELETE FROM quote_recent_history WHERE quote_id = ?", args: [rowNumber(row, "id")] },
-          { sql: "DELETE FROM quote_db WHERE id = ?", args: [rowNumber(row, "id")] },
-        ]);
-        return yield* answer(match.message, "Quoted message deleted. Removing the quote.");
+      if (typeof forwardedMessageId === "number") {
+        const delivery = yield* Effect.result(forwardMessage({
+          chatId: match.message.chat.id,
+          fromChatId: dependencies.config.quoteChannelId,
+          messageId: forwardedMessageId,
+        }));
+        if (delivery._tag === "Success") return;
       }
-      const delivery = yield* Effect.result(forwardMessage({
-        chatId: match.message.chat.id,
-        fromChatId: dependencies.config.quoteChannelId,
-        messageId: forwardedMessageId,
-      }));
-      if (delivery._tag === "Success") return;
       yield* dependencies.database.batch([
         { sql: "DELETE FROM quote_recent_history WHERE quote_id = ?", args: [rowNumber(row, "id")] },
         { sql: "DELETE FROM quote_db WHERE id = ?", args: [rowNumber(row, "id")] },

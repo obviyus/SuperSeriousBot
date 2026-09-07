@@ -12,14 +12,6 @@ export interface ImageData {
   readonly mimeType: string;
 }
 
-function mimeType(fileName: string | undefined, fallback: string): string {
-  const extension = fileName?.split(".").at(-1)?.toLowerCase();
-  if (extension === "png") return "image/png";
-  if (extension === "webp") return "image/webp";
-  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
-  return fallback;
-}
-
 export function messageImage(
   message: Message,
   allowDocument = false,
@@ -45,11 +37,9 @@ export function messageImage(
     media?.type === "document" &&
     media.document.mimeType?.startsWith("image/") === true
   ) {
+    const mimeType = media.document.mimeType;
     return downloadFile({ fileId: media.document.fileId }).pipe(
-      Effect.map((bytes) => ({
-        bytes,
-        mimeType: media.document.mimeType ?? mimeType(media.document.fileName, "image/jpeg"),
-      })),
+      Effect.map((bytes) => ({ bytes, mimeType })),
     );
   }
   return Effect.succeed(undefined);

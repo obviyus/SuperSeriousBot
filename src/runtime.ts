@@ -93,48 +93,21 @@ export function scheduleRuntimeJobs(
   app: Application,
   jobs: ReturnType<typeof runtimeJobs>,
 ) {
-  return Effect.all([
-    jobs.schedule("reminders", {
-      at: new Date("2026-01-01T00:00:00Z"),
-      every: "1 minute",
-      payload: {},
-    }),
-    jobs.schedule("cron", {
-      at: new Date("2026-01-01T00:00:00Z"),
-      every: "1 minute",
-      payload: {},
-    }),
-    jobs.schedule("footballAlerts", {
-      at: new Date("2026-01-01T00:00:00Z"),
-      every: "1 minute",
-      payload: {},
-    }),
-    jobs.schedule("footballSync", {
-      at: new Date("2026-01-01T03:00:00Z"),
-      every: "1 day",
-      payload: {},
-    }),
-    jobs.schedule("habit", {
-      at: new Date("2026-01-01T14:30:00Z"),
-      every: "1 day",
-      payload: {},
-    }),
-    jobs.schedule("quotas", {
-      at: new Date("2026-01-01T18:30:00Z"),
-      every: "1 day",
-      payload: {},
-    }),
-    jobs.schedule("searchIndex", {
-      at: new Date("2026-01-01T00:00:30Z"),
-      every: "15 minutes",
-      payload: {},
-    }),
-    jobs.schedule("searchMemory", {
-      at: new Date("2026-01-01T03:00:00Z"),
-      every: "1 day",
-      payload: {},
-    }),
-  ], { concurrency: "unbounded", discard: true }).pipe((effect) => app.run(effect));
+  const schedules = [
+    ["reminders", "00:00:00", "1 minute"],
+    ["cron", "00:00:00", "1 minute"],
+    ["footballAlerts", "00:00:00", "1 minute"],
+    ["footballSync", "03:00:00", "1 day"],
+    ["habit", "14:30:00", "1 day"],
+    ["quotas", "18:30:00", "1 day"],
+    ["searchIndex", "00:00:30", "15 minutes"],
+    ["searchMemory", "03:00:00", "1 day"],
+  ] as const;
+  return app.run(Effect.forEach(schedules, ([name, time, every]) => jobs.schedule(name, {
+    at: new Date(`2026-01-01T${time}Z`),
+    every,
+    payload: {},
+  }), { concurrency: "unbounded", discard: true }));
 }
 
 export function reportUpdateErrors(
