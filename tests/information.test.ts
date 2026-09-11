@@ -12,6 +12,16 @@ import {
 
 const presence = () => [FakeBotApiReply.ok(true), FakeBotApiReply.ok(true)] as const;
 
+function translationResponse(...sentences: ReadonlyArray<string>): Response {
+  const result = [
+    null,
+    [[[null, null, null, null, null, sentences.map((text) => [text])]], "fr", null, "en"],
+    "en",
+  ];
+  const payload = JSON.stringify([["wrb.fr", "MkEWBc", JSON.stringify(result), null, null, "0"]]);
+  return new Response(`)]}'\n\n${payload}\n`);
+}
+
 test("define command renders the first dictionary meaning", async () => {
   const send: Fetch = async () => new Response(JSON.stringify([{
     meanings: [{
@@ -92,11 +102,13 @@ test("calculation command explains an unrecognized query", async () => {
 });
 
 test("translate command sends the complete translated text", async () => {
-  const send: Fetch = async () => new Response(JSON.stringify([
-    [["Bonjour ", "Good "], ["matin", "morning"]],
-    null,
-    "en",
-  ]));
+  let requestUrl = "";
+  let requestMethod = "";
+  const send: Fetch = async (input, options) => {
+    requestUrl = String(input);
+    requestMethod = options?.method ?? "GET";
+    return translationResponse("Bonjour.", "Bonne matinée.");
+  };
   const { app, bot, database, fake } = await fixture(send, presence());
 
   try {
@@ -107,7 +119,51 @@ test("translate command sends the complete translated text", async () => {
   }
 
   const reply = fake.requests.find((request) => request.method === "sendMessage");
-  expect(reply?.params).toMatchObject({ text: "Bonjour matin" });
+  expect(reply?.params).toMatchObject({ text: "Bonjour. Bonne matinée." });
+  expect(new URL(requestUrl).pathname).toBe("/_/TranslateWebserverUi/data/batchexecute");
+  expect(requestMethod).toBe("POST");
+});
+
+test("translate command rejects an unknown language before requesting a translation", async () => {
+  let requests = 0;
+  const { app, bot, database, fake } = await fixture(async () => {
+    requests += 1;
+    return translationResponse("Hello");
+  }, presence());
+
+  try {
+    await app.run(bot.handler(commandUpdate("/tl klingon - Hello", 206)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const reply = fake.requests.find((request) => request.method === "sendMessage");
+  expect(reply?.params).toMatchObject({ text: "Invalid target language: klingon" });
+  expect(requests).toBe(0);
+});
+
+test.each([
+  { status: 429, body: "<html>Automated queries blocked</html>", message: "Translation is temporarily rate-limited. Please try again later." },
+  { status: 503, body: "Service unavailable", message: "Translation service is unavailable. Please try again later." },
+  { status: 200, body: "<html>Unexpected response</html>", message: "Translation service is unavailable. Please try again later." },
+])("translate command reports provider failure for $status", async ({ status, body, message }) => {
+  let requests = 0;
+  const { app, bot, database, fake } = await fixture(async () => {
+    requests += 1;
+    return new Response(body, { status });
+  }, presence());
+
+  try {
+    await app.run(bot.handler(commandUpdate("/tl Bonjour", 207)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const reply = fake.requests.find((request) => request.method === "sendMessage");
+  expect(reply?.params).toMatchObject({ text: message });
+  expect(requests).toBe(1);
 });
 
 test("weather command stores the resolved location and renders air quality", async () => {

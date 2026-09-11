@@ -1,3 +1,4 @@
+import translate, { getCode } from "google-translate-api-x";
 import {
   Effect,
   Schema,
@@ -10,6 +11,7 @@ import {
 } from "../app/command.ts";
 import { rowNumber } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { HttpError } from "../app/http.ts";
 import { replyBlocks, rich } from "../app/rich.ts";
 import { truncate } from "../app/text.ts";
 
@@ -67,7 +69,8 @@ const AqiResponse = Schema.Struct({
   })),
   status: Schema.String,
 });
-const TranslationResponse = Schema.Array(Schema.Unknown);
+const TranslationResponse = Schema.Struct({ text: Schema.NonEmptyString });
+const translationUnavailable = "Translation service is unavailable. Please try again later.";
 
 function definitionCommand(dependencies: AppDependencies): CommandDefinition {
   const definition: CommandDefinition = {
@@ -207,15 +210,6 @@ function translationText(match: Parameters<CommandDefinition["run"]>[0]) {
   return text.length === 0 ? undefined : { target: match.args[0] ?? "en", text };
 }
 
-function parseTranslation(data: ReadonlyArray<unknown>): string | undefined {
-  const segments = data[0];
-  if (!Array.isArray(segments)) return undefined;
-  const translated = segments.flatMap((segment) =>
-    Array.isArray(segment) && typeof segment[0] === "string" ? [segment[0]] : []
-  ).join("");
-  return translated.length === 0 ? undefined : translated;
-}
-
 function translationCommand(dependencies: AppDependencies): CommandDefinition {
   const definition: CommandDefinition = {
     description: "Translate a message or text to the requested language.",
@@ -224,24 +218,44 @@ function translationCommand(dependencies: AppDependencies): CommandDefinition {
     run: Effect.fn("translate")(function* (match) {
       const input = translationText(match);
       if (input === undefined) return yield* usage(match.message, definition);
-      const url = new URL("https://translate.googleapis.com/translate_a/single");
-      url.search = new URLSearchParams({
-        client: "gtx",
-        dt: "t",
-        q: input.text,
-        sl: "auto",
-        tl: input.target,
-      }).toString();
-      const response = yield* dependencies.http.json(
-        "google-translate",
-        url,
-        TranslationResponse,
-      ).pipe(Effect.catch(() => Effect.succeed(undefined)));
-      const translated = response === undefined ? undefined : parseTranslation(response.data);
-      return yield* answer(
-        match.message,
-        translated ?? `Invalid target language: ${input.target}`,
+      const target = getCode(input.target);
+      if (target === null || target === "auto") {
+        return yield* answer(match.message, `Invalid target language: ${input.target}`);
+      }
+      const translated = yield* Effect.tryPromise({
+        try: (signal) => translate(input.text, {
+          to: target,
+          forceBatch: true,
+          fallbackBatch: false,
+          requestFunction: async (url: string, options: RequestInit) => {
+            const response = await dependencies.http.fetch(url, {
+              ...options,
+              signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
+            });
+            if (!response.ok) throw new HttpError({
+              service: "google-translate",
+              description: response.status === 429
+                ? "Translation is temporarily rate-limited. Please try again later."
+                : translationUnavailable,
+            });
+            return response;
+          },
+        }),
+        catch: (error) => error instanceof HttpError ? error : new HttpError({
+          service: "google-translate",
+          description: translationUnavailable,
+        }),
+      }).pipe(
+        Effect.flatMap(Schema.decodeUnknownEffect(TranslationResponse)),
+        Effect.map((response) => response.text),
+        Effect.catch((error) => {
+          const message = error instanceof HttpError ? error.description : translationUnavailable;
+          return Effect.logWarning("Google translation failed", { reason: message }).pipe(
+            Effect.as(message),
+          );
+        }),
       );
+      return yield* answer(match.message, translated);
     }),
     usage: "/tl [language] - [content]",
   };
