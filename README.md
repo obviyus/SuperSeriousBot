@@ -20,6 +20,8 @@ SuperSeriousBot has grown with its groups for years. It combines AI, media, sear
 
 Run `/help` to see the commands enabled by the configured API keys.
 
+`/tl` uses Google Translate's batch web endpoint through `google-translate-api-x`, without an API key. Use `/tl Bonjour` for English, `/tl fr - Good morning` for a specific language, or reply to a message with `/tl [language]`. Provider outages and rate limits are reported separately from unknown languages.
+
 ## Run locally
 
 Requirements:
