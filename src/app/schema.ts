@@ -1,6 +1,7 @@
 import { Effect } from "telly";
 
 import type { Database } from "./database.ts";
+import { querySchema } from "./query-schema.ts";
 
 const statements = [
   `CREATE TABLE IF NOT EXISTS command_stats (
@@ -352,7 +353,7 @@ const statements = [
 
 export function initializeDatabase(database: Database) {
   return Effect.gen(function* () {
-    yield* Effect.forEach(statements, (statement) => database.execute(statement), {
+    yield* Effect.forEach([...statements, ...querySchema], (statement) => database.execute(statement), {
       concurrency: 1,
       discard: true,
     });

@@ -106,6 +106,17 @@ bun run operator search-index --chat-id -1001234567890
 bun run operator search-memory --chat-id -1001234567890
 ```
 
+Before deploying the incremental search indexer to an existing database, run
+`bun run operator migrate-query-schema` with that database's environment.
+This additive migration creates lookup indexes, search progress, and source-change
+triggers. It preserves existing rows and is safe to run again.
+
+Indexing saves progress separately for each chat and embedding configuration.
+Unchanged chats do no indexing work. New messages extend the unfinished windows
+and speaker groups. Older imports, source edits or deletes, and author changes
+request the existing full-history pass. Existing embedding ranges retain their
+current reuse behavior. A failed or superseded pass cannot advance progress.
+
 ## Stack
 
 - [Telly](https://github.com/obviyus/telly) owns Telegram transport, updates, routing, persistence, and jobs.

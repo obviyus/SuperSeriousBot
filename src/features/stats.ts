@@ -82,7 +82,10 @@ function seenCommand(dependencies: AppDependencies): CommandDefinition {
       const row = yield* dependencies.database.one(
         `SELECT us.user_id, us.username, cs.message_id, cs.create_time
          FROM user_stats us
-         JOIN chat_stats cs ON cs.user_id = us.user_id AND cs.chat_id = ?
+         JOIN chat_stats cs ON cs.id = (
+           SELECT id FROM chat_stats WHERE chat_id = ? AND user_id = us.user_id
+           ORDER BY id DESC LIMIT 1
+         )
          WHERE LOWER(us.username) = ?
          ORDER BY cs.id DESC LIMIT 1`,
         [match.message.chat.id, username],
