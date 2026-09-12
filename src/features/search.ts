@@ -133,7 +133,7 @@ const SourceTail = Schema.Array(Schema.Struct({
   userId: Schema.Int,
 }));
 
-function sourceMessages(dependencies: AppDependencies, chatId: number, after?: number) {
+function sourceMessages(dependencies: AppDependencies, chatId: number, through: number | null, after?: number) {
   return dependencies.database.all(
     `SELECT messages.message_id, messages.user_id, messages.create_time,
             COALESCE(users.username, 'user:' || messages.user_id) AS author,
@@ -143,9 +143,10 @@ function sourceMessages(dependencies: AppDependencies, chatId: number, after?: n
      WHERE messages.chat_id = ? AND messages.message_id IS NOT NULL
        AND messages.message_text IS NOT NULL AND messages.message_text != ''
        AND messages.message_text NOT LIKE '/%'
+       AND messages.message_id <= ?
        ${after === undefined ? "" : "AND messages.message_id > ?"}
      ORDER BY messages.message_id`,
-    after === undefined ? [chatId] : [chatId, after],
+    after === undefined ? [chatId, through] : [chatId, through, after],
   ).pipe(Effect.map((rows): ReadonlyArray<SourceMessage> => rows.map((row) => ({
     author: rowString(row, "author").startsWith("user:")
       ? rowString(row, "author")
@@ -167,18 +168,21 @@ function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
        VALUES (?, ?, 1024, 256) ON CONFLICT DO NOTHING`,
       profile,
     );
-    const progress = (yield* dependencies.database.all(
-      `SELECT revision, indexed_revision, rebuild, end_message_id, window_tail, utterance_tail
-       FROM chat_search_progress WHERE ${profileWhere}`,
+    const progress = yield* dependencies.database.one(
+      `UPDATE chat_search_progress SET generation = generation + 1
+       WHERE ${profileWhere} AND revision != indexed_revision
+       RETURNING revision, generation, rebuild, end_message_id, window_tail, utterance_tail,
+         (SELECT MAX(message_id) FROM chat_stats WHERE chat_id = chat_search_progress.chat_id) AS source_end_message_id`,
       profile,
-    ))[0]!;
+    );
+    if (progress === undefined) return;
     const revision = rowNumber(progress, "revision");
-    const indexedRevision = rowNumber(progress, "indexed_revision");
-    if (revision === indexedRevision) return;
+    const through = progress["source_end_message_id"] === null ? null : rowNumber(progress, "source_end_message_id");
+    const generation = rowNumber(progress, "generation");
     const rebuild = rowNumber(progress, "rebuild") === 1;
     const after = rebuild || progress["end_message_id"] === null
       ? undefined : rowNumber(progress, "end_message_id");
-    const messages = yield* sourceMessages(dependencies, chatId, after);
+    const messages = yield* sourceMessages(dependencies, chatId, through, after);
     const windowMessages = [
       ...(rebuild ? [] : Schema.decodeUnknownSync(SourceTail)(JSON.parse(rowString(progress, "window_tail")))),
       ...messages,
@@ -190,8 +194,8 @@ function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
     const windows = buildWindows(windowMessages);
     const utterances = buildUtterances(utteranceMessages);
     const guard = `EXISTS (SELECT 1 FROM chat_search_progress WHERE ${profileWhere}
-      AND revision = ? AND indexed_revision = ?)`;
-    const guardArgs = [...profile, revision, indexedRevision];
+      AND generation = ?)`;
+    const guardArgs = [...profile, generation];
     const indexedWindows = new Set((windows.length === 0 ? [] : yield* dependencies.database.all(
       `SELECT start_message_id, end_message_id FROM chat_search_windows
        WHERE chat_id = ? AND embedding_model = ? AND embedding_dimension = 1024
@@ -208,8 +212,8 @@ function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
       const missing = batch.filter((window) => !indexedWindows.has(`${window.startMessageId}:${window.endMessageId}`));
       if (missing.length === 0) continue;
       const embeddings = yield* ai.embeddings(missing.map((window) => window.text), 1_024);
-      yield* Effect.forEach(missing, (window, index) => Effect.gen(function* () {
-        yield* dependencies.database.execute(
+      for (const [index, window] of missing.entries()) {
+        const inserted = yield* dependencies.database.execute(
           `INSERT OR REPLACE INTO chat_search_windows (
             chat_id, start_message_id, end_message_id, start_time, end_time,
             message_count, message_text, embedding, embedding_model, embedding_dimension
@@ -227,38 +231,42 @@ function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
             ...guardArgs,
           ],
         );
+        if (inserted.rowsAffected === 0) return;
         yield* dependencies.database.execute(
           `DELETE FROM chat_search_windows
            WHERE chat_id = ? AND start_message_id = ? AND end_message_id < ?
              AND embedding_model = ? AND embedding_dimension = 1024 AND ${guard}`,
           [chatId, window.startMessageId, window.endMessageId, embeddingModel, ...guardArgs],
         );
-      }), { concurrency: 1, discard: true });
+      }
     }
     for (const batch of chunksOf(utterances, 64)) {
       const missing = batch.filter((utterance) => !indexedUtterances.has(`${utterance.startMessageId}:${utterance.endMessageId}`));
       if (missing.length === 0) continue;
       const embeddings = yield* ai.embeddings(missing.map((item) => item.text), 256);
-      yield* Effect.forEach(missing, (item, index) => dependencies.database.execute(
-        `INSERT OR REPLACE INTO chat_search_utterances (
-          chat_id, start_message_id, end_message_id, user_id, author, start_time,
-          end_time, message_count, message_text, embedding, embedding_model, embedding_dimension
-        ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, 256 WHERE ${guard}`,
-        [
-          chatId,
-          item.startMessageId,
-          item.endMessageId,
-          item.userId,
-          item.author,
-          item.startTime,
-          item.endTime,
-          item.messageCount,
-          item.text,
-          JSON.stringify(embeddings[index]!),
-          embeddingModel,
-          ...guardArgs,
-        ],
-      ), { concurrency: 1, discard: true });
+      for (const [index, item] of missing.entries()) {
+        const inserted = yield* dependencies.database.execute(
+          `INSERT OR REPLACE INTO chat_search_utterances (
+            chat_id, start_message_id, end_message_id, user_id, author, start_time,
+            end_time, message_count, message_text, embedding, embedding_model, embedding_dimension
+          ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, 256 WHERE ${guard}`,
+          [
+            chatId,
+            item.startMessageId,
+            item.endMessageId,
+            item.userId,
+            item.author,
+            item.startTime,
+            item.endTime,
+            item.messageCount,
+            item.text,
+            JSON.stringify(embeddings[index]!),
+            embeddingModel,
+            ...guardArgs,
+          ],
+        );
+        if (inserted.rowsAffected === 0) return;
+      }
     }
     // Preserve the exact overlap alignment and the final speaker group for the next append.
     const completedWindows = windows.filter((window) => window.messageCount === 24).length;
@@ -266,10 +274,10 @@ function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
     yield* dependencies.database.execute(
       `UPDATE chat_search_progress SET indexed_revision = ?, rebuild = 0,
          end_message_id = ?, window_tail = ?, utterance_tail = ?
-       WHERE ${profileWhere} AND revision = ? AND indexed_revision = ?`,
+       WHERE ${profileWhere} AND generation = ?`,
       [
         revision,
-        messages.at(-1)?.messageId ?? after ?? null,
+        through,
         JSON.stringify(windowMessages.slice(completedWindows * 8)),
         JSON.stringify(finalUtterance === undefined ? [] : utteranceMessages.slice(-finalUtterance.messageCount)),
         ...guardArgs,

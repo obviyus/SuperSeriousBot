@@ -3,7 +3,8 @@ import { Effect } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import { type Database } from "../src/app/database.ts";
-import { querySchema } from "../src/app/query-schema.ts";
+import { migrateQuerySchema, querySchema } from "../src/app/query-schema.ts";
+import { initializeDatabase } from "../src/app/schema.ts";
 import { createSuperSeriousBot } from "../src/bot.ts";
 import { commandUpdate, fixture, openRouterEmbeddings, openRouterText, testConfig } from "./harness.ts";
 
@@ -313,6 +314,168 @@ test("additive migration preserves existing embedding configurations and checkpo
     const progress = await Effect.runPromise(database.all("SELECT * FROM chat_search_progress"));
     for (const sql of querySchema) await Effect.runPromise(database.execute(sql));
     expect(await Effect.runPromise(database.all("SELECT * FROM chat_search_progress"))).toEqual(progress);
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
+test.each([
+  { warm: false, dimension: 1_024 },
+  { warm: true, dimension: 1_024 },
+  { warm: false, dimension: 256 },
+  { warm: true, dimension: 256 },
+])("indexing saves each captured prefix under sustained arrivals: %j", async ({ warm, dimension }) => {
+  let armed = false;
+  let maximum = 2_400;
+  let calls = 0;
+  let append: (count: number) => Promise<unknown>;
+  const { app, bot, database } = await fixture(async (_input, init) => {
+    calls += 1;
+    const body = String(init?.body);
+    if (armed && JSON.parse(body).dimensions === dimension) {
+      armed = false;
+      await append(1);
+    }
+    return openRouterEmbeddings(body);
+  }, [], testConfig({ openrouterApiKey: "test" }));
+  append = async (count) => {
+    const result = await insertMessages(database, maximum + 1, count);
+    maximum += count;
+    return result;
+  };
+  const rounds: Array<{ sourceEnd: number; indexedEnd: unknown; windowsEnd: unknown; utterancesEnd: unknown; sourceRows: number; calls: number }> = [];
+  try {
+    await insertMessages(database, 1, maximum);
+    if (warm) await app.run(bot.workers.search.index([-1007]));
+    const observed = observeReads(database);
+    for (let round = 0; round < 6; round++) {
+      if (warm) await append(10);
+      const sourceEnd = maximum;
+      const previousCalls = calls;
+      observed.reads.length = 0;
+      armed = true;
+      await app.run(bot.workers.search.index([-1007]));
+      expect(armed).toBe(false);
+      const progress = await Effect.runPromise(database.one("SELECT end_message_id FROM chat_search_progress"));
+      const windows = await Effect.runPromise(database.one("SELECT MAX(end_message_id) AS last FROM chat_search_windows"));
+      const utterances = await Effect.runPromise(database.one("SELECT MAX(end_message_id) AS last FROM chat_search_utterances"));
+      rounds.push({ sourceEnd, indexedEnd: progress?.["end_message_id"], windowsEnd: windows?.["last"], utterancesEnd: utterances?.["last"],
+        sourceRows: observed.reads.filter((read) => read.sql.includes("FROM chat_stats messages")).reduce((sum, read) => sum + read.rows, 0), calls: calls - previousCalls });
+    }
+    observed.stop();
+    console.log({ warm, dimension, rounds });
+    expect(rounds.map((round) => round.indexedEnd)).toEqual(rounds.map((round) => round.sourceEnd));
+    expect(rounds.map((round) => round.windowsEnd)).toEqual(rounds.map((round) => round.sourceEnd));
+    expect(rounds.map((round) => round.utterancesEnd)).toEqual(rounds.map((round) => round.sourceEnd));
+    expect(rounds.slice(1).every((round) => round.sourceRows <= 11)).toBe(true);
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
+test.each(["backfill", "edit", "delete", "rename"])("a %s inside the captured suffix invalidates it before publication", async (change) => {
+  let armed = false;
+  let calls = 0;
+  const { app, bot, database } = await fixture(async (_input, init) => {
+    calls += 1;
+    if (armed) {
+      armed = false;
+      if (change === "backfill") await insertMessages(database, 2_450, 1);
+      else await Effect.runPromise(database.execute(change === "edit"
+        ? "UPDATE chat_stats SET message_text = 'edited suffix' WHERE message_id = 2460"
+        : change === "delete" ? "DELETE FROM chat_stats WHERE message_id = 2460"
+        : "UPDATE user_stats SET username = 'renamed' WHERE user_id = 2"));
+    }
+    return openRouterEmbeddings(String(init?.body));
+  }, [], testConfig({ openrouterApiKey: "test" }));
+  try {
+    await Effect.runPromise(database.execute("INSERT INTO user_stats (user_id, username) VALUES (2, 'original')"));
+    await insertMessages(database, 1, 2_400);
+    await app.run(bot.workers.search.index([-1007]));
+    await insertMessages(database, 2_401, 49);
+    await insertMessages(database, 2_451, 50);
+    calls = 0;
+    armed = true;
+    await app.run(bot.workers.search.index([-1007]));
+    expect(calls).toBe(1);
+    const interrupted = await Effect.runPromise(database.one("SELECT revision, indexed_revision, end_message_id FROM chat_search_progress"));
+    expect(interrupted?.["end_message_id"]).toBe(2_400);
+    expect(interrupted?.["revision"]).not.toBe(interrupted?.["indexed_revision"]);
+    await app.run(bot.workers.search.index([-1007]));
+    const complete = await Effect.runPromise(database.one("SELECT revision, indexed_revision, end_message_id FROM chat_search_progress"));
+    expect(complete?.["end_message_id"]).toBe(2_500);
+    expect(complete?.["revision"]).toBe(complete?.["indexed_revision"]);
+    const rows = await searchRows(database);
+    if (change === "backfill") expect(rows.windows.some((row) => String(row["message_text"]).includes("message 2450"))).toBe(true);
+    if (change === "edit") expect(rows.windows.some((row) => String(row["message_text"]).includes("edited suffix"))).toBe(true);
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
+test("excluded command and null-text appends do not stop a captured prefix", async () => {
+  let armed = false;
+  const { app, bot, database } = await fixture(async (_input, init) => {
+    if (armed) {
+      armed = false;
+      await Effect.runPromise(database.execute("INSERT INTO chat_stats (chat_id, user_id, message_id, message_text) VALUES (-1007, 2, 41, '/command'), (-1007, 2, 42, NULL)"));
+    }
+    return openRouterEmbeddings(String(init?.body));
+  }, [], testConfig({ openrouterApiKey: "test" }));
+  try {
+    await insertMessages(database, 1, 30);
+    await app.run(bot.workers.search.index([-1007]));
+    await insertMessages(database, 31, 10);
+    armed = true;
+    await app.run(bot.workers.search.index([-1007]));
+    const prefix = await Effect.runPromise(database.one("SELECT end_message_id FROM chat_search_progress"));
+    expect(prefix?.["end_message_id"]).toBe(40);
+    await app.run(bot.workers.search.index([-1007]));
+    const complete = await Effect.runPromise(database.one("SELECT revision, indexed_revision, end_message_id FROM chat_search_progress"));
+    expect(complete?.["end_message_id"]).toBe(42);
+    expect(complete?.["revision"]).toBe(complete?.["indexed_revision"]);
+    expect((await searchRows(database)).utterances.at(-1)?.["end_message_id"]).toBe(40);
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
+test("generation migration preserves the old worker's append signal and requires no startup cutover", async () => {
+  const { app, bot, database } = await fixture(async (_input, init) => openRouterEmbeddings(String(init?.body)), [], testConfig({ openrouterApiKey: "test" }));
+  try {
+    await insertMessages(database, 1, 30);
+    await app.run(bot.workers.search.index([-1007]));
+    await Effect.runPromise(database.batch([
+      ...["source_insert", "source_update", "source_delete", "author_insert", "author_update", "author_delete"]
+        .map((name) => ({ sql: `DROP TRIGGER chat_search_${name}` })),
+      { sql: "ALTER TABLE chat_search_progress DROP COLUMN generation" },
+      { sql: `CREATE TRIGGER chat_search_source_insert AFTER INSERT ON chat_stats BEGIN
+          UPDATE chat_search_progress SET revision = revision + 1,
+            rebuild = CASE WHEN NEW.message_id <= end_message_id THEN 1 ELSE rebuild END
+          WHERE chat_id = NEW.chat_id;
+        END` },
+    ]));
+    const before = await searchRows(database);
+    await Effect.runPromise(migrateQuerySchema(database));
+    await Effect.runPromise(migrateQuerySchema(database));
+    expect(await searchRows(database)).toEqual(before);
+    const migrated = await Effect.runPromise(database.one("SELECT revision, indexed_revision, generation FROM chat_search_progress"));
+    await insertMessages(database, 31, 1);
+    const pending = await Effect.runPromise(database.one("SELECT revision, indexed_revision, generation FROM chat_search_progress"));
+    expect(pending?.["revision"]).toBe(Number(migrated?.["revision"]) + 1);
+    expect(pending?.["indexed_revision"]).toBe(migrated?.["indexed_revision"]);
+    expect(pending?.["generation"]).toBe(migrated?.["generation"]);
+    const schemaVersion = await Effect.runPromise(database.one("PRAGMA schema_version"));
+    await Effect.runPromise(initializeDatabase(database));
+    expect(await Effect.runPromise(database.one("PRAGMA schema_version"))).toEqual(schemaVersion);
+    await app.run(bot.workers.search.index([-1007]));
+    const complete = await Effect.runPromise(database.one("SELECT revision, indexed_revision, end_message_id FROM chat_search_progress"));
+    expect(complete?.["end_message_id"]).toBe(31);
+    expect(complete?.["revision"]).toBe(complete?.["indexed_revision"]);
   } finally {
     await app.close();
     database.close();
