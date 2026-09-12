@@ -4,6 +4,7 @@ import { Effect } from "telly";
 
 import { Database } from "../src/app/database.ts";
 import { initializeDatabase } from "../src/app/schema.ts";
+import { querySchema } from "../src/app/query-schema.ts";
 
 test("database from all 33 Python migrations preserves rows during TypeScript initialization", async () => {
   const client = createClient({ intMode: "number", url: "file::memory:" });
@@ -61,4 +62,25 @@ test("database from all 33 Python migrations preserves rows during TypeScript in
     "attempt_count",
   ]));
   expect(legacyTable?.["name"]).toBe("tv_shows");
+});
+
+test("query migration upgrades an existing database without replacing source or embedding rows", async () => {
+  const client = createClient({ intMode: "number", url: "file::memory:" });
+  const database = new Database(client);
+  try {
+    await client.executeMultiple(await Bun.file(new URL("fixtures/legacy-schema.sql", import.meta.url)).text());
+    await client.execute("INSERT INTO user_stats (user_id, username) VALUES (7, 'Alice')");
+    await client.execute("INSERT INTO chat_stats (chat_id, user_id, message_id, message_text) VALUES (-1007, 7, 20, 'history')");
+    const tables = ["user_stats", "chat_stats", "chat_search_windows", "chat_search_utterances"];
+    const before = await Promise.all(tables.map((table) => client.execute(`SELECT * FROM ${table}`)));
+    for (const statement of querySchema) await Effect.runPromise(database.execute(statement));
+    for (const statement of querySchema) await Effect.runPromise(database.execute(statement));
+    const after = await Promise.all(tables.map((table) => client.execute(`SELECT * FROM ${table}`)));
+    expect(after.map((result) => result.rows)).toEqual(before.map((result) => result.rows));
+    expect((await client.execute("SELECT * FROM chat_search_progress")).rows).toEqual([]);
+    const plan = await client.execute("EXPLAIN QUERY PLAN SELECT user_id FROM user_stats WHERE LOWER(username) = 'alice'");
+    expect(plan.rows.some((row) => String(row["detail"]).includes("SEARCH user_stats USING INDEX"))).toBe(true);
+  } finally {
+    database.close();
+  }
 });
