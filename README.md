@@ -108,14 +108,19 @@ bun run operator search-memory --chat-id -1001234567890
 
 Before deploying the incremental search indexer to an existing database, run
 `bun run operator migrate-query-schema` with that database's environment.
-This additive migration creates lookup indexes, search progress, and source-change
-triggers. It preserves existing rows and is safe to run again.
+The migration adds the generation column to existing search progress and replaces
+the source-change triggers in one transaction. It preserves existing rows and the
+previous indexer's append notifications, and is safe to run again. Run it separately
+before replacing the running bot; startup does not upgrade existing progress.
 
 Indexing saves progress separately for each chat and embedding configuration.
 Unchanged chats do no indexing work. New messages extend the unfinished windows
 and speaker groups. Older imports, source edits or deletes, and author changes
 request the existing full-history pass. Existing embedding ranges retain their
-current reuse behavior. A failed or superseded pass cannot advance progress.
+current reuse behavior. Each pass claims a generation and captures a fixed message
+boundary. Later appends remain pending without invalidating that prefix. Backfills,
+edits, deletes, author changes, and newer workers invalidate the claim. A failed or
+superseded pass cannot advance progress.
 
 ## Stack
 

@@ -4,7 +4,7 @@ import { loadConfig } from "./app/config.ts";
 import { Database } from "./app/database.ts";
 import type { AppDependencies } from "./app/dependencies.ts";
 import { Http } from "./app/http.ts";
-import { querySchema } from "./app/query-schema.ts";
+import { migrateQuerySchema } from "./app/query-schema.ts";
 import { initializeDatabase } from "./app/schema.ts";
 import { createSuperSeriousBot } from "./bot.ts";
 
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
   const database = Database.open(config);
   try {
     if (operation === "migrate-query-schema") {
-      for (const statement of querySchema) await Effect.runPromise(database.execute(statement));
+      await Effect.runPromise(migrateQuerySchema(database));
       console.log("Query indexes and search progress schema are ready.");
       return;
     }
