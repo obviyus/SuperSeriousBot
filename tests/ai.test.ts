@@ -2,11 +2,14 @@ import { expect, test } from "bun:test";
 import { Effect, type Update } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
+import { createSuperSeriousBot } from "../src/bot.ts";
+
 import type { Fetch } from "../src/app/http.ts";
 import {
   commandUpdate,
   fixture,
   openRouterStream,
+  richContent,
   sentMessage,
   testConfig,
 } from "./harness.ts";
@@ -458,6 +461,38 @@ test("based streams NanoGPT with its own credential and disables hosted reasonin
       .toMatchObject({ rich_message: { markdown: "Hosted answer" } });
     expect(await Effect.runPromise(database.one("SELECT status FROM command_stats WHERE message_id = 985")))
       .toMatchObject({ status: "completed" });
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
+test("model based changes the next request and survives bot recreation without changing providers", async () => {
+  const models: Array<string> = [];
+  const send: Fetch = async (input, init) => {
+    expect(String(input)).toBe("https://nano-gpt.com/api/v1/chat/completions");
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer nano-test");
+    models.push(JSON.parse(String(init?.body)).model);
+    return openRouterStream("Selected model answered");
+  };
+  const context = await fixture(send, [], testConfig({
+    based: { provider: "nanogpt", baseUrl: "https://nano-gpt.com/api/v1", model: "test/default", apiKey: "nano-test" },
+  }));
+  const { app, bot, database, fake } = context;
+  try {
+    await app.run(bot.handler(commandUpdate("/model based test/first", 990)));
+    await app.run(bot.handler(commandUpdate("/based hello", 991)));
+    await app.run(bot.handler(commandUpdate("/model based test/second", 992)));
+    await app.run(bot.handler(commandUpdate("/based hello again", 993)));
+    const restarted = createSuperSeriousBot(context.dependencies);
+    await app.run(restarted.handler(commandUpdate("/based hello after restart", 994)));
+    await app.run(restarted.handler(commandUpdate("/model", 995)));
+    expect(models).toEqual(["test/first", "test/second", "test/second"]);
+    expect(await Effect.runPromise(database.one("SELECT based_model, ask_model FROM group_settings WHERE chat_id = -1")))
+      .toMatchObject({ based_model: "test/second", ask_model: null });
+    const listing = fake.requests.filter((request) => request.method === "sendRichMessage").at(-1);
+    expect(richContent(listing?.params).text).toContain("/based");
+    expect(richContent(listing?.params).text).toContain("test/second");
   } finally {
     await app.close();
     database.close();
