@@ -321,7 +321,7 @@ test("edit command explains an AI SDK moderation rejection", async () => {
 });
 
 const basedConfig = () => ({
-  ...testConfig({ based: { baseUrl: "https://local-ai.test/v1", model: "local-model" } }),
+  ...testConfig({ based: { provider: "local", baseUrl: "https://local-ai.test/v1", model: "local-model" } }),
   admins: new Set<string>(),
 });
 
@@ -430,6 +430,34 @@ test("based blocks unapproved chats and rejects media without downloading it", a
     expect(fake.requests.some((request) => request.method === "getFile")).toBe(false);
     expect(fake.requests.filter((request) => request.method === "sendMessage").at(-1)?.params)
       .toMatchObject({ text: "/based supports text only. Use /ask for images." });
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
+
+test("based streams NanoGPT with its own credential and disables hosted reasoning", async () => {
+  const send: Fetch = async (input, init) => {
+    expect(String(input)).toBe("https://nano-gpt.com/api/v1/chat/completions");
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer nano-test");
+    const body = JSON.parse(String(init?.body));
+    expect(body).toMatchObject({ model: "test/hosted-model", stream: true, max_tokens: 1_024, reasoning_effort: "none" });
+    expect(body.chat_template_kwargs).toBeUndefined();
+    expect(body.plugins).toBeUndefined();
+    return openRouterStream("Hosted answer");
+  };
+  const config = testConfig({
+    openrouterApiKey: "openrouter-test",
+    based: { provider: "nanogpt", baseUrl: "https://nano-gpt.com/api/v1", model: "test/hosted-model", apiKey: "nano-test" },
+  });
+  const { app, bot, database, fake } = await fixture(send, [], config);
+  try {
+    await app.run(bot.handler(commandUpdate("/based hello", 985)));
+    expect(fake.requests.find((request) => request.method === "editMessageText")?.params)
+      .toMatchObject({ rich_message: { markdown: "Hosted answer" } });
+    expect(await Effect.runPromise(database.one("SELECT status FROM command_stats WHERE message_id = 985")))
+      .toMatchObject({ status: "completed" });
   } finally {
     await app.close();
     database.close();

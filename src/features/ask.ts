@@ -48,7 +48,7 @@ function askCommand(
     availability: "whitelist-private",
     dailyLimit: 40,
     description: name === "based"
-      ? "Ask the local model. Reply to text for context."
+      ? "Ask the uncensored model. Reply to text for context."
       : "Ask anything. Reply to text, an image, or a static sticker for context.",
     example: `/${name} How long does a train between Tokyo and Hokkaido take?`,
     names: [name],
