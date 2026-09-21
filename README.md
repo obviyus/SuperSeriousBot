@@ -61,6 +61,10 @@ Optional integrations:
 text message to include it as context. It has its own chat/user whitelist and a
 40-request daily limit, like `/ask`. Enable it for a group through `/settings`.
 It needs no OpenRouter key and does not use `/model ask` or `/thinking` settings.
+Admins can use `/model based <model-id>` to save a global model override. `/model`
+shows the current selection, and `/model all <model-id>` also includes `/based`.
+Changes apply to the next request and survive restarts. `BASED_MODEL` is the default
+until an override is saved; `/model` does not change the configured provider.
 Set `BASED_PROVIDER=nanogpt` and `BASED_MODEL` to a NanoGPT catalog ID to use hosted
 inference. It uses the existing `NANO_GPT_API_KEY` and NanoGPT's fixed API endpoint;
 `BASED_BASE_URL` applies only to `local`. NanoGPT requests use `reasoning_effort=none`;
@@ -123,6 +127,11 @@ bun run operator usage --days 30 --status failed
 bun run operator search-index --chat-id -1001234567890
 bun run operator search-memory --chat-id -1001234567890
 ```
+
+Before deploying `/model based` to an existing database, run
+`bun run operator migrate-model-settings` with that database's environment. This
+adds the nullable model-setting field and preserves existing settings. Run it
+separately before replacing the bot.
 
 Before deploying the incremental search indexer to an existing database, run
 `bun run operator migrate-query-schema` with that database's environment.

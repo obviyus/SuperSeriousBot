@@ -32,7 +32,11 @@ const defaultModels = {
 
 export type ModelCommand = keyof typeof defaultModels;
 
-const modelCommands = Object.keys(defaultModels) as ReadonlyArray<ModelCommand>;
+type ModelSetting = ModelCommand | "based";
+const modelCommands: ReadonlyArray<ModelSetting> = [
+  ...Object.keys(defaultModels) as ReadonlyArray<ModelCommand>,
+  "based",
+];
 const thinkingLevels = ["none", "minimal", "low", "medium", "high"] as const;
 
 const toggleDefinitions = [
@@ -56,7 +60,7 @@ const SettingsCallback = callbackData("settings", Schema.Struct({
   key: Schema.Literals(toggleDefinitions.map((toggle) => toggle.key)),
 }));
 
-function modelName(value: string): ModelCommand | undefined {
+function modelName(value: string): ModelSetting | undefined {
   return modelCommands.find((name) => name === value);
 }
 
@@ -69,6 +73,14 @@ export function getModel(dependencies: AppDependencies, command: ModelCommand) {
     `SELECT ${command}_model AS model FROM group_settings WHERE chat_id = -1`,
   ).pipe(Effect.map((row) => row === undefined || row["model"] === null
     ? defaultModels[command]
+    : rowString(row, "model")));
+}
+
+export function getBasedModel(dependencies: AppDependencies, defaultModel: string) {
+  return dependencies.database.one(
+    "SELECT based_model AS model FROM group_settings WHERE chat_id = -1",
+  ).pipe(Effect.map((row) => row === undefined || row["model"] === null
+    ? defaultModel
     : rowString(row, "model")));
 }
 
@@ -91,13 +103,15 @@ function modelCommand(dependencies: AppDependencies): CommandDefinition {
       }
       if (match.args.length === 0) {
         const models = yield* Effect.all(Object.fromEntries(
-          modelCommands.map((name) => [name, getModel(dependencies, name)]),
+          modelCommands.map((name) => [name, name === "based"
+            ? getBasedModel(dependencies, dependencies.config.api.based?.model ?? "Not configured")
+            : getModel(dependencies, name)]),
         ));
         const table = rich.table([
           ["Command", "Model"],
           ...modelCommands.map((name) => [
             rich.command(`/${name}`),
-            rich.code(models[name] ?? defaultModels[name]),
+            rich.code(models[name] ?? "Not configured"),
           ]),
         ], { header: true });
         return yield* replyBlocks(match.message, [
@@ -111,7 +125,7 @@ function modelCommand(dependencies: AppDependencies): CommandDefinition {
         ? modelCommands
         : requested === undefined
         ? []
-        : [modelName(requested)].filter((value): value is ModelCommand => value !== undefined);
+        : [modelName(requested)].filter((value): value is ModelSetting => value !== undefined);
       const nextModel = match.args.slice(1).join(" ").trim();
       if (targets.length === 0 || nextModel.length === 0) {
         return yield* answer(

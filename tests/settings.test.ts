@@ -18,7 +18,7 @@ test("model command updates every AI model in one database write", async () => {
   }
   const row = await Effect.runPromise(database.one(
     `SELECT ask_model, cron_model, edit_model, search_model,
-            song_model, tr_model, tldr_model, video_model
+            song_model, tr_model, tldr_model, video_model, based_model
      FROM group_settings WHERE chat_id = -1`,
   ));
   database.close();
@@ -31,6 +31,7 @@ test("model command updates every AI model in one database write", async () => {
   expect(row?.["tr_model"]).toBe("openrouter/test/model");
   expect(row?.["tldr_model"]).toBe("openrouter/test/model");
   expect(row?.["video_model"]).toBe("openrouter/test/model");
+  expect(row?.["based_model"]).toBe("openrouter/test/model");
   const reply = fake.requests.find((request) => request.method === "sendMessage");
   expect(reply?.params).toMatchObject({ text: expect.stringContaining("All command models") });
 });

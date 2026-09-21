@@ -17,6 +17,7 @@ import { imageDataUrl, type ImageData } from "./media.ts";
 import {
   type ModelCommand,
   getModel,
+  getBasedModel,
   getThinking,
   normalizeModelName,
 } from "../features/settings.ts";
@@ -77,7 +78,7 @@ function prompt(messages: ReadonlyArray<AiMessage>) {
 }
 
 export class Ai {
-  private readonly based: LanguageModel | undefined;
+  private readonly based: OpenRouterProvider | undefined;
   private readonly openrouter: OpenRouterProvider | undefined;
 
   constructor(private readonly dependencies: AppDependencies) {
@@ -92,10 +93,6 @@ export class Ai {
       baseURL: based.baseUrl,
       compatibility: "strict",
       fetch: providerFetch,
-    }).chat(based.model, {
-      extraBody: based.provider === "nanogpt"
-        ? { reasoning_effort: "none" }
-        : { chat_template_kwargs: { enable_thinking: false } },
     });
     this.openrouter = apiKey === undefined
       ? undefined
@@ -159,10 +156,18 @@ export class Ai {
     messages: ReadonlyArray<AiMessage>,
     options: GenerateOptions = {},
   ) {
+    const based = this.based;
+    const basedConfig = this.dependencies.config.api.based;
     const model = command === "based"
-      ? this.based === undefined
+      ? based === undefined || basedConfig === undefined
         ? Effect.fail(new AiError({ description: "Based provider is not configured", operation: "configure" }))
-        : Effect.succeed(this.based)
+        : getBasedModel(this.dependencies, basedConfig.model).pipe(
+            Effect.map((id): LanguageModel => based.chat(id, {
+              extraBody: basedConfig.provider === "nanogpt"
+                ? { reasoning_effort: "none" }
+                : { chat_template_kwargs: { enable_thinking: false } },
+            })),
+          )
       : this.settings(command, options).pipe(
           Effect.flatMap(({ model, reasoning }) => Effect.try({
             try: () => this.languageModel(command, model, options, reasoning),

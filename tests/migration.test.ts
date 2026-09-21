@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { Effect } from "telly";
 
 import { Database } from "../src/app/database.ts";
-import { initializeDatabase } from "../src/app/schema.ts";
+import { initializeDatabase, migrateModelSettings } from "../src/app/schema.ts";
 import { querySchema } from "../src/app/query-schema.ts";
 
 test("database from all 33 Python migrations preserves rows during TypeScript initialization", async () => {
@@ -39,7 +39,7 @@ test("database from all 33 Python migrations preserves rows during TypeScript in
     [9],
   ));
   const setting = await Effect.runPromise(database.one(
-    "SELECT fts, auto_dl, search_model, video_model FROM group_settings WHERE chat_id = ?",
+    "SELECT fts, auto_dl, search_model, video_model, based_model FROM group_settings WHERE chat_id = ?",
     [-1007],
   ));
   const cronColumns = await Effect.runPromise(database.all("PRAGMA table_info(cron_tasks)"));
@@ -55,6 +55,7 @@ test("database from all 33 Python migrations preserves rows during TypeScript in
     fts: 1,
     search_model: "openrouter/google/gemini-3-flash-preview",
     video_model: null,
+    based_model: null,
   });
   expect(cronColumns.map((row) => row["name"])).toEqual(expect.arrayContaining([
     "next_run_time",
@@ -80,6 +81,24 @@ test("query migration upgrades an existing database without replacing source or 
     expect((await client.execute("SELECT * FROM chat_search_progress")).rows).toEqual([]);
     const plan = await client.execute("EXPLAIN QUERY PLAN SELECT user_id FROM user_stats WHERE LOWER(username) = 'alice'");
     expect(plan.rows.some((row) => String(row["detail"]).includes("SEARCH user_stats USING INDEX"))).toBe(true);
+  } finally {
+    database.close();
+  }
+});
+
+
+test("model settings migration preserves existing rows and is safe to repeat", async () => {
+  const database = new Database(createClient({ intMode: "number", url: "file::memory:" }));
+  try {
+    await Effect.runPromise(database.execute("CREATE TABLE group_settings (chat_id INTEGER PRIMARY KEY, ask_model TEXT, video_model TEXT)"));
+    await Effect.runPromise(database.execute("INSERT INTO group_settings VALUES (-1, 'existing/ask', 'existing/video')"));
+    await Effect.runPromise(migrateModelSettings(database));
+    expect(await Effect.runPromise(database.one("SELECT * FROM group_settings WHERE chat_id = -1")))
+      .toMatchObject({ ask_model: "existing/ask", video_model: "existing/video", based_model: null });
+    await Effect.runPromise(database.execute("UPDATE group_settings SET based_model = 'saved/based' WHERE chat_id = -1"));
+    await Effect.runPromise(migrateModelSettings(database));
+    expect(await Effect.runPromise(database.one("SELECT * FROM group_settings WHERE chat_id = -1")))
+      .toMatchObject({ ask_model: "existing/ask", video_model: "existing/video", based_model: "saved/based" });
   } finally {
     database.close();
   }
