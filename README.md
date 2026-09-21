@@ -49,20 +49,26 @@ Optional integrations:
 
 - `OPENROUTER_API_KEY`: AI, image, video, transcription, summaries, search, and cron
 - `OPENROUTER_BASE_URL`: optional OpenRouter-compatible endpoint for local testing
-- `BASED_BASE_URL`, `BASED_MODEL`: local OpenAI-compatible chat endpoint (include `/v1`) and served model ID for `/based`
+- `BASED_PROVIDER`: `local` (default) or `nanogpt` for `/based`
+- `BASED_MODEL`: model ID for `/based`
+- `BASED_BASE_URL`: OpenAI-compatible endpoint for the `local` provider (include `/v1`)
 - `KIE_API_KEY`: song generation
 - `COBALT_URL`: media downloads
-- `NANO_GPT_API_KEY`: URL and YouTube extraction
+- `NANO_GPT_API_KEY`: URL/YouTube extraction and `/based` when `BASED_PROVIDER=nanogpt`
 - `GOODREADS_API_KEY`, `WOLFRAM_APP_ID`, `WEATHERAPI_API_KEY`, and `WAQI_API_KEY`
 
-`/based [query]` streams a text answer from the configured local model. Reply to a
+`/based [query]` streams a text answer from the configured model. Reply to a
 text message to include it as context. It has its own chat/user whitelist and a
 40-request daily limit, like `/ask`. Enable it for a group through `/settings`.
 It needs no OpenRouter key and does not use `/model ask` or `/thinking` settings.
+Set `BASED_PROVIDER=nanogpt` and `BASED_MODEL` to a NanoGPT catalog ID to use hosted
+inference. It uses the existing `NANO_GPT_API_KEY` and NanoGPT's fixed API endpoint;
+`BASED_BASE_URL` applies only to `local`. NanoGPT requests use `reasoning_effort=none`;
+local requests retain their chat-template thinking control.
 Use `/ask` for supported images. `/based` rejects media. Requests stop after two minutes; responses
-are capped at 1,024 tokens. There is no cloud fallback when the local server is off.
+are capped at 1,024 tokens. There is no fallback to another provider on failure.
 
-Use a private Tailscale HTTPS route to the server's loopback listener, as with
+For the local provider, use a private Tailscale HTTPS route to its loopback listener, as with
 Cobalt. Allow only the bot host to reach that route. Keep the endpoint and model ID
 in the app environment; do not expose the unauthenticated model API publicly.
 

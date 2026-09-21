@@ -1,7 +1,12 @@
 type Updater = "polling" | "webhook";
 
 export interface ApiConfig {
-  readonly based?: { readonly baseUrl: string; readonly model: string };
+  readonly based?: {
+    readonly provider: "local" | "nanogpt";
+    readonly baseUrl: string;
+    readonly model: string;
+    readonly apiKey?: string;
+  };
   readonly cobaltUrl?: string;
   readonly goodreadsApiKey?: string;
   readonly kieApiKey?: string;
@@ -60,10 +65,21 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
   if (updater === "webhook" && webhookUrl === undefined) {
     throw new Error("WEBHOOK_URL must be set for webhook mode");
   }
-  const basedBaseUrl = optional(environment, "BASED_BASE_URL");
-  const based = basedBaseUrl === undefined
-    ? undefined
-    : { baseUrl: basedBaseUrl, model: required(environment, "BASED_MODEL") };
+  const basedProvider = optional(environment, "BASED_PROVIDER") ?? "local";
+  if (basedProvider !== "local" && basedProvider !== "nanogpt") {
+    throw new Error("BASED_PROVIDER must be local or nanogpt");
+  }
+  const basedBaseUrl = basedProvider === "nanogpt"
+    ? "https://nano-gpt.com/api/v1"
+    : optional(environment, "BASED_BASE_URL");
+  const based: ApiConfig["based"] = basedBaseUrl === undefined ? undefined : {
+    provider: basedProvider,
+    baseUrl: basedBaseUrl,
+    model: required(environment, "BASED_MODEL"),
+    ...(basedProvider === "nanogpt"
+      ? { apiKey: required(environment, "NANO_GPT_API_KEY") }
+      : {}),
+  };
   const cobaltUrl = optional(environment, "COBALT_URL");
   const goodreadsApiKey = optional(environment, "GOODREADS_API_KEY");
   const kieApiKey = optional(environment, "KIE_API_KEY");

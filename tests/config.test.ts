@@ -13,6 +13,7 @@ test("config loads polling defaults and trims optional values", () => {
   const config = loadConfig({
     ...required,
     ADMINS: " 1   2 ",
+    NANO_GPT_API_KEY: "nano-test",
     BASED_BASE_URL: " https://local-ai.test/v1 ",
     BASED_MODEL: " local-model ",
     OPENROUTER_API_KEY: " openrouter-test ",
@@ -20,10 +21,11 @@ test("config loads polling defaults and trims optional values", () => {
     TELEGRAM_API_ROOT: " http://127.0.0.1:9000 ",
   });
 
+  expect(config.api.based).not.toHaveProperty("apiKey");
   expect(config).toMatchObject({
     admins: new Set(["1", "2"]),
     api: {
-      based: { baseUrl: "https://local-ai.test/v1", model: "local-model" },
+      based: { provider: "local", baseUrl: "https://local-ai.test/v1", model: "local-model" },
       openrouterApiKey: "openrouter-test",
       openrouterBaseUrl: "http://127.0.0.1:9100",
     },
@@ -53,4 +55,26 @@ test("local AI stays disabled without an endpoint and requires a served model ID
   expect(loadConfig(required).api.based).toBeUndefined();
   expect(() => loadConfig({ ...required, BASED_BASE_URL: "https://local-ai.test/v1" }))
     .toThrow("BASED_MODEL must be set");
+});
+
+
+test("based selects NanoGPT with its existing key and a fixed provider endpoint", () => {
+  const config = loadConfig({
+    ...required,
+    BASED_PROVIDER: "nanogpt",
+    BASED_BASE_URL: "https://old-local.test/v1",
+    BASED_MODEL: "test/hosted-model",
+    NANO_GPT_API_KEY: " nano-test ",
+    OPENROUTER_API_KEY: "openrouter-test",
+  });
+  expect(config.api.based).toEqual({
+    provider: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1",
+    model: "test/hosted-model",
+    apiKey: "nano-test",
+  });
+  expect(() => loadConfig({ ...required, BASED_PROVIDER: "nanogpt", BASED_MODEL: "test/hosted-model" }))
+    .toThrow("NANO_GPT_API_KEY must be set");
+  expect(() => loadConfig({ ...required, BASED_PROVIDER: "unknown" }))
+    .toThrow("BASED_PROVIDER must be local or nanogpt");
 });

@@ -88,11 +88,15 @@ export class Ai {
     );
     const based = dependencies.config.api.based;
     this.based = based === undefined ? undefined : createOpenRouter({
-      apiKey: "local-only",
+      apiKey: based.apiKey ?? "local-only",
       baseURL: based.baseUrl,
       compatibility: "strict",
       fetch: providerFetch,
-    }).chat(based.model, { extraBody: { chat_template_kwargs: { enable_thinking: false } } });
+    }).chat(based.model, {
+      extraBody: based.provider === "nanogpt"
+        ? { reasoning_effort: "none" }
+        : { chat_template_kwargs: { enable_thinking: false } },
+    });
     this.openrouter = apiKey === undefined
       ? undefined
       : createOpenRouter({
@@ -157,7 +161,7 @@ export class Ai {
   ) {
     const model = command === "based"
       ? this.based === undefined
-        ? Effect.fail(new AiError({ description: "Local AI is not configured", operation: "configure" }))
+        ? Effect.fail(new AiError({ description: "Based provider is not configured", operation: "configure" }))
         : Effect.succeed(this.based)
       : this.settings(command, options).pipe(
           Effect.flatMap(({ model, reasoning }) => Effect.try({
