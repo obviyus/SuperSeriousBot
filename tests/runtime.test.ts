@@ -32,7 +32,7 @@ test("bot registers every migrated command name", async () => {
   await app.close();
   database.close();
   expect(names).toEqual([
-    "addquote", "ask", "block", "blocklist", "book", "botstats", "calc", "cat",
+    "addquote", "ask", "based", "block", "blocklist", "book", "botstats", "calc", "cat",
     "cron", "d", "define", "dl", "edit", "enable_fts", "football", "fox", "friends",
     "get", "groups", "gstats", "habit", "hb", "help", "highlight", "hl", "hltb",
     "import", "insult", "joke", "meme", "model", "next", "ping", "q", "quote",
@@ -55,6 +55,7 @@ test("help presents enabled commands as a native rich list", async () => {
   const reply = fake.requests.find((request) => request.method === "sendRichMessage");
   const content = richContent(reply?.params);
   expect(content.text).toContain("/ping");
+  expect(content.text).not.toContain("/based");
   expect(content.text).toContain("Pong.");
   expect(content.types).toContain("list");
 });

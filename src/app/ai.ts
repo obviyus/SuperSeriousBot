@@ -7,6 +7,7 @@ import {
   generateText,
   Output,
   streamText,
+  type LanguageModel,
   type ModelMessage,
 } from "ai";
 import { Effect, Schema } from "telly";
@@ -76,6 +77,7 @@ function prompt(messages: ReadonlyArray<AiMessage>) {
 }
 
 export class Ai {
+  private readonly based: LanguageModel | undefined;
   private readonly openrouter: OpenRouterProvider | undefined;
 
   constructor(private readonly dependencies: AppDependencies) {
@@ -84,6 +86,13 @@ export class Ai {
       (input: RequestInfo | URL, init?: RequestInit) => dependencies.http.fetch(input, init),
       { preconnect: globalThis.fetch.preconnect },
     );
+    const based = dependencies.config.api.based;
+    this.based = based === undefined ? undefined : createOpenRouter({
+      apiKey: "local-only",
+      baseURL: based.baseUrl,
+      compatibility: "strict",
+      fetch: providerFetch,
+    }).chat(based.model, { extraBody: { chat_template_kwargs: { enable_thinking: false } } });
     this.openrouter = apiKey === undefined
       ? undefined
       : createOpenRouter({
@@ -142,20 +151,34 @@ export class Ai {
   }
 
   stream(
-    command: ModelCommand,
+    command: ModelCommand | "based",
     messages: ReadonlyArray<AiMessage>,
     options: GenerateOptions = {},
   ) {
-    return this.settings(command, options).pipe(
-      Effect.flatMap(({ model, reasoning }) => Effect.try({
+    const model = command === "based"
+      ? this.based === undefined
+        ? Effect.fail(new AiError({ description: "Local AI is not configured", operation: "configure" }))
+        : Effect.succeed(this.based)
+      : this.settings(command, options).pipe(
+          Effect.flatMap(({ model, reasoning }) => Effect.try({
+            try: () => this.languageModel(command, model, options, reasoning),
+            catch: (error) => failure("stream", error),
+          })),
+        );
+    return model.pipe(
+      Effect.flatMap((model) => Effect.try({
         try: (): AiStream => {
           const controller = new AbortController();
+          const abortSignal = command === "based"
+            ? AbortSignal.any([controller.signal, AbortSignal.timeout(120_000)])
+            : controller.signal;
           let streamFailure: { readonly error: unknown } | undefined;
           const result = streamText({
-            abortSignal: controller.signal,
+            abortSignal,
+            ...(command === "based" ? { maxOutputTokens: 1_024, maxRetries: 0 } : {}),
             ...(options.maxTokens === undefined ? {} : { maxOutputTokens: options.maxTokens }),
             ...prompt(messages),
-            model: this.languageModel(command, model, options, reasoning),
+            model,
             onError: ({ error }) => {
               streamFailure = { error };
             },
@@ -169,6 +192,7 @@ export class Ai {
             next: async () => {
               const next = await iterator.next();
               if (next.done && streamFailure !== undefined) throw streamFailure.error;
+              if (next.done && command === "based") abortSignal.throwIfAborted();
               return next;
             },
           };
@@ -256,7 +280,7 @@ export class Ai {
     model: string,
     options: GenerateOptions,
     reasoning: ReasoningLevel,
-  ) {
+  ): LanguageModel {
     const id = normalizeModelName(model);
     return this.provider()(id, {
       ...(options.extraBody === undefined ? {} : { extraBody: { ...options.extraBody } }),

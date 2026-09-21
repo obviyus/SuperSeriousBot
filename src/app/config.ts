@@ -1,6 +1,7 @@
 type Updater = "polling" | "webhook";
 
 export interface ApiConfig {
+  readonly based?: { readonly baseUrl: string; readonly model: string };
   readonly cobaltUrl?: string;
   readonly goodreadsApiKey?: string;
   readonly kieApiKey?: string;
@@ -59,6 +60,10 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
   if (updater === "webhook" && webhookUrl === undefined) {
     throw new Error("WEBHOOK_URL must be set for webhook mode");
   }
+  const basedBaseUrl = optional(environment, "BASED_BASE_URL");
+  const based = basedBaseUrl === undefined
+    ? undefined
+    : { baseUrl: basedBaseUrl, model: required(environment, "BASED_MODEL") };
   const cobaltUrl = optional(environment, "COBALT_URL");
   const goodreadsApiKey = optional(environment, "GOODREADS_API_KEY");
   const kieApiKey = optional(environment, "KIE_API_KEY");
@@ -73,6 +78,7 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
   return {
     admins: new Set((optional(environment, "ADMINS") ?? "").split(/\s+/u).filter(Boolean)),
     api: {
+      ...(based === undefined ? {} : { based }),
       ...(cobaltUrl === undefined ? {} : { cobaltUrl }),
       ...(goodreadsApiKey === undefined ? {} : { goodreadsApiKey }),
       ...(kieApiKey === undefined ? {} : { kieApiKey }),
