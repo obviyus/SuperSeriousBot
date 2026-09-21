@@ -33,8 +33,8 @@ const Track = Schema.Struct({
 const TaskStatus = Schema.Struct({
   code: Schema.Number,
   data: Schema.Struct({
-    errorMessage: Schema.optionalKey(Schema.String),
-    response: Schema.optionalKey(Schema.Struct({ sunoData: Schema.Array(Track) })),
+    errorMessage: Schema.optionalKey(Schema.NullOr(Schema.String)),
+    response: Schema.optionalKey(Schema.NullOr(Schema.Struct({ sunoData: Schema.Array(Track) }))),
     status: Schema.String,
   }),
   msg: Schema.optionalKey(Schema.String),
@@ -92,7 +92,8 @@ export function songCommand(dependencies: AppDependencies): CommandDefinition {
               callBackUrl: "https://localhost/kie-callback",
               customMode: true,
               instrumental: false,
-              model: "V5",
+              model: "V6",
+              duration: 180,
               negativeTags: "rap, spoken word, mumble rap, long dense verses",
               prompt: lyrics,
               style: plan.style.trim(),
