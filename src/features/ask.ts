@@ -1,6 +1,7 @@
 import {
   editMessageText,
   Effect,
+  messageMedia,
   messageText,
   sendPhoto,
   type Message,
@@ -37,15 +38,21 @@ function words(text: string): number {
   return text.trim().split(/\s+/u).filter(Boolean).length;
 }
 
-function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
+function askCommand(
+  dependencies: AppDependencies,
+  ai: Ai,
+  name: "ask" | "based",
+): CommandDefinition {
   const definition: CommandDefinition = {
-    apiKey: "openrouterApiKey",
+    apiKey: name === "based" ? "based" : "openrouterApiKey",
     availability: "whitelist-private",
     dailyLimit: 40,
-    description: "Ask anything. Reply to text, an image, or a static sticker for context.",
-    example: "/ask How long does a train between Tokyo and Hokkaido take?",
-    names: ["ask"],
-    run: Effect.fn("ask")(function* (match) {
+    description: name === "based"
+      ? "Ask the local model. Reply to text for context."
+      : "Ask anything. Reply to text, an image, or a static sticker for context.",
+    example: `/${name} How long does a train between Tokyo and Hokkaido take?`,
+    names: [name],
+    run: Effect.fn(name)(function* (match) {
       let query = match.argText;
       const replied = match.message.replyToMessage;
       const replyContext = replied === undefined ? undefined : messageText(replied);
@@ -55,8 +62,14 @@ function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
       if (replyContext !== undefined && words(replyContext) > wordLimit) {
         return yield* answer(match.message, `Please reply to a message under ${wordLimit} words.`);
       }
-      const attachedImage = yield* messageImage(match.message);
-      const image = attachedImage === undefined && replied !== undefined
+      if (name === "based" && (
+        messageMedia(match.message) !== undefined ||
+        (replied !== undefined && messageMedia(replied) !== undefined)
+      )) {
+        return yield* answer(match.message, "/based supports text only. Use /ask for images.");
+      }
+      const attachedImage = name === "based" ? undefined : yield* messageImage(match.message);
+      const image = name === "ask" && attachedImage === undefined && replied !== undefined
         ? yield* messageImage(replied)
         : attachedImage;
       const messages: Array<AiMessage> = [
@@ -81,7 +94,7 @@ function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
         }
         messages.push({ content: query, role: "user" });
       }
-      const stream = yield* ai.stream("ask", messages);
+      const stream = yield* ai.stream(name, messages);
       return yield* Effect.gen(function* () {
         let content = "";
         let sent: Message | undefined;
@@ -118,7 +131,7 @@ function askCommand(dependencies: AppDependencies, ai: Ai): CommandDefinition {
         yield* editRich(sent, content);
       }).pipe(Effect.ensuring(Effect.sync(() => stream.abort())));
     }),
-    usage: "/ask [query]",
+    usage: `/${name} [query]`,
   };
   return definition;
 }
@@ -162,5 +175,5 @@ function editCommand(ai: Ai): CommandDefinition {
 
 export function askCommands(dependencies: AppDependencies): ReadonlyArray<CommandDefinition> {
   const ai = new Ai(dependencies);
-  return [askCommand(dependencies, ai), editCommand(ai)];
+  return [askCommand(dependencies, ai, "ask"), askCommand(dependencies, ai, "based"), editCommand(ai)];
 }

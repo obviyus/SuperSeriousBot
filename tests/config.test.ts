@@ -13,6 +13,8 @@ test("config loads polling defaults and trims optional values", () => {
   const config = loadConfig({
     ...required,
     ADMINS: " 1   2 ",
+    BASED_BASE_URL: " https://local-ai.test/v1 ",
+    BASED_MODEL: " local-model ",
     OPENROUTER_API_KEY: " openrouter-test ",
     OPENROUTER_BASE_URL: " http://127.0.0.1:9100 ",
     TELEGRAM_API_ROOT: " http://127.0.0.1:9000 ",
@@ -21,6 +23,7 @@ test("config loads polling defaults and trims optional values", () => {
   expect(config).toMatchObject({
     admins: new Set(["1", "2"]),
     api: {
+      based: { baseUrl: "https://local-ai.test/v1", model: "local-model" },
       openrouterApiKey: "openrouter-test",
       openrouterBaseUrl: "http://127.0.0.1:9100",
     },
@@ -43,4 +46,11 @@ test("config rejects invalid updater and port values", () => {
   expect(() => loadConfig({ ...required, PORT: "70000" })).toThrow(
     "PORT must be from 1 to 65535",
   );
+});
+
+
+test("local AI stays disabled without an endpoint and requires a served model ID", () => {
+  expect(loadConfig(required).api.based).toBeUndefined();
+  expect(() => loadConfig({ ...required, BASED_BASE_URL: "https://local-ai.test/v1" }))
+    .toThrow("BASED_MODEL must be set");
 });

@@ -187,24 +187,25 @@ test("ask command records a rejected AI SDK stream as a failure", async () => {
   });
 });
 
-test("ask command stops before OpenRouter after its daily limit", async () => {
+test.each(["ask", "based"])("%s stops before the provider after its daily limit", async (command) => {
   let providerCalls = 0;
   const send: Fetch = async () => {
     providerCalls += 1;
     return openRouterStream("ok");
   };
-  const { app, bot, database, fake } = await fixture(send, [], aiConfig());
-  await allow(database, "ask");
+  const { app, bot, database, fake } = await fixture(send, [], command === "based" ? basedConfig() : aiConfig());
+  await allow(database, command);
 
   try {
     for (let count = 0; count < 41; count += 1) {
-      await app.run(bot.handler(commandUpdate(`/ask request ${count}`, 910 + count)));
+      await app.run(bot.handler(commandUpdate(`/${command} request ${count}`, 910 + count)));
     }
   } finally {
     await app.close();
   }
   const usage = await Effect.runPromise(database.one(
-    "SELECT current_usage FROM user_command_limits WHERE user_id = 1 AND command = 'ask'",
+    "SELECT current_usage FROM user_command_limits WHERE user_id = 1 AND command = ?",
+    [command],
   ));
   database.close();
 
@@ -316,4 +317,119 @@ test("edit command explains an AI SDK moderation rejection", async () => {
   expect(fake.requests.find((request) => request.method === "sendMessage")?.params).toMatchObject({
     text: "The generated image was rejected by content moderation. Try a different prompt or source image.",
   });
+});
+
+const basedConfig = () => ({
+  ...testConfig({ based: { baseUrl: "https://local-ai.test/v1", model: "local-model" } }),
+  admins: new Set<string>(),
+});
+
+test("based streams from the local endpoint with reply context and no OpenRouter key", async () => {
+  const send: Fetch = async (input, init) => {
+    expect(String(input)).toBe("https://local-ai.test/v1/chat/completions");
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer local-only");
+    const body = JSON.parse(String(init?.body));
+    expect(body).toMatchObject({
+      chat_template_kwargs: { enable_thinking: false },
+      max_tokens: 1_024,
+      model: "local-model",
+      stream: true,
+    });
+    expect(body.plugins).toBeUndefined();
+    expect(body.reasoning).toBeUndefined();
+    expect(JSON.stringify(body.messages)).toContain("The train takes four hours.");
+    expect(JSON.stringify(body.messages)).toContain("Telegram Rich Markdown");
+    return openRouterStream("Local answer");
+  };
+  const { app, bot, database, fake } = await fixture(send, [], basedConfig());
+  await allow(database, "based");
+  await Effect.runPromise(database.execute(
+    "INSERT INTO group_settings (chat_id, ask_thinking) VALUES (-1, 'high')",
+  ));
+  const base = commandUpdate("/based explain this", 980);
+  if (base.message === undefined) throw new Error("Expected command message");
+  try {
+    await app.run(bot.handler({
+      ...base,
+      message: {
+        ...base.message,
+        replyToMessage: { ...base.message, messageId: 979, text: "The train takes four hours." },
+      },
+    }));
+    expect(fake.requests.find((request) => request.method === "sendMessage")?.params)
+      .toMatchObject({ text: "Local answer" });
+    expect(fake.requests.find((request) => request.method === "editMessageText")?.params)
+      .toMatchObject({ rich_message: { markdown: "Local answer" } });
+    expect(await Effect.runPromise(database.one(
+      "SELECT command, status FROM command_stats WHERE message_id = 980",
+    ))).toMatchObject({ command: "based", status: "completed" });
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
+test("based records an unavailable local server without retrying or cloud fallback", async () => {
+  let calls = 0;
+  let signal: AbortSignal | null | undefined;
+  const send: Fetch = async (input, init) => {
+    calls += 1;
+    signal = init?.signal;
+    expect(String(input)).toBe("https://local-ai.test/v1/chat/completions");
+    return new Response(JSON.stringify({ error: { message: "Local server is busy" } }), {
+      headers: { "content-type": "application/json" }, status: 503,
+    });
+  };
+  const config = basedConfig();
+  const { app, bot, database, fake } = await fixture(send, [], {
+    ...config, api: { ...config.api, openrouterApiKey: "openrouter-test" },
+  });
+  await allow(database, "based");
+  try {
+    await app.run(bot.handler(commandUpdate("/based hello", 981)));
+    expect(calls).toBe(1);
+    expect(signal?.aborted).toBe(true);
+    expect(await Effect.runPromise(database.one(
+      "SELECT status, error_type FROM command_stats WHERE message_id = 981",
+    ))).toMatchObject({ status: "failed", error_type: "AiError" });
+    expect(fake.requests.find((request) => request.method === "sendMessage")?.params)
+      .toMatchObject({ text: "Something went wrong. Please try again." });
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
+test("based blocks unapproved chats and rejects media without downloading it", async () => {
+  let calls = 0;
+  const { app, bot, database, fake } = await fixture(async () => {
+    calls += 1;
+    return openRouterStream("unexpected");
+  }, [], basedConfig());
+  try {
+    await app.run(bot.handler(commandUpdate("/based hello", 982)));
+    expect(fake.requests.find((request) => request.method === "sendMessage")?.params)
+      .toMatchObject({ text: expect.stringContaining("whitelist") });
+    await allow(database, "based");
+    const base = commandUpdate("/based describe this", 983);
+    if (base.message === undefined) throw new Error("Expected command message");
+    await app.run(bot.handler({
+      ...base,
+      message: {
+        ...base.message,
+        replyToMessage: {
+          ...base.message,
+          messageId: 978,
+          photo: [{ fileId: "test-photo", fileUniqueId: "unique-photo", height: 100, width: 100 }],
+        },
+      },
+    }));
+    expect(calls).toBe(0);
+    expect(fake.requests.some((request) => request.method === "getFile")).toBe(false);
+    expect(fake.requests.filter((request) => request.method === "sendMessage").at(-1)?.params)
+      .toMatchObject({ text: "/based supports text only. Use /ask for images." });
+  } finally {
+    await app.close();
+    database.close();
+  }
 });

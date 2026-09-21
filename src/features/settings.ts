@@ -39,6 +39,7 @@ const toggleDefinitions = [
   { key: "fts", label: "Message search", table: "group_settings" },
   { key: "auto_dl", label: "Auto download", table: "group_settings" },
   { key: "ask", label: "/ask", table: "command_whitelist" },
+  { key: "based", label: "/based", table: "command_whitelist" },
   { key: "edit", label: "/edit", table: "command_whitelist" },
   { key: "video", label: "/video", table: "command_whitelist" },
   { key: "tr", label: "/tr", table: "command_whitelist" },
