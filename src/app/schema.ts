@@ -83,16 +83,6 @@ const statements = [
     ON chat_stats (chat_id, user_id, message_id)`,
   `CREATE INDEX IF NOT EXISTS chat_stats_chat_message_id_index
     ON chat_stats (chat_id, message_id)`,
-  `CREATE VIRTUAL TABLE IF NOT EXISTS chat_stats_fts USING fts5(
-    message_text,
-    chat_id UNINDEXED,
-    content='chat_stats',
-    content_rowid='id'
-  )`,
-  `CREATE TRIGGER IF NOT EXISTS chat_stats_ai AFTER INSERT ON chat_stats BEGIN
-    INSERT INTO chat_stats_fts (rowid, message_text, chat_id)
-    VALUES (new.id, new.message_text, new.chat_id);
-  END`,
   `CREATE TABLE IF NOT EXISTS chat_mentions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     chat_id INTEGER NOT NULL,
@@ -174,6 +164,8 @@ const statements = [
     user_id INTEGER NOT NULL,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE INDEX IF NOT EXISTS habit_log_habit_user_time
+    ON habit_log (habit_id, user_id, create_time)`,
   `CREATE TABLE IF NOT EXISTS highlights (
     id INTEGER PRIMARY KEY,
     string TEXT NOT NULL,
