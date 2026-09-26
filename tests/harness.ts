@@ -18,6 +18,7 @@ export function testConfig(api: ApiConfig = {}): AppConfig {
     api,
     port: 8_443,
     quoteChannelId: -1001,
+    searchExcludedUsers: new Set(),
     stateDirectory: "./db",
     telegramToken: token,
     tursoAuthToken: "test",
