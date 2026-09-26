@@ -158,6 +158,15 @@ function sourceMessages(dependencies: AppDependencies, chatId: number, through: 
   }))));
 }
 
+function excludedUserIds(dependencies: AppDependencies) {
+  const usernames = [...dependencies.config.searchExcludedUsers];
+  if (usernames.length === 0) return Effect.succeed(new Set<number>());
+  return dependencies.database.all(
+    `SELECT user_id FROM user_stats WHERE LOWER(username) IN (${usernames.map(() => "?").join(",")})`,
+    usernames,
+  ).pipe(Effect.map((rows) => new Set(rows.map((row) => rowNumber(row, "user_id")))));
+}
+
 function indexChat(dependencies: AppDependencies, ai: Ai, chatId: number) {
   return Effect.gen(function* () {
     const profile = [chatId, embeddingModel];
@@ -364,15 +373,17 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
   chatId: number,
   authorId?: number,
 ) {
+  const excluded = yield* excludedUserIds(dependencies);
+  if (authorId !== undefined && excluded.has(authorId)) return { answer: noAnswer, citations: [] };
   const ai = new Ai(dependencies);
   const members = yield* dependencies.database.all(
     `SELECT DISTINCT users.user_id, users.username, users.first_name
      FROM user_stats users JOIN chat_stats messages ON messages.user_id = users.user_id
      WHERE messages.chat_id = ?`, [chatId],
   );
-  const aliases = yield* dependencies.database.all(
+  const aliases = (yield* dependencies.database.all(
     "SELECT user_id, alias FROM chat_aliases WHERE chat_id = ?", [chatId],
-  );
+  )).filter((row) => !excluded.has(rowNumber(row, "user_id")));
   const topics = yield* dependencies.database.all(
     "SELECT topic FROM chat_lore WHERE chat_id = ? ORDER BY topic", [chatId],
   );
@@ -401,11 +412,12 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
       [chatId, ...windows.flatMap((window) => [window.startMessageId, window.endMessageId]),
         ...(authorId === undefined ? [] : [authorId])],
     );
-    for (const row of messages) evidence.push({ citationMessageId: rowNumber(row, "message_id"), text: JSON.stringify(row) });
+    for (const row of messages) if (!excluded.has(rowNumber(row, "user_id"))) evidence.push({ citationMessageId: rowNumber(row, "message_id"), text: JSON.stringify(row) });
   }
   const background: Array<string> = [];
   const receiptIds = new Set<number>();
-  const memberIds = authorId === undefined ? [...new Set(plan.memberIds)] : [authorId];
+  const memberIds = (authorId === undefined ? [...new Set(plan.memberIds)] : [authorId])
+    .filter((userId) => !excluded.has(userId));
   for (const userId of memberIds) {
     const persona = yield* dependencies.database.one(
       "SELECT sheet, receipts FROM chat_personas WHERE chat_id = ? AND user_id = ?", [chatId, userId],
@@ -451,7 +463,7 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
        ORDER BY messages.message_id`,
       authorId === undefined ? [chatId, ...receiptIds] : [chatId, ...receiptIds, authorId],
     );
-    for (const row of receipts) evidence.push({ citationMessageId: rowNumber(row, "message_id"), text: JSON.stringify(row) });
+    for (const row of receipts) if (!excluded.has(rowNumber(row, "user_id"))) evidence.push({ citationMessageId: rowNumber(row, "message_id"), text: JSON.stringify(row) });
   }
   if (evidence.length === 0) return { answer: noAnswer, citations: [] };
   const messages: ReadonlyArray<AiMessage> = [
@@ -620,7 +632,8 @@ function importCommand(dependencies: AppDependencies): CommandDefinition {
 
 function buildMemory(dependencies: AppDependencies, ai: Ai, chatId: number) {
   return Effect.gen(function* () {
-    const members = yield* dependencies.database.all(
+    const excluded = yield* excludedUserIds(dependencies);
+    const members = (yield* dependencies.database.all(
       `SELECT utterances.user_id, COALESCE(users.username, 'user:' || utterances.user_id) AS username,
               COUNT(*) AS count, MAX(utterances.end_message_id) AS end_message_id
        FROM chat_search_utterances utterances
@@ -628,7 +641,7 @@ function buildMemory(dependencies: AppDependencies, ai: Ai, chatId: number) {
        WHERE utterances.chat_id = ?
        GROUP BY utterances.user_id HAVING count >= 200`,
       [chatId],
-    );
+    )).filter((row) => !excluded.has(rowNumber(row, "user_id")));
     for (const member of members) {
       const userId = rowNumber(member, "user_id");
       const utterances = yield* dependencies.database.all(
@@ -682,11 +695,19 @@ function buildMemory(dependencies: AppDependencies, ai: Ai, chatId: number) {
       }
     }
     const windows = yield* dependencies.database.all(
-      `SELECT end_message_id, message_text FROM chat_search_windows
+      `SELECT start_message_id, end_message_id FROM chat_search_windows
        WHERE chat_id = ? ORDER BY end_message_id DESC LIMIT 100`,
       [chatId],
     );
     if (windows.length === 0) return;
+    // Window text mixes speakers, so rebuild the lore source without excluded members.
+    const messages = (yield* sourceMessages(
+      dependencies,
+      chatId,
+      rowNumber(windows[0]!, "end_message_id"),
+      Math.min(...windows.map((row) => rowNumber(row, "start_message_id"))) - 1,
+    )).filter((message) => !excluded.has(message.userId));
+    if (messages.length === 0) return;
     const storedLore = new Map((yield* dependencies.database.all(
       "SELECT topic, receipts FROM chat_lore WHERE chat_id = ?",
       [chatId],
@@ -699,10 +720,13 @@ function buildMemory(dependencies: AppDependencies, ai: Ai, chatId: number) {
         content: "Extract durable friend-group lore. Return kebab-case topics, concise summaries, and only message IDs present in the text as receipts.",
         role: "system",
       },
-      { content: [...windows].reverse().map((row) => rowString(row, "message_text")).join("\n\n"), role: "user" },
+      {
+        content: messages.map((message) =>
+          `${message.messageId} ${message.createTime} ${message.author}: ${message.text}`).join("\n"),
+        role: "user",
+      },
     ], Lore, { maxTokens: 3_000, model: "openai/gpt-5.6-luna" });
-    const allowed = new Set(windows.flatMap((row) =>
-      rowString(row, "message_text").match(/^\d+/gmu)?.map(Number) ?? []));
+    const allowed = new Set(messages.map((message) => message.messageId));
     for (const item of lore.items) {
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(item.topic)) continue;
       const receipts = [...new Set([

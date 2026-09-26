@@ -24,6 +24,7 @@ export interface AppConfig {
   readonly loggingChannelId?: number;
   readonly port: number;
   readonly quoteChannelId: number;
+  readonly searchExcludedUsers: ReadonlySet<string>;
   readonly stateDirectory: string;
   readonly telegramToken: string;
   readonly telegramApiRoot?: string;
@@ -110,6 +111,8 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
       : { loggingChannelId: integer(environment, "LOGGING_CHANNEL_ID") }),
     port,
     quoteChannelId: integer(environment, "QUOTE_CHANNEL_ID"),
+    searchExcludedUsers: new Set((optional(environment, "SEARCH_EXCLUDED_USERS") ?? "").split(/\s+/u)
+      .filter(Boolean).map((username) => username.replace(/^@/u, "").toLowerCase())),
     stateDirectory: optional(environment, "TELLY_STATE_DIRECTORY") ?? "./db",
     ...(telegramApiRoot === undefined ? {} : { telegramApiRoot }),
     telegramToken: required(environment, "TELEGRAM_TOKEN"),

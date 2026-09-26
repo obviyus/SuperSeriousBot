@@ -79,6 +79,7 @@ in the app environment; do not expose the unauthenticated model API publicly.
 Operations:
 
 - `ADMINS`: space-separated Telegram user IDs
+- `SEARCH_EXCLUDED_USERS`: space-separated usernames whose messages stay indexed but never reach `/search` answer, persona, or lore models
 - `UPDATER`: `polling` or `webhook`
 - `WEBHOOK_URL`: public base URL in webhook mode
 - `PORT`: webhook server port, default `8443`

@@ -255,6 +255,48 @@ test("search follows selected profile receipts and relationships within the curr
   }
 });
 
+test("search keeps excluded members' messages out of answer prompts", async () => {
+  const prompts: Array<string> = [];
+  const send: Fetch = async (input, init) => {
+    if (String(input).includes("embeddings")) return openRouterEmbeddings(String(init?.body));
+    prompts.push(String(init?.body));
+    return openRouterText(JSON.stringify(prompts.length === 1
+      ? { queries: [], memberIds: [42, 44], topics: [] }
+      : { answer: "Alice hikes.", citations: [1] }));
+  };
+  const config = {
+    ...testConfig({ openrouterApiKey: "test" }),
+    searchExcludedUsers: new Set(["mytransformerisfine"]),
+  };
+  const { app, database, dependencies } = await fixture(send, [], config);
+  const vector = JSON.stringify(Array(1_024).fill(0.01));
+  await Effect.runPromise(database.batch([
+    { sql: "INSERT INTO user_stats (user_id, username, first_name) VALUES (42, 'alice', 'Alice'), (44, 'MyTransformerIsFine', 'S')" },
+    { sql: "INSERT INTO chat_stats (chat_id, user_id, message_id, message_text) VALUES (-1007, 42, 90, 'I hike on Sundays'), (-1007, 44, 91, 'OPTED OUT TEXT')" },
+    { sql: "INSERT INTO chat_aliases (chat_id, user_id, alias, confidence, update_time) VALUES (-1007, 44, 'OPTED OUT ALIAS', 1, '2026-01-01')" },
+    { sql: "INSERT INTO chat_personas (chat_id, user_id, sheet, receipts, source_end_message_id, update_time) VALUES (-1007, 44, 'OPTED OUT PERSONA', '[91]', 91, '2026-01-01')" },
+    {
+      args: [-1007, 90, 91, "2026-01-01", "2026-01-01", 2, "90 @alice: I hike on Sundays\n91 @MyTransformerIsFine: OPTED OUT TEXT", vector, model],
+      sql: `INSERT INTO chat_search_windows (
+        chat_id, start_message_id, end_message_id, start_time, end_time,
+        message_count, message_text, embedding, embedding_model, embedding_dimension
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, vector32(?), ?, 1024)`,
+    },
+  ]));
+  try {
+    const result = await Effect.runPromise(answerSearch(dependencies, "who hikes", -1007));
+    expect(prompts.join("\n")).not.toContain("OPTED OUT");
+    expect(prompts[1]).toContain("I hike on Sundays");
+    expect(result.citations).toEqual([90]);
+    const replied = await Effect.runPromise(answerSearch(dependencies, "what does he say", -1007, 44));
+    expect(replied.citations).toEqual([]);
+    expect(prompts).toHaveLength(3);
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
 test("import command stores Telegram JSON messages and enables search", async () => {
   const exportBytes = new TextEncoder().encode(JSON.stringify({
     messages: [
@@ -328,16 +370,28 @@ test("import command stores Telegram JSON messages and enables search", async ()
 
 test("memory worker stores filtered personas, aliases, and lore", async () => {
   let completion = 0;
-  const send: Fetch = async () => {
+  const prompts: Array<string> = [];
+  const send: Fetch = async (_, init) => {
     completion += 1;
+    prompts.push(String(init?.body));
     const content = completion === 1
       ? { aliases: [{ alias: "  NatHu  ", confidence: 0.9 }, { alias: "bro", confidence: 1 }], sheet: "Designs excellent products [msg:200, msg:999]" }
       : { items: [{ receipts: [200, 999], summary: "The group debates cameras.", topic: "camera-war" }] };
     return openRouterText(JSON.stringify(content));
   };
-  const config = testConfig({ openrouterApiKey: "openrouter-test" });
+  const config = {
+    ...testConfig({ openrouterApiKey: "openrouter-test" }),
+    searchExcludedUsers: new Set(["mytransformerisfine"]),
+  };
   const { app, bot, database } = await fixture(send, [], config);
   const vector = JSON.stringify(Array(256).fill(0.01));
+  const optedOut = Array.from({ length: 200 }, (_, index) => ({
+    args: [-1007, 1_000 + index, 1_000 + index, 8, "@MyTransformerIsFine", "2026-01-01", "2026-01-01", 1, "OPTED OUT TEXT", vector, model],
+    sql: `INSERT INTO chat_search_utterances (
+      chat_id, start_message_id, end_message_id, user_id, author, start_time,
+      end_time, message_count, message_text, embedding, embedding_model, embedding_dimension
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, 256)`,
+  }));
   const utterances = Array.from({ length: 200 }, (_, index) => ({
     args: [-1007, index + 1, index + 1, 7, "@ayaan", "2026-01-01", "2026-01-01", 1, `${index + 1} camera chat`, vector, model],
     sql: `INSERT INTO chat_search_utterances (
@@ -347,7 +401,9 @@ test("memory worker stores filtered personas, aliases, and lore", async () => {
   }));
   await Effect.runPromise(database.batch([
     { args: [-1007], sql: "INSERT INTO group_settings (chat_id, fts) VALUES (?, 1)" },
-    { args: [7, "ayaan"], sql: "INSERT INTO user_stats (user_id, username) VALUES (?, ?)" },
+    { sql: "INSERT INTO user_stats (user_id, username) VALUES (7, 'ayaan'), (8, 'MyTransformerIsFine')" },
+    { sql: "INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text) VALUES (-1007, 8, 199, '2026-01-01', 'OPTED OUT TEXT'), (-1007, 7, 200, '2026-01-01', 'camera chat')" },
+    ...optedOut,
     {
       args: [-1007, "camera-war", "Earlier camera lore.", "[150]", 150],
       sql: `INSERT INTO chat_lore (
@@ -383,6 +439,9 @@ test("memory worker stores filtered personas, aliases, and lore", async () => {
   ));
   database.close();
 
+  expect(prompts).toHaveLength(2);
+  expect(prompts.join("\n")).not.toContain("OPTED OUT");
+  expect(prompts[1]).toContain("200 2026-01-01 @ayaan: camera chat");
   expect(persona).toMatchObject({ receipts: "[200]", sheet: "Designs excellent products [msg:200]" });
   expect(aliases.map((row) => row["alias"])).toEqual(["nathu"]);
   expect(lore).toMatchObject({
