@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Effect } from "telly";
+import { Effect, type Message } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
@@ -122,6 +122,62 @@ test("translate command sends the complete translated text", async () => {
   expect(reply?.params).toMatchObject({ text: "Bonjour. Bonne matinée." });
   expect(new URL(requestUrl).pathname).toBe("/_/TranslateWebserverUi/data/batchexecute");
   expect(requestMethod).toBe("POST");
+});
+
+test.each([
+  { kind: "plain text", command: "/tl", target: "en", content: { text: "Bonjour." } },
+  { kind: "caption", command: "/tl", target: "en", content: { caption: "Bonjour." } },
+  {
+    kind: "rich text",
+    command: "/tl",
+    target: "en",
+    content: { richMessage: { blocks: [{ type: "paragraph", text: "Bonjour." }] } },
+  },
+  {
+    kind: "rich text with a target language",
+    command: "/tl de",
+    target: "de",
+    content: { richMessage: { blocks: [{ type: "paragraph", text: "Bonjour." }] } },
+  },
+] satisfies ReadonlyArray<{
+  kind: string;
+  command: string;
+  target: string;
+  content: Pick<Message, "text" | "caption" | "richMessage">;
+}>)("translate command reads replied $kind", async ({ command, target, content }) => {
+  let submitted: unknown;
+  const send: Fetch = async (_input, options) => {
+    const body = new URLSearchParams(String(options?.body));
+    const batch = JSON.parse(body.get("f.req") ?? "null");
+    submitted = JSON.parse(batch[0][0][1])[0];
+    return translationResponse("Translated reply.");
+  };
+  const { app, bot, database, fake } = await fixture(send, presence());
+  const base = commandUpdate(command, 208);
+  if (base.message === undefined) throw new Error("Expected command message");
+
+  try {
+    await app.run(bot.handler({
+      ...base,
+      message: {
+        ...base.message,
+        replyToMessage: {
+          chat: base.message.chat,
+          date: base.message.date - 1,
+          from: { firstName: "Super Serious Bot", id: 2, isBot: true },
+          messageId: 207,
+          ...content,
+        },
+      },
+    }));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  expect(submitted).toEqual(["Bonjour.", "auto", target, false]);
+  const reply = fake.requests.find((request) => request.method === "sendMessage");
+  expect(reply?.params).toMatchObject({ text: "Translated reply." });
 });
 
 test("translate command rejects an unknown language before requesting a translation", async () => {

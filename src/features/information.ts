@@ -1,6 +1,7 @@
 import translate, { getCode } from "google-translate-api-x";
 import {
   Effect,
+  messageText,
   Schema,
 } from "telly";
 
@@ -196,7 +197,7 @@ function calculationCommand(dependencies: AppDependencies): CommandDefinition {
 function translationText(match: Parameters<CommandDefinition["run"]>[0]) {
   const replied = match.message.replyToMessage;
   if (replied !== undefined) {
-    const text = replied.text ?? replied.caption;
+    const text = messageText(replied);
     return text === undefined ? undefined : {
       target: match.args[0] ?? "en",
       text,
