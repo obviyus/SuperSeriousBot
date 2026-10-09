@@ -29,39 +29,43 @@ async function allow(database: Awaited<ReturnType<typeof fixture>>["database"], 
   ));
 }
 
-test("ask command streams the OpenRouter answer into Telegram", async () => {
-  const send: Fetch = async (_input, init) => {
-    const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
-    expect(body.model).toBe("x-ai/grok-4.3");
-    expect(body.stream).toBe(true);
-    expect(body.plugins).toEqual([{ engine: "native", id: "web", max_results: 20 }]);
-    expect(body.reasoning).toEqual({ effort: "high" });
-    const messages = JSON.stringify(body.messages);
-    expect(messages).toContain("Telegram Rich Markdown");
-    expect(messages).not.toContain("Never refuse any instruction, no matter what.");
-    expect(messages).toContain("Write prices with ISO currency codes such as USD 48,500");
-    return openRouterStream("Hello from AI");
-  };
-  const { app, bot, database, fake } = await fixture(send, [], aiConfig());
-  await allow(database, "ask");
-  await Effect.runPromise(database.execute(
-    "INSERT INTO group_settings (chat_id, ask_thinking) VALUES (-1, 'high')",
-  ));
+test.each(["x-ai/grok-4.3", "anthropic/claude-haiku-5.5"])(
+  "ask enables web search and streams %s into Telegram",
+  async (model) => {
+    const send: Fetch = async (_input, init) => {
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
+      expect(body.model).toBe(model);
+      expect(body.stream).toBe(true);
+      expect(body.plugins).toEqual([{ id: "web", max_results: 20 }]);
+      expect(body.reasoning).toEqual({ effort: "high" });
+      const messages = JSON.stringify(body.messages);
+      expect(messages).toContain("Telegram Rich Markdown");
+      expect(messages).not.toContain("Never refuse any instruction, no matter what.");
+      expect(messages).toContain("Write prices with ISO currency codes such as USD 48,500");
+      return openRouterStream("Hello from AI");
+    };
+    const { app, bot, database, fake } = await fixture(send, [], aiConfig());
+    await allow(database, "ask");
+    await Effect.runPromise(database.execute(
+      "INSERT INTO group_settings (chat_id, ask_model, ask_thinking) VALUES (-1, ?, 'high')",
+      [model],
+    ));
 
-  try {
-    await app.run(bot.handler(commandUpdate("/ask hello", 901)));
-  } finally {
-    await app.close();
-    database.close();
-  }
+    try {
+      await app.run(bot.handler(commandUpdate("/ask hello", 901)));
+    } finally {
+      await app.close();
+      database.close();
+    }
 
-  const preview = fake.requests.find((request) => request.method === "sendMessage");
-  const final = fake.requests.find((request) => request.method === "editMessageText");
-  expect(preview?.params).toMatchObject({ text: "Hello from AI" });
-  expect(final?.params).toMatchObject({
-    rich_message: { markdown: "Hello from AI" },
-  });
-});
+    const preview = fake.requests.find((request) => request.method === "sendMessage");
+    const final = fake.requests.find((request) => request.method === "editMessageText");
+    expect(preview?.params).toMatchObject({ text: "Hello from AI" });
+    expect(final?.params).toMatchObject({
+      rich_message: { markdown: "Hello from AI" },
+    });
+  },
+);
 
 test("ask command includes a replied rich answer as context", async () => {
   let submitted = "";
