@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
 
 env:
   IMAGE: ghcr.io/obviyus/superseriousbot
@@ -24,6 +27,7 @@ jobs:
         run: bun run check
 
   build:
+    if: github.event_name == 'push'
     needs: test
     strategy:
       fail-fast: false

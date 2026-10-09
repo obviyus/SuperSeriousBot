@@ -293,8 +293,8 @@ export class Ai {
     const id = normalizeModelName(model);
     return this.provider()(id, {
       ...(options.extraBody === undefined ? {} : { extraBody: { ...options.extraBody } }),
-      ...(command === "ask" && id.startsWith("x-ai/")
-        ? { plugins: [{ engine: "native" as const, id: "web" as const, max_results: 20 }] }
+      ...(command === "ask"
+        ? { plugins: [{ id: "web" as const, max_results: 20 }] }
         : {}),
       ...(command === "ask" && reasoning !== "none"
         ? { reasoning: { effort: reasoning } }

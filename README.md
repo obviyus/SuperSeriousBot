@@ -20,6 +20,10 @@ SuperSeriousBot has grown with its groups for years. It combines AI, media, sear
 
 Run `/help` to see the commands enabled by the configured API keys.
 
+`/ask` always enables OpenRouter web search, including after `/model ask` changes.
+OpenRouter uses native search when the selected model supports it and falls back
+to Exa otherwise. Search charges are separate from model token charges.
+
 `/tl` uses Google Translate's batch web endpoint through `google-translate-api-x`, without an API key. Use `/tl Bonjour` for English, `/tl fr - Good morning` for a specific language, or reply to a message with `/tl [language]`. Provider outages and rate limits are reported separately from unknown languages.
 
 ## Run locally
