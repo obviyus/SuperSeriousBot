@@ -5,6 +5,8 @@ import { FakeBotApiReply } from "telly/testing";
 import { createSuperSeriousBot } from "../src/bot.ts";
 
 import type { Fetch } from "../src/app/http.ts";
+import { richMarkdownPrompt } from "../src/app/rich.ts";
+import phoneAnswer from "./fixtures/phone-answer.json";
 import {
   commandUpdate,
   fixture,
@@ -66,6 +68,31 @@ test.each(["x-ai/grok-4.3", "anthropic/claude-haiku-5.5"])(
     });
   },
 );
+
+test("ask streams a phone-friendly answer without rewriting prices, emphasis, or source links", async () => {
+  let submitted = "";
+  const send: Fetch = async (_input, init) => {
+    submitted = typeof init?.body === "string" ? init.body : "";
+    return openRouterStream(phoneAnswer.answer.slice(0, 80), phoneAnswer.answer.slice(80));
+  };
+  const { app, bot, database, fake } = await fixture(send, [], aiConfig());
+  await allow(database, "ask");
+
+  try {
+    await app.run(bot.handler(commandUpdate(`/ask ${phoneAnswer.question}`, 903)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  expect(submitted).toContain(JSON.stringify(richMarkdownPrompt).slice(1, -1));
+  const final = fake.requests.filter((request) => request.method === "editMessageText").at(-1);
+  expect(final?.params).toMatchObject({
+    rich_message: { markdown: phoneAnswer.answer },
+  });
+  expect(phoneAnswer.answer).not.toContain("==");
+  expect(phoneAnswer.answer).not.toContain("USD");
+});
 
 test("ask command includes a replied rich answer as context", async () => {
   let submitted = "";

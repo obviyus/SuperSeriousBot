@@ -24,6 +24,27 @@ Run `/help` to see the commands enabled by the configured API keys.
 OpenRouter uses native search when the selected model supports it and falls back
 to Exa otherwise. Search charges are separate from model token charges.
 
+### AI message formatting
+
+AI answers, summaries, and scheduled AI results share the policy in
+`src/app/rich.ts`. Optimize for a phone, not a document:
+
+- Answer first; short prose for simple questions, labeled bullets for alternatives.
+- Use bold sparingly for key facts. Highlight backgrounds depend on the Telegram
+  theme and can make white text unreadable; use them only when explicitly requested.
+- Keep comparisons narrow. Tables, headings, code, and spoilers have their uses,
+  but are not default decoration. Preserve requested detail rather than forcing
+  every answer into a fixed template.
+- Keep currency, units, and one-way/return qualifiers clear. Avoid unsolicited
+  conversions. Put source links beside supported claims and separate brief caveats.
+
+Do not repair model output with regex replacements: that can corrupt code, math,
+URLs, or deliberately requested formatting. Telegram owns Markdown rendering;
+we send it unchanged through Telly. This is a model instruction, not a guarantee
+of compliance. Keep prompt-policy checks separate from delivery/rendering tests.
+The illustrative fare fixture under `tests/fixtures/phone-answer.json` is not
+current travel advice and uses placeholder source URLs.
+
 `/tl` uses Google Translate's batch web endpoint through `google-translate-api-x`, without an API key. Use `/tl Bonjour` for English, `/tl fr - Good morning` for a specific language, or reply to a message with `/tl [language]`. Provider outages and rate limits are reported separately from unknown languages.
 
 ## Run locally
@@ -123,6 +144,7 @@ bun run test:e2e
 TELEGRAM_E2E_POLLING_RECOVERY=1 bun run test:e2e
 TELEGRAM_E2E_GROUP=1 bun run test:e2e
 TELEGRAM_E2E_STATIC_RICH=1 TELEGRAM_E2E_GROUP=1 bun run test:e2e
+TELEGRAM_E2E_FORMATTING=1 bun run test:e2e
 TELEGRAM_E2E_WEBHOOK=1 bun run test:e2e
 ```
 
@@ -135,6 +157,11 @@ claim Telegram itself produced those errors.
 
 Set `TELEGRAM_E2E_SKILL_DIR` and `TELEGRAM_E2E_CONVEX_PROJECT_DIR` when the leased
 Test Server skill and broker checkout are not at the harness's default paths.
+
+The formatting scenario checks the shared policy reaches the provider and a
+deterministic fare answer becomes a native rich-message edit on the Test Server.
+It proves delivery/rendering, not live-model compliance or visual contrast in
+every client.
 
 Operator commands:
 
