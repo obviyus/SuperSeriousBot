@@ -28,7 +28,7 @@
     "fast-xml-parser": "5.11.1",
     "google-translate-api-x": "10.7.3",
     "sharp": "0.35.4",
-    "telly": "file:vendor/telly-0.0.0.tgz"
+    "telly": "file:vendor/telly-a311a82.tgz"
   },
   "devDependencies": {
     "@types/bun": "1.4.0",

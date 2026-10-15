@@ -1,7 +1,10 @@
 import { EventEmitter } from "node:events";
 
 import { expect, test } from "bun:test";
-import { Application, MemoryJobs } from "telly";
+import { Fiber, Layer, Redacted } from "effect";
+import { TestClock } from "effect/testing";
+import { Application, Bot, Effect, InboxStore, MemoryInbox, MemoryJobs, pollInboxUpdates } from "telly";
+import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
 import { Http } from "../src/app/http.ts";
@@ -13,6 +16,49 @@ import {
 import { commandUpdate, fixture, richContent, testConfig, token } from "./harness.ts";
 
 const offline: Fetch = async () => new Response("{}");
+
+test("bundled Telly keeps durable polling alive through a Telegram outage", async () => {
+  const fault = FakeBotApiReply.reject({ description: "Bad Gateway", errorCode: 502 });
+  const { app, bot, database, fake } = await fixture(offline, [
+    ...Array.from({ length: 6 }, () => fault),
+    FakeBotApiReply.ok([{
+      update_id: 9_001,
+      message: {
+        message_id: 9_001,
+        date: 1_700_000_000,
+        chat: { id: -1007, type: "supergroup" },
+        from: { id: 1, first_name: "Tester", is_bot: false },
+        text: "/ping",
+        entities: [{ offset: 0, length: 5, type: "bot_command" }],
+      },
+    }]),
+  ]);
+  try {
+    await Effect.runPromise(Effect.gen(function* () {
+      const polling = yield* pollInboxUpdates(bot.handler).pipe(Effect.forkChild);
+      yield* Effect.promise(() => fake.whenCalled("getUpdates"));
+      yield* TestClock.adjust("30 seconds");
+      try {
+        const reply = fake.requests.find((request) => request.method === "editMessageText");
+        expect(reply?.params).toMatchObject({ chat_id: -1007, text: expect.stringContaining("pong (") });
+        const acknowledgment = fake.requests.find((request) =>
+          request.method === "getUpdates" &&
+          (request.params as { offset?: number } | undefined)?.offset === 9_002
+        );
+        expect(acknowledgment).toBeDefined();
+      } finally {
+        yield* Fiber.interrupt(polling);
+      }
+    }).pipe(
+      Effect.provideService(InboxStore, MemoryInbox.make()),
+      Effect.provide(Bot.layer({ token: Redacted.make(token), rateLimit: false }).pipe(Layer.provide(fake.layer))),
+      Effect.provide(TestClock.layer()),
+    ));
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
 
 test("bot registers every migrated command name", async () => {
   const api = {
