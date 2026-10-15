@@ -92,18 +92,31 @@ let bot;
 let tunnel;
 let mockAi;
 const aiRequests = [];
+const pollingRecoveryMode = process.env.TELEGRAM_E2E_POLLING_RECOVERY === "1";
+const pollingFaults = [];
+let remainingPollingFaults = 0;
 try {
   fs.mkdirSync(proofDirectory, { recursive: true });
   credential = await credentialModule.acquireTelegramTestCredential({
     convexProjectDir: brokerDirectory,
   });
   proxy = await proxyModule.startTelegramTestApiProxy({
+    async fetchImpl(url, options) {
+      if (remainingPollingFaults > 0 && new URL(url).pathname.endsWith("/getUpdates")) {
+        remainingPollingFaults -= 1;
+        pollingFaults.push({ at: new Date().toISOString(), method: "getUpdates", errorCode: 502 });
+        fs.writeFileSync(path.join(proofDirectory, "polling-faults.json"), JSON.stringify(pollingFaults, null, 2));
+        return Response.json({ ok: false, error_code: 502, description: "Bad Gateway" }, { status: 502 });
+      }
+      return fetch(url, options);
+    },
     leaseHealth: {
       assertHealthy: credential.assertLeaseHealthy,
       whenUnhealthy: credential.whenLeaseUnhealthy,
     },
   });
   await proxy.drainUpdates(credential.sutToken);
+  remainingPollingFaults = pollingRecoveryMode ? 6 : 0;
   const groupMode = process.env.TELEGRAM_E2E_GROUP === "1";
   let chatTarget = `@${credential.sutUsername}`;
   if (groupMode) {
@@ -258,7 +271,7 @@ try {
     "--scenario",
     scenarioPath,
     "--seconds",
-    groupMode || staticRichMode ? "15" : "8",
+    pollingRecoveryMode ? "20" : groupMode || staticRichMode ? "15" : "8",
     "--record",
     eventsPath,
     "--output",
@@ -297,6 +310,13 @@ try {
     : revisions.some((text) => text.startsWith("pong ("));
   if (!proven) {
     throw new Error("Telegram timeline did not contain the expected Telly behavior");
+  }
+  if (pollingRecoveryMode) {
+    const log = fs.readFileSync(path.join(proofDirectory, "bot.log"), "utf8");
+    if (pollingFaults.length !== 6 || (log.match(/Started @/gu) ?? []).length !== 1 ||
+        (log.match(/polling temporarily unavailable/gu) ?? []).length < 2) {
+      throw new Error("Polling outage proof did not recover in the original bot process");
+    }
   }
   console.log(JSON.stringify({ ok: true, proofDirectory, eventCount: events.length }));
   bot.kill("SIGTERM");

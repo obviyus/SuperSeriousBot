@@ -120,10 +120,21 @@ The local Test Server harness uses leased QA credentials from the Telly skill:
 
 ```bash
 bun run test:e2e
+TELEGRAM_E2E_POLLING_RECOVERY=1 bun run test:e2e
 TELEGRAM_E2E_GROUP=1 bun run test:e2e
 TELEGRAM_E2E_STATIC_RICH=1 TELEGRAM_E2E_GROUP=1 bun run test:e2e
 TELEGRAM_E2E_WEBHOOK=1 bun run test:e2e
 ```
+
+The vendored Telly bundle is built from upstream commit `a311a8239993c0e8aba63149b02a3b88f4309fa7`
+([polling recovery fix](https://github.com/obviyus/telly/pull/50)). The polling-recovery
+Test Server scenario injects six local `getUpdates` 502 responses and proves a real
+user's `/ping` is answered by the original process after the outage. It records
+the injected fault timeline alongside Telegram event evidence; it does not
+claim Telegram itself produced those errors.
+
+Set `TELEGRAM_E2E_SKILL_DIR` and `TELEGRAM_E2E_CONVEX_PROJECT_DIR` when the leased
+Test Server skill and broker checkout are not at the harness's default paths.
 
 Operator commands:
 
