@@ -2,8 +2,22 @@ import { expect, test } from "bun:test";
 import { Application, BotApiError } from "telly";
 import { FakeBotApi, FakeBotApiReply } from "telly/testing";
 
-import { replyBlocks, replyRich, rich, richMessageLimit } from "../src/app/rich.ts";
+import { replyBlocks, replyRich, rich, richMarkdownPrompt, richMessageLimit } from "../src/app/rich.ts";
 import { commandUpdate, sentMessage, token } from "./harness.ts";
+
+test("AI formatting policy favors readable phone answers without decorative highlighting", () => {
+  expect(richMarkdownPrompt).toContain("narrow phone screen");
+  expect(richMarkdownPrompt).toContain("Lead with the direct answer or recommendation");
+  expect(richMarkdownPrompt).toContain("one idea per bullet");
+  expect(richMarkdownPrompt).toContain("Use **bold** sparingly");
+  expect(richMarkdownPrompt).toContain("Do not use ==highlight== unless the user explicitly requests highlighting");
+  expect(richMarkdownPrompt).toContain("preserve requested depth");
+  expect(richMarkdownPrompt).toContain("prefer labeled bullets");
+  expect(richMarkdownPrompt).toContain("Do not add currency conversions unless asked");
+  expect(richMarkdownPrompt).toContain("links next to the claims they support");
+  expect(richMarkdownPrompt).toContain("do not invent sources");
+  expect(richMarkdownPrompt).toContain("Use $...$ only for intentional mathematical expressions");
+});
 
 function sourceMessage() {
   const message = commandUpdate("/ask format this", 8_001).message;

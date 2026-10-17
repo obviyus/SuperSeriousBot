@@ -132,7 +132,9 @@ try {
   }
 
   const webhookMode = process.env.TELEGRAM_E2E_WEBHOOK === "1";
-  const aiMode = process.env.TELEGRAM_E2E_AI === "1";
+  const formattingMode = process.env.TELEGRAM_E2E_FORMATTING === "1";
+  const aiMode = process.env.TELEGRAM_E2E_AI === "1" || formattingMode;
+  const phoneAnswer = JSON.parse(fs.readFileSync(path.join(repository, "tests/fixtures/phone-answer.json"), "utf8"));
   const staticRichMode = process.env.TELEGRAM_E2E_STATIC_RICH === "1";
   let openrouterBaseUrl = "";
   if (aiMode) {
@@ -147,7 +149,7 @@ try {
           `${JSON.stringify(aiRequests, null, 2)}\n`,
         );
         const chunks = [
-          { choices: [{ delta: { content: "## AI_SDK_E2E_OK\n\n- Native rich list", role: "assistant" }, finish_reason: null, index: 0 }], id: "e2e", model: "test/model" },
+          { choices: [{ delta: { content: formattingMode ? phoneAnswer.answer : "## AI_SDK_E2E_OK\n\n- Native rich list", role: "assistant" }, finish_reason: null, index: 0 }], id: "e2e", model: "test/model" },
           { choices: [{ delta: {}, finish_reason: "stop", index: 0 }], id: "e2e", model: "test/model" },
         ];
         return new Response(
@@ -199,6 +201,9 @@ try {
     env: {
       ...process.env,
       ADMINS: credential.testerUserId,
+      BASED_PROVIDER: "local",
+      BASED_BASE_URL: "",
+      BASED_MODEL: "",
       COBALT_URL: "",
       GOODREADS_API_KEY: "",
       KIE_API_KEY: "",
@@ -235,7 +240,7 @@ try {
         actions: [
           { atMs: 0, text: "/start", type: "send" },
           { atMs: 750, text: "/thinking high", type: "send" },
-          { atMs: 1_500, text: "/ask answer with the test marker", type: "send" },
+          { atMs: 1_500, text: formattingMode ? `/ask ${phoneAnswer.question}` : "/ask answer with the test marker", type: "send" },
         ],
       }
     : staticRichMode
@@ -283,8 +288,25 @@ try {
   const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
   const events = Array.isArray(summary.timeline) ? summary.timeline : [];
   const revisions = Array.isArray(summary.sutRevisionTexts) ? summary.sutRevisionTexts : [];
+  const recordedEvents = fs.readFileSync(eventsPath, "utf8").trim().split("\n").map(JSON.parse);
+  const formattedAnswer = !formattingMode || recordedEvents.some((event) => {
+    if (!event.isSut || event.kind !== "edit" || event.contentType !== "messageRichMessage") return false;
+    const rendered = JSON.stringify(event.raw?.new_content?.message);
+    return event.text?.includes("INR 15,000–20,000") &&
+      event.text?.includes("Direct return:") &&
+      event.text?.includes("not a live quote") &&
+      !event.text?.includes("**") &&
+      rendered?.includes('"@type":"pageBlockList"') &&
+      rendered.includes('"@type":"richTextBold"') &&
+      rendered.includes('"@type":"richTextUrl"') &&
+      rendered.includes("https://example.com/one-way") &&
+      rendered.includes("https://example.com/return") &&
+      !rendered.includes('"@type":"richTextMarked"') &&
+      !rendered.includes('"@type":"richTextFixed"');
+  });
   const proven = aiMode
-    ? revisions.some((text) => text.includes("AI_SDK_E2E_OK")) &&
+    ? revisions.some((text) => text.includes(formattingMode ? "INR 15,000–20,000" : "AI_SDK_E2E_OK")) &&
+      formattedAnswer &&
       revisions.some((text) => text.includes("Thinking level updated")) &&
       events.some((event) =>
         event.kind === "edit" &&
@@ -292,6 +314,9 @@ try {
       ) &&
       aiRequests.length === 1 &&
       aiRequests[0]?.body?.reasoning?.effort === "high" &&
+      (!formattingMode || JSON.stringify(aiRequests[0]?.body?.messages).includes(
+        "Do not use ==highlight== unless the user explicitly requests highlighting",
+      )) &&
       aiRequests[0]?.userAgent?.includes("ai-sdk/openrouter/3.0.0") === true
     : staticRichMode
     ? revisions.some((text) => text.includes("SuperSeriousBot commands")) &&
