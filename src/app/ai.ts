@@ -13,6 +13,7 @@ import {
 import { Effect, Schema } from "telly";
 
 import type { AppDependencies } from "./dependencies.ts";
+import type { HttpError } from "./http.ts";
 import { imageDataUrl, type ImageData } from "./media.ts";
 import {
   type ModelCommand,
@@ -42,6 +43,23 @@ export interface AiStream {
 
 const ReasoningLevelSchema = Schema.Literals(["none", "minimal", "low", "medium", "high"]);
 type ReasoningLevel = typeof ReasoningLevelSchema.Type;
+
+// NanoGPT rejects reasoning_effort values a model does not list, so /based asks for the
+// lightest effort the catalog advertises instead of assuming every model accepts "none".
+// Omitting the field lets reasoning models think by default, which eats the reply budget.
+const nanoGptEffortOrder = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
+const nanoGptCatalogTtlMs = 60 * 60_000;
+const NanoGptCatalog = Schema.Struct({
+  data: Schema.Array(Schema.Struct({
+    id: Schema.String,
+    reasoning_efforts: Schema.optionalKey(Schema.Array(Schema.String)),
+  })),
+});
+
+interface NanoGptEfforts {
+  readonly fetchedAt: number;
+  readonly models: ReadonlyMap<string, ReadonlyArray<string>>;
+}
 
 function description(error: unknown): string {
   if (
@@ -80,6 +98,7 @@ function prompt(messages: ReadonlyArray<AiMessage>) {
 export class Ai {
   private readonly based: OpenRouterProvider | undefined;
   private readonly openrouter: OpenRouterProvider | undefined;
+  private nanoGptEfforts: NanoGptEfforts | undefined;
 
   constructor(private readonly dependencies: AppDependencies) {
     const apiKey = dependencies.config.api.openrouterApiKey;
@@ -162,11 +181,15 @@ export class Ai {
       ? based === undefined || basedConfig === undefined
         ? Effect.fail(new AiError({ description: "Based provider is not configured", operation: "configure" }))
         : getBasedModel(this.dependencies, basedConfig.model).pipe(
-            Effect.map((id): LanguageModel => based.chat(id, {
-              extraBody: basedConfig.provider === "nanogpt"
-                ? { reasoning_effort: "none" }
-                : { chat_template_kwargs: { enable_thinking: false } },
-            })),
+            Effect.flatMap((id) => basedConfig.provider === "nanogpt"
+              ? this.nanoGptReasoningEffort(basedConfig.baseUrl, id).pipe(
+                  Effect.map((effort): LanguageModel => based.chat(id, {
+                    extraBody: effort === undefined ? {} : { reasoning_effort: effort },
+                  })),
+                )
+              : Effect.succeed<LanguageModel>(based.chat(id, {
+                  extraBody: { chat_template_kwargs: { enable_thinking: false } },
+                }))),
           )
       : this.settings(command, options).pipe(
           Effect.flatMap(({ model, reasoning }) => Effect.try({
@@ -322,6 +345,42 @@ export class Ai {
       data: new Uint8Array(buffer),
       mediaType: response.headers.get("content-type") ?? undefined,
     };
+  }
+
+  private nanoGptReasoningEffort(
+    baseUrl: string,
+    model: string,
+  ): Effect.Effect<string | undefined> {
+    const cached = this.nanoGptEfforts;
+    const catalog: Effect.Effect<ReadonlyMap<string, ReadonlyArray<string>>, HttpError> = cached !== undefined &&
+        this.dependencies.monotonicMilliseconds() - cached.fetchedAt < nanoGptCatalogTtlMs
+      ? Effect.succeed(cached.models)
+      : this.dependencies.http.json(
+          "nano-gpt-models",
+          `${baseUrl}/models?detailed=true`,
+          NanoGptCatalog,
+          { signal: AbortSignal.timeout(10_000) },
+        ).pipe(
+          Effect.map(({ data }) => {
+            const models = new Map(data.data.flatMap((entry) => entry.reasoning_efforts === undefined
+              ? []
+              : [[entry.id, entry.reasoning_efforts] as const]));
+            this.nanoGptEfforts = { fetchedAt: this.dependencies.monotonicMilliseconds(), models };
+            return models;
+          }),
+        );
+    return catalog.pipe(
+      Effect.map((models) => {
+        const supported = models.get(model);
+        return supported === undefined
+          ? undefined
+          : nanoGptEffortOrder.find((effort) => supported.includes(effort));
+      }),
+      Effect.catch((error) => Effect.logWarning("NanoGPT reasoning lookup failed").pipe(
+        Effect.annotateLogs({ error: error.description }),
+        Effect.as<string | undefined>("none"),
+      )),
+    );
   }
 
   private provider(): OpenRouterProvider {
