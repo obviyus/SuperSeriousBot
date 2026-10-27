@@ -477,7 +477,7 @@ function nanoGptCatalog(...models: ReadonlyArray<{ readonly id: string; readonly
   return Response.json({ data: models.map((model) => ({ object: "model", ...model })) });
 }
 
-test("based streams NanoGPT with its own credential and disables hosted reasoning", async () => {
+test("based streams NanoGPT with its own credential and high hosted reasoning", async () => {
   const send: Fetch = async (input, init) => {
     if (String(input) === nanoGptModels) {
       return nanoGptCatalog({ id: "test/hosted-model", reasoning_efforts: ["none", "low", "high"] });
@@ -485,7 +485,7 @@ test("based streams NanoGPT with its own credential and disables hosted reasonin
     expect(String(input)).toBe("https://nano-gpt.com/api/v1/chat/completions");
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer nano-test");
     const body = JSON.parse(String(init?.body));
-    expect(body).toMatchObject({ model: "test/hosted-model", stream: true, max_tokens: 1_024, reasoning_effort: "none" });
+    expect(body).toMatchObject({ model: "test/hosted-model", stream: true, max_tokens: 1_024, reasoning_effort: "high" });
     expect(body.chat_template_kwargs).toBeUndefined();
     expect(body.plugins).toBeUndefined();
     return openRouterStream("Hosted answer");
@@ -507,14 +507,14 @@ test("based streams NanoGPT with its own credential and disables hosted reasonin
   }
 });
 
-test("based uses the lightest reasoning effort a NanoGPT model supports", async () => {
+test("based uses the nearest reasoning effort a NanoGPT model supports when high is unavailable", async () => {
   const requests: Array<string> = [];
   const bodies: Array<Record<string, unknown>> = [];
   const send: Fetch = async (input, init) => {
     requests.push(String(input));
     if (String(input) === nanoGptModels) {
       return nanoGptCatalog(
-        { id: "test/low-floor", reasoning_efforts: ["low", "high", "max"] },
+        { id: "test/low-floor", reasoning_efforts: ["low", "max"] },
         { id: "test/plain" },
       );
     }
@@ -543,7 +543,7 @@ test("based uses the lightest reasoning effort a NanoGPT model supports", async 
   }
 });
 
-test("based falls back to no hosted reasoning when the NanoGPT catalog is unavailable", async () => {
+test("based falls back to high hosted reasoning when the NanoGPT catalog is unavailable", async () => {
   const bodies: Array<Record<string, unknown>> = [];
   const send: Fetch = async (input, init) => {
     if (String(input) === nanoGptModels) return new Response("unavailable", { status: 503 });
@@ -555,7 +555,7 @@ test("based falls back to no hosted reasoning when the NanoGPT catalog is unavai
   }));
   try {
     await app.run(bot.handler(commandUpdate("/based hello", 989)));
-    expect(bodies).toMatchObject([{ model: "test/hosted-model", reasoning_effort: "none" }]);
+    expect(bodies).toMatchObject([{ model: "test/hosted-model", reasoning_effort: "high" }]);
   } finally {
     await app.close();
     database.close();

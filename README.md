@@ -92,9 +92,9 @@ Changes apply to the next request and survive restarts. `BASED_MODEL` is the def
 until an override is saved; `/model` does not change the configured provider.
 Set `BASED_PROVIDER=nanogpt` and `BASED_MODEL` to a NanoGPT catalog ID to use hosted
 inference. It uses the existing `NANO_GPT_API_KEY` and NanoGPT's fixed API endpoint;
-`BASED_BASE_URL` applies only to `local`. NanoGPT requests use the lightest
-`reasoning_effort` the model lists in NanoGPT's catalog (`none` when supported, and when
-the catalog is unavailable); local requests retain their chat-template thinking control.
+`BASED_BASE_URL` applies only to `local`. NanoGPT requests use `reasoning_effort=high`
+when the model lists it in NanoGPT's catalog or the catalog is unavailable, and otherwise
+the nearest listed effort; local requests retain their chat-template thinking control.
 Use `/ask` for supported images. `/based` rejects media. Requests stop after two minutes; responses
 are capped at 1,024 tokens. There is no fallback to another provider on failure.
 
