@@ -44,10 +44,10 @@ export interface AiStream {
 const ReasoningLevelSchema = Schema.Literals(["none", "minimal", "low", "medium", "high"]);
 type ReasoningLevel = typeof ReasoningLevelSchema.Type;
 
-// NanoGPT rejects reasoning_effort values a model does not list, so /based asks for the
-// lightest effort the catalog advertises instead of assuming every model accepts "none".
-// Omitting the field lets reasoning models think by default, which eats the reply budget.
-const nanoGptEffortOrder = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
+// NanoGPT rejects reasoning_effort values a model does not list, so /based asks for "high"
+// when the catalog advertises it and otherwise the nearest effort, preferring lower ones.
+const nanoGptDefaultEffort = "high";
+const nanoGptEffortPreference = ["high", "medium", "low", "minimal", "none", "xhigh", "max"];
 const nanoGptCatalogTtlMs = 60 * 60_000;
 const NanoGptCatalog = Schema.Struct({
   data: Schema.Array(Schema.Struct({
@@ -374,11 +374,11 @@ export class Ai {
         const supported = models.get(model);
         return supported === undefined
           ? undefined
-          : nanoGptEffortOrder.find((effort) => supported.includes(effort));
+          : nanoGptEffortPreference.find((effort) => supported.includes(effort));
       }),
       Effect.catch((error) => Effect.logWarning("NanoGPT reasoning lookup failed").pipe(
         Effect.annotateLogs({ error: error.description }),
-        Effect.as<string | undefined>("none"),
+        Effect.as<string | undefined>(nanoGptDefaultEffort),
       )),
     );
   }
