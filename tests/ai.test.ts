@@ -471,8 +471,17 @@ test("based blocks unapproved chats and rejects media without downloading it", a
 });
 
 
+const nanoGptModels = "https://nano-gpt.com/api/v1/models?detailed=true";
+
+function nanoGptCatalog(...models: ReadonlyArray<{ readonly id: string; readonly reasoning_efforts?: ReadonlyArray<string> }>) {
+  return Response.json({ data: models.map((model) => ({ object: "model", ...model })) });
+}
+
 test("based streams NanoGPT with its own credential and disables hosted reasoning", async () => {
   const send: Fetch = async (input, init) => {
+    if (String(input) === nanoGptModels) {
+      return nanoGptCatalog({ id: "test/hosted-model", reasoning_efforts: ["none", "low", "high"] });
+    }
     expect(String(input)).toBe("https://nano-gpt.com/api/v1/chat/completions");
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer nano-test");
     const body = JSON.parse(String(init?.body));
@@ -498,9 +507,65 @@ test("based streams NanoGPT with its own credential and disables hosted reasonin
   }
 });
 
+test("based uses the lightest reasoning effort a NanoGPT model supports", async () => {
+  const requests: Array<string> = [];
+  const bodies: Array<Record<string, unknown>> = [];
+  const send: Fetch = async (input, init) => {
+    requests.push(String(input));
+    if (String(input) === nanoGptModels) {
+      return nanoGptCatalog(
+        { id: "test/low-floor", reasoning_efforts: ["low", "high", "max"] },
+        { id: "test/plain" },
+      );
+    }
+    bodies.push(JSON.parse(String(init?.body)));
+    return openRouterStream("Hosted answer");
+  };
+  const { app, bot, database, fake } = await fixture(send, [], testConfig({
+    based: { provider: "nanogpt", baseUrl: "https://nano-gpt.com/api/v1", model: "test/low-floor", apiKey: "nano-test" },
+  }));
+  try {
+    await app.run(bot.handler(commandUpdate("/based hello", 986)));
+    await app.run(bot.handler(commandUpdate("/model based test/plain", 987)));
+    await app.run(bot.handler(commandUpdate("/based hello again", 988)));
+    expect(bodies[0]).toMatchObject({ model: "test/low-floor", reasoning_effort: "low" });
+    expect(bodies[1]?.["model"]).toBe("test/plain");
+    expect(bodies[1]?.["reasoning_effort"]).toBeUndefined();
+    expect(requests.filter((url) => url === nanoGptModels)).toHaveLength(1);
+    expect(fake.requests.filter((request) => request.method === "editMessageText").map((request) => request.params))
+      .toMatchObject([
+        { rich_message: { markdown: "Hosted answer" } },
+        { rich_message: { markdown: "Hosted answer" } },
+      ]);
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
+test("based falls back to no hosted reasoning when the NanoGPT catalog is unavailable", async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const send: Fetch = async (input, init) => {
+    if (String(input) === nanoGptModels) return new Response("unavailable", { status: 503 });
+    bodies.push(JSON.parse(String(init?.body)));
+    return openRouterStream("Hosted answer");
+  };
+  const { app, bot, database } = await fixture(send, [], testConfig({
+    based: { provider: "nanogpt", baseUrl: "https://nano-gpt.com/api/v1", model: "test/hosted-model", apiKey: "nano-test" },
+  }));
+  try {
+    await app.run(bot.handler(commandUpdate("/based hello", 989)));
+    expect(bodies).toMatchObject([{ model: "test/hosted-model", reasoning_effort: "none" }]);
+  } finally {
+    await app.close();
+    database.close();
+  }
+});
+
 test("model based changes the next request and survives bot recreation without changing providers", async () => {
   const models: Array<string> = [];
   const send: Fetch = async (input, init) => {
+    if (String(input) === nanoGptModels) return nanoGptCatalog();
     expect(String(input)).toBe("https://nano-gpt.com/api/v1/chat/completions");
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer nano-test");
     models.push(JSON.parse(String(init?.body)).model);
