@@ -6,6 +6,7 @@ import { createSuperSeriousBot } from "../src/bot.ts";
 
 import type { Fetch } from "../src/app/http.ts";
 import { richMarkdownPrompt } from "../src/app/rich.ts";
+import { startsNewAnswer, thinkingPreview } from "../src/features/ask.ts";
 import phoneAnswer from "./fixtures/phone-answer.json";
 import {
   commandUpdate,
@@ -593,4 +594,75 @@ test("model based changes the next request and survives bot recreation without c
     await app.close();
     database.close();
   }
+});
+
+function openRouterDeltas(...deltas: ReadonlyArray<Record<string, unknown>>): Response {
+  const chunks = [...deltas, {}].map((delta, index) => `data: ${JSON.stringify({
+    choices: [{
+      delta: { ...(index === 0 ? { role: "assistant" } : {}), ...delta },
+      finish_reason: index === deltas.length ? "stop" : null,
+      index: 0,
+    }],
+    id: "generation-test",
+    model: "test/model",
+  })}\n\n`);
+  chunks.push("data: [DONE]\n\n");
+  return new Response(chunks.join(""), { headers: { "content-type": "text/event-stream" } });
+}
+
+test("ask shows live thinking first, then replaces it with the answer", async () => {
+  const send: Fetch = async () => openRouterDeltas(
+    { reasoning: "Weighing interchange reports" },
+    { content: "**Mostly yes.** Reports say 40 bps." },
+  );
+  const { app, bot, database, fake } = await fixture(send, [], aiConfig());
+  await allow(database, "ask");
+
+  try {
+    await app.run(bot.handler(commandUpdate("/ask bps?", 960)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const preview = fake.requests.find((request) => request.method === "sendMessage");
+  expect(preview?.params).toMatchObject({ text: "💭 Thinking…\n\nWeighing interchange reports" });
+  const final = fake.requests.filter((request) => request.method === "editMessageText").at(-1);
+  expect(final?.params).toMatchObject({
+    rich_message: { markdown: "**Mostly yes.** Reports say 40 bps." },
+  });
+});
+
+test("ask replaces a pre-search preamble instead of appending the answer to it", async () => {
+  const send: Fetch = async () => openRouterDeltas(
+    { content: "Checking current reporting on Indian interchange." },
+    { reasoning_details: [{ data: "opaque", type: "reasoning.encrypted" }] },
+    { content: "**Mostly yes.** Apple sought about 20 bps." },
+  );
+  const { app, bot, database, fake } = await fixture(send, [], aiConfig());
+  await allow(database, "ask");
+
+  try {
+    await app.run(bot.handler(commandUpdate("/ask bps?", 961)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const final = fake.requests.filter((request) => request.method === "editMessageText").at(-1);
+  expect(final?.params).toMatchObject({
+    rich_message: { markdown: "**Mostly yes.** Apple sought about 20 bps." },
+  });
+  expect(JSON.stringify(final?.params)).not.toContain("Checking current reporting");
+});
+
+test("ask detects a glued preamble after a long pause", () => {
+  expect(startsNewAnswer("Checking Apple's fee ask.", "**Mostly", 4_000)).toBe(true);
+  expect(startsNewAnswer("Checking Apple's fee ask.", "Mostly", 4_000)).toBe(true);
+  expect(startsNewAnswer("Checking Apple's fee ask.", " Mostly", 4_000)).toBe(false);
+  expect(startsNewAnswer("Checking Apple's fee ask.", "Mostly", 200)).toBe(false);
+  expect(startsNewAnswer("Prices rose 0", ".2%", 4_000)).toBe(false);
+  expect(startsNewAnswer("In the U.", "S. it", 4_000)).toBe(true);
+  expect(thinkingPreview("")).toBe("💭 Thinking…");
+  expect(thinkingPreview(`${"a ".repeat(900)}end`).length).toBeLessThanOrEqual(1_020);
 });

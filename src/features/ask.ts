@@ -34,6 +34,29 @@ function streamCutoff(group: boolean, length: number): number {
   return group ? 50 : 15;
 }
 
+const thinkingLabel = "💭 Thinking…";
+const thinkingPreviewLimit = 1_000;
+const preambleGapMilliseconds = 1_500;
+
+// Some models narrate ("Checking current reporting…") before a server-side
+// search and then write the answer as a separate message. OpenRouter glues both
+// into one text stream, often with no space ("ask.Mostly yes"). A long pause
+// followed by that join means the earlier text was a preamble, not the answer.
+export function startsNewAnswer(previous: string, chunk: string, gapMilliseconds: number): boolean {
+  return gapMilliseconds >= preambleGapMilliseconds &&
+    /[.!?…:][*_]*$/u.test(previous) &&
+    /^[\p{Lu}*_#]/u.test(chunk);
+}
+
+export function thinkingPreview(thinking: string): string {
+  const text = thinking.trim();
+  if (text.length === 0) return thinkingLabel;
+  if (text.length <= thinkingPreviewLimit) return `${thinkingLabel}\n\n${text}`;
+  const tail = text.slice(-thinkingPreviewLimit);
+  const space = tail.search(/\s/u);
+  return `${thinkingLabel}\n\n…${space === -1 ? tail : tail.slice(space + 1)}`;
+}
+
 function words(text: string): number {
   return text.trim().split(/\s+/u).filter(Boolean).length;
 }
@@ -101,37 +124,66 @@ function askCommand(
       }
       const stream = yield* ai.stream(name, messages);
       return yield* Effect.gen(function* () {
+        // The message shows live thinking until answer text arrives, then the
+        // answer replaces it. If the model resumes thinking after some text,
+        // that text was a preamble and the next text replaces it too.
         let content = "";
+        let thinking = "";
+        let interrupted = false;
+        let lastText = 0;
         let sent: Message | undefined;
-        let lastLength = 0;
+        let shown = "";
+        let shownMode: "answer" | "thinking" = "thinking";
         let lastEdit = 0;
         while (true) {
           const next = yield* streamChunk(stream);
           if (next.done) break;
-          content = `${content}${next.value}`.slice(0, richMessageLimit);
-          if (content.length === 0) continue;
-          const preview = content.slice(0, plainPreviewLimit);
+          const now = dependencies.monotonicMilliseconds();
+          const chunk = next.value;
+          if (chunk.type === "reasoning") {
+            if (content.length > 0) interrupted = true;
+            thinking = `${thinking}${chunk.text}`.slice(-richMessageLimit);
+          } else {
+            if (content.length > 0 && (interrupted || startsNewAnswer(content, chunk.text, now - lastText))) {
+              thinking = "";
+              content = "";
+            }
+            interrupted = false;
+            lastText = now;
+            content = `${content}${chunk.text}`.slice(0, richMessageLimit);
+          }
+          const mode = content.length > 0 ? "answer" : "thinking";
+          const preview = mode === "answer"
+            ? content.slice(0, plainPreviewLimit)
+            : thinkingPreview(thinking);
+          if (preview === shown) continue;
           if (sent === undefined) {
             sent = yield* answer(match.message, {
               linkPreviewOptions: { isDisabled: true },
               text: preview,
             });
-            lastLength = preview.length;
+            shown = preview;
+            shownMode = mode;
+            lastEdit = now;
             continue;
           }
+          const replaced = mode !== shownMode || !preview.startsWith(shown.slice(0, 32));
           const cutoff = streamCutoff(match.message.chat.type !== "private", preview.length);
-          const now = dependencies.monotonicMilliseconds();
-          if (preview.length - lastLength < cutoff || now - lastEdit < 800) continue;
+          if (now - lastEdit < 800 || (!replaced && Math.abs(preview.length - shown.length) < cutoff)) continue;
           yield* editMessageText({
             chatId: sent.chat.id,
             messageId: sent.messageId,
+            linkPreviewOptions: { isDisabled: true },
             text: preview,
           });
-          lastLength = preview.length;
+          shown = preview;
+          shownMode = mode;
           lastEdit = now;
         }
-        if (sent === undefined) {
-          return yield* answer(match.message, "No response received from AI. Please try again.");
+        const failed = "No response received from AI. Please try again.";
+        if (sent === undefined) return yield* answer(match.message, failed);
+        if (content.length === 0) {
+          return yield* editMessageText({ chatId: sent.chat.id, messageId: sent.messageId, text: failed });
         }
         yield* editRich(sent, content);
       }).pipe(Effect.ensuring(Effect.sync(() => stream.abort())));

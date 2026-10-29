@@ -36,9 +36,41 @@ interface GenerateOptions {
   readonly model?: string;
 }
 
+export type AiStreamChunk =
+  | { readonly type: "reasoning"; readonly text: string }
+  | { readonly type: "text"; readonly text: string };
+
 export interface AiStream {
   readonly abort: () => void;
-  readonly next: () => Promise<IteratorResult<string>>;
+  readonly next: () => Promise<IteratorResult<AiStreamChunk>>;
+}
+
+function record(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return typeof value === "object" && value !== null
+    ? value as Readonly<Record<string, unknown>>
+    : undefined;
+}
+
+// OpenRouter flattens multi-message output into one text part and the provider
+// drops reasoning that follows text. Read reasoning from the raw delta instead,
+// so callers can see when the model went back to thinking mid-answer.
+function rawReasoning(value: unknown): string | undefined {
+  const choices = record(value)?.["choices"];
+  const delta = record(Array.isArray(choices) ? record(choices[0])?.["delta"] : undefined);
+  // Signatures that ride along with answer text are not a return to thinking.
+  if (delta === undefined || (typeof delta["content"] === "string" && delta["content"].length > 0)) {
+    return undefined;
+  }
+  const details = delta["reasoning_details"];
+  if (Array.isArray(details) && details.length > 0) {
+    return details.map((detail) => {
+      const item = record(detail);
+      const text = item?.["type"] === "reasoning.summary" ? item["summary"] : item?.["text"];
+      return typeof text === "string" ? text : "";
+    }).join("");
+  }
+  const reasoning = delta["reasoning"];
+  return typeof reasoning === "string" && reasoning.length > 0 ? reasoning : undefined;
 }
 
 const ReasoningLevelSchema = Schema.Literals(["none", "minimal", "low", "medium", "high"]);
@@ -207,6 +239,7 @@ export class Ai {
           let streamFailure: { readonly error: unknown } | undefined;
           const result = streamText({
             abortSignal,
+            includeRawChunks: true,
             ...(command === "based" ? { maxOutputTokens: 1_024, maxRetries: 0 } : {}),
             ...(options.maxTokens === undefined ? {} : { maxOutputTokens: options.maxTokens }),
             ...prompt(messages),
@@ -215,11 +248,20 @@ export class Ai {
               streamFailure = { error };
             },
           });
-          const iterator = result.textStream[Symbol.asyncIterator]();
+          const iterator = (async function* (): AsyncGenerator<AiStreamChunk> {
+            for await (const part of result.fullStream) {
+              if (part.type === "text-delta") {
+                if (part.text.length > 0) yield { text: part.text, type: "text" };
+              } else if (part.type === "raw") {
+                const text = rawReasoning(part.rawValue);
+                if (text !== undefined) yield { text, type: "reasoning" };
+              }
+            }
+          })();
           return {
             abort: () => {
               controller.abort();
-              void iterator.return?.();
+              void iterator.return(undefined);
             },
             next: async () => {
               const next = await iterator.next();
