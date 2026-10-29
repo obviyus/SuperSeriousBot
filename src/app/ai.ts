@@ -455,12 +455,28 @@ export class Ai {
   }
 }
 
-export function streamChunk(stream: AiStream) {
+// Waits for the in-flight read, or returns undefined after `wait` ms without
+// cancelling it. Interrupting the read itself would abort the model stream.
+export function nextChunk(
+  stream: AiStream,
+  pending: Promise<IteratorResult<AiStreamChunk>>,
+  wait: number | undefined,
+) {
   return Effect.tryPromise({
     try: (signal) => {
       const abort = () => stream.abort();
       signal.addEventListener("abort", abort, { once: true });
-      return stream.next().finally(() => signal.removeEventListener("abort", abort));
+      let cancel = () => {};
+      const timeout = wait === undefined
+        ? []
+        : [new Promise<undefined>((resolve) => {
+            const timer = setTimeout(resolve, wait);
+            cancel = () => clearTimeout(timer);
+          })];
+      return Promise.race([pending, ...timeout]).finally(() => {
+        cancel();
+        signal.removeEventListener("abort", abort);
+      });
     },
     catch: (error) => failure("stream", error),
   });

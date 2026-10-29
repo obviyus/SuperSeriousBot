@@ -7,7 +7,7 @@ import {
   type Message,
 } from "telly";
 
-import { Ai, streamChunk, type AiMessage } from "../app/ai.ts";
+import { Ai, nextChunk, type AiMessage, type AiStreamChunk } from "../app/ai.ts";
 import {
   answer,
   type CommandDefinition,
@@ -37,7 +37,7 @@ function streamCutoff(group: boolean, length: number): number {
 const thinkingLabel = "💭 Thinking…";
 const thinkingPreviewLimit = 1_000;
 const preambleGapMilliseconds = 1_500;
-
+const editIntervalMilliseconds = 800;
 // Some models narrate ("Checking current reporting…") before a server-side
 // search and then write the answer as a separate message. OpenRouter glues both
 // into one text stream, often with no space ("ask.Mostly yes"). A long pause
@@ -135,8 +135,53 @@ function askCommand(
         let shown = "";
         let shownMode: "answer" | "thinking" = "thinking";
         let lastEdit = 0;
+        let pending: Promise<IteratorResult<AiStreamChunk>> | undefined;
+        const group = match.message.chat.type !== "private";
+        const render = () => {
+          const mode: "answer" | "thinking" = content.length > 0 ? "answer" : "thinking";
+          return {
+            mode,
+            preview: mode === "answer" ? content.slice(0, plainPreviewLimit) : thinkingPreview(thinking),
+          };
+        };
+        const show = Effect.fn("showAskPreview")(function* (force: boolean) {
+          const { mode, preview } = render();
+          if (preview === shown) return;
+          const now = dependencies.monotonicMilliseconds();
+          if (sent === undefined) {
+            sent = yield* answer(match.message, { linkPreviewOptions: { isDisabled: true }, text: preview });
+          } else {
+            // Thinking edits are time-throttled only; answer edits also wait
+            // for enough new text so long answers do not hammer Telegram.
+            const small = mode === "answer" && mode === shownMode &&
+              preview.startsWith(shown.slice(0, 32)) &&
+              Math.abs(preview.length - shown.length) < streamCutoff(group, preview.length);
+            if (now - lastEdit < editIntervalMilliseconds || (small && !force)) return;
+            yield* editMessageText({
+              chatId: sent.chat.id,
+              linkPreviewOptions: { isDisabled: true },
+              messageId: sent.messageId,
+              text: preview,
+            });
+          }
+          shown = preview;
+          shownMode = mode;
+          lastEdit = now;
+        });
         while (true) {
-          const next = yield* streamChunk(stream);
+          // Keep one read in flight and flush unsent text when the model goes
+          // quiet (for example while a server-side web search runs).
+          pending ??= stream.next();
+          const unsent = sent !== undefined && render().preview !== shown;
+          const wait = unsent
+            ? Math.max(0, editIntervalMilliseconds - (dependencies.monotonicMilliseconds() - lastEdit))
+            : undefined;
+          const next = yield* nextChunk(stream, pending, wait);
+          if (next === undefined) {
+            yield* show(true);
+            continue;
+          }
+          pending = undefined;
           if (next.done) break;
           const now = dependencies.monotonicMilliseconds();
           const chunk = next.value;
@@ -152,33 +197,7 @@ function askCommand(
             lastText = now;
             content = `${content}${chunk.text}`.slice(0, richMessageLimit);
           }
-          const mode = content.length > 0 ? "answer" : "thinking";
-          const preview = mode === "answer"
-            ? content.slice(0, plainPreviewLimit)
-            : thinkingPreview(thinking);
-          if (preview === shown) continue;
-          if (sent === undefined) {
-            sent = yield* answer(match.message, {
-              linkPreviewOptions: { isDisabled: true },
-              text: preview,
-            });
-            shown = preview;
-            shownMode = mode;
-            lastEdit = now;
-            continue;
-          }
-          const replaced = mode !== shownMode || !preview.startsWith(shown.slice(0, 32));
-          const cutoff = streamCutoff(match.message.chat.type !== "private", preview.length);
-          if (now - lastEdit < 800 || (!replaced && Math.abs(preview.length - shown.length) < cutoff)) continue;
-          yield* editMessageText({
-            chatId: sent.chat.id,
-            messageId: sent.messageId,
-            linkPreviewOptions: { isDisabled: true },
-            text: preview,
-          });
-          shown = preview;
-          shownMode = mode;
-          lastEdit = now;
+          yield* show(false);
         }
         const failed = "No response received from AI. Please try again.";
         if (sent === undefined) return yield* answer(match.message, failed);

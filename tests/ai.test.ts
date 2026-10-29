@@ -666,3 +666,38 @@ test("ask detects a glued preamble after a long pause", () => {
   expect(thinkingPreview("")).toBe("💭 Thinking…");
   expect(thinkingPreview(`${"a ".repeat(900)}end`).length).toBeLessThanOrEqual(1_020);
 });
+
+test("ask flushes pending thinking while the model goes quiet", async () => {
+  const encoder = new TextEncoder();
+  const frame = (delta: Record<string, unknown>, finish: string | null = null) => encoder.encode(`data: ${JSON.stringify({
+    choices: [{ delta, finish_reason: finish, index: 0 }],
+    id: "generation-test",
+    model: "test/model",
+  })}\n\n`);
+  const send: Fetch = async () => new Response(new ReadableStream({
+    async start(controller) {
+      controller.enqueue(frame({ reasoning: "One Direction is the", role: "assistant" }));
+      await Bun.sleep(50);
+      controller.enqueue(frame({ reasoning: " band he left." }));
+      // Long quiet gap, like a server-side web search.
+      await Bun.sleep(1_200);
+      controller.enqueue(frame({ content: "Yes." }));
+      controller.enqueue(frame({}, "stop"));
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  }), { headers: { "content-type": "text/event-stream" } });
+  const { app, bot, database, fake } = await fixture(send, [], aiConfig());
+  await allow(database, "ask");
+
+  try {
+    await app.run(bot.handler(commandUpdate("/ask harry?", 962)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const edits = fake.requests.filter((request) => request.method === "editMessageText");
+  expect(edits[0]?.params).toMatchObject({ text: "💭 Thinking…\n\nOne Direction is the band he left." });
+  expect(edits.at(-1)?.params).toMatchObject({ rich_message: { markdown: "Yes." } });
+});
