@@ -207,6 +207,8 @@ test.each([0, 270_000])("search command preserves evidence and citations with %i
   const params = reply?.params;
   if (typeof params !== "object" || params === null) throw new Error("Search reply missing");
   const text = Reflect.get(Reflect.get(params, "rich_message"), "markdown");
+  expect(modelMessages).toContain("Telegram Rich Markdown");
+  expect(modelMessages).toContain("one short bullet per member or item");
   expect(modelMessages).toContain("Nathu is Tarun.");
   expect(modelMessages.indexOf("[Evidence 1]")).toBeGreaterThan(-1);
   expect(modelMessages).toContain(background);
