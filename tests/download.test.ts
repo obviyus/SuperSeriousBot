@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Effect, type Update } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
@@ -50,6 +53,51 @@ test("dl command downloads a Cobalt image and sends it as a photo", async () => 
   expect(photo?.contentType).toBe("multipart/form-data");
   expect(Object.values(photo?.files ?? {})[0]?.fileName).toBe("receipt.jpg");
   expect(Object.values(photo?.files ?? {})[0]?.size).toBe(11);
+});
+
+test("dl command records why the yt-dlp reel fallback failed", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "fake-yt-dlp-"));
+  await writeFile(join(directory, "yt-dlp"), [
+    "#!/bin/sh",
+    "echo 'WARNING: [Instagram] retrying' >&2",
+    "echo 'ERROR: [Instagram] ABC123: login required' >&2",
+    "exit 1",
+  ].join("\n"));
+  await chmod(join(directory, "yt-dlp"), 0o755);
+  const path = process.env["PATH"];
+  process.env["PATH"] = `${directory}:${path ?? ""}`;
+  const send: Fetch = async () => new Response(JSON.stringify({
+    filename: "instagram_ABC123.jpg",
+    status: "tunnel",
+    url: "https://media.test/cover.jpg",
+  }));
+  const config = testConfig({ cobaltUrl: "https://cobalt.test" });
+  const { app, bot, database, fake } = await fixture(send, [
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+    sentMessage(303),
+  ], config);
+
+  let stats: ReadonlyArray<Record<string, unknown>> = [];
+  try {
+    await app.run(bot.handler(urlUpdate("/dl https://www.instagram.com/reel/ABC123/", 3_003)));
+    stats = await Effect.runPromise(database.all(
+      "SELECT status, error_message FROM command_stats WHERE command = 'dl'",
+      [],
+    ));
+  } finally {
+    process.env["PATH"] = path;
+    await app.close();
+    database.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+
+  expect(stats).toEqual([{
+    error_message: "yt-dlp failed: ERROR: [Instagram] ABC123: login required",
+    status: "failed",
+  }]);
+  expect(fake.requests.find((request) => request.method === "sendMessage")?.params)
+    .toMatchObject({ text: "Something went wrong. Please try again." });
 });
 
 test("automatic download reacts and downloads an Instagram reel when enabled", async () => {
