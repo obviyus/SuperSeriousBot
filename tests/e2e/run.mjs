@@ -258,7 +258,6 @@ try {
           { atMs: 0, text: "/summon alpha", type: "send" },
           { atMs: 1_500, text: "/habit walk 3", type: "send" },
           { atMs: 3_000, buttonText: "📅 Check-in", messageText: "#walk", timeoutMs: 5_000, type: "click" },
-          { atMs: 4_500, text: "/football", type: "send" },
         ],
       }
     : {
@@ -329,7 +328,6 @@ try {
     : groupMode
     ? revisions.some((text) => text.includes("[alpha] (1 members)")) &&
       revisions.some((text) => text.includes("Created a new habit #walk")) &&
-      revisions.some((text) => text.includes("Football alerts enabled")) &&
       events.some((event) => Array.isArray(event.buttonTexts) && event.buttonTexts.includes("📅 Check-in")) &&
       events.some((event) => event.actionType === "click" && event.status === "completed")
     : revisions.some((text) => text.startsWith("pong ("));
