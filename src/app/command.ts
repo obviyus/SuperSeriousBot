@@ -117,6 +117,17 @@ function ensureAvailable(
   );
 }
 
+export function describeError(error: unknown): string | null {
+  const described = Predicate.isObject(error) ? Reflect.get(error, "description") : undefined;
+  return typeof described === "string"
+    ? described
+    : error instanceof Error
+    ? error.message
+    : error === undefined
+    ? null
+    : String(error);
+}
+
 function recordCommand(
   dependencies: AppDependencies,
   match: CommandMatch,
@@ -126,14 +137,7 @@ function recordCommand(
 ) {
   const user = match.message.from;
   if (user === undefined) return Effect.void;
-  const described = Predicate.isObject(error) ? Reflect.get(error, "description") : undefined;
-  const message = typeof described === "string"
-    ? described
-    : error instanceof Error
-    ? error.message
-    : error === undefined
-    ? null
-    : String(error);
+  const message = describeError(error);
   return dependencies.database.execute(
     `INSERT INTO command_stats (
       command, user_id, chat_id, message_id, username, input_text,
@@ -206,7 +210,7 @@ export function commandHandlers(
         status = "failed";
         commandError = error;
         return Effect.logError("Command failed").pipe(
-          Effect.annotateLogs({ command: commandName(match) }),
+          Effect.annotateLogs({ command: commandName(match), error: describeError(error) }),
           Effect.andThen(answer(match.message, "Something went wrong. Please try again.")),
         );
       };

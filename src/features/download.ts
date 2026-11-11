@@ -14,6 +14,7 @@ import {
 import {
   answer,
   type CommandDefinition,
+  describeError,
 } from "../app/command.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
 
@@ -95,7 +96,7 @@ function instagramPage(dependencies: AppDependencies, message: Message, url: URL
 function ytDlp(dependencies: AppDependencies, message: Message, url: URL) {
   return Effect.tryPromise({
     try: async () => {
-      const process = Bun.spawn([
+      const child = Bun.spawn([
         "yt-dlp",
         "--no-playlist",
         "--format",
@@ -104,14 +105,20 @@ function ytDlp(dependencies: AppDependencies, message: Message, url: URL) {
         "after_move:filepath",
         "--get-url",
         url.toString(),
-      ], { stderr: "pipe", stdout: "pipe" });
-      const output = await new Response(process.stdout).text();
-      if (await process.exited !== 0) throw new Error("yt-dlp failed");
+      ], { env: process.env, stderr: "pipe", stdout: "pipe" });
+      const [output, errorOutput] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+      ]);
+      if (await child.exited !== 0) {
+        const reason = errorOutput.trim().split("\n").findLast((line) => line.startsWith("ERROR:"));
+        throw new Error(`yt-dlp failed: ${(reason ?? errorOutput.trim()).slice(0, 500)}`);
+      }
       const [mediaUrl, fileName] = output.trim().split("\n");
       if (mediaUrl === undefined) throw new Error("yt-dlp returned no media URL");
       return { fileName, mediaUrl };
     },
-    catch: () => new Error("yt-dlp failed"),
+    catch: (error) => error instanceof Error ? error : new Error(`yt-dlp failed: ${String(error)}`),
   }).pipe(Effect.flatMap(({ fileName, mediaUrl }) => sendBytes(
     dependencies,
     message,
@@ -205,6 +212,8 @@ export function downloadFeature(dependencies: AppDependencies) {
       reaction: [{ emoji: "⚡", type: "emoji" }],
     }).pipe(Effect.catch(() => Effect.void));
     yield* download(dependencies, message, target);
-  }, Effect.catch(() => Effect.logError("Automatic download failed")));
+  }, Effect.catch((error) => Effect.logError("Automatic download failed").pipe(
+    Effect.annotateLogs({ error: describeError(error) }),
+  )));
   return { commands: [command] as const, handler };
 }
