@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 
 import { expect, test } from "bun:test";
-import { Fiber, Layer, Redacted, Schema } from "effect";
+import { Clock, Fiber, Layer, Redacted, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import {
   Application,
@@ -19,6 +19,7 @@ import { FakeBotApiReply } from "telly/testing";
 import type { Fetch } from "../src/app/http.ts";
 import { Http } from "../src/app/http.ts";
 import {
+  recurring,
   runtimeJobs,
   scheduleRuntimeJobs,
   waitForWebhook,
@@ -173,6 +174,87 @@ test("runtime cancels schedules for removed football jobs", async () => {
   database.close();
 
   expect(cancelled).toEqual([false, false]);
+});
+
+function fixedClock(ms: number): Clock.Clock {
+  return {
+    currentTimeMillis: Effect.succeed(ms),
+    currentTimeMillisUnsafe: () => ms,
+    currentTimeNanos: Effect.succeed(BigInt(ms) * 1_000_000n),
+    currentTimeNanosUnsafe: () => BigInt(ms) * 1_000_000n,
+    monotonicTimeNanos: Effect.succeed(BigInt(ms) * 1_000_000n),
+    monotonicTimeNanosUnsafe: () => BigInt(ms) * 1_000_000n,
+    sleep: () => Effect.void,
+  };
+}
+
+test("startup revives a parked recurring job", async () => {
+  const store = MemoryJobs.make();
+  const jobsApp = Application.make({ rateLimit: false, token });
+  const { app, bot, database } = await fixture(offline);
+  const jobs = runtimeJobs({
+    config: testConfig(),
+    database,
+    http: new Http(offline),
+    monotonicMilliseconds: () => 0,
+    now: () => new Date("2026-09-01T12:00:00Z"),
+    random: () => 0.5,
+  }, bot, store);
+  const botId = 123_456;
+  const later = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(
+    Effect.provideService(effect, Clock.Clock, fixedClock(Date.now() + 2 * 86_400_000)),
+  );
+  const dueSearchIndex = async () => {
+    const lease = await later(store.acquire({ botId, leaseMs: 60_000 }));
+    if (lease._tag !== "Acquired") throw new Error("Expected job lease");
+    const claimed = await later(store.claim({ botId, fencingToken: lease.fencingToken, limit: 100 }));
+    for (const item of claimed) {
+      await later(store.settle({
+        botId,
+        fencingToken: lease.fencingToken,
+        id: item.id,
+        outcome: item.id === "searchIndex"
+          ? { _tag: "Parked", reason: "attempts-exhausted" }
+          : { _tag: "Interrupted" },
+      }));
+    }
+    await later(store.release({ botId, fencingToken: lease.fencingToken }));
+    return claimed.some((item) => item.id === "searchIndex");
+  };
+
+  let claims: Array<boolean> = [];
+  try {
+    await scheduleRuntimeJobs(jobsApp, jobs);
+    claims.push(await dueSearchIndex());
+    claims.push(await dueSearchIndex());
+    await scheduleRuntimeJobs(jobsApp, jobs);
+    claims.push(await dueSearchIndex());
+  } finally {
+    await jobsApp.close();
+    await app.close();
+    database.close();
+  }
+
+  expect(claims).toEqual([true, false, true]);
+});
+
+test("a failing recurring worker finishes so its job is not parked", async () => {
+  const definition = recurring("searchIndex", () => Effect.fail(new Error("embedding outage")));
+  const symbol = Object.getOwnPropertySymbols(definition)[0];
+  if (symbol === undefined) throw new Error("Job definition missing runtime");
+  const runtime = Reflect.get(definition, symbol) as {
+    execute: (payload: unknown, context: unknown) => Effect.Effect<unknown, unknown>;
+  };
+  const context = { attempt: 1, id: "searchIndex", scheduledAt: new Date(0) };
+
+  const failed = await Effect.runPromise(Effect.exit(runtime.execute({}, context)));
+  const interrupted = await Effect.runPromise(Effect.exit(
+    Reflect.get(recurring("searchIndex", () => Effect.interrupt), symbol)
+      .execute({}, context) as Effect.Effect<unknown>,
+  ));
+
+  expect(failed._tag).toBe("Success");
+  expect(interrupted._tag).toBe("Failure");
 });
 
 test("webhook stops cleanly on SIGTERM and removes signal listeners", async () => {
