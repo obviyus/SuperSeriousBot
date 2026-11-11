@@ -1,9 +1,19 @@
 import { EventEmitter } from "node:events";
 
 import { expect, test } from "bun:test";
-import { Fiber, Layer, Redacted } from "effect";
+import { Fiber, Layer, Redacted, Schema } from "effect";
 import { TestClock } from "effect/testing";
-import { Application, Bot, Effect, InboxStore, MemoryInbox, MemoryJobs, pollInboxUpdates } from "telly";
+import {
+  Application,
+  Bot,
+  defineJobs,
+  Effect,
+  InboxStore,
+  job,
+  MemoryInbox,
+  MemoryJobs,
+  pollInboxUpdates,
+} from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
@@ -79,9 +89,9 @@ test("bot registers every migrated command name", async () => {
   database.close();
   expect(names).toEqual([
     "addquote", "ask", "based", "block", "blocklist", "book", "botstats", "calc", "cat",
-    "cron", "d", "define", "dl", "edit", "enable_fts", "football", "fox", "friends",
+    "cron", "d", "define", "dl", "edit", "enable_fts", "fox", "friends",
     "get", "groups", "gstats", "habit", "hb", "help", "highlight", "hl", "hltb",
-    "import", "insult", "joke", "meme", "model", "next", "ping", "q", "quote",
+    "import", "insult", "joke", "meme", "model", "ping", "q", "quote",
     "remind", "search", "seen", "set", "settings", "shiba", "song", "stats", "summon",
     "thinking", "tl", "tldr", "tldw", "tr", "ud", "unblock", "unwhitelist", "users",
     "userstats", "ustat", "ustats", "video", "w", "weather", "whitelist",
@@ -122,8 +132,6 @@ test("runtime registers every recurring worker", async () => {
   await scheduleRuntimeJobs(jobsApp, jobs);
   const cancelled = await Promise.all([
     "cron",
-    "footballAlerts",
-    "footballSync",
     "habit",
     "quotas",
     "reminders",
@@ -134,7 +142,37 @@ test("runtime registers every recurring worker", async () => {
   await app.close();
   database.close();
 
-  expect(cancelled).toEqual([true, true, true, true, true, true, true, true]);
+  expect(cancelled).toEqual([true, true, true, true, true, true]);
+});
+
+test("runtime cancels schedules for removed football jobs", async () => {
+  const store = MemoryJobs.make();
+  const jobsApp = Application.make({ rateLimit: false, token });
+  const { app, bot, database } = await fixture(offline);
+  const removed = defineJobs({
+    footballAlerts: job({ payload: Schema.Struct({}), run: () => Effect.void }),
+    footballSync: job({ payload: Schema.Struct({}), run: () => Effect.void }),
+  }, { store });
+  const jobs = runtimeJobs({
+    config: testConfig(),
+    database,
+    http: new Http(offline),
+    monotonicMilliseconds: () => 0,
+    now: () => new Date("2026-09-01T12:00:00Z"),
+    random: () => 0.5,
+  }, bot, store);
+
+  await jobsApp.run(removed.schedule("footballAlerts", { every: "1 minute", payload: {} }));
+  await jobsApp.run(removed.schedule("footballSync", { every: "1 day", payload: {} }));
+  await scheduleRuntimeJobs(jobsApp, jobs);
+  const cancelled = await Promise.all(
+    ["footballAlerts", "footballSync"].map((name) => jobsApp.run(jobs.cancel(name))),
+  );
+  await jobsApp.close();
+  await app.close();
+  database.close();
+
+  expect(cancelled).toEqual([false, false]);
 });
 
 test("webhook stops cleanly on SIGTERM and removes signal listeners", async () => {

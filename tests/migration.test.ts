@@ -46,6 +46,9 @@ test("database from all 33 Python migrations preserves rows during TypeScript in
   const legacyTable = await Effect.runPromise(database.one(
     "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'tv_shows'",
   ));
+  const footballTables = await Effect.runPromise(database.all(
+    "SELECT name FROM sqlite_schema WHERE name LIKE 'football%'",
+  ));
   database.close();
 
   expect(user).toMatchObject({ first_name: "Ayaan", user_id: 7, username: "ayaan" });
@@ -63,6 +66,7 @@ test("database from all 33 Python migrations preserves rows during TypeScript in
     "attempt_count",
   ]));
   expect(legacyTable?.["name"]).toBe("tv_shows");
+  expect(footballTables).toEqual([]);
 });
 
 test("query migration upgrades an existing database without replacing source or embedding rows", async () => {

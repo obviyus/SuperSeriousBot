@@ -33,7 +33,6 @@ import { downloadFeature } from "./features/download.ts";
 import { cronFeature } from "./features/cron.ts";
 import { songCommand } from "./features/song.ts";
 import { videoCommand } from "./features/video.ts";
-import { footballFeature } from "./features/football.ts";
 import { searchFeature } from "./features/search.ts";
 
 export function createSuperSeriousBot(dependencies: AppDependencies) {
@@ -43,7 +42,6 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
   const reminders = reminderFeature(dependencies);
   const downloads = downloadFeature(dependencies);
   const cron = cronFeature(dependencies);
-  const football = footballFeature(dependencies);
   const search = searchFeature(dependencies);
   const featureCommands = [
     ...basicCommands(dependencies),
@@ -63,7 +61,6 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
     ...cron.commands,
     songCommand(dependencies),
     videoCommand(dependencies),
-    ...football.commands,
     ...search.commands,
   ];
   const help: CommandDefinition = {
@@ -92,7 +89,6 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
         habit.callback,
         highlight.callback,
         cron.callback,
-        football.callback,
         on(callbackQuery(), ({ callbackQuery: query }) =>
           answerCallback(query, { text: "This button expired." })),
       ),
@@ -104,7 +100,6 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
     ),
     workers: {
       cron: cron.worker,
-      football: football.workers,
       habit: habit.worker,
       reminders: reminders.worker,
       search: search.workers,

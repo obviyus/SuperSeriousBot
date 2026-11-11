@@ -62,14 +62,6 @@ export function runtimeJobs(
       payload: Schema.Struct({}),
       run: () => runtime.workers.cron(),
     }),
-    footballAlerts: job({
-      payload: Schema.Struct({}),
-      run: () => runtime.workers.football.notify(),
-    }),
-    footballSync: job({
-      payload: Schema.Struct({}),
-      run: () => runtime.workers.football.sync(),
-    }),
     quotas: job({
       payload: Schema.Struct({}),
       run: () => resetCommandLimits(dependencies),
@@ -89,6 +81,10 @@ export function runtimeJobs(
   }, { store });
 }
 
+// Repeating jobs persist by name. Cancel removed ones so the worker does not
+// retry a job it can no longer run.
+const retiredJobs = ["footballAlerts", "footballSync"] as const;
+
 export function scheduleRuntimeJobs(
   app: Application,
   jobs: ReturnType<typeof runtimeJobs>,
@@ -96,18 +92,18 @@ export function scheduleRuntimeJobs(
   const schedules = [
     ["reminders", "00:00:00", "1 minute"],
     ["cron", "00:00:00", "1 minute"],
-    ["footballAlerts", "00:00:00", "1 minute"],
-    ["footballSync", "03:00:00", "1 day"],
     ["habit", "14:30:00", "1 day"],
     ["quotas", "18:30:00", "1 day"],
     ["searchIndex", "00:00:30", "15 minutes"],
     ["searchMemory", "03:00:00", "1 day"],
   ] as const;
-  return app.run(Effect.forEach(schedules, ([name, time, every]) => jobs.schedule(name, {
-    at: new Date(`2026-01-01T${time}Z`),
-    every,
-    payload: {},
-  }), { concurrency: "unbounded", discard: true }));
+  return app.run(Effect.forEach(retiredJobs, (id) => jobs.cancel(id), { discard: true }).pipe(
+    Effect.andThen(Effect.forEach(schedules, ([name, time, every]) => jobs.schedule(name, {
+      at: new Date(`2026-01-01T${time}Z`),
+      every,
+      payload: {},
+    }), { concurrency: "unbounded", discard: true })),
+  ));
 }
 
 export function reportUpdateErrors(

@@ -15,7 +15,7 @@ SuperSeriousBot has grown with its groups for years. It combines AI, media, sear
 - Group memory: semantic `/search`, citations, member personas, and group lore
 - Media: `/set`, `/get`, `/dl`, automatic reel downloads, memes, and quotes
 - Social: `/summon`, `/habit`, `/highlight`, reactions, mentions, and `sed` corrections
-- Utilities: reminders, scheduled AI tasks, football alerts, weather, books, games, and translation
+- Utilities: reminders, scheduled AI tasks, weather, books, games, and translation
 - Operations: durable Telly inboxes and jobs, polling or webhooks, command quotas, and failure records
 
 Run `/help` to see the commands enabled by the configured API keys.
