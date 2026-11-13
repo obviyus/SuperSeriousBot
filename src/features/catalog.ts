@@ -2,7 +2,10 @@ import { XMLParser } from "fast-xml-parser";
 import {
   Effect,
   html,
+  replyTo,
+  respondTo,
   Schema,
+  sendPhoto,
 } from "telly";
 
 import {
@@ -22,17 +25,25 @@ const SearchXml = Schema.Struct({
     }),
   }),
 });
+const Author = Schema.Struct({
+  name: TextValue,
+  role: Schema.optionalKey(TextValue),
+});
 const BookXml = Schema.Struct({
   GoodreadsResponse: Schema.Struct({
     book: Schema.Struct({
-      authors: Schema.Struct({ author: Schema.Struct({ name: TextValue }) }),
+      authors: Schema.Struct({ author: Schema.Union([Author, Schema.Array(Author)]) }),
       average_rating: TextValue,
       description: Schema.optionalKey(TextValue),
-      isbn13: Schema.optionalKey(TextValue),
+      image_url: Schema.optionalKey(TextValue),
       num_pages: Schema.optionalKey(TextValue),
       publication_year: Schema.optionalKey(TextValue),
       title: TextValue,
       url: Schema.optionalKey(TextValue),
+      work: Schema.optionalKey(Schema.Struct({
+        original_publication_year: Schema.optionalKey(TextValue),
+        ratings_count: Schema.optionalKey(TextValue),
+      })),
     }),
   }),
 });
@@ -50,8 +61,110 @@ const HltbAuth = Schema.Record(
   Schema.Union([Schema.String, Schema.Number, Schema.Null]),
 );
 
-function string(value: typeof TextValue.Type | undefined, fallback = ""): string {
-  return value === undefined ? fallback : String(value);
+const captionLimit = 1_024;
+const coverBytes = 10 * 1_024 * 1_024;
+// Goodreads shelves mix genres with reading-status and ownership labels.
+const statusShelf = /read|tbr|own|favou?rite|dnf|did-not|wish|kindle|e-?books?|audio|library|default|club|series|buy|borrow|shelf|list|^\d|my-|maybe|someday|have|bought|gave-up|abandon|^to-|^i-/u;
+
+interface Book {
+  readonly authors: ReadonlyArray<string>;
+  readonly cover?: string;
+  readonly description: string;
+  readonly genres: ReadonlyArray<string>;
+  readonly pages?: string;
+  readonly rating: string;
+  readonly ratings?: number;
+  readonly series?: string;
+  readonly title: string;
+  readonly url?: string;
+  readonly year?: string;
+}
+
+function present(value: typeof TextValue.Type | undefined): string | undefined {
+  const text = value === undefined ? "" : String(value).trim();
+  return text.length === 0 ? undefined : text;
+}
+
+const shelfAliases: Readonly<Record<string, string>> = {
+  "non-fiction": "nonfiction",
+  "sci-fi": "science-fiction",
+  "scifi": "science-fiction",
+  "ya": "young-adult",
+};
+
+export function bookGenres(xml: string): ReadonlyArray<string> {
+  const names = [...xml.matchAll(/<shelf name="([^"]+)"/gu)]
+    .map((match) => match[1] ?? "")
+    .filter((name) => name.length > 0 && !statusShelf.test(name))
+    .map((name) => shelfAliases[name] ?? name);
+  return [...new Set(names)]
+    .slice(0, 3)
+    .map((name) => name.split("-").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" "));
+}
+
+export function parseBook(xml: string): Book {
+  const data = Schema.decodeUnknownSync(BookXml)(new XMLParser().parse(xml)).GoodreadsResponse.book;
+  const authors = [data.authors.author].flat();
+  const primary = authors.filter((author) => present(author.role) === undefined);
+  const title = present(data.title) ?? "Unknown title";
+  // Goodreads appends the series to the title: "Dune (Dune, #1)".
+  const parts = title.match(/^(.+?)\s*\(([^()]+?),?\s*#\s*([\d.]+(?:-[\d.]+)?)\)$/u);
+  const bare = parts?.[1] ?? title;
+  const series = parts === null ? undefined : `${parts[2]} #${parts[3]}`;
+  const image = present(data.image_url);
+  const cover = image === undefined || image.includes("nophoto")
+    ? undefined
+    : image.replace(/\._S[XY]\d+_(?=\.\w+$)/u, "");
+  const ratings = Number(present(data.work?.ratings_count));
+  const pages = present(data.num_pages);
+  const url = present(data.url);
+  const year = present(data.work?.original_publication_year) ?? present(data.publication_year);
+  return {
+    authors: (primary.length === 0 ? authors : primary).map((author) => String(author.name)),
+    description: stripHtml(present(data.description) ?? "").replace(/\s+/gu, " ").trim(),
+    genres: bookGenres(xml),
+    rating: present(data.average_rating) ?? "0",
+    title: bare,
+    ...(cover === undefined ? {} : { cover }),
+    ...(pages === undefined ? {} : { pages }),
+    ...(Number.isFinite(ratings) && ratings > 0 ? { ratings } : {}),
+    ...(series === undefined || series.length === 0 ? {} : { series }),
+    ...(url === undefined ? {} : { url }),
+    ...(year === undefined ? {} : { year }),
+  };
+}
+
+function compact(count: number): string {
+  return new Intl.NumberFormat("en", { maximumFractionDigits: 1, notation: "compact" }).format(count);
+}
+
+function trimToSentence(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const cut = text.slice(0, limit);
+  const sentence = cut.lastIndexOf(". ");
+  return sentence > limit / 2 ? cut.slice(0, sentence + 1) : `${cut.slice(0, cut.lastIndexOf(" "))}…`;
+}
+
+export function bookCaption(book: Book): string {
+  const byline = [book.authors.slice(0, 3).join(", "), book.year].filter(Boolean).join(" · ");
+  const stats = [
+    book.ratings === undefined
+      ? "⭐ No ratings yet"
+      : `⭐ ${book.rating} (${compact(book.ratings)} ratings)`,
+    book.pages === undefined ? undefined : `${book.pages} pages`,
+  ].filter(Boolean).join(" · ");
+  const head = [
+    `<b>${html.escape(book.title)}</b>`,
+    ...(book.series === undefined ? [] : [`<i>${html.escape(book.series)}</i>`]),
+    html.escape(byline),
+    "",
+    html.escape(stats),
+    ...(book.genres.length === 0 ? [] : [`🏷 ${html.escape(book.genres.join(" · "))}`]),
+  ].join("\n");
+  if (book.description.length === 0) return head;
+  const room = captionLimit - head.length - "\n\n".length - 64;
+  if (room < 80) return head;
+  return `${head}\n\n<blockquote expandable>${html.escape(trimToSentence(book.description, room))}</blockquote>`;
 }
 
 function bookCommand(dependencies: AppDependencies): CommandDefinition {
@@ -64,12 +177,11 @@ function bookCommand(dependencies: AppDependencies): CommandDefinition {
       if (match.argText.length === 0) return yield* usage(match.message, definition);
       const key = dependencies.config.api.goodreadsApiKey;
       if (key === undefined) return yield* answer(match.message, "❌ Book search is not configured.");
-      const parser = new XMLParser();
       const searchUrl = new URL("https://www.goodreads.com/search.xml");
       searchUrl.search = new URLSearchParams({ key, q: match.argText }).toString();
       const search = yield* dependencies.http.text("goodreads", searchUrl).pipe(
         Effect.flatMap((response) => Effect.try({
-          try: () => Schema.decodeUnknownSync(SearchXml)(parser.parse(response.data)),
+          try: () => Schema.decodeUnknownSync(SearchXml)(new XMLParser().parse(response.data)),
           catch: () => new Error("Invalid Goodreads search response"),
         })),
         Effect.catch(() => Effect.succeed(undefined)),
@@ -83,28 +195,45 @@ function bookCommand(dependencies: AppDependencies): CommandDefinition {
       bookUrl.search = new URLSearchParams({ id: String(first.best_book.id), key }).toString();
       const book = yield* dependencies.http.text("goodreads", bookUrl).pipe(
         Effect.flatMap((response) => Effect.try({
-          try: () => Schema.decodeUnknownSync(BookXml)(parser.parse(response.data)),
-          catch: () => new Error("Invalid Goodreads book response"),
+          try: () => parseBook(response.data),
+          catch: (error) => new Error(`Invalid Goodreads book response: ${String(error)}`),
         })),
+        Effect.tapError((error) => Effect.logWarning("Goodreads book lookup failed").pipe(
+          Effect.annotateLogs({ error: error.message }),
+        )),
         Effect.catch(() => Effect.succeed(undefined)),
       );
       if (book === undefined) {
-        return yield* answer(match.message, "❌ No book found matching your query.");
+        return yield* answer(match.message, "❌ Goodreads returned a book I couldn't read. Try a more specific title.");
       }
-      const data = book.GoodreadsResponse.book;
-      let description = stripHtml(string(data.description, "No description available."));
-      if (description.length > 200) {
-        const sentence = description.indexOf(".", 200);
-        description = sentence === -1
-          ? `${description.slice(0, 200)}...`
-          : description.slice(0, sentence + 1);
+      const caption = bookCaption(book);
+      const replyMarkup = book.url === undefined
+        ? undefined
+        : { inlineKeyboard: [[{ text: "Open on Goodreads", url: book.url }]] };
+      const markup = replyMarkup === undefined ? {} : { replyMarkup };
+      const cover = book.cover === undefined
+        ? undefined
+        : yield* dependencies.http.bytes("goodreads", book.cover, coverBytes).pipe(
+            Effect.map((response) => response.status === 200 ? response : undefined),
+            Effect.catch(() => Effect.succeed(undefined)),
+          );
+      if (cover !== undefined) {
+        const sent = yield* Effect.result(sendPhoto({
+          ...(match.message.chat.type === "private" ? respondTo(match.message) : replyTo(match.message)),
+          ...markup,
+          caption,
+          parseMode: "HTML",
+          photo: new File([new Uint8Array(cover.data)], "cover.jpg", {
+            type: cover.contentType ?? "image/jpeg",
+          }),
+        }));
+        if (sent._tag === "Success") return sent.success;
       }
-      const isbn = string(data.isbn13);
-      const cover = isbn.length === 0 ? "" : `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
-      const link = string(data.url);
       return yield* answer(match.message, {
+        ...markup,
+        linkPreviewOptions: { isDisabled: true },
         parseMode: "HTML",
-        text: `<b>${html.escape(string(data.title, "Unknown Title").replace("- ()", ""))}</b> - (${html.escape(string(data.publication_year, "Unknown"))})\n\n<a href="${html.escape(cover)}">&#8205;</a>✏️ ${html.escape(string(data.authors.author.name, "Unknown Author"))}\n⭐ ${html.escape(string(data.average_rating, "0"))}\n📖 ${html.escape(string(data.num_pages, "Unknown"))} pages\n🔗 <a href="${html.escape(link)}">Goodreads</a>\n\n${html.escape(description)}`,
+        text: caption,
       });
     }),
     usage: "/book [book title]",
