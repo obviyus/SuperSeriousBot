@@ -298,15 +298,6 @@ export function initializeDatabase(database: Database) {
       concurrency: 1,
       discard: true,
     });
-    yield* migrateModelSettings(database);
   });
 }
 
-
-export const migrateModelSettings = Effect.fn("migrateModelSettings")(function* (database: Database) {
-  const columns = yield* database.all("PRAGMA table_info(group_settings)");
-  const names = new Set(columns.map((row) => row["name"]));
-  for (const name of ["video_model", "based_model"] as const) {
-    if (!names.has(name)) yield* database.execute(`ALTER TABLE group_settings ADD COLUMN ${name} TEXT`);
-  }
-});

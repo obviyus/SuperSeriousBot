@@ -1,7 +1,3 @@
-import { Effect } from "telly";
-
-import type { Database } from "./database.ts";
-
 export const querySchema = [
   `CREATE INDEX IF NOT EXISTS user_stats_username_index ON user_stats (LOWER(username))`,
   `CREATE INDEX IF NOT EXISTS chat_stats_member_latest_index ON chat_stats (chat_id, user_id, id)`,
@@ -63,15 +59,3 @@ export const querySchema = [
     WHERE EXISTS (SELECT 1 FROM chat_stats WHERE chat_id = chat_search_progress.chat_id AND user_id = OLD.user_id);
   END`,
 ] as const;
-
-export const migrateQuerySchema = Effect.fn("migrateQuerySchema")(function* (database: Database) {
-  const columns = yield* database.all("PRAGMA table_info(chat_search_progress)");
-  yield* database.batch([
-    ...(columns.length > 0 && !columns.some((column) => column["name"] === "generation")
-      ? [{ sql: "ALTER TABLE chat_search_progress ADD COLUMN generation INTEGER NOT NULL DEFAULT 0" }]
-      : []),
-    ...["source_insert", "source_update", "source_delete", "author_insert", "author_update", "author_delete"]
-      .map((name) => ({ sql: `DROP TRIGGER IF EXISTS chat_search_${name}` })),
-    ...querySchema.map((sql) => ({ sql })),
-  ]);
-});
