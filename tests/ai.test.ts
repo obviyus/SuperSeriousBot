@@ -330,6 +330,58 @@ test("edit command uses an image attached to its command caption", async () => {
     .toMatchObject({ caption: expect.stringContaining("restore the colors") });
 });
 
+test("edit command adds the replied message text to its prompt", async () => {
+  const submitted: Array<string> = [];
+  const send: Fetch = async (_input, init) => {
+    submitted.push(typeof init?.body === "string" ? init.body : "");
+    return new Response(JSON.stringify({
+      data: [{ b64_json: Buffer.from("generated-image").toString("base64") }],
+    }));
+  };
+  const { app, bot, database, fake } = await fixture(send, [
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+    sentMessage(99),
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+    sentMessage(100),
+  ], aiConfig());
+  await allow(database, "edit");
+  const reply = (text: string, updateId: number): Update => {
+    const base = commandUpdate(text, updateId);
+    if (base.message === undefined) throw new Error("Expected edit message");
+    return {
+      ...base,
+      message: {
+        ...base.message,
+        replyToMessage: {
+          chat: { id: -1007, type: "supergroup" },
+          date: 1_699_999_999,
+          from: { firstName: "Alice", id: 2, isBot: false },
+          messageId: 800,
+          text: "a cat riding a skateboard",
+        },
+      },
+    };
+  };
+
+  try {
+    await app.run(bot.handler(reply("/edit as a movie poster", 908)));
+    await app.run(bot.handler(reply("/edit", 909)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  expect(submitted[0]).toContain("as a movie poster");
+  expect(submitted[0]).toContain("Replied message: a cat riding a skateboard");
+  expect(submitted[1]).toContain("a cat riding a skateboard");
+  const captions = fake.requests.filter((request) => request.method === "sendPhoto")
+    .map((request) => String(Reflect.get(Object(request.params), "caption")));
+  expect(captions[0]).toContain("Prompt: as a movie poster");
+  expect(captions[1]).toContain("Prompt: a cat riding a skateboard");
+});
+
 test("edit command explains an AI SDK moderation rejection", async () => {
   const send: Fetch = async () => new Response(JSON.stringify({
     error: {
