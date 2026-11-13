@@ -89,13 +89,13 @@ test("bot registers every migrated command name", async () => {
   await app.close();
   database.close();
   expect(names).toEqual([
-    "addquote", "ask", "based", "block", "blocklist", "book", "botstats", "calc",
-    "dl", "edit", "enable_fts", "friends",
-    "get", "groups", "gstats", "habit", "hb", "help", "highlight", "hl", "hltb",
+    "addquote", "ask", "based", "block", "blocklist", "book", "calc",
+    "dl", "edit", "enable_fts",
+    "get", "habit", "hb", "help", "highlight", "hl", "hltb",
     "import", "insult", "joke", "meme", "model", "ping", "q", "quote",
     "remind", "search", "seen", "set", "settings", "song", "stats", "summon",
-    "thinking", "tl", "tldr", "tldw", "tr", "ud", "unblock", "unwhitelist", "users",
-    "userstats", "ustat", "ustats", "video", "w", "weather", "whitelist",
+    "thinking", "tl", "tldr", "tldw", "tr", "ud", "unblock", "unwhitelist",
+    "video", "w", "weather", "whitelist",
   ]);
 });
 

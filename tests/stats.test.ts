@@ -72,7 +72,7 @@ test("group stats ranks members by their message share", async () => {
   ]));
 
   try {
-    await app.run(bot.handler(commandUpdate("/gstats", 402)));
+    await app.run(bot.handler(commandUpdate("/stats all", 402)));
   } finally {
     await app.close();
     database.close();
@@ -99,7 +99,7 @@ test("friends command renders incoming and outgoing social edges", async () => {
   ]));
 
   try {
-    await app.run(bot.handler(commandUpdate("/friends", 403)));
+    await app.run(bot.handler(commandUpdate("/stats friends", 403)));
   } finally {
     await app.close();
     database.close();
@@ -107,7 +107,91 @@ test("friends command renders incoming and outgoing social edges", async () => {
 
   const reply = fake.requests.find((request) => request.method === "sendRichMessage");
   const content = richContent(reply?.params);
-  expect(content.text).toContain("You →\nAlice\n2");
-  expect(content.text).toContain("You ←\nBob\n1");
+  expect(content.text).toContain("→\nAlice\n2");
+  expect(content.text).toContain("←\nBob\n1");
   expect(content.types).toContain("table");
+});
+
+function keyboardOf(params: unknown): ReadonlyArray<ReadonlyArray<{ text: string; callback_data: string }>> {
+  const markup = typeof params === "object" && params !== null ? Reflect.get(params, "reply_markup") : undefined;
+  const rows = typeof markup === "object" && markup !== null ? Reflect.get(markup, "inline_keyboard") : undefined;
+  if (!Array.isArray(rows)) throw new Error("Stats reply has no keyboard");
+  return rows;
+}
+
+test("stats buttons switch the same message between views", async () => {
+  const { app, bot, database, fake } = await fixture(offline, [
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+  ]);
+  await Effect.runPromise(database.batch([
+    { sql: "INSERT INTO user_stats (user_id, username, first_name) VALUES (?, ?, ?)", args: [1, "obviyus", "Ayaan"] },
+    { sql: "INSERT INTO chat_stats (chat_id, user_id, message_id) VALUES (?, ?, ?)", args: [-1007, 1, 1] },
+    { sql: "INSERT INTO command_stats (command, user_id) VALUES (?, ?)", args: ["ask", 1] },
+  ]));
+
+  let edit: unknown;
+  let first: ReadonlyArray<ReadonlyArray<{ text: string; callback_data: string }>> = [];
+  try {
+    await app.run(bot.handler(commandUpdate("/stats", 404)));
+    const sent = fake.requests.find((request) => request.method === "sendRichMessage");
+    first = keyboardOf(sent?.params);
+    const botButton = first.flat().find((button) => button.text === "Bot");
+    if (botButton === undefined) throw new Error("No Bot button");
+    fake.enqueue(FakeBotApiReply.ok({ id: 123456, is_bot: true, first_name: "Test", username: "testbot" }));
+    fake.enqueue(FakeBotApiReply.ok(true));
+    fake.enqueue(FakeBotApiReply.ok(true));
+    const callback: Update = {
+      callbackQuery: {
+        chatInstance: "stats-chat",
+        data: botButton.callback_data,
+        from: { firstName: "Ayaan", id: 1, isBot: false, username: "obviyus" },
+        id: "stats-callback",
+        message: {
+          chat: { id: -1007, title: "Telly Lab", type: "supergroup" },
+          date: 1_700_000_001,
+          messageId: 91,
+        },
+      },
+      updateId: 405,
+    };
+    await app.run(bot.handler(callback));
+    edit = fake.requests.find((request) => request.method === "editMessageText")?.params;
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  expect(first.map((row) => row.map((button) => button.text))).toEqual([
+    ["• Today", "All time", "Me"],
+    ["Friends", "Bot"],
+  ]);
+  const content = richContent(edit);
+  expect(content.text).toContain("Users:");
+  expect(content.text).toContain("/ask");
+  expect(keyboardOf(edit)[1]?.map((button) => button.text)).toEqual(["Friends", "• Bot"]);
+});
+
+test("stats for a named member shows their weekly card", async () => {
+  const { app, bot, database, fake } = await fixture(offline, [
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+  ]);
+  await Effect.runPromise(database.batch([
+    { sql: "INSERT INTO user_stats (user_id, username, first_name) VALUES (?, ?, ?)", args: [2, "alice", "Alice"] },
+    { sql: "INSERT INTO chat_stats (chat_id, user_id, message_id, create_time) VALUES (?, ?, ?, datetime('now'))", args: [-1007, 2, 1] },
+  ]));
+
+  try {
+    await app.run(bot.handler(commandUpdate("/stats @Alice", 406)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+
+  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
+  const content = richContent(reply?.params);
+  expect(content.text).toContain("👤 alice");
+  expect(content.text).toContain("Lifetime");
+  expect(keyboardOf(reply?.params).flat().some((button) => button.text.startsWith("•"))).toBe(false);
 });
