@@ -17,7 +17,7 @@ import { replyBlocks, rich } from "./app/rich.ts";
 import { basicCommands } from "./features/basic.ts";
 import { informationCommands } from "./features/information.ts";
 import { moderationCommands } from "./features/moderation.ts";
-import { statsCommands } from "./features/stats.ts";
+import { statsCallback, statsCommands } from "./features/stats.ts";
 import { storageCommands } from "./features/storage.ts";
 import { settingsCallback, settingsCommands } from "./features/settings.ts";
 import { summonFeature } from "./features/summon.ts";
@@ -82,6 +82,7 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
       defineBot({ commands: commandHandlers(definitions, dependencies) }),
       routes(
         settingsCallback(dependencies),
+        statsCallback(dependencies),
         summon.callback,
         habit.callback,
         highlight.callback,
