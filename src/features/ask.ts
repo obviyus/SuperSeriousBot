@@ -221,15 +221,22 @@ function editCommand(ai: Ai): CommandDefinition {
     example: "/edit Make it look like a painting",
     names: ["edit"],
     run: Effect.fn("editImage")(function* (match) {
-      if (match.argText.length === 0) {
+      const replied = match.message.replyToMessage;
+      // Like /ask, a replied message's text or caption becomes part of the prompt.
+      const replyText = replied === undefined ? undefined : messageText(replied)?.trim().slice(0, 2_000);
+      const context = replyText === undefined || replyText.length === 0 ? undefined : replyText;
+      const instruction = match.argText.length > 0 ? match.argText : context;
+      if (instruction === undefined) {
         return yield* answer(match.message, "Please provide a prompt describing the image.");
       }
-      const replied = match.message.replyToMessage;
+      const prompt = match.argText.length > 0 && context !== undefined
+        ? `${match.argText}\n\nReplied message: ${context}`
+        : instruction;
       const attachedImage = yield* messageImage(match.message, true);
       const source = attachedImage === undefined && replied !== undefined
         ? yield* messageImage(replied, true)
         : attachedImage;
-      const generated = yield* ai.image(match.argText, source).pipe(Effect.catch((error) => answer(
+      const generated = yield* ai.image(prompt, source).pipe(Effect.catch((error) => answer(
         match.message,
         error._tag === "AiError" && error.description === "moderation"
           ? "The generated image was rejected by content moderation. Try a different prompt or source image."
@@ -240,7 +247,7 @@ function editCommand(ai: Ai): CommandDefinition {
         ? `User ${match.message.from?.id ?? "unknown"}`
         : `@${match.message.from.username}`;
       yield* sendPhoto({
-        caption: `📝 Requested by ${requester}\n🎨 Prompt: ${match.argText}`,
+        caption: `📝 Requested by ${requester}\n🎨 Prompt: ${instruction}`.slice(0, 1_024),
         chatId: match.message.chat.id,
         photo: new File([new Uint8Array(generated)], "generated.png", { type: "image/png" }),
       });
