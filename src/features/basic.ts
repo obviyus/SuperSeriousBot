@@ -11,9 +11,6 @@ import {
 import { answer, type CommandDefinition } from "../app/command.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
 
-const DogResponse = Schema.Struct({ message: Schema.String });
-const FoxResponse = Schema.Struct({ image: Schema.String });
-const CatResponse = Schema.Array(Schema.Struct({ url: Schema.String }));
 const JokeResponse = Schema.Struct({
   delivery: Schema.optionalKey(Schema.String),
   setup: Schema.optionalKey(Schema.String),
@@ -24,56 +21,8 @@ const MemeResponse = Schema.Struct({
 });
 const InsultResponse = Schema.Struct({ insult: Schema.optionalKey(Schema.String) });
 
-function animalCommand(dependencies: AppDependencies): CommandDefinition {
-  return {
-    description: "Get a random image of the selected animal.",
-    example: "/fox, /shiba, /cat",
-    names: ["fox", "shiba", "cat"],
-    run: Effect.fn("animal")(function* (match) {
-      const imageUrl = yield* (() => {
-        switch (match.command) {
-          case "shiba":
-            return dependencies.http.json(
-              "dog.ceo",
-              "https://dog.ceo/api/breed/shiba/images/random",
-              DogResponse,
-            ).pipe(Effect.map((response) => response.data.message));
-          case "fox":
-            return dependencies.http.json(
-              "randomfox",
-              "https://randomfox.ca/floof/",
-              FoxResponse,
-            ).pipe(Effect.map((response) => response.data.image));
-          case "cat":
-            return dependencies.http.json(
-              "thecatapi",
-              "https://api.thecatapi.com/v1/images/search",
-              CatResponse,
-            ).pipe(Effect.flatMap((response) => {
-              const first = response.data[0];
-              return first === undefined
-                ? Effect.fail(new Error("Cat API returned no image"))
-                : Effect.succeed(first.url);
-            }));
-          default:
-            return Effect.fail(new Error(`Unknown animal command: ${match.command}`));
-        }
-      })().pipe(
-        Effect.catch(() => answer(
-          match.message,
-          `Failed to fetch ${match.command} image. Please try again later.`,
-        ).pipe(Effect.as(undefined))),
-      );
-      if (imageUrl === undefined) return;
-      yield* sendPhoto({ ...respondTo(match.message), photo: imageUrl });
-    }),
-    usage: "/fox, /shiba, /cat",
-  };
-}
-
 export function basicCommands(dependencies: AppDependencies): ReadonlyArray<CommandDefinition> {
   return [
-    animalCommand(dependencies),
     {
       description: "Pong.",
       example: "/ping",

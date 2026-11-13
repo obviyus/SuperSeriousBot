@@ -17,14 +17,13 @@ test("model command updates every AI model in one database write", async () => {
     await app.close();
   }
   const row = await Effect.runPromise(database.one(
-    `SELECT ask_model, cron_model, edit_model, search_model,
+    `SELECT ask_model, edit_model, search_model,
             song_model, tr_model, tldr_model, video_model, based_model
      FROM group_settings WHERE chat_id = -1`,
   ));
   database.close();
 
   expect(row?.["ask_model"]).toBe("openrouter/test/model");
-  expect(row?.["cron_model"]).toBe("openrouter/test/model");
   expect(row?.["edit_model"]).toBe("openrouter/test/model");
   expect(row?.["search_model"]).toBe("openrouter/test/model");
   expect(row?.["song_model"]).toBe("openrouter/test/model");

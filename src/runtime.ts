@@ -72,7 +72,6 @@ export function runtimeJobs(
 ) {
   return defineJobs({
     habit: recurring("habit", () => runtime.workers.habit()),
-    cron: recurring("cron", () => runtime.workers.cron()),
     quotas: recurring("quotas", () => resetCommandLimits(dependencies)),
     reminders: recurring("reminders", () => runtime.workers.reminders()),
     searchIndex: recurring("searchIndex", () => runtime.workers.search.index()),
@@ -82,11 +81,10 @@ export function runtimeJobs(
 
 // Repeating jobs persist by name. Cancel removed ones so the worker does not
 // retry a job it can no longer run.
-const retiredJobs = ["footballAlerts", "footballSync"] as const;
+const retiredJobs = ["cron", "footballAlerts", "footballSync"] as const;
 
 const schedules = [
   ["reminders", "00:00:00", "1 minute"],
-  ["cron", "00:00:00", "1 minute"],
   ["habit", "14:30:00", "1 day"],
   ["quotas", "18:30:00", "1 day"],
   ["searchIndex", "00:00:30", "15 minutes"],

@@ -30,7 +30,6 @@ import { contentCommands } from "./features/content.ts";
 import { catalogCommands } from "./features/catalog.ts";
 import { reactionHandler, sedHandler } from "./features/passive.ts";
 import { downloadFeature } from "./features/download.ts";
-import { cronFeature } from "./features/cron.ts";
 import { songCommand } from "./features/song.ts";
 import { videoCommand } from "./features/video.ts";
 import { searchFeature } from "./features/search.ts";
@@ -41,7 +40,6 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
   const highlight = highlightFeature(dependencies);
   const reminders = reminderFeature(dependencies);
   const downloads = downloadFeature(dependencies);
-  const cron = cronFeature(dependencies);
   const search = searchFeature(dependencies);
   const featureCommands = [
     ...basicCommands(dependencies),
@@ -58,7 +56,6 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
     ...contentCommands(dependencies),
     ...catalogCommands(dependencies),
     ...downloads.commands,
-    ...cron.commands,
     songCommand(dependencies),
     videoCommand(dependencies),
     ...search.commands,
@@ -88,7 +85,6 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
         summon.callback,
         habit.callback,
         highlight.callback,
-        cron.callback,
         on(callbackQuery(), ({ callbackQuery: query }) =>
           answerCallback(query, { text: "This button expired." })),
       ),
@@ -99,7 +95,6 @@ export function createSuperSeriousBot(dependencies: AppDependencies) {
       downloads.handler,
     ),
     workers: {
-      cron: cron.worker,
       habit: habit.worker,
       reminders: reminders.worker,
       search: search.workers,

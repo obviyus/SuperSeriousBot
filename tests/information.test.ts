@@ -22,31 +22,6 @@ function translationResponse(...sentences: ReadonlyArray<string>): Response {
   return new Response(`)]}'\n\n${payload}\n`);
 }
 
-test("define command renders the first dictionary meaning", async () => {
-  const send: Fetch = async () => new Response(JSON.stringify([{
-    meanings: [{
-      definitions: [{ definition: "Existing after death.", synonyms: ["late", "postmortem"] }],
-      partOfSpeech: "adjective",
-    }],
-    phonetics: [{ text: "/ˈpɒstjʊməs/" }],
-    word: "posthumous",
-  }]));
-  const { app, bot, database, fake } = await fixture(send, presence());
-
-  try {
-    await app.run(bot.handler(commandUpdate("/define posthumous", 201)));
-  } finally {
-    await app.close();
-    database.close();
-  }
-
-  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
-  const content = richContent(reply?.params);
-  expect(content.text).toContain("Existing after death.");
-  expect(content.text).toContain("late");
-  expect(content.types).toContain("details");
-});
-
 test("Urban Dictionary command selects the highest-voted definition", async () => {
   const send: Fetch = async () => new Response(JSON.stringify({
     list: [

@@ -15,19 +15,6 @@ import { HttpError } from "../app/http.ts";
 import { replyBlocks, rich } from "../app/rich.ts";
 import { truncate } from "../app/text.ts";
 
-const DictionaryResponse = Schema.Array(Schema.Struct({
-  meanings: Schema.optionalKey(Schema.Array(Schema.Struct({
-    definitions: Schema.optionalKey(Schema.Array(Schema.Struct({
-      definition: Schema.String,
-      synonyms: Schema.optionalKey(Schema.Array(Schema.String)),
-    }))),
-    partOfSpeech: Schema.optionalKey(Schema.String),
-  }))),
-  phonetics: Schema.optionalKey(Schema.Array(Schema.Struct({
-    text: Schema.optionalKey(Schema.String),
-  }))),
-  word: Schema.String,
-}));
 
 const UrbanEntry = Schema.Struct({
   date: Schema.optionalKey(Schema.String),
@@ -71,44 +58,6 @@ const AqiResponse = Schema.Struct({
 });
 const TranslationResponse = Schema.Struct({ text: Schema.NonEmptyString });
 const translationUnavailable = "Translation service is unavailable. Please try again later.";
-
-function definitionCommand(dependencies: AppDependencies): CommandDefinition {
-  const definition: CommandDefinition = {
-    description: "Define a word.",
-    example: "/define posthumous",
-    names: ["define", "d"],
-    run: Effect.fn("define")(function* (match) {
-      if (match.argText.length === 0) return yield* usage(match.message, definition);
-      const response = yield* dependencies.http.json(
-        "dictionaryapi",
-        `https://api.dictionaryapi.dev/api/v2/entries/en_US/${encodeURIComponent(match.argText)}`,
-        DictionaryResponse,
-      ).pipe(Effect.catch(() => Effect.succeed(undefined)));
-      const entry = response?.status === 200 ? response.data[0] : undefined;
-      if (entry === undefined) return yield* answer(match.message, "Word not found.");
-      const phonetic = entry.phonetics?.find((item) => item.text !== undefined)?.text;
-      const meaning = entry.meanings?.[0];
-      const firstDefinition = meaning?.definitions?.[0];
-      const blocks = [rich.heading(`📖 ${entry.word}`)];
-      if (phonetic !== undefined) blocks.push(rich.paragraph(["🗣️ ", rich.code(phonetic)]));
-      if (meaning?.partOfSpeech !== undefined && firstDefinition !== undefined) {
-        blocks.push(rich.heading(meaning.partOfSpeech, 4));
-        blocks.push(rich.paragraph(firstDefinition.definition));
-        const synonyms = firstDefinition.synonyms?.slice(0, 2) ?? [];
-        if (synonyms.length > 0) {
-          blocks.push({
-            blocks: [rich.list(synonyms)],
-            summary: "Synonyms",
-            type: "details",
-          });
-        }
-      }
-      return yield* replyBlocks(match.message, blocks);
-    }),
-    usage: "/define [word]",
-  };
-  return definition;
-}
 
 function urbanDictionaryCommand(dependencies: AppDependencies): CommandDefinition {
   return {
@@ -353,7 +302,6 @@ export function informationCommands(
   dependencies: AppDependencies,
 ): ReadonlyArray<CommandDefinition> {
   return [
-    definitionCommand(dependencies),
     urbanDictionaryCommand(dependencies),
     calculationCommand(dependencies),
     translationCommand(dependencies),
