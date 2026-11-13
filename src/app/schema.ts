@@ -206,34 +206,8 @@ const statements = [
     summary TEXT,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
-  `CREATE TABLE IF NOT EXISTS cron_tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    chat_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    title TEXT NOT NULL,
-    task TEXT NOT NULL,
-    cron_expr TEXT NOT NULL,
-    timezone TEXT NOT NULL,
-    enabled INTEGER NOT NULL DEFAULT 1,
-    next_run_time INTEGER,
-    claim_time INTEGER,
-    attempt_count INTEGER NOT NULL DEFAULT 0,
-    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`,
-  `CREATE INDEX IF NOT EXISTS cron_tasks_enabled_index
-    ON cron_tasks (enabled, next_run_time)`,
-  `CREATE TABLE IF NOT EXISTS cron_runs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cron_task_id INTEGER NOT NULL,
-    status TEXT NOT NULL,
-    result_text TEXT,
-    error_text TEXT,
-    start_time DATETIME NOT NULL,
-    finish_time DATETIME NOT NULL
-  )`,
-  `CREATE INDEX IF NOT EXISTS cron_runs_task_id_desc_index
-    ON cron_runs (cron_task_id, id DESC)`,
+  `DROP TABLE IF EXISTS cron_runs`,
+  `DROP TABLE IF EXISTS cron_tasks`,
   `DROP TABLE IF EXISTS football_alert_deliveries`,
   `DROP TABLE IF EXISTS football_alert_members`,
   `DROP TABLE IF EXISTS football_fixtures`,
@@ -324,17 +298,6 @@ export function initializeDatabase(database: Database) {
       concurrency: 1,
       discard: true,
     });
-    const columns = yield* database.all("PRAGMA table_info(cron_tasks)");
-    const names = new Set(columns.map((row) => row["name"]));
-    for (const [name, definition] of [
-      ["next_run_time", "INTEGER"],
-      ["claim_time", "INTEGER"],
-      ["attempt_count", "INTEGER NOT NULL DEFAULT 0"],
-    ] as const) {
-      if (!names.has(name)) yield* database.execute(
-        `ALTER TABLE cron_tasks ADD COLUMN ${name} ${definition}`,
-      );
-    }
     yield* migrateModelSettings(database);
   });
 }

@@ -15,7 +15,7 @@ SuperSeriousBot has grown with its groups for years. It combines AI, media, sear
 - Group memory: semantic `/search`, citations, member personas, and group lore
 - Media: `/set`, `/get`, `/dl`, automatic reel downloads, memes, and quotes
 - Social: `/summon`, `/habit`, `/highlight`, reactions, mentions, and `sed` corrections
-- Utilities: reminders, scheduled AI tasks, weather, books, games, and translation
+- Utilities: reminders, weather, books, games, and translation
 - Operations: durable Telly inboxes and jobs, polling or webhooks, command quotas, and failure records
 
 Run `/help` to see the commands enabled by the configured API keys.
@@ -72,7 +72,7 @@ Required environment values:
 
 Optional integrations:
 
-- `OPENROUTER_API_KEY`: AI, image, video, transcription, summaries, search, and cron
+- `OPENROUTER_API_KEY`: AI, image, video, transcription, summaries, and search
 - `OPENROUTER_BASE_URL`: optional OpenRouter-compatible endpoint for local testing
 - `BASED_PROVIDER`: `local` (default) or `nanogpt` for `/based`
 - `BASED_MODEL`: model ID for `/based`

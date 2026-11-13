@@ -42,12 +42,11 @@ test("database from all 33 Python migrations preserves rows during TypeScript in
     "SELECT fts, auto_dl, search_model, video_model, based_model FROM group_settings WHERE chat_id = ?",
     [-1007],
   ));
-  const cronColumns = await Effect.runPromise(database.all("PRAGMA table_info(cron_tasks)"));
   const legacyTable = await Effect.runPromise(database.one(
     "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'tv_shows'",
   ));
   const footballTables = await Effect.runPromise(database.all(
-    "SELECT name FROM sqlite_schema WHERE name LIKE 'football%'",
+    "SELECT name FROM sqlite_schema WHERE name LIKE 'football%' OR name LIKE 'cron%'",
   ));
   database.close();
 
@@ -60,11 +59,6 @@ test("database from all 33 Python migrations preserves rows during TypeScript in
     video_model: null,
     based_model: null,
   });
-  expect(cronColumns.map((row) => row["name"])).toEqual(expect.arrayContaining([
-    "next_run_time",
-    "claim_time",
-    "attempt_count",
-  ]));
   expect(legacyTable?.["name"]).toBe("tv_shows");
   expect(footballTables).toEqual([]);
 });

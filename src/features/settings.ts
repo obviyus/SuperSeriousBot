@@ -21,7 +21,6 @@ import { replyBlocks, rich } from "../app/rich.ts";
 
 const defaultModels = {
   ask: "openrouter/x-ai/grok-4.3",
-  cron: "openrouter/x-ai/grok-4.3",
   edit: "openrouter/google/gemini-3.1-flash-image-preview",
   search: "openrouter/openai/gpt-5.6-luna",
   song: "openrouter/x-ai/grok-4.3",
@@ -49,7 +48,6 @@ const toggleDefinitions = [
   { key: "tr", label: "/tr", table: "command_whitelist" },
   { key: "tldr", label: "/tldr", table: "command_whitelist" },
   { key: "search", label: "/search", table: "command_whitelist" },
-  { key: "cron", label: "/cron", table: "command_whitelist" },
   { key: "song", label: "/song", table: "command_whitelist" },
 ] as const;
 

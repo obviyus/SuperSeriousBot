@@ -89,11 +89,11 @@ test("bot registers every migrated command name", async () => {
   await app.close();
   database.close();
   expect(names).toEqual([
-    "addquote", "ask", "based", "block", "blocklist", "book", "botstats", "calc", "cat",
-    "cron", "d", "define", "dl", "edit", "enable_fts", "fox", "friends",
+    "addquote", "ask", "based", "block", "blocklist", "book", "botstats", "calc",
+    "dl", "edit", "enable_fts", "friends",
     "get", "groups", "gstats", "habit", "hb", "help", "highlight", "hl", "hltb",
     "import", "insult", "joke", "meme", "model", "ping", "q", "quote",
-    "remind", "search", "seen", "set", "settings", "shiba", "song", "stats", "summon",
+    "remind", "search", "seen", "set", "settings", "song", "stats", "summon",
     "thinking", "tl", "tldr", "tldw", "tr", "ud", "unblock", "unwhitelist", "users",
     "userstats", "ustat", "ustats", "video", "w", "weather", "whitelist",
   ]);
@@ -132,7 +132,6 @@ test("runtime registers every recurring worker", async () => {
 
   await scheduleRuntimeJobs(jobsApp, jobs);
   const cancelled = await Promise.all([
-    "cron",
     "habit",
     "quotas",
     "reminders",
@@ -143,7 +142,7 @@ test("runtime registers every recurring worker", async () => {
   await app.close();
   database.close();
 
-  expect(cancelled).toEqual([true, true, true, true, true, true]);
+  expect(cancelled).toEqual([true, true, true, true, true]);
 });
 
 test("runtime cancels schedules for removed football jobs", async () => {

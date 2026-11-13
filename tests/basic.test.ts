@@ -5,31 +5,6 @@ import { FakeBotApiReply } from "telly/testing";
 import type { Fetch } from "../src/app/http.ts";
 import { commandUpdate, fixture, sentMessage } from "./harness.ts";
 
-test("shiba command sends the image returned by Dog CEO", async () => {
-  const send: Fetch = async () => new Response(JSON.stringify({
-    message: "https://images.example/shiba.jpg",
-    status: "success",
-  }), { headers: { "content-type": "application/json" } });
-  const { app, bot, database, fake } = await fixture(send, [
-    FakeBotApiReply.ok(true),
-    FakeBotApiReply.ok(true),
-    sentMessage(91),
-  ]);
-
-  try {
-    await app.run(bot.handler(commandUpdate("/shiba", 81)));
-  } finally {
-    await app.close();
-    database.close();
-  }
-
-  const photo = fake.requests.find((request) => request.method === "sendPhoto");
-  expect(photo?.params).toMatchObject({
-    chat_id: -1007,
-    photo: "https://images.example/shiba.jpg",
-  });
-});
-
 test("meme command skips unsafe results before sending a photo", async () => {
   let calls = 0;
   const send: Fetch = async () => {
@@ -84,11 +59,11 @@ test("blocked command stops before its provider and records the outcome", async 
   const { app, bot, database, fake } = await fixture(send);
   await Effect.runPromise(database.execute(
     "INSERT INTO command_blocklist (user_id, command, blocked_by) VALUES (?, ?, ?)",
-    [1, "fox", 9],
+    [1, "joke", 9],
   ));
 
   try {
-    await app.run(bot.handler(commandUpdate("/fox", 84)));
+    await app.run(bot.handler(commandUpdate("/joke", 84)));
   } finally {
     await app.close();
   }
