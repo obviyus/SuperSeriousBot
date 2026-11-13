@@ -4,8 +4,7 @@ import { loadConfig } from "./app/config.ts";
 import { Database } from "./app/database.ts";
 import type { AppDependencies } from "./app/dependencies.ts";
 import { Http } from "./app/http.ts";
-import { migrateQuerySchema } from "./app/query-schema.ts";
-import { initializeDatabase, migrateModelSettings } from "./app/schema.ts";
+import { initializeDatabase } from "./app/schema.ts";
 import { createSuperSeriousBot } from "./bot.ts";
 
 interface UsageFilters {
@@ -91,22 +90,12 @@ function chatIds(args: ReadonlyArray<string>): ReadonlyArray<number> | undefined
 
 async function main(): Promise<void> {
   const [operation, ...args] = Bun.argv.slice(2);
-  if (!new Set(["usage", "search-index", "search-memory", "migrate-query-schema", "migrate-model-settings"]).has(operation ?? "")) {
-    throw new Error("Usage: bun run operator <usage|search-index|search-memory|migrate-query-schema|migrate-model-settings> [options]");
+  if (!new Set(["usage", "search-index", "search-memory"]).has(operation ?? "")) {
+    throw new Error("Usage: bun run operator <usage|search-index|search-memory> [options]");
   }
   const config = loadConfig();
   const database = Database.open(config);
   try {
-    if (operation === "migrate-model-settings") {
-      await Effect.runPromise(migrateModelSettings(database));
-      console.log("Model settings schema is ready.");
-      return;
-    }
-    if (operation === "migrate-query-schema") {
-      await Effect.runPromise(migrateQuerySchema(database));
-      console.log("Query indexes and search progress schema are ready.");
-      return;
-    }
     await Effect.runPromise(initializeDatabase(database));
     if (operation === "usage") {
       const command = option(args, "--command");

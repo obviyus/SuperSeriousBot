@@ -3,8 +3,7 @@ import { Effect } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import { type Database } from "../src/app/database.ts";
-import { migrateQuerySchema, querySchema } from "../src/app/query-schema.ts";
-import { initializeDatabase } from "../src/app/schema.ts";
+import { querySchema } from "../src/app/query-schema.ts";
 import { createSuperSeriousBot } from "../src/bot.ts";
 import { commandUpdate, fixture, openRouterEmbeddings, openRouterText, testConfig } from "./harness.ts";
 
@@ -438,44 +437,6 @@ test("excluded command and null-text appends do not stop a captured prefix", asy
     expect(complete?.["end_message_id"]).toBe(42);
     expect(complete?.["revision"]).toBe(complete?.["indexed_revision"]);
     expect((await searchRows(database)).utterances.at(-1)?.["end_message_id"]).toBe(40);
-  } finally {
-    await app.close();
-    database.close();
-  }
-});
-
-test("generation migration preserves the old worker's append signal and requires no startup cutover", async () => {
-  const { app, bot, database } = await fixture(async (_input, init) => openRouterEmbeddings(String(init?.body)), [], testConfig({ openrouterApiKey: "test" }));
-  try {
-    await insertMessages(database, 1, 30);
-    await app.run(bot.workers.search.index([-1007]));
-    await Effect.runPromise(database.batch([
-      ...["source_insert", "source_update", "source_delete", "author_insert", "author_update", "author_delete"]
-        .map((name) => ({ sql: `DROP TRIGGER chat_search_${name}` })),
-      { sql: "ALTER TABLE chat_search_progress DROP COLUMN generation" },
-      { sql: `CREATE TRIGGER chat_search_source_insert AFTER INSERT ON chat_stats BEGIN
-          UPDATE chat_search_progress SET revision = revision + 1,
-            rebuild = CASE WHEN NEW.message_id <= end_message_id THEN 1 ELSE rebuild END
-          WHERE chat_id = NEW.chat_id;
-        END` },
-    ]));
-    const before = await searchRows(database);
-    await Effect.runPromise(migrateQuerySchema(database));
-    await Effect.runPromise(migrateQuerySchema(database));
-    expect(await searchRows(database)).toEqual(before);
-    const migrated = await Effect.runPromise(database.one("SELECT revision, indexed_revision, generation FROM chat_search_progress"));
-    await insertMessages(database, 31, 1);
-    const pending = await Effect.runPromise(database.one("SELECT revision, indexed_revision, generation FROM chat_search_progress"));
-    expect(pending?.["revision"]).toBe(Number(migrated?.["revision"]) + 1);
-    expect(pending?.["indexed_revision"]).toBe(migrated?.["indexed_revision"]);
-    expect(pending?.["generation"]).toBe(migrated?.["generation"]);
-    const schemaVersion = await Effect.runPromise(database.one("PRAGMA schema_version"));
-    await Effect.runPromise(initializeDatabase(database));
-    expect(await Effect.runPromise(database.one("PRAGMA schema_version"))).toEqual(schemaVersion);
-    await app.run(bot.workers.search.index([-1007]));
-    const complete = await Effect.runPromise(database.one("SELECT revision, indexed_revision, end_message_id FROM chat_search_progress"));
-    expect(complete?.["end_message_id"]).toBe(31);
-    expect(complete?.["revision"]).toBe(complete?.["indexed_revision"]);
   } finally {
     await app.close();
     database.close();

@@ -136,7 +136,7 @@ The image installs `ffmpeg` and `yt-dlp`. The `db` volume stores Telly's durable
 bun run check
 ```
 
-The test suite drives the real Telly handler against its hermetic Bot API fake. It also checks compatibility with the schema produced by all 33 Python migrations.
+The test suite drives the real Telly handler against its hermetic Bot API fake.
 
 The local Test Server harness uses leased QA credentials from the Telly skill:
 
@@ -171,18 +171,6 @@ bun run operator usage --days 30 --status failed
 bun run operator search-index --chat-id -1001234567890
 bun run operator search-memory --chat-id -1001234567890
 ```
-
-Before deploying `/model based` to an existing database, run
-`bun run operator migrate-model-settings` with that database's environment. This
-adds the nullable model-setting field and preserves existing settings. Run it
-separately before replacing the bot.
-
-Before deploying the incremental search indexer to an existing database, run
-`bun run operator migrate-query-schema` with that database's environment.
-The migration adds the generation column to existing search progress and replaces
-the source-change triggers in one transaction. It preserves existing rows and the
-previous indexer's append notifications, and is safe to run again. Run it separately
-before replacing the running bot; startup does not upgrade existing progress.
 
 Indexing saves progress separately for each chat and embedding configuration.
 Unchanged chats do no indexing work. New messages extend the unfinished windows

@@ -12,12 +12,6 @@ db/
 dist/
 coverage/
 
-.venv/
-.pytest_cache/
-.ruff_cache/
-__pycache__/
-*.py[cod]
-
 .DS_Store
 .idea/
 .vscode/
