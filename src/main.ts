@@ -13,6 +13,7 @@ import {
   SqliteJobs,
 } from "telly";
 
+import { conversationKey } from "./app/dispatch.ts";
 import { loadConfig } from "./app/config.ts";
 import { Database } from "./app/database.ts";
 import type { AppDependencies } from "./app/dependencies.ts";
@@ -48,6 +49,7 @@ async function main(): Promise<void> {
   const app = Application.make({
     ...(config.telegramApiRoot === undefined ? {} : { apiRoot: config.telegramApiRoot }),
     inbox,
+    inboxOptions: { conversationKey },
     jobs,
     token: config.telegramToken,
   });
