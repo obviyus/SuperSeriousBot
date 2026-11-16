@@ -403,6 +403,7 @@ test("memory worker stores filtered personas, aliases, and lore", async () => {
   }));
   await Effect.runPromise(database.batch([
     { args: [-1007], sql: "INSERT INTO group_settings (chat_id, fts) VALUES (?, 1)" },
+    { sql: "INSERT INTO group_settings (chat_id, search_model) VALUES (-1, 'openrouter/test/memory-model')" },
     { sql: "INSERT INTO user_stats (user_id, username) VALUES (7, 'ayaan'), (8, 'MyTransformerIsFine')" },
     { sql: "INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text) VALUES (-1007, 8, 199, '2026-01-01', 'OPTED OUT TEXT'), (-1007, 7, 200, '2026-01-01', 'camera chat')" },
     ...optedOut,
@@ -424,6 +425,7 @@ test("memory worker stores filtered personas, aliases, and lore", async () => {
 
   try {
     await app.run(bot.workers.search.memory());
+    await app.run(bot.workers.search.memory());
   } finally {
     await app.close();
   }
@@ -441,7 +443,9 @@ test("memory worker stores filtered personas, aliases, and lore", async () => {
   ));
   database.close();
 
+  // The second run has no new messages, so it makes no model calls.
   expect(prompts).toHaveLength(2);
+  expect(prompts[0]).toContain('"model":"test/memory-model"');
   expect(prompts.join("\n")).not.toContain("OPTED OUT");
   expect(prompts[1]).toContain("200 2026-01-01 @ayaan: camera chat");
   expect(persona).toMatchObject({ receipts: "[200]", sheet: "Designs excellent products [msg:200]" });

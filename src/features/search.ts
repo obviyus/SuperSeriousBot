@@ -696,8 +696,14 @@ function buildMemory(dependencies: AppDependencies, ai: Ai, chatId: number) {
        GROUP BY utterances.user_id HAVING count >= 200`,
       [chatId],
     )).filter((row) => !excluded.has(rowNumber(row, "user_id")));
+    // The daily job only pays to summarise members and lore with new messages.
+    const summarised = new Map((yield* dependencies.database.all(
+      "SELECT user_id, source_end_message_id FROM chat_personas WHERE chat_id = ?",
+      [chatId],
+    )).map((row) => [rowNumber(row, "user_id"), rowNumber(row, "source_end_message_id")]));
     for (const member of members) {
       const userId = rowNumber(member, "user_id");
+      if ((summarised.get(userId) ?? -1) >= rowNumber(member, "end_message_id")) continue;
       const utterances = yield* dependencies.database.all(
         `SELECT end_message_id, end_time, author, message_text
          FROM chat_search_utterances WHERE chat_id = ? AND user_id = ?
@@ -713,7 +719,7 @@ function buildMemory(dependencies: AppDependencies, ai: Ai, chatId: number) {
           role: "system",
         },
         { content: context, role: "user" },
-      ], Persona, { maxTokens: 2_000, model: "openai/gpt-5.6-luna" });
+      ], Persona, { maxTokens: 2_000 });
       const allowedReceipts = new Set(context.match(/^-?\d+/gmu)?.map(Number) ?? []);
       const receipts: Array<number> = [];
       const sheet = persona.sheet.replace(
@@ -754,6 +760,12 @@ function buildMemory(dependencies: AppDependencies, ai: Ai, chatId: number) {
       [chatId],
     );
     if (windows.length === 0) return;
+    const loreEnd = yield* dependencies.database.one(
+      "SELECT MAX(source_end_message_id) AS end_message_id FROM chat_lore WHERE chat_id = ?",
+      [chatId],
+    );
+    if (loreEnd !== undefined && loreEnd["end_message_id"] !== null &&
+      rowNumber(loreEnd, "end_message_id") >= rowNumber(windows[0]!, "end_message_id")) return;
     // Window text mixes speakers, so rebuild the lore source without excluded members.
     const messages = (yield* sourceMessages(
       dependencies,
@@ -779,7 +791,7 @@ function buildMemory(dependencies: AppDependencies, ai: Ai, chatId: number) {
           `${message.messageId} ${message.createTime} ${message.author}: ${message.text}`).join("\n"),
         role: "user",
       },
-    ], Lore, { maxTokens: 3_000, model: "openai/gpt-5.6-luna" });
+    ], Lore, { maxTokens: 3_000 });
     const allowed = new Set(messages.map((message) => message.messageId));
     for (const item of lore.items) {
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(item.topic)) continue;
