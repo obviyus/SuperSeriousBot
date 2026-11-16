@@ -41,6 +41,20 @@ const localSchema = `
     first_message_time TEXT,
     last_message_time TEXT
   );
+  CREATE TABLE IF NOT EXISTS lore (
+    topic TEXT PRIMARY KEY,
+    summary TEXT NOT NULL,
+    receipts TEXT NOT NULL,
+    update_time TEXT
+  );
+  CREATE VIRTUAL TABLE IF NOT EXISTS lore_fts USING fts5(
+    topic, summary, content = 'lore', tokenize = 'unicode61 remove_diacritics 2'
+  );
+  CREATE TABLE IF NOT EXISTS past_answers (
+    time TEXT NOT NULL,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS membership (
     user_id INTEGER PRIMARY KEY,
     status TEXT NOT NULL,
@@ -185,6 +199,36 @@ const syncChat = Effect.fn("syncSearchStore")(function* (
       "SELECT user_id, sheet FROM chat_personas WHERE chat_id = ?",
       [chatId],
     );
+    // Lore and recent /search answers are small, so they are replaced every sync.
+    const lore = yield* dependencies.database.all(
+      "SELECT topic, summary, receipts, update_time FROM chat_lore WHERE chat_id = ?",
+      [chatId],
+    );
+    const answers = yield* dependencies.database.all(
+      `SELECT create_time, question, answer FROM search_events
+       WHERE chat_id = ? ORDER BY id DESC LIMIT 60`,
+      [chatId],
+    );
+    store.transaction(() => {
+      const known = store.prepare("SELECT 1 FROM messages WHERE message_id = ?");
+      store.exec("DELETE FROM lore; INSERT INTO lore_fts (lore_fts) VALUES ('delete-all'); DELETE FROM past_answers");
+      const addLore = store.prepare("INSERT INTO lore (topic, summary, receipts, update_time) VALUES (?, ?, ?, ?)");
+      for (const row of lore) {
+        let ids: Array<number> = [];
+        try {
+          const parsed: unknown = JSON.parse(String(row["receipts"]));
+          if (Array.isArray(parsed)) ids = parsed.filter((id): id is number => typeof id === "number");
+        } catch {
+          // A malformed receipt list keeps the topic without receipts.
+        }
+        // Receipts point only at messages in this copy, never at opted-out members.
+        const receipts = ids.filter((id) => known.get(id) !== null);
+        addLore.run(String(row["topic"]), String(row["summary"]), JSON.stringify(receipts), row["update_time"] === null ? null : String(row["update_time"]));
+      }
+      store.exec("INSERT INTO lore_fts (rowid, topic, summary) SELECT rowid, topic, summary FROM lore");
+      const addAnswer = store.prepare("INSERT INTO past_answers (time, question, answer) VALUES (?, ?, ?)");
+      for (const row of answers) addAnswer.run(String(row["create_time"]), String(row["question"]), String(row["answer"]));
+    })();
     store.transaction(() => {
       const update = store.prepare(
         "UPDATE members SET username = ?, first_name = ?, aliases = ?, profile = ? WHERE user_id = ?",
