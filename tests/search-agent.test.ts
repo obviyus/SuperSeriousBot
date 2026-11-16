@@ -78,6 +78,7 @@ async function seed(database: Awaited<ReturnType<typeof fixture>>["database"]) {
       (-1007, 8, 150, 'my hero is Batman', '2026-11-16 14:46:00'),
       (-1007, 44, 151, 'OPTED OUT hero', '2026-11-16 14:47:00'),
       (-1007, 8, NULL, NULL, '2021-01-01 00:00:00'),
+      (-1007, 9, 50, 'left the group years ago', '2018-03-01 00:00:00'),
       (-1008, 7, 101, 'OTHER CHAT hero', '2026-11-16 14:45:00')` },
     { sql: "INSERT INTO chat_mentions (chat_id, mentioning_user_id, mentioned_user_id, message_id) VALUES (-1007, 8, 7, 98), (-1007, 8, 44, 150), (-1008, 7, 8, 101)" },
     { sql: "INSERT INTO chat_aliases (chat_id, user_id, alias, confidence, update_time) VALUES (-1007, 7, 'nathu', 1, '2026-01-01'), (-1007, 44, 'OPTED OUT ALIAS', 1, '2026-01-01')" },
@@ -108,7 +109,7 @@ test("search store copies one chat without opted-out members and syncs only new 
     expect(dump).not.toContain("OPTED OUT");
     expect(dump).not.toContain("OTHER CHAT");
     expect(store.query("SELECT message_id FROM messages ORDER BY message_id").all()).toEqual([
-      { message_id: 98 }, { message_id: 100 }, { message_id: 150 }, { message_id: 160 },
+      { message_id: 50 }, { message_id: 98 }, { message_id: 100 }, { message_id: 150 }, { message_id: 160 },
     ]);
     expect(store.query(
       "SELECT m.message_id FROM messages_fts f JOIN messages m ON m.message_id = f.rowid WHERE messages_fts MATCH 'hero*' AND m.user_id = 7 ORDER BY m.message_id",
@@ -127,23 +128,58 @@ test("search store copies one chat without opted-out members and syncs only new 
   }
 });
 
-test("agent queries cannot write, attach other files or run several statements", async () => {
-  for (const sql of [
-    "DELETE FROM messages",
-    "ATTACH '/app/db/telly-jobs.db' AS jobs",
-    "SELECT 1; SELECT 2",
-    "PRAGMA table_info(messages)",
-    "WITH x AS (SELECT 1) SELECT * FROM x WHERE 1 IN (SELECT 1 FROM pragma_database_list)",
-  ]) expect(checkQuery(sql)).toBeString();
-  expect(checkQuery("SELECT message_id FROM messages LIMIT 5;")).toBeUndefined();
+test("agent queries run unrestricted on a read-only copy but cannot open other files", async () => {
+  expect(checkQuery("ATTACH '/app/db/telly-jobs.db' AS jobs")).toBeString();
+  expect(checkQuery("SELECT load_extension('x')")).toBeString();
+  expect(checkQuery("PRAGMA table_info(messages)")).toBeUndefined();
 
   const path = join(state, "query.db");
   const store = new Sqlite(path, { create: true });
-  store.exec("CREATE TABLE messages (message_id INTEGER PRIMARY KEY, text TEXT); INSERT INTO messages VALUES (1, 'hi')");
+  store.exec("CREATE TABLE messages (message_id INTEGER PRIMARY KEY, text TEXT)");
+  const insert = store.prepare("INSERT INTO messages VALUES (?, ?)");
+  for (let id = 1; id <= 500; id += 1) insert.run(id, "x".repeat(1_000));
   store.close();
-  expect(await runQuery(path, "SELECT * FROM messages")).toEqual({ rows: [{ message_id: 1, text: "hi" }], truncated: false });
-  expect((await runQuery(path, "WITH gone AS (DELETE FROM messages RETURNING *) SELECT * FROM gone")).error).toBeString();
-  expect(new Sqlite(path).query("SELECT count(*) AS n FROM messages").get()).toEqual({ n: 1 });
+  const all = await runQuery(path, "SELECT * FROM messages");
+  expect(all.rows).toHaveLength(500);
+  expect(all.rows?.[0]).toEqual({ message_id: 1, text: "x".repeat(1_000) });
+  expect((await runQuery(path, "DELETE FROM messages")).error).toBeString();
+  expect(new Sqlite(path).query("SELECT count(*) AS n FROM messages").get()).toEqual({ n: 500 });
+  const stopped = new AbortController();
+  stopped.abort();
+  expect(await runQuery(path, "SELECT * FROM messages", stopped.signal)).toEqual({ error: "The search ended before this query finished." });
+});
+
+test("active members are regular recent posters still in the group", async () => {
+  const member = (id: number, status: string) => FakeBotApiReply.ok({ status, user: { first_name: `u${id}`, id, is_bot: false } });
+  const { app, bot, database, dependencies } = await fixture(
+    async () => new Response("{}"),
+    [member(7, "member"), member(8, "left"), member(9, "member")],
+    config("http://127.0.0.1:9"),
+  );
+  await seed(database);
+  try {
+    await Effect.runPromise(syncSearchStores(dependencies, [-1007]));
+    const writable = new Sqlite(searchStorePath(state, -1007));
+    const insert = writable.prepare("INSERT INTO messages (message_id, user_id, time, text) VALUES (?, ?, datetime('now', '-1 day'), 'hi')");
+    for (let index = 0; index < 25; index += 1) {
+      insert.run(10_000 + index, 7);
+      insert.run(20_000 + index, 8);
+    }
+    writable.close();
+    await app.run(bot.workers.search.membership([-1007]));
+    const store = new Sqlite(searchStorePath(state, -1007), { readonly: true });
+    // 7 posts and is in; 8 posts but left; 9 last posted in 2018.
+    expect(store.query("SELECT user_id FROM active_members").all()).toEqual([{ user_id: 7 }]);
+    expect(store.query("SELECT user_id, status FROM membership ORDER BY user_id").all()).toEqual([
+      { status: "member", user_id: 7 }, { status: "left", user_id: 8 }, { status: "member", user_id: 9 },
+    ]);
+    // A failed lookup (44 has no reply queued) records nothing.
+    expect(store.query("SELECT count(*) AS n FROM members WHERE user_id NOT IN (SELECT user_id FROM membership)").get()).toEqual({ n: 1 });
+    store.close();
+  } finally {
+    await app.close();
+    database.close();
+  }
 });
 
 test("search agent runs Pi with only the sql and answer tools and cites only returned messages", async () => {

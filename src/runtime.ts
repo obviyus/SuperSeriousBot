@@ -74,7 +74,9 @@ export function runtimeJobs(
     habit: recurring("habit", () => runtime.workers.habit()),
     quotas: recurring("quotas", () => resetCommandLimits(dependencies)),
     reminders: recurring("reminders", () => runtime.workers.reminders()),
-    searchIndex: recurring("searchIndex", () => runtime.workers.search.index()),
+    searchIndex: recurring("searchIndex", () => runtime.workers.search.index().pipe(
+      Effect.andThen(runtime.workers.search.membership()),
+    )),
     searchMemory: recurring("searchMemory", () => runtime.workers.search.memory()),
   }, { store });
 }

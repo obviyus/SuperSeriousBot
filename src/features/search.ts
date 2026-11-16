@@ -20,7 +20,7 @@ import type { AppDependencies } from "../app/dependencies.ts";
 import { replyRich } from "../app/rich.ts";
 import { getModel, normalizeModelName } from "./settings.ts";
 import { answerSearch, excludedUserIds } from "./search-agent.ts";
-import { searchStorePath, syncSearchStores } from "./search-store.ts";
+import { refreshSearchMembership, searchStorePath, syncSearchStores } from "./search-store.ts";
 
 const embeddingModel = "qwen/qwen3-embedding-8b";
 const Persona = Schema.Struct({
@@ -577,6 +577,16 @@ export function searchFeature(dependencies: AppDependencies) {
     );
     yield* syncSearchStores(dependencies, ids);
   });
+  // Needs the bot, so the scheduler runs it after indexing; the operator CLI
+  // only indexes.
+  const membership = Effect.fn("searchMembershipWorker")(function* (chatIds?: ReadonlyArray<number>) {
+    const ids = chatIds ?? (yield* dependencies.database.all(
+      "SELECT chat_id FROM group_settings WHERE fts = 1 ORDER BY chat_id",
+    )).map((chat) => rowNumber(chat, "chat_id"));
+    for (const chatId of ids) yield* refreshSearchMembership(dependencies.config.stateDirectory, chatId).pipe(
+      Effect.catchCause((cause) => Effect.logError("Search membership refresh failed", { chatId, cause })),
+    );
+  });
   const memory = Effect.fn("chatMemoryWorker")(function* (chatIds?: ReadonlyArray<number>) {
     const ids = chatIds ?? (yield* dependencies.database.all(
       "SELECT chat_id FROM group_settings WHERE fts = 1 ORDER BY chat_id",
@@ -587,6 +597,6 @@ export function searchFeature(dependencies: AppDependencies) {
   });
   return {
     commands: [searchCommand(dependencies), enableCommand(dependencies), importCommand(dependencies)] as const,
-    workers: { index, memory },
+    workers: { index, membership, memory },
   };
 }
