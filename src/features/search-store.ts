@@ -2,7 +2,7 @@ import { Database as Sqlite } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { Effect } from "telly";
+import { Effect, getChatMember } from "telly";
 
 import { rowNumber } from "../app/database.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
@@ -41,11 +41,25 @@ const localSchema = `
     first_message_time TEXT,
     last_message_time TEXT
   );
-  CREATE VIEW IF NOT EXISTS message_log AS
+  CREATE TABLE IF NOT EXISTS membership (
+    user_id INTEGER PRIMARY KEY,
+    status TEXT NOT NULL,
+    checked_time TEXT NOT NULL
+  );
+  DROP VIEW IF EXISTS message_log;
+  CREATE VIEW message_log AS
     SELECT m.message_id, m.time, m.user_id,
            COALESCE(u.first_name, u.username, CAST(m.user_id AS TEXT)) AS author,
            u.username, m.text, m.reply_to_message_id
     FROM messages m LEFT JOIN members u ON u.user_id = m.user_id;
+  -- Current members: still in the group (when Telegram has told us) and
+  -- regular posters lately, so drive-bys and people who left years ago drop out.
+  DROP VIEW IF EXISTS active_members;
+  CREATE VIEW active_members AS
+    SELECT u.* FROM members u LEFT JOIN membership s ON s.user_id = u.user_id
+    WHERE COALESCE(s.status, 'member') NOT IN ('left', 'kicked')
+      AND (SELECT count(*) FROM messages m
+           WHERE m.user_id = u.user_id AND m.time >= datetime('now', '-6 months')) >= 20;
   CREATE TABLE IF NOT EXISTS interactions (
     user_id INTEGER NOT NULL,
     other_user_id INTEGER NOT NULL,
@@ -207,5 +221,34 @@ export const syncSearchStores = Effect.fn("syncSearchStores")(function* (
         Effect.annotateLogs({ cause: String(cause), chatId }),
       )),
     );
+  }
+});
+
+// Asks Telegram whether each member is still in the group, at most once a day
+// per member. Lookup failures leave the last known status in place.
+export const refreshSearchMembership = Effect.fn("refreshSearchMembership")(function* (
+  stateDirectory: string,
+  chatId: number,
+) {
+  const path = searchStorePath(stateDirectory, chatId);
+  const store = openStore(path);
+  try {
+    const due = (store.query(
+      `SELECT u.user_id FROM members u LEFT JOIN membership s ON s.user_id = u.user_id
+       WHERE s.checked_time IS NULL OR s.checked_time < datetime('now', '-1 day') ORDER BY u.user_id`,
+    ).all() as Array<{ user_id: number }>).map((row) => row.user_id);
+    const statuses = yield* Effect.forEach(due, (userId) =>
+      Effect.result(getChatMember({ chatId, userId })).pipe(
+        Effect.map((result) => result._tag === "Success" ? [userId, result.success.status] as const : undefined),
+      ));
+    const save = store.prepare(
+      `INSERT INTO membership (user_id, status, checked_time) VALUES (?, ?, datetime('now'))
+       ON CONFLICT(user_id) DO UPDATE SET status = excluded.status, checked_time = excluded.checked_time`,
+    );
+    store.transaction(() => {
+      for (const entry of statuses) if (entry !== undefined) save.run(entry[0], entry[1]);
+    })();
+  } finally {
+    store.close();
   }
 });

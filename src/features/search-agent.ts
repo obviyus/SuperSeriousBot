@@ -12,8 +12,7 @@ import { richMarkdownPrompt } from "../app/rich.ts";
 import { getModel, normalizeModelName } from "./settings.ts";
 
 export const noAnswer = "You'll have to remind me of that one.";
-const timeoutMilliseconds = 150_000;
-const queryTimeoutMilliseconds = 10_000;
+const timeoutMilliseconds = 300_000;
 
 export function excludedUserIds(dependencies: AppDependencies) {
   const usernames = [...dependencies.config.searchExcludedUsers];
@@ -27,38 +26,34 @@ export function excludedUserIds(dependencies: AppDependencies) {
 interface SqlResult {
   readonly error?: string;
   readonly rows?: ReadonlyArray<Record<string, unknown>>;
-  readonly truncated?: boolean;
 }
 
-// One statement, read-only, with no ATTACH so a query cannot open another file.
+// The copy is already scoped to one chat, so the only thing a query must not
+// do is open another file: ATTACH could reach other chats' copies.
 export function checkQuery(sql: string): string | undefined {
-  const text = sql.trim().replace(/;+\s*$/u, "");
-  if (!/^(select|with|explain)\b/iu.test(text)) return "Only SELECT, WITH and EXPLAIN queries are allowed.";
-  if (/\battach\b|\bdetach\b|\bpragma|\bload_extension\b/iu.test(text)) return "ATTACH, PRAGMA and extensions are not allowed.";
-  if (text.includes(";")) return "Run one statement at a time.";
-  return undefined;
+  return /\battach\b|\bload_extension\b/iu.test(sql)
+    ? "ATTACH and extensions are not available; everything is in this database."
+    : undefined;
 }
 
-export function runQuery(path: string, sql: string): Promise<SqlResult> {
+export function runQuery(path: string, sql: string, signal?: AbortSignal): Promise<SqlResult> {
   const invalid = checkQuery(sql);
   if (invalid !== undefined) return Promise.resolve({ error: invalid });
+  // A worker keeps a long query off the bot's event loop. It runs until it
+  // finishes or the search itself ends.
   const worker = new Worker(new URL("./search-sql-worker.ts", import.meta.url));
   return new Promise<SqlResult>((resolve) => {
-    const timer = setTimeout(() => {
+    const finish = (result: SqlResult) => {
+      signal?.removeEventListener("abort", abort);
       void worker.terminate();
-      resolve({ error: `Query took longer than ${queryTimeoutMilliseconds / 1_000}s. Use the full-text index or a LIMIT.` });
-    }, queryTimeoutMilliseconds);
-    worker.onmessage = (event: MessageEvent<SqlResult>) => {
-      clearTimeout(timer);
-      void worker.terminate();
-      resolve(event.data);
+      resolve(result);
     };
-    worker.onerror = (event) => {
-      clearTimeout(timer);
-      void worker.terminate();
-      resolve({ error: event.message });
-    };
-    worker.postMessage({ maxRows: 200, path, sql: sql.trim().replace(/;+\s*$/u, ""), textLimit: 600 });
+    const abort = () => finish({ error: "The search ended before this query finished." });
+    if (signal?.aborted === true) return abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    worker.onmessage = (event: MessageEvent<SqlResult>) => finish(event.data);
+    worker.onerror = (event) => finish({ error: event.message });
+    worker.postMessage({ path, sql });
   });
 }
 
@@ -82,10 +77,11 @@ const schemaGuide = `The database holds one Telegram group's history, read-only:
 - members(user_id PRIMARY KEY, username, first_name, aliases JSON array, profile TEXT, message_count, first_message_time, last_message_time). profile is a personality dossier written from their recent messages, with short quotes.
 - interactions(user_id, other_user_id, mentions_or_replies): how often user_id mentioned or replied to other_user_id. Counts show interaction, not friendship.
 Read context around a message with: SELECT message_id, time, author, text FROM message_log WHERE message_id BETWEEN x - 10 AND x + 10.
-Avoid unindexed LIKE over all messages; use messages_fts. Queries time out after 10 seconds and return at most 200 rows.`;
+- active_members: the current group: still in it and at least 20 messages in the last 6 months. members also includes people who left or only dropped by; use active_members for "each member", rankings, "who in the group" and anything about the current group, and only reach into members for questions about the past.
+Results are returned in full, so add a LIMIT when you only need a sample. messages_fts is much faster than LIKE over all messages.`;
 
 const instructions = `You answer /search questions in a fun Telegram group of friends by querying the group's chat history with the sql tool.
-Most questions are banter: roasts, "most likely to", rankings, describe someone, pair people up, assign a character to each member, or creative writing about members. For those, read member profiles (every member active in the last year for "each member" or ranking questions), add quotes or interactions when useful, then answer. Include every active member when asked about each member or the whole group.
+Most questions are banter: roasts, "most likely to", rankings, describe someone, pair people up, assign a character to each member, or creative writing about members. For those, read member profiles (everyone in active_members for "each member" or ranking questions), add quotes or interactions when useful, then answer. Include every active member, and only active members, when asked about each member or the whole group.
 Some questions are facts about what happened or what someone said. For those, search messages_fts with a few words and stems, read the surrounding messages, and check recent messages for things that just happened. Try other wordings before giving up.
 Be quick: most questions need two to five queries. Always select message_id when reading messages, and cite the message_id values that back a factual answer. Finish by calling the answer tool exactly once. If the history does not contain the answer to a factual question, answer exactly: ${noAnswer} Do not fill gaps with general knowledge.
 Voice: a friend who knows the group. Answer first; one to three punchy sentences for a single answer, one short bullet per member or item for roundups. Be playful, specific and confident about social judgments and roasts; treat absurd premises and mock charges as banter. Subjective and ranking questions always get a definite pick or full ranking, made from profiles and receipts; never decline, hedge, ask for photos, or say you cannot judge. Looks, vibes and personality rankings are banter: rank everyone confidently from their profiles and receipts. No headings, disclaimers, or "the evidence suggests". Keep quotes and events faithful, including who said what about whom. Never invent events. For creative requests, write the piece.
@@ -123,7 +119,7 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
     sql: tool({
       description: `Run one read-only SQLite query over this group's history.\n\n${schemaGuide}`,
       execute: async (input: typeof Sql.Type) => {
-        const result = await runQuery(storePath, input.sql);
+        const result = await runQuery(storePath, input.sql, searchSignal);
         for (const row of result.rows ?? []) {
           const id = row["message_id"];
           if (typeof id === "number") seen.add(id);
@@ -168,8 +164,10 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
     `Now: ${dependencies.now().toISOString().replace("T", " ").slice(0, 19)} UTC`,
   ].filter(Boolean).join("\n\n");
 
+  let searchSignal: AbortSignal | undefined;
   const usage = yield* Effect.tryPromise({
     try: async (signal) => {
+      searchSignal = AbortSignal.any([signal, AbortSignal.timeout(timeoutMilliseconds)]);
       // Pi keeps its session files in a sandbox. just-bash is an in-memory
       // filesystem and shell, so nothing the harness does there reaches the host.
       // Pi's own shell and file tools are switched off by activeTools anyway.
@@ -177,7 +175,7 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
       const session = await agent.createSession({ sandboxSession });
       try {
         const result = await agent.generate({
-          abortSignal: AbortSignal.any([signal, AbortSignal.timeout(timeoutMilliseconds)]),
+          abortSignal: searchSignal,
           prompt,
           session,
         });
