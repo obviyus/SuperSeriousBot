@@ -8,7 +8,7 @@ import { Effect } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { AppConfig } from "../src/app/config.ts";
-import { answerSearch, checkQuery, runQuery } from "../src/features/search-agent.ts";
+import { answerSearch, checkQuery, renderAnswer, runQuery } from "../src/features/search-agent.ts";
 import { searchStorePath, syncSearchStores } from "../src/features/search-store.ts";
 import { commandUpdate, fixture, sentMessage, testConfig } from "./harness.ts";
 
@@ -83,6 +83,8 @@ async function seed(database: Awaited<ReturnType<typeof fixture>>["database"]) {
     { sql: "INSERT INTO chat_mentions (chat_id, mentioning_user_id, mentioned_user_id, message_id) VALUES (-1007, 8, 7, 98), (-1007, 8, 44, 150), (-1008, 7, 8, 101)" },
     { sql: "INSERT INTO chat_aliases (chat_id, user_id, alias, confidence, update_time) VALUES (-1007, 7, 'nathu', 1, '2026-01-01'), (-1007, 44, 'OPTED OUT ALIAS', 1, '2026-01-01')" },
     { sql: "INSERT INTO chat_personas (chat_id, user_id, sheet, receipts, source_end_message_id, update_time) VALUES (-1007, 7, 'Nathu is a contrarian', '[]', 100, '2026-01-01'), (-1007, 44, 'OPTED OUT PERSONA', '[]', 151, '2026-01-01')" },
+    { sql: "INSERT INTO chat_lore (chat_id, topic, summary, receipts, source_end_message_id, update_time) VALUES (-1007, 'no-heroes', 'Nathu refuses to have heroes', '[100, 151]', 151, '2026-11-16'), (-1008, 'other-chat-bit', 'OTHER CHAT lore', '[101]', 101, '2026-11-16')" },
+    { sql: "INSERT INTO search_events (chat_id, user_id, message_id, question, answer, model, citation_message_ids, duration_ms) VALUES (-1007, 8, 99, 'most likely to be a dictator', 'Nathu', 'm', '[]', 1), (-1008, 8, 99, 'OTHER CHAT question', 'x', 'm', '[]', 1)" },
   ]));
 }
 
@@ -105,6 +107,8 @@ test("search store copies one chat without opted-out members and syncs only new 
       store.query("SELECT * FROM messages").all(),
       store.query("SELECT * FROM members").all(),
       store.query("SELECT * FROM interactions").all(),
+      store.query("SELECT * FROM lore").all(),
+      store.query("SELECT * FROM past_answers").all(),
     ]);
     expect(dump).not.toContain("OPTED OUT");
     expect(dump).not.toContain("OTHER CHAT");
@@ -120,12 +124,21 @@ test("search store copies one chat without opted-out members and syncs only new 
     expect(store.query("SELECT author, text FROM message_log WHERE message_id = 100").get()).toEqual({
       author: "Nathu", text: "hero worship is always cringe to me",
     });
+    expect(store.query(
+      "SELECT l.topic, l.receipts FROM lore_fts f JOIN lore l ON l.rowid = f.rowid WHERE lore_fts MATCH 'hero*'",
+    ).all()).toEqual([{ receipts: "[100]", topic: "no-heroes" }]);
+    expect(store.query("SELECT question FROM past_answers").all()).toEqual([{ question: "most likely to be a dictator" }]);
     expect(store.query("SELECT * FROM interactions").all()).toEqual([
       { mentions_or_replies: 1, other_user_id: 7, user_id: 8 },
     ]);
   } finally {
     store.close();
   }
+});
+
+test("answers drop raw message IDs from the text and link only returned messages", () => {
+  expect(renderAnswer({ answer: "Avi, because siccboi said it [3211038, 3047076].[1]", citations: [3211038, 5] }, new Set([3211038]), -1001118116449))
+    .toEqual({ answer: "Avi, because siccboi said it.\n\n[1](https://t.me/c/1118116449/3211038)", citations: [3211038] });
 });
 
 test("agent queries run unrestricted on a read-only copy but cannot open other files", async () => {
