@@ -74,13 +74,14 @@ const Answer = Schema.Struct({
 
 const schemaGuide = `The database holds one Telegram group's history, read-only:
 - messages(message_id INTEGER PRIMARY KEY, user_id, time TEXT 'YYYY-MM-DD HH:MM:SS' UTC, text, reply_to_message_id)
+- message_log: a view of messages with the author's name. Prefer it whenever you read messages.
 - messages_fts: FTS5 index over messages.text with rowid = message_id. Use it for words and phrases:
-  SELECT m.message_id, m.user_id, m.time, m.text FROM messages_fts f JOIN messages m ON m.message_id = f.rowid
-  WHERE messages_fts MATCH 'hero*' AND m.user_id = 119011785 ORDER BY f.rank LIMIT 20
+  SELECT l.message_id, l.time, l.author, l.text FROM messages_fts f JOIN message_log l ON l.message_id = f.rowid
+  WHERE messages_fts MATCH 'hero*' AND l.user_id = 119011785 ORDER BY f.rank LIMIT 20
   MATCH syntax: words AND-ed by default, OR, "exact phrase", prefix*, NEAR(a b, 5).
 - members(user_id PRIMARY KEY, username, first_name, aliases JSON array, profile TEXT, message_count, first_message_time, last_message_time). profile is a personality dossier written from their recent messages, with short quotes.
 - interactions(user_id, other_user_id, mentions_or_replies): how often user_id mentioned or replied to other_user_id. Counts show interaction, not friendship.
-Read context around a message with: SELECT ... FROM messages WHERE message_id BETWEEN x - 10 AND x + 10.
+Read context around a message with: SELECT message_id, time, author, text FROM message_log WHERE message_id BETWEEN x - 10 AND x + 10.
 Avoid unindexed LIKE over all messages; use messages_fts. Queries time out after 10 seconds and return at most 200 rows.`;
 
 const instructions = `You answer /search questions in a fun Telegram group of friends by querying the group's chat history with the sql tool.

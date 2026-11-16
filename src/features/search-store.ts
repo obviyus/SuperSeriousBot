@@ -41,6 +41,11 @@ const localSchema = `
     first_message_time TEXT,
     last_message_time TEXT
   );
+  CREATE VIEW IF NOT EXISTS message_log AS
+    SELECT m.message_id, m.time, m.user_id,
+           COALESCE(u.first_name, u.username, CAST(m.user_id AS TEXT)) AS author,
+           u.username, m.text, m.reply_to_message_id
+    FROM messages m LEFT JOIN members u ON u.user_id = m.user_id;
   CREATE TABLE IF NOT EXISTS interactions (
     user_id INTEGER NOT NULL,
     other_user_id INTEGER NOT NULL,

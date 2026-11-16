@@ -116,6 +116,9 @@ test("search store copies one chat without opted-out members and syncs only new 
     expect(store.query("SELECT user_id, username, aliases, profile, message_count FROM members WHERE user_id = 7").get()).toEqual({
       aliases: "[\"nathu\"]", message_count: 2, profile: "Nathu is a contrarian", user_id: 7, username: "Nathuram",
     });
+    expect(store.query("SELECT author, text FROM message_log WHERE message_id = 100").get()).toEqual({
+      author: "Nathu", text: "hero worship is always cringe to me",
+    });
     expect(store.query("SELECT * FROM interactions").all()).toEqual([
       { mentions_or_replies: 1, other_user_id: 7, user_id: 8 },
     ]);
