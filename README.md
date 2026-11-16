@@ -12,7 +12,7 @@ SuperSeriousBot has grown with its groups for years. It combines AI, media, sear
 
 - AI: native rich replies, semantic search, image and video generation, custom songs, summaries, and transcription
 - Native Telegram UI: rich tables, lists, details, charts, dates, links, and command dashboards
-- Group memory: agentic `/search` with full-text and semantic tools, citations, member personas, and group lore
+- Group memory: a Pi agent `/search` that queries a local copy of the chat, with citations, member personas, and group lore
 - Media: `/set`, `/get`, `/dl`, automatic reel downloads, memes, and quotes
 - Social: `/summon`, `/habit`, `/highlight`, reactions, mentions, and `sed` corrections
 - Utilities: reminders, weather, books, games, and translation
@@ -113,12 +113,14 @@ Operations:
 - `TELLY_STATE_DIRECTORY`: local inbox and job database directory, default `./db`
 - `TELEGRAM_API_ROOT`: custom Bot API root for local Test Server harnesses
 
-`/search` runs a small tool-using agent over the current chat's history. It can
-full-text search messages, run semantic search over the indexed windows and
-per-member snippets, read the conversation around a message, load member
-profiles and interaction counts, and read the latest messages. Every tool is
-bound to the asking chat and drops `SEARCH_EXCLUDED_USERS`. Replying to a member
-limits the search to that member's messages.
+`/search` runs a [Pi](https://github.com/earendil-works/pi) agent through
+`@ai-sdk/harness-pi`, using the `/model search` model on OpenRouter. Pi's shell
+and file tools are switched off; it gets one read-only `sql` tool over a local
+SQLite copy of the asking chat in `TELLY_STATE_DIRECTORY/search/<chat>.db`.
+That copy holds only that chat's messages (with an FTS5 index), members,
+nicknames, profiles and interaction counts, and never contains
+`SEARCH_EXCLUDED_USERS`. It syncs only new rows from Turso before each search
+and after each indexing run, so the agent's queries cost no Turso reads.
 
 ## Run with Docker
 

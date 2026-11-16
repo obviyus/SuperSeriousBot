@@ -20,6 +20,7 @@ import type { AppDependencies } from "../app/dependencies.ts";
 import { replyRich } from "../app/rich.ts";
 import { getModel, normalizeModelName } from "./settings.ts";
 import { answerSearch, excludedUserIds } from "./search-agent.ts";
+import { searchStorePath, syncSearchStores } from "./search-store.ts";
 
 const embeddingModel = "qwen/qwen3-embedding-8b";
 const Persona = Schema.Struct({
@@ -303,8 +304,20 @@ function searchCommand(dependencies: AppDependencies): CommandDefinition {
       const status = yield* answer(match.message, "Searching messages...");
       const start = dependencies.monotonicMilliseconds();
       const replied = match.message.replyToMessage;
-      const result = yield* answerSearch(dependencies, match.argText, match.message.chat.id,
-        replied?.from?.id, replied === undefined ? undefined : messageText(replied)).pipe(
+      const chatId = match.message.chat.id;
+      const repliedText = replied === undefined ? undefined : messageText(replied);
+      const result = yield* syncSearchStores(dependencies, [chatId]).pipe(
+        Effect.andThen(answerSearch(
+          dependencies,
+          match.argText,
+          chatId,
+          searchStorePath(dependencies.config.stateDirectory, chatId),
+          {
+            ...(replied?.from === undefined ? {} : { authorId: replied.from.id }),
+            ...(repliedText === undefined ? {} : { repliedText }),
+          },
+        )),
+      ).pipe(
         Effect.ensuring(deleteMessage({
           chatId: status.chat.id,
           messageId: status.messageId,
@@ -562,6 +575,7 @@ export function searchFeature(dependencies: AppDependencies) {
     for (const chatId of ids) yield* indexChat(dependencies, ai, chatId).pipe(
       Effect.tapCause((cause) => Effect.logError("Search indexing failed", { chatId, cause })),
     );
+    yield* syncSearchStores(dependencies, ids);
   });
   const memory = Effect.fn("chatMemoryWorker")(function* (chatIds?: ReadonlyArray<number>) {
     const ids = chatIds ?? (yield* dependencies.database.all(
