@@ -226,8 +226,8 @@ test("search follows selected profile receipts and relationships within the curr
     return openRouterText(JSON.stringify(prompts.length === 1
       ? { queries: ["Alice hiking"], memberIds: [42], topics: [] }
       : prompts.length === 2
-      ? { answer: "A draft that needs correction.", citations: [2] }
-      : { answer: "Alice and Bob are the hiking duo.", citations: [2] }));
+      ? { answer: "A draft that needs correction.", citations: [1] }
+      : { answer: "Alice and Bob are the hiking duo.", citations: [1] }));
   };
   const { app, database, dependencies } = await fixture(send, [], testConfig({ openrouterApiKey: "test" }));
   await Effect.runPromise(database.batch([
@@ -451,4 +451,40 @@ test("memory worker stores filtered personas, aliases, and lore", async () => {
     summary: "The group debates cameras.",
     topic: "camera-war",
   });
+});
+
+test("search finds a named member's exact line by keyword and sees unindexed recent messages", async () => {
+  const prompts: Array<string> = [];
+  const send: Fetch = async (input, init) => {
+    if (String(input).includes("embeddings")) return openRouterEmbeddings(String(init?.body));
+    prompts.push(String(init?.body));
+    return openRouterText(JSON.stringify(prompts.length === 1
+      ? { queries: ["Nathu hero"], keywords: ["hero", "%"], memberIds: [7], topics: [] }
+      : { answer: "Nobody. Nathu thinks hero worship is cringe.", citations: [] }));
+  };
+  const { app, database, dependencies } = await fixture(send, [], testConfig({ openrouterApiKey: "test" }));
+  const filler = Array.from({ length: 80 }, (_, index) =>
+    `(-1007, 8, ${200 + index}, 'filler ${index}')`).join(", ");
+  await Effect.runPromise(database.batch([
+    { sql: "INSERT INTO user_stats (user_id, username, first_name) VALUES (7, 'Nathuram', 'Nathu'), (8, 'alice', 'Alice')" },
+    { sql: `INSERT INTO chat_stats (chat_id, user_id, message_id, message_text) VALUES
+      (-1007, 8, 98, 'is he a Jensen fan?'),
+      (-1007, 7, 100, 'hero worship is always cringe to me'),
+      (-1007, 8, 150, 'my hero is Batman'),
+      ${filler},
+      (-1007, 8, 290, 'NOT YET INDEXED LATEST')` },
+  ]));
+  try {
+    await Effect.runPromise(answerSearch(dependencies, "who is nathu's hero", -1007));
+    expect(prompts[0]).toContain("keywords");
+    const evidence = prompts[1] ?? "";
+    expect(evidence).toContain("hero worship is always cringe to me");
+    expect(evidence).toContain("is he a Jensen fan?");
+    expect(evidence).not.toContain("my hero is Batman");
+    expect(evidence).toContain("NOT YET INDEXED LATEST");
+    expect(evidence.split("hero worship is always cringe").length - 1).toBe(1);
+  } finally {
+    await app.close();
+    database.close();
+  }
 });
