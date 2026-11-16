@@ -4,11 +4,8 @@ import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
 import {
-  answerSearch,
   buildUtterances,
   buildWindows,
-  renderSearchAnswer,
-  selectEvidence,
   type SourceMessage,
 } from "../src/features/search.ts";
 import {
@@ -68,32 +65,6 @@ test("utterances split only after a pause longer than five minutes", () => {
   expect(utterances.map((item) => item.text)).toEqual(["1 first\n2 second", "3 third"]);
 });
 
-test("search evidence removes overlaps and owns valid citation links", () => {
-  const evidence = [
-    { citationMessageId: 24, endMessageId: 24, endTime: "b", messageCount: 24, score: 0.8, startMessageId: 1, startTime: "a", text: "first" },
-    { citationMessageId: 32, endMessageId: 32, endTime: "d", messageCount: 24, score: 0.7, startMessageId: 9, startTime: "c", text: "overlap" },
-    { citationMessageId: 124, endMessageId: 124, endTime: "f", messageCount: 24, score: 0.6, startMessageId: 100, startTime: "e", text: "third" },
-  ];
-
-  const selected = selectEvidence(evidence);
-  const rendered = renderSearchAnswer(
-    { answer: "Alice has the strongest receipts.", citations: [2, 1, 2] },
-    selected,
-    -1_001_234_567_890,
-  );
-
-  expect(selected.map((item) => item.text)).toEqual(["first", "third"]);
-  expect(rendered).toEqual({
-    answer: "Alice has the strongest receipts.\n\n[1](https://t.me/c/1234567890/124) [2](https://t.me/c/1234567890/24)",
-    citations: [124, 24],
-  });
-  expect(renderSearchAnswer(
-    { answer: "An uncited claim", citations: [] },
-    selected,
-    -1_001_234_567_890,
-  ).answer).toBe("You'll have to remind me of that one.");
-});
-
 test("search index replaces growing tail windows", async () => {
   const send: Fetch = async (_input, init) => openRouterEmbeddings(String(init?.body));
   const config = testConfig({ openrouterApiKey: "openrouter-test" });
@@ -138,165 +109,6 @@ test("search index replaces growing tail windows", async () => {
     [33, 40],
   ]);
   expect(utterances.at(-1)).toMatchObject({ end_message_id: 40, user_id: 2 });
-});
-
-test.each([0, 270_000])("search command preserves evidence and citations with %i characters of background", async (backgroundSize) => {
-  let modelMessages = "";
-  const background = "Group background. ".repeat(Math.ceil(backgroundSize / 18));
-  const send: Fetch = async (input, init) => {
-    if (String(input).includes("embeddings")) return openRouterEmbeddings(String(init?.body));
-    const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
-    if (JSON.stringify(body).includes("Plan retrieval")) return openRouterText(JSON.stringify({
-      queries: [], memberIds: [42], topics: ["group-history"],
-    }));
-    modelMessages = JSON.stringify(body.messages);
-    return openRouterText(JSON.stringify({
-        answer: "Nathu is a product designer.",
-        citations: [1],
-      }));
-  };
-  const config = {
-    ...testConfig({ openrouterApiKey: "openrouter-test" }),
-    admins: new Set<string>(),
-  };
-  const { app, bot, database, fake } = await fixture(send, [
-    FakeBotApiReply.ok(true),
-    FakeBotApiReply.ok(true),
-    sentMessage(501),
-    FakeBotApiReply.ok(true),
-  ], config);
-  const vector = JSON.stringify(Array(1_024).fill(0.01));
-  await Effect.runPromise(database.batch([
-    { args: ["search", -1007], sql: "INSERT INTO command_whitelist (command, whitelist_type, whitelist_id) VALUES (?, 'chat', ?)" },
-    { args: [-1007], sql: "INSERT INTO group_settings (chat_id, fts) VALUES (?, 1)" },
-    {
-      args: [-1007, 42, 24, "2026-01-02", "I design products"],
-      sql: "INSERT INTO chat_stats (chat_id, user_id, message_id, create_time, message_text) VALUES (?, ?, ?, ?, ?)",
-    },
-    {
-      args: [-1007, 42, "Nathu is Tarun.", "[]", 24],
-      sql: `INSERT INTO chat_personas (chat_id, user_id, sheet, receipts, source_end_message_id, update_time)
-        VALUES (?, ?, ?, ?, ?, '2026-01-02')`,
-    },
-    {
-      args: [-1007, "group-history", background, "[]", 24],
-      sql: `INSERT INTO chat_lore (chat_id, topic, summary, receipts, source_end_message_id, update_time)
-        VALUES (?, ?, ?, ?, ?, '2026-01-02')`,
-    },
-    {
-      args: [-1007, 10, 30, "2026-01-01", "2026-01-02", 15, "24 @nathu: I design products\n30 @alice: hello", vector, model],
-      sql: `INSERT INTO chat_search_windows (
-        chat_id, start_message_id, end_message_id, start_time, end_time,
-        message_count, message_text, embedding, embedding_model, embedding_dimension
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, vector32(?), ?, 1024)`,
-    },
-  ]));
-
-  try {
-    await app.run(bot.handler(commandUpdate("/search what does Nathu do", 5_001)));
-  } finally {
-    await app.close();
-  }
-  const event = await Effect.runPromise(database.one(
-    "SELECT answer, citation_message_ids FROM search_events WHERE message_id = ?",
-    [5_001],
-  ));
-  database.close();
-
-  const reply = fake.requests.find((request) => request.method === "sendRichMessage");
-  const params = reply?.params;
-  if (typeof params !== "object" || params === null) throw new Error("Search reply missing");
-  const text = Reflect.get(Reflect.get(params, "rich_message"), "markdown");
-  expect(modelMessages).toContain("Telegram Rich Markdown");
-  expect(modelMessages).toContain("one short bullet per member or item");
-  expect(modelMessages).toContain("Nathu is Tarun.");
-  expect(modelMessages.indexOf("[Evidence 1]")).toBeGreaterThan(-1);
-  expect(modelMessages).toContain(background);
-  expect(modelMessages).toContain("I design products");
-  expect(text).toContain("Nathu is a product designer.");
-  expect(text).toContain("https://t.me/c/7/24");
-  expect(event).toMatchObject({ citation_message_ids: "[24]" });
-});
-
-test("search follows selected profile receipts and relationships within the current chat", async () => {
-  const prompts: Array<string> = [];
-  const send: Fetch = async (input, init) => {
-    if (String(input).includes("embeddings")) return openRouterEmbeddings(String(init?.body));
-    prompts.push(String(init?.body));
-    return openRouterText(JSON.stringify(prompts.length === 1
-      ? { queries: ["Alice hiking"], memberIds: [42], topics: [] }
-      : prompts.length === 2
-      ? { answer: "A draft that needs correction.", citations: [1] }
-      : { answer: "Alice and Bob are the hiking duo.", citations: [1] }));
-  };
-  const { app, database, dependencies } = await fixture(send, [], testConfig({ openrouterApiKey: "test" }));
-  await Effect.runPromise(database.batch([
-    { sql: "INSERT INTO user_stats (user_id, username, first_name) VALUES (42, 'alice', 'Alice'), (43, 'bob', 'Bob')" },
-    { sql: "INSERT INTO chat_stats (chat_id, user_id, message_id, message_text) VALUES (-1007, 42, 90, 'Bob and I hike every Sunday'), (-1008, 42, 90, 'OTHER CHAT SECRET')" },
-    { sql: "INSERT INTO chat_aliases (chat_id, user_id, alias, confidence, update_time) VALUES (-1007, 42, 'mountain goat', 1, '2026-01-01')" },
-    { sql: "INSERT INTO chat_personas (chat_id, user_id, sheet, receipts, source_end_message_id, update_time) VALUES (-1007, 42, 'Alice loves hiking', '[90]', 90, '2026-01-01'), (-1007, 43, 'UNSELECTED PROFILE', '[]', 90, '2026-01-01')" },
-    { sql: "INSERT INTO chat_mentions (chat_id, mentioning_user_id, mentioned_user_id, message_id) VALUES (-1007, 42, 43, 90), (-1007, 43, 42, 95), (-1008, 42, 43, 96)" },
-  ]));
-  try {
-    const result = await Effect.runPromise(answerSearch(dependencies, "who hikes with mountain goat", -1007));
-    expect(prompts[0]).toContain("mountain goat");
-    expect(prompts[1]).toContain("Alice loves hiking");
-    expect(prompts[1]).toContain("Bob and I hike every Sunday");
-    expect(prompts[1]).toContain('\\"interactions\\":2');
-    expect(prompts[1]).not.toContain("OTHER CHAT SECRET");
-    expect(prompts[1]).not.toContain("UNSELECTED PROFILE");
-    expect(prompts[2]).toContain("A draft that needs correction.");
-    expect(prompts[2]).toContain("Bob and I hike every Sunday");
-    expect(result.citations).toEqual([90]);
-    expect(result.answer).toContain("Alice and Bob are the hiking duo.");
-    expect(result.answer).not.toContain("A draft that needs correction.");
-    expect(result.answer).toContain("https://t.me/c/7/90");
-  } finally {
-    await app.close();
-    database.close();
-  }
-});
-
-test("search keeps excluded members' messages out of answer prompts", async () => {
-  const prompts: Array<string> = [];
-  const send: Fetch = async (input, init) => {
-    if (String(input).includes("embeddings")) return openRouterEmbeddings(String(init?.body));
-    prompts.push(String(init?.body));
-    return openRouterText(JSON.stringify(prompts.length === 1
-      ? { queries: [], memberIds: [42, 44], topics: [] }
-      : { answer: "Alice hikes.", citations: [1] }));
-  };
-  const config = {
-    ...testConfig({ openrouterApiKey: "test" }),
-    searchExcludedUsers: new Set(["mytransformerisfine"]),
-  };
-  const { app, database, dependencies } = await fixture(send, [], config);
-  const vector = JSON.stringify(Array(1_024).fill(0.01));
-  await Effect.runPromise(database.batch([
-    { sql: "INSERT INTO user_stats (user_id, username, first_name) VALUES (42, 'alice', 'Alice'), (44, 'MyTransformerIsFine', 'S')" },
-    { sql: "INSERT INTO chat_stats (chat_id, user_id, message_id, message_text) VALUES (-1007, 42, 90, 'I hike on Sundays'), (-1007, 44, 91, 'OPTED OUT TEXT')" },
-    { sql: "INSERT INTO chat_aliases (chat_id, user_id, alias, confidence, update_time) VALUES (-1007, 44, 'OPTED OUT ALIAS', 1, '2026-01-01')" },
-    { sql: "INSERT INTO chat_personas (chat_id, user_id, sheet, receipts, source_end_message_id, update_time) VALUES (-1007, 44, 'OPTED OUT PERSONA', '[91]', 91, '2026-01-01')" },
-    {
-      args: [-1007, 90, 91, "2026-01-01", "2026-01-01", 2, "90 @alice: I hike on Sundays\n91 @MyTransformerIsFine: OPTED OUT TEXT", vector, model],
-      sql: `INSERT INTO chat_search_windows (
-        chat_id, start_message_id, end_message_id, start_time, end_time,
-        message_count, message_text, embedding, embedding_model, embedding_dimension
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, vector32(?), ?, 1024)`,
-    },
-  ]));
-  try {
-    const result = await Effect.runPromise(answerSearch(dependencies, "who hikes", -1007));
-    expect(prompts.join("\n")).not.toContain("OPTED OUT");
-    expect(prompts[1]).toContain("I hike on Sundays");
-    expect(result.citations).toEqual([90]);
-    const replied = await Effect.runPromise(answerSearch(dependencies, "what does he say", -1007, 44));
-    expect(replied.citations).toEqual([]);
-    expect(prompts).toHaveLength(3);
-  } finally {
-    await app.close();
-    database.close();
-  }
 });
 
 test("import command stores Telegram JSON messages and enables search", async () => {
@@ -455,40 +267,4 @@ test("memory worker stores filtered personas, aliases, and lore", async () => {
     summary: "The group debates cameras.",
     topic: "camera-war",
   });
-});
-
-test("search finds a named member's exact line by keyword and sees unindexed recent messages", async () => {
-  const prompts: Array<string> = [];
-  const send: Fetch = async (input, init) => {
-    if (String(input).includes("embeddings")) return openRouterEmbeddings(String(init?.body));
-    prompts.push(String(init?.body));
-    return openRouterText(JSON.stringify(prompts.length === 1
-      ? { queries: ["Nathu hero"], keywords: ["hero", "%"], memberIds: [7], topics: [] }
-      : { answer: "Nobody. Nathu thinks hero worship is cringe.", citations: [] }));
-  };
-  const { app, database, dependencies } = await fixture(send, [], testConfig({ openrouterApiKey: "test" }));
-  const filler = Array.from({ length: 80 }, (_, index) =>
-    `(-1007, 8, ${200 + index}, 'filler ${index}')`).join(", ");
-  await Effect.runPromise(database.batch([
-    { sql: "INSERT INTO user_stats (user_id, username, first_name) VALUES (7, 'Nathuram', 'Nathu'), (8, 'alice', 'Alice')" },
-    { sql: `INSERT INTO chat_stats (chat_id, user_id, message_id, message_text) VALUES
-      (-1007, 8, 98, 'is he a Jensen fan?'),
-      (-1007, 7, 100, 'hero worship is always cringe to me'),
-      (-1007, 8, 150, 'my hero is Batman'),
-      ${filler},
-      (-1007, 8, 290, 'NOT YET INDEXED LATEST')` },
-  ]));
-  try {
-    await Effect.runPromise(answerSearch(dependencies, "who is nathu's hero", -1007));
-    expect(prompts[0]).toContain("keywords");
-    const evidence = prompts[1] ?? "";
-    expect(evidence).toContain("hero worship is always cringe to me");
-    expect(evidence).toContain("is he a Jensen fan?");
-    expect(evidence).not.toContain("my hero is Batman");
-    expect(evidence).toContain("NOT YET INDEXED LATEST");
-    expect(evidence.split("hero worship is always cringe").length - 1).toBe(1);
-  } finally {
-    await app.close();
-    database.close();
-  }
 });

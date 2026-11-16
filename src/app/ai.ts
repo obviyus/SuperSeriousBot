@@ -110,7 +110,7 @@ function failure(operation: string, error: unknown): AiError {
     : new AiError({ description: description(error), operation });
 }
 
-function standardSchema<A>(
+export function standardSchema<A>(
   schema: Schema.Codec<A, unknown, never, never>,
 ) {
   return Schema.toStandardJSONSchemaV1(Schema.toStandardSchemaV1(schema));

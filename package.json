@@ -17,15 +17,20 @@
     "typecheck": "tsc --project tsconfig.json"
   },
   "dependencies": {
+    "@ai-sdk/harness": "1.0.184",
+    "@ai-sdk/harness-pi": "1.0.187",
+    "@ai-sdk/sandbox-just-bash": "1.0.184",
     "@libsql/client": "0.17.4",
     "@openrouter/ai-sdk-provider": "3.0.0",
-    "ai": "7.0.89",
+    "ai": "7.0.173",
     "chrono-node": "2.10.1",
     "effect": "4.0.0-rc.112",
     "fast-xml-parser": "5.11.1",
     "google-translate-api-x": "10.7.3",
     "sharp": "0.35.4",
-    "telly": "file:vendor/telly-a311a82.tgz"
+    "telly": "file:vendor/telly-a311a82.tgz",
+    "ws": "8.21.0",
+    "zod": "4.1.12"
   },
   "devDependencies": {
     "@types/bun": "1.4.0",
