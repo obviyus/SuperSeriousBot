@@ -5,10 +5,13 @@ import {
   experimental_generateVideo as generateVideo,
   generateImage,
   generateText,
+  hasToolCall,
+  isStepCount,
   Output,
   streamText,
   type LanguageModel,
   type ModelMessage,
+  type ToolSet,
 } from "ai";
 import { Effect, Schema } from "telly";
 
@@ -110,7 +113,7 @@ function failure(operation: string, error: unknown): AiError {
     : new AiError({ description: description(error), operation });
 }
 
-function standardSchema<A>(
+export function standardSchema<A>(
   schema: Schema.Codec<A, unknown, never, never>,
 ) {
   return Schema.toStandardJSONSchemaV1(Schema.toStandardSchemaV1(schema));
@@ -199,6 +202,34 @@ export class Ai {
         catch: (error) => failure("object", error),
       })),
       Effect.map((result) => result.output),
+    );
+  }
+
+  // Runs a tool loop until the model calls `finish` or uses up its steps.
+  agent(
+    command: ModelCommand,
+    messages: ReadonlyArray<AiMessage>,
+    tools: ToolSet,
+    options: GenerateOptions & { readonly finish: string; readonly maxSteps: number },
+  ) {
+    return this.settings(command, options).pipe(
+      Effect.flatMap(({ model, reasoning }) => Effect.tryPromise({
+        try: (signal) => generateText({
+          abortSignal: signal,
+          ...(options.maxTokens === undefined ? {} : { maxOutputTokens: options.maxTokens }),
+          ...prompt(messages),
+          model: this.languageModel(command, model, options, reasoning),
+          stopWhen: [hasToolCall(options.finish), isStepCount(options.maxSteps)],
+          toolChoice: "required",
+          tools,
+        }),
+        catch: (error) => failure("agent", error),
+      })),
+      Effect.map((result) => ({
+        inputTokens: result.totalUsage.inputTokens ?? 0,
+        outputTokens: result.totalUsage.outputTokens ?? 0,
+        steps: result.steps.length,
+      })),
     );
   }
 

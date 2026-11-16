@@ -63,6 +63,29 @@ export function openRouterText(content: string): Response {
   }), { headers: { "content-type": "application/json" } });
 }
 
+export function openRouterToolCalls(
+  ...calls: ReadonlyArray<{ readonly name: string; readonly input: unknown }>
+): Response {
+  return new Response(JSON.stringify({
+    choices: [{
+      finish_reason: "tool_calls",
+      index: 0,
+      message: {
+        content: null,
+        role: "assistant",
+        tool_calls: calls.map((call, index) => ({
+          function: { arguments: JSON.stringify(call.input), name: call.name },
+          id: `call-${index}-${call.name}`,
+          type: "function",
+        })),
+      },
+    }],
+    id: "generation-test",
+    model: "test/model",
+    provider: "test",
+  }), { headers: { "content-type": "application/json" } });
+}
+
 export function openRouterStream(...content: ReadonlyArray<string>): Response {
   const chunks = content.map((text, index) => `data: ${JSON.stringify({
     choices: [{

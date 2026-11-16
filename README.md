@@ -12,7 +12,7 @@ SuperSeriousBot has grown with its groups for years. It combines AI, media, sear
 
 - AI: native rich replies, semantic search, image and video generation, custom songs, summaries, and transcription
 - Native Telegram UI: rich tables, lists, details, charts, dates, links, and command dashboards
-- Group memory: semantic `/search`, citations, member personas, and group lore
+- Group memory: agentic `/search` with full-text and semantic tools, citations, member personas, and group lore
 - Media: `/set`, `/get`, `/dl`, automatic reel downloads, memes, and quotes
 - Social: `/summon`, `/habit`, `/highlight`, reactions, mentions, and `sed` corrections
 - Utilities: reminders, weather, books, games, and translation
@@ -113,13 +113,12 @@ Operations:
 - `TELLY_STATE_DIRECTORY`: local inbox and job database directory, default `./db`
 - `TELEGRAM_API_ROOT`: custom Bot API root for local Test Server harnesses
 
-Evaluate search with a private JSON file containing `[{ "chatId": -100123, "question": "Who is the biggest tech nerd here?" }]`:
-
-```bash
-bun run search:evaluate /path/to/private-questions.json
-```
-
-This reads chat data and calls the configured AI service without sending Telegram messages or writing search events. Each answer gets a fresh review against its complete context. Results are printed as JSON lines. Keep question files and reports private.
+`/search` runs a small tool-using agent over the current chat's history. It can
+full-text search messages, run semantic search over the indexed windows and
+per-member snippets, read the conversation around a message, load member
+profiles and interaction counts, and read the latest messages. Every tool is
+bound to the asking chat and drops `SEARCH_EXCLUDED_USERS`. Replying to a member
+limits the search to that member's messages.
 
 ## Run with Docker
 
