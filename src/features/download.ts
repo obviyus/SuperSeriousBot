@@ -127,6 +127,14 @@ function ytDlp(dependencies: AppDependencies, message: Message, url: URL) {
   )));
 }
 
+// Every way Cobalt can fail (an error status, the wrong media, a failed
+// request) goes through here, so Instagram always gets its fallback.
+function fallback(dependencies: AppDependencies, message: Message, target: URL, reason: string) {
+  if (instagram(target, "reel")) return ytDlp(dependencies, message, target);
+  if (instagram(target, "p")) return instagramPage(dependencies, message, target);
+  return answer(message, reason).pipe(Effect.asVoid);
+}
+
 function download(dependencies: AppDependencies, message: Message, target: URL) {
   const base = dependencies.config.api.cobaltUrl;
   if (base === undefined) return answer(message, "Download service is not configured.");
@@ -146,7 +154,7 @@ function download(dependencies: AppDependencies, message: Message, target: URL) 
         const wrongReelMedia = instagram(target, "reel") && data.filename !== undefined &&
           imageExtensions.some((extension) => data.filename?.toLowerCase().endsWith(extension));
         return wrongReelMedia
-          ? ytDlp(dependencies, message, target)
+          ? fallback(dependencies, message, target, "Failed to fetch media.")
           : sendBytes(dependencies, message, data.url, data.filename);
       }
       if (data.status === "picker") {
@@ -161,21 +169,16 @@ function download(dependencies: AppDependencies, message: Message, target: URL) 
                 : sendVideo({ ...respondTo(message), video: url }).pipe(Effect.asVoid);
             }, { concurrency: 1, discard: true });
       }
-      if (data.status === "error" && instagram(target, "p")) {
-        return instagramPage(dependencies, message, target);
-      }
-      return answer(
+      return fallback(
+        dependencies,
         message,
+        target,
         data.status === "error"
           ? `Failed to fetch media: ${data.error?.code ?? "unknown"}`
           : "Download service returned an unsupported response.",
-      ).pipe(Effect.asVoid);
+      );
     }),
-    Effect.catch(() => {
-      if (instagram(target, "reel")) return ytDlp(dependencies, message, target);
-      if (instagram(target, "p")) return instagramPage(dependencies, message, target);
-      return answer(message, "Failed to fetch media.");
-    }),
+    Effect.catch(() => fallback(dependencies, message, target, "Failed to fetch media.")),
     Effect.asVoid,
   );
 }
