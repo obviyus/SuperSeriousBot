@@ -7,6 +7,11 @@ on:
   pull_request:
     branches:
       - master
+  # Daily: rebuild only when yt-dlp has a new release, so extractor fixes for
+  # Instagram, X and others reach production without anyone noticing a break.
+  schedule:
+    - cron: "30 21 * * *"
+  workflow_dispatch:
 
 env:
   IMAGE: ghcr.io/obviyus/superseriousbot
@@ -26,9 +31,33 @@ jobs:
       - name: Run tests
         run: bun run check
 
+  yt-dlp:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      build: ${{ steps.resolve.outputs.build }}
+    steps:
+      - name: Resolve the current yt-dlp release
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          version="$(gh api repos/yt-dlp/yt-dlp/releases/latest --jq .tag_name)"
+          [ -n "$version" ] || { echo "Could not resolve the yt-dlp release" >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          build=true
+          if [ "$EVENT" = schedule ]; then
+            deployed="$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{ json (index .Image "linux/amd64").Config.Labels }}' \
+              | jq -r '."org.obviyus.superseriousbot.yt-dlp" // ""' || true)"
+            [ "$deployed" = "$version" ] && build=false
+            echo "deployed yt-dlp: ${deployed:-unknown}, latest: $version"
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
   build:
-    if: github.event_name == 'push'
-    needs: test
+    if: github.event_name != 'pull_request' && needs.yt-dlp.outputs.build == 'true'
+    needs: [test, yt-dlp]
     strategy:
       fail-fast: false
       matrix:
@@ -58,6 +87,8 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
+          build-args: |
+            YTDLP_VERSION=${{ needs.yt-dlp.outputs.version }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ github.ref_name }}-superseriousbot
           cache-to: type=gha,mode=max,scope=${{ github.ref_name }}-superseriousbot

@@ -171,7 +171,18 @@ Operator commands:
 bun run operator usage --days 30 --status failed
 bun run operator search-index --chat-id -1001234567890
 bun run operator search-memory --chat-id -1001234567890
+bun run operator dl-check https://www.instagram.com/reel/A1234567890/ https://x.com/user/status/1
 ```
+
+`/dl` maps embed-fixer links (fxtwitter, ddinstagram and similar) to the real
+site, then tries Cobalt, yt-dlp and, for Instagram posts, the page's media
+tags, in that order. Every file goes through the same preparation: videos over
+Telegram's 50 MB bot limit are re-encoded to fit, large photos go as documents,
+and downloads over 400 MB are refused. The user sees an error only after every
+source fails; the command log keeps each source's reason. `dl-check` runs that
+chain against real links without sending anything. The image pins the current
+yt-dlp release, and a daily scheduled build ships new releases, which
+Watchtower deploys.
 
 Indexing saves progress separately for each chat and embedding configuration.
 Unchanged chats do no indexing work. New messages extend the unfinished windows

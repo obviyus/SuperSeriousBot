@@ -6,6 +6,7 @@ import type { AppDependencies } from "./app/dependencies.ts";
 import { Http } from "./app/http.ts";
 import { initializeDatabase } from "./app/schema.ts";
 import { createSuperSeriousBot } from "./bot.ts";
+import { canonicalLink, resolveMedia } from "./features/download.ts";
 
 interface UsageFilters {
   readonly command?: string;
@@ -88,12 +89,39 @@ function chatIds(args: ReadonlyArray<string>): ReadonlyArray<number> | undefined
   });
 }
 
+// Runs /dl's whole source chain and file preparation against real links,
+// without sending anything to Telegram. Exits non-zero if any link fails.
+async function downloadCheck(config: ReturnType<typeof loadConfig>, links: ReadonlyArray<string>): Promise<void> {
+  const { mkdtemp, rm, stat } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  if (links.length === 0) throw new Error("Usage: bun run operator dl-check <url> [url...]");
+  let failed = 0;
+  for (const link of links) {
+    const directory = await mkdtemp(join(tmpdir(), "ssb-dl-check-"));
+    const start = performance.now();
+    try {
+      const media = await resolveMedia({ config, http: new Http() }, canonicalLink(new URL(link)), directory);
+      const files = await Promise.all(media.map(async (item) =>
+        `${item.kind} ${((await stat(item.path)).size / 1_048_576).toFixed(1)} MB`));
+      console.log(`ok    ${Math.round((performance.now() - start) / 1_000)}s  ${link}  ${files.join(", ")}`);
+    } catch (error) {
+      failed += 1;
+      console.log(`fail  ${Math.round((performance.now() - start) / 1_000)}s  ${link}  ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  }
+  if (failed > 0) process.exitCode = 1;
+}
+
 async function main(): Promise<void> {
   const [operation, ...args] = Bun.argv.slice(2);
-  if (!new Set(["usage", "search-index", "search-memory"]).has(operation ?? "")) {
-    throw new Error("Usage: bun run operator <usage|search-index|search-memory> [options]");
+  if (!new Set(["usage", "search-index", "search-memory", "dl-check"]).has(operation ?? "")) {
+    throw new Error("Usage: bun run operator <usage|search-index|search-memory|dl-check> [options]");
   }
   const config = loadConfig();
+  if (operation === "dl-check") return downloadCheck(config, args);
   const database = Database.open(config);
   try {
     await Effect.runPromise(initializeDatabase(database));
