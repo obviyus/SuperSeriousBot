@@ -117,6 +117,15 @@ function ensureAvailable(
   );
 }
 
+// A failure the user can act on: they see userMessage, and the command log
+// keeps the full message for debugging. Anything else shows the generic reply.
+export class CommandFailure extends Error {
+  constructor(readonly userMessage: string, detail: string) {
+    super(detail);
+    this.name = "CommandFailure";
+  }
+}
+
 export function describeError(error: unknown): string | null {
   const described = Predicate.isObject(error) ? Reflect.get(error, "description") : undefined;
   return typeof described === "string"
@@ -211,7 +220,10 @@ export function commandHandlers(
         commandError = error;
         return Effect.logError("Command failed").pipe(
           Effect.annotateLogs({ command: commandName(match), error: describeError(error) }),
-          Effect.andThen(answer(match.message, "Something went wrong. Please try again.")),
+          Effect.andThen(answer(
+            match.message,
+            error instanceof CommandFailure ? error.userMessage : "Something went wrong. Please try again.",
+          )),
         );
       };
       const run = Effect.gen(function* () {

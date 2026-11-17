@@ -93,12 +93,13 @@ test("dl command records why the yt-dlp reel fallback failed", async () => {
     await rm(directory, { force: true, recursive: true });
   }
 
-  expect(stats).toEqual([{
-    error_message: "yt-dlp failed: ERROR: [Instagram] ABC123: login required",
+  expect(stats).toHaveLength(1);
+  expect(stats[0]).toMatchObject({
+    error_message: "Download failed. Cobalt: returned an image for a reel; yt-dlp: ERROR: [Instagram] ABC123: login required",
     status: "failed",
-  }]);
+  });
   expect(fake.requests.find((request) => request.method === "sendMessage")?.params)
-    .toMatchObject({ text: "Something went wrong. Please try again." });
+    .toMatchObject({ text: "Couldn't download media from that link." });
 });
 
 // A fake yt-dlp that writes the file named by --output and prints its path.
@@ -226,4 +227,61 @@ test("dl maps embed-fixer mirror links to the real site before asking Cobalt", a
   }
   expect(bodies).toEqual([JSON.stringify({ url: "https://x.com/qucdate/status/2122473717406081531?s=46" })]);
   expect(fake.requests.some((request) => request.method === "sendVideo")).toBe(true);
+});
+
+async function dl(link: string, send: Fetch) {
+  const { app, bot, database, fake } = await fixture(send, [
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+    sentMessage(306),
+    sentMessage(307),
+  ], testConfig({ cobaltUrl: "https://cobalt.test" }));
+  try {
+    await app.run(bot.handler(urlUpdate(`/dl ${link}`, 3_006)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+  return fake.requests;
+}
+
+test("dl tries yt-dlp for any link Cobalt cannot handle, not only Instagram", async () => {
+  await withTools({ "yt-dlp": fakeYtDlp(1_000) }, async () => {
+    const requests = await dl("https://example.test/watch/1", async () =>
+      new Response(JSON.stringify({ error: { code: "error.api.link.invalid" }, status: "error" })));
+    expect(requests.some((request) => request.method === "sendMessage")).toBe(false);
+    expect(requests.some((request) => request.method === "sendVideo")).toBe(true);
+  });
+});
+
+test("dl re-encodes a Cobalt video too large for Telegram", async () => {
+  await withTools({
+    ffmpeg: "#!/bin/sh\nfor last; do :; done\nhead -c 3000 /dev/zero > \"$last\"",
+    ffprobe: "#!/bin/sh\necho 120",
+  }, async () => {
+    const requests = await dl("https://example.test/big", async (input) => String(input).startsWith("https://cobalt.test")
+      ? new Response(JSON.stringify({ filename: "big.mp4", status: "tunnel", url: "https://media.test/big.mp4" }))
+      : new Response(new Uint8Array(48 * 1_024 * 1_024), { headers: { "content-type": "video/mp4" } }));
+    const video = requests.find((request) => request.method === "sendVideo");
+    expect(Object.values(video?.files ?? {})[0]).toMatchObject({ fileName: "big_small.mp4", size: 3_000 });
+  });
+});
+
+test("dl uploads every picker item as a file instead of passing URLs to Telegram", async () => {
+  const requests = await dl("https://example.test/carousel", async (input) => {
+    const url = String(input);
+    if (url.startsWith("https://cobalt.test")) {
+      return new Response(JSON.stringify({ picker: [
+        { type: "photo", url: "https://media.test/a.jpg" },
+        { type: "video", url: "https://media.test/b.mp4" },
+      ], status: "picker" }));
+    }
+    return url.endsWith(".jpg")
+      ? new Response("photo", { headers: { "content-type": "image/jpeg" } })
+      : new Response("video", { headers: { "content-type": "video/mp4" } });
+  });
+  const photo = requests.find((request) => request.method === "sendPhoto");
+  const video = requests.find((request) => request.method === "sendVideo");
+  expect(photo?.contentType).toBe("multipart/form-data");
+  expect(Object.values(video?.files ?? {})[0]?.fileName).toBe("b.mp4");
 });
