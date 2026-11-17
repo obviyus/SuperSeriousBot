@@ -100,6 +100,40 @@ test("dl command records why the yt-dlp reel fallback failed", async () => {
     .toMatchObject({ text: "Something went wrong. Please try again." });
 });
 
+test("dl command falls back to yt-dlp when Cobalt returns an error for a reel", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "fake-yt-dlp-"));
+  await writeFile(join(directory, "yt-dlp"), [
+    "#!/bin/sh",
+    "echo 'https://media.test/reel.mp4'",
+    "echo 'reel_Df0T9pnyFOH.mp4'",
+  ].join("\n"));
+  await chmod(join(directory, "yt-dlp"), 0o755);
+  const path = process.env["PATH"];
+  process.env["PATH"] = `${directory}:${path ?? ""}`;
+  const send: Fetch = async (input) => String(input).startsWith("https://cobalt.test")
+    ? new Response(JSON.stringify({ error: { code: "error.api.fetch.empty" }, status: "error" }))
+    : new Response("video-bytes", { headers: { "content-type": "video/mp4" } });
+  const config = testConfig({ cobaltUrl: "https://cobalt.test" });
+  const { app, bot, database, fake } = await fixture(send, [
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+    sentMessage(304),
+  ], config);
+
+  try {
+    await app.run(bot.handler(urlUpdate("/dl https://www.instagram.com/reel/Df0T9pnyFOH/?exln=x", 3_004)));
+  } finally {
+    process.env["PATH"] = path;
+    await app.close();
+    database.close();
+    await rm(directory, { force: true, recursive: true });
+  }
+
+  expect(fake.requests.some((request) => request.method === "sendMessage")).toBe(false);
+  const video = fake.requests.find((request) => request.method === "sendVideo");
+  expect(Object.values(video?.files ?? {})[0]?.fileName).toBe("reel_Df0T9pnyFOH.mp4");
+});
+
 test("automatic download reacts and downloads an Instagram reel when enabled", async () => {
   const send: Fetch = async (input) => String(input).startsWith("https://cobalt.test")
     ? new Response(JSON.stringify({
