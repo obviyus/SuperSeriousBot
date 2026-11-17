@@ -17,6 +17,9 @@ import {
   describeError,
 } from "../app/command.ts";
 import type { AppDependencies } from "../app/dependencies.ts";
+import { mkdtemp, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
 
 const maximumBytes = 47 * 1_024 * 1_024;
 const imageExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -93,44 +96,78 @@ function instagramPage(dependencies: AppDependencies, message: Message, url: URL
   );
 }
 
-function ytDlp(dependencies: AppDependencies, message: Message, url: URL) {
-  return Effect.tryPromise({
-    try: async () => {
-      const child = Bun.spawn([
-        "yt-dlp",
-        "--no-playlist",
-        "--format",
-        "best[ext=mp4]/best",
-        "--print",
-        "after_move:filepath",
-        "--get-url",
-        url.toString(),
-      ], { env: process.env, stderr: "pipe", stdout: "pipe" });
-      const [output, errorOutput] = await Promise.all([
-        new Response(child.stdout).text(),
-        new Response(child.stderr).text(),
-      ]);
-      if (await child.exited !== 0) {
-        const reason = errorOutput.trim().split("\n").findLast((line) => line.startsWith("ERROR:"));
-        throw new Error(`yt-dlp failed: ${(reason ?? errorOutput.trim()).slice(0, 500)}`);
-      }
-      const [mediaUrl, fileName] = output.trim().split("\n");
-      if (mediaUrl === undefined) throw new Error("yt-dlp returned no media URL");
-      return { fileName, mediaUrl };
-    },
-    catch: (error) => error instanceof Error ? error : new Error(`yt-dlp failed: ${String(error)}`),
-  }).pipe(Effect.flatMap(({ fileName, mediaUrl }) => sendBytes(
-    dependencies,
-    message,
-    mediaUrl,
-    fileName,
-  )));
+async function run(command: ReadonlyArray<string>): Promise<{ readonly output: string; readonly errorOutput: string; readonly code: number }> {
+  const child = Bun.spawn([...command], { env: process.env, stderr: "pipe", stdout: "pipe" });
+  const [output, errorOutput] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ]);
+  return { code: await child.exited, errorOutput, output };
+}
+
+// Telegram bots can upload at most 50 MB, so a longer video is re-encoded to
+// fit: the bitrate is picked from the duration to land just under the cap.
+async function fitVideo(path: string, directory: string): Promise<string> {
+  if ((await stat(path)).size <= maximumBytes) return path;
+  const probe = await run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path]);
+  const duration = Number(probe.output.trim());
+  if (!Number.isFinite(duration) || duration <= 0) throw new Error("Video is too large and has no duration");
+  const audioBitrate = 96_000;
+  const videoBitrate = Math.floor((maximumBytes * 0.92 * 8) / duration) - audioBitrate;
+  if (videoBitrate < 150_000) throw new Error("Video is too long to fit Telegram's upload limit");
+  const output = join(directory, `${basename(path).replace(/\.[^.]+$/u, "")}_small.mp4`);
+  const encode = await run([
+    "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", path,
+    "-c:v", "libx264", "-preset", "veryfast",
+    "-b:v", String(videoBitrate), "-maxrate", String(videoBitrate), "-bufsize", String(videoBitrate * 2),
+    "-vf", "scale=-2:min(1280\\,ih)",
+    "-c:a", "aac", "-b:a", String(audioBitrate), "-movflags", "+faststart", output,
+  ]);
+  if (encode.code !== 0) throw new Error(`ffmpeg failed: ${encode.errorOutput.trim().slice(0, 300)}`);
+  if ((await stat(output)).size > maximumBytes) throw new Error("Video is still too large after re-encoding");
+  return output;
+}
+
+function ytDlp(message: Message, url: URL) {
+  return Effect.acquireUseRelease(
+    Effect.promise(() => mkdtemp(join(tmpdir(), "ssb-dl-"))),
+    (directory) => Effect.tryPromise({
+      try: async () => {
+        const result = await run([
+          "yt-dlp",
+          "--no-playlist",
+          "--quiet",
+          "--format",
+          "best[ext=mp4]/bv*+ba/b",
+          "--merge-output-format",
+          "mp4",
+          "--output",
+          join(directory, "%(id)s.%(ext)s"),
+          "--print",
+          "after_move:filepath",
+          url.toString(),
+        ]);
+        if (result.code !== 0) {
+          const reason = result.errorOutput.trim().split("\n").findLast((line) => line.startsWith("ERROR:"));
+          throw new Error(`yt-dlp failed: ${(reason ?? result.errorOutput.trim()).slice(0, 500)}`);
+        }
+        const downloaded = result.output.trim().split("\n").at(-1);
+        if (downloaded === undefined || downloaded === "") throw new Error("yt-dlp returned no file");
+        const path = await fitVideo(downloaded, directory);
+        return new File([await Bun.file(path).arrayBuffer()], basename(path), { type: "video/mp4" });
+      },
+      catch: (error) => error instanceof Error ? error : new Error(`yt-dlp failed: ${String(error)}`),
+    }).pipe(Effect.flatMap((video) =>
+      sendVideo({ ...respondTo(message), supportsStreaming: true, video }).pipe(Effect.asVoid)
+    )),
+    (directory) => Effect.promise(() => rm(directory, { force: true, recursive: true })),
+  );
 }
 
 // Every way Cobalt can fail (an error status, the wrong media, a failed
 // request) goes through here, so Instagram always gets its fallback.
 function fallback(dependencies: AppDependencies, message: Message, target: URL, reason: string) {
-  if (instagram(target, "reel")) return ytDlp(dependencies, message, target);
+  if (instagram(target, "reel")) return ytDlp(message, target);
   if (instagram(target, "p")) return instagramPage(dependencies, message, target);
   return answer(message, reason).pipe(Effect.asVoid);
 }
@@ -154,32 +191,29 @@ function download(dependencies: AppDependencies, message: Message, target: URL) 
         const wrongReelMedia = instagram(target, "reel") && data.filename !== undefined &&
           imageExtensions.some((extension) => data.filename?.toLowerCase().endsWith(extension));
         return wrongReelMedia
-          ? fallback(dependencies, message, target, "Failed to fetch media.")
-          : sendBytes(dependencies, message, data.url, data.filename);
+          ? Effect.succeed("Failed to fetch media.")
+          : sendBytes(dependencies, message, data.url, data.filename).pipe(Effect.as(undefined));
       }
       if (data.status === "picker") {
         const media = (data.picker ?? []).slice(0, 10).filter((item) => item.url !== undefined);
         return media.length === 0
-          ? answer(message, "No media found.").pipe(Effect.asVoid)
+          ? answer(message, "No media found.").pipe(Effect.as(undefined))
           : Effect.forEach(media, (item) => {
               const url = item.url;
               if (url === undefined) return Effect.void;
               return item.type === "photo" || imageExtensions.some((extension) => url.endsWith(extension))
                 ? sendPhoto({ ...respondTo(message), photo: url }).pipe(Effect.asVoid)
                 : sendVideo({ ...respondTo(message), video: url }).pipe(Effect.asVoid);
-            }, { concurrency: 1, discard: true });
+            }, { concurrency: 1, discard: true }).pipe(Effect.as(undefined));
       }
-      return fallback(
-        dependencies,
-        message,
-        target,
-        data.status === "error"
-          ? `Failed to fetch media: ${data.error?.code ?? "unknown"}`
-          : "Download service returned an unsupported response.",
-      );
+      return Effect.succeed(data.status === "error"
+        ? `Failed to fetch media: ${data.error?.code ?? "unknown"}`
+        : "Download service returned an unsupported response.");
     }),
-    Effect.catch(() => fallback(dependencies, message, target, "Failed to fetch media.")),
-    Effect.asVoid,
+    // A failure here, including media too large to send, falls back once.
+    // The fallback's own failure is the command's error, not retried.
+    Effect.catch(() => Effect.succeed("Failed to fetch media.")),
+    Effect.flatMap((reason) => reason === undefined ? Effect.void : fallback(dependencies, message, target, reason)),
   );
 }
 
