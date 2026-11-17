@@ -100,38 +100,70 @@ test("dl command records why the yt-dlp reel fallback failed", async () => {
     .toMatchObject({ text: "Something went wrong. Please try again." });
 });
 
-test("dl command falls back to yt-dlp when Cobalt returns an error for a reel", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "fake-yt-dlp-"));
-  await writeFile(join(directory, "yt-dlp"), [
+// A fake yt-dlp that writes the file named by --output and prints its path.
+function fakeYtDlp(sizeBytes: number) {
+  return [
     "#!/bin/sh",
-    "echo 'https://media.test/reel.mp4'",
-    "echo 'reel_Df0T9pnyFOH.mp4'",
-  ].join("\n"));
-  await chmod(join(directory, "yt-dlp"), 0o755);
+    "out=''",
+    "while [ $# -gt 0 ]; do [ \"$1\" = --output ] && out=\"$2\"; shift; done",
+    "file=$(printf '%s' \"$out\" | sed 's/%(id)s/Df0T9pnyFOH/; s/%(ext)s/mp4/')",
+    `dd if=/dev/zero of="$file" bs=1 count=0 seek=${sizeBytes} 2>/dev/null`,
+    "echo \"$file\"",
+  ].join("\n");
+}
+
+async function withTools(tools: Record<string, string>, body: () => Promise<void>) {
+  const directory = await mkdtemp(join(tmpdir(), "fake-tools-"));
+  for (const [name, script] of Object.entries(tools)) {
+    await writeFile(join(directory, name), script);
+    await chmod(join(directory, name), 0o755);
+  }
   const path = process.env["PATH"];
   process.env["PATH"] = `${directory}:${path ?? ""}`;
-  const send: Fetch = async (input) => String(input).startsWith("https://cobalt.test")
-    ? new Response(JSON.stringify({ error: { code: "error.api.fetch.empty" }, status: "error" }))
-    : new Response("video-bytes", { headers: { "content-type": "video/mp4" } });
-  const config = testConfig({ cobaltUrl: "https://cobalt.test" });
+  try {
+    await body();
+  } finally {
+    process.env["PATH"] = path;
+    await rm(directory, { force: true, recursive: true });
+  }
+}
+
+async function reelWithCobaltError() {
+  const send: Fetch = async () => new Response(JSON.stringify({ error: { code: "error.api.fetch.empty" }, status: "error" }));
   const { app, bot, database, fake } = await fixture(send, [
     FakeBotApiReply.ok(true),
     FakeBotApiReply.ok(true),
     sentMessage(304),
-  ], config);
-
+  ], testConfig({ cobaltUrl: "https://cobalt.test" }));
   try {
     await app.run(bot.handler(urlUpdate("/dl https://www.instagram.com/reel/Df0T9pnyFOH/?exln=x", 3_004)));
   } finally {
-    process.env["PATH"] = path;
     await app.close();
     database.close();
-    await rm(directory, { force: true, recursive: true });
   }
+  return fake.requests;
+}
 
-  expect(fake.requests.some((request) => request.method === "sendMessage")).toBe(false);
-  const video = fake.requests.find((request) => request.method === "sendVideo");
-  expect(Object.values(video?.files ?? {})[0]?.fileName).toBe("reel_Df0T9pnyFOH.mp4");
+test("dl command falls back to yt-dlp when Cobalt returns an error for a reel", async () => {
+  await withTools({ "yt-dlp": fakeYtDlp(1_000) }, async () => {
+    const requests = await reelWithCobaltError();
+    expect(requests.some((request) => request.method === "sendMessage")).toBe(false);
+    const video = requests.find((request) => request.method === "sendVideo");
+    expect(Object.values(video?.files ?? {})[0]).toMatchObject({ fileName: "Df0T9pnyFOH.mp4", size: 1_000 });
+  });
+});
+
+test("dl command re-encodes a video too large for Telegram before sending it", async () => {
+  await withTools({
+    ffmpeg: "#!/bin/sh\nfor last; do :; done\nhead -c 2000 /dev/zero > \"$last\"\necho \"$@\" > \"$(dirname \"$last\")/ffmpeg-args\"",
+    ffprobe: "#!/bin/sh\necho 173.68",
+    "yt-dlp": fakeYtDlp(64_985_714),
+  }, async () => {
+    const requests = await reelWithCobaltError();
+    expect(requests.some((request) => request.method === "sendMessage")).toBe(false);
+    const video = requests.find((request) => request.method === "sendVideo");
+    expect(Object.values(video?.files ?? {})[0]).toMatchObject({ fileName: "Df0T9pnyFOH_small.mp4", size: 2_000 });
+  });
 });
 
 test("automatic download reacts and downloads an Instagram reel when enabled", async () => {
