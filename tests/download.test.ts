@@ -6,6 +6,7 @@ import { Effect, type Update } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { Fetch } from "../src/app/http.ts";
+import { canonicalLink } from "../src/features/download.ts";
 import { commandUpdate, fixture, sentMessage, testConfig } from "./harness.ts";
 
 function urlUpdate(text: string, updateId: number): Update {
@@ -196,4 +197,33 @@ test("automatic download reacts and downloads an Instagram reel when enabled", a
   expect(fake.requests.find((request) => request.method === "sendVideo")?.params).toMatchObject({
     chat_id: "-1007",
   });
+});
+
+test("dl maps embed-fixer mirror links to the real site before asking Cobalt", async () => {
+  expect(canonicalLink(new URL("https://fxtwitter.com/qucdate/status/2122473717406081531?s=46")).toString())
+    .toBe("https://x.com/qucdate/status/2122473717406081531?s=46");
+  expect(canonicalLink(new URL("https://d.ddinstagram.com/reel/ABC123/")).hostname).toBe("www.instagram.com");
+  expect(canonicalLink(new URL("https://example.test/a")).toString()).toBe("https://example.test/a");
+
+  const bodies: Array<string> = [];
+  const send: Fetch = async (input, init) => {
+    if (String(input).startsWith("https://cobalt.test")) {
+      bodies.push(String(init?.body));
+      return new Response(JSON.stringify({ filename: "tweet.mp4", status: "redirect", url: "https://media.test/tweet.mp4" }));
+    }
+    return new Response("video-bytes", { headers: { "content-type": "video/mp4" } });
+  };
+  const { app, bot, database, fake } = await fixture(send, [
+    FakeBotApiReply.ok(true),
+    FakeBotApiReply.ok(true),
+    sentMessage(305),
+  ], testConfig({ cobaltUrl: "https://cobalt.test" }));
+  try {
+    await app.run(bot.handler(urlUpdate("/dl https://fxtwitter.com/qucdate/status/2122473717406081531?s=46", 3_005)));
+  } finally {
+    await app.close();
+    database.close();
+  }
+  expect(bodies).toEqual([JSON.stringify({ url: "https://x.com/qucdate/status/2122473717406081531?s=46" })]);
+  expect(fake.requests.some((request) => request.method === "sendVideo")).toBe(true);
 });

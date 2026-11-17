@@ -36,10 +36,29 @@ const CobaltResponse = Schema.Struct({
   url: Schema.optionalKey(Schema.String),
 });
 
+// Embed-fixer mirrors (fxtwitter and friends) rewrite links so chats show a
+// preview. Cobalt only knows the real sites, so links are mapped back first.
+const mirrors: ReadonlyArray<readonly [ReadonlyArray<string>, string]> = [
+  [["fxtwitter.com", "vxtwitter.com", "fixupx.com", "fixvx.com", "twittpr.com", "stupidpenisx.com", "girlcockx.com"], "x.com"],
+  [["ddinstagram.com", "kkinstagram.com", "uuinstagram.com", "instagramez.com", "d.ddinstagram.com"], "www.instagram.com"],
+  [["vxreddit.com", "rxddit.com", "rxyddit.com"], "www.reddit.com"],
+  [["vxtiktok.com", "tnktok.com", "tiktxk.com", "tfxktok.com"], "www.tiktok.com"],
+  [["fxbsky.app", "bskyx.app", "bskye.app"], "bsky.app"],
+];
+
+export function canonicalLink(url: URL): URL {
+  const host = url.hostname.toLowerCase();
+  const site = mirrors.find(([hosts]) => hosts.some((mirror) => host === mirror || host.endsWith(`.${mirror}`)))?.[1];
+  if (site === undefined) return url;
+  const canonical = new URL(url);
+  canonical.hostname = site;
+  return canonical;
+}
+
 function links(message: Message): ReadonlyArray<URL> {
   return messageEntities(message, "url", "text_link").flatMap((span) => {
     const value = span.entity.url ?? span.text;
-    return URL.canParse(value) ? [new URL(value)] : [];
+    return URL.canParse(value) ? [canonicalLink(new URL(value))] : [];
   });
 }
 
