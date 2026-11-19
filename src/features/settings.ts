@@ -22,7 +22,7 @@ import { replyBlocks, rich } from "../app/rich.ts";
 const defaultModels = {
   ask: "openrouter/x-ai/grok-4.3",
   edit: "openrouter/google/gemini-3.1-flash-image-preview",
-  search: "openrouter/anthropic/claude-sonnet-5.5",
+  search: "openrouter/deepseek/deepseek-v4.1-flash-1017",
   song: "openrouter/x-ai/grok-4.3",
   tldr: "openrouter/google/gemini-3-flash-preview",
   tr: "google/gemini-2.5-flash",
