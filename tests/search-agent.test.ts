@@ -8,7 +8,7 @@ import { Effect } from "telly";
 import { FakeBotApiReply } from "telly/testing";
 
 import type { AppConfig } from "../src/app/config.ts";
-import { answerSearch, checkQuery, renderAnswer, runQuery } from "../src/features/search-agent.ts";
+import { answerSearch, checkQuery, renderAnswer, reviewResearch, runQuery } from "../src/features/search-agent.ts";
 import { searchStorePath, syncSearchStores } from "../src/features/search-store.ts";
 import { commandUpdate, fixture, sentMessage, testConfig } from "./harness.ts";
 
@@ -139,6 +139,21 @@ test("search store copies one chat without opted-out members and syncs only new 
 test("answers drop raw message IDs from the text and link only returned messages", () => {
   expect(renderAnswer({ answer: "Avi, because siccboi said it [3211038, 3047076].[1]", citations: [3211038, 5] }, new Set([3211038]), -1001118116449))
     .toEqual({ answer: "Avi, because siccboi said it.\n\n[1](https://t.me/c/1118116449/3211038)", citations: [3211038] });
+  // IDs left in parentheses still become citations; placeholders disappear.
+  expect(renderAnswer({ answer: "Mostly, yes. (3297993, 3297997) [citation]", citations: [] }, new Set([3297993]), -1001118116449))
+    .toEqual({ answer: "Mostly, yes.\n\n[1](https://t.me/c/1118116449/3297993)", citations: [3297993] });
+});
+
+test("the answer tool refuses thin research", () => {
+  const seen = new Set([1, 2, 3, 4, 5]);
+  const findings = [1, 2, 3, 4].map((id) => ({ message_ids: [id], note: `finding ${id}` }));
+  expect(reviewResearch({ answer: "Woos.", findings }, seen, 6)).toBeUndefined();
+  expect(reviewResearch({ answer: "Woos.", findings }, seen, 2)).toContain("you ran 2 queries");
+  expect(reviewResearch({ answer: "Woos.", findings: findings.slice(0, 2) }, seen, 6)).toContain("only 2 findings");
+  // Findings must point at messages a query returned.
+  expect(reviewResearch({ answer: "Woos.", findings: findings.map((f) => ({ ...f, message_ids: [99] })) }, seen, 6)).toContain("only 0 findings");
+  expect(reviewResearch({ answer: "You'll have to remind me of that one.", findings: [] }, seen, 3)).toContain("Before giving up");
+  expect(reviewResearch({ answer: "You'll have to remind me of that one.", findings: [] }, seen, 6)).toBeUndefined();
 });
 
 test("agent queries run unrestricted on a read-only copy but cannot open other files", async () => {
@@ -198,7 +213,22 @@ test("active members are regular recent posters still in the group", async () =>
 test("search agent runs Pi with only the sql and answer tools and cites only returned messages", async () => {
   const openRouter = fakeOpenRouter([
     [{ input: { sql: "SELECT m.message_id, m.text FROM messages_fts f JOIN messages m ON m.message_id = f.rowid WHERE messages_fts MATCH 'hero*' AND m.user_id = 7" }, name: "sql" }],
-    [{ input: { answer: "Nobody. Nathu thinks hero worship is cringe.", citations: [100, 999] }, name: "answer" }],
+    // A thin first answer is refused, so the agent keeps digging.
+    [{ input: { answer: "Nobody.", citations: [100], findings: [{ message_ids: [100], note: "Nathu: hero worship is cringe" }] }, name: "answer" }],
+    [{ input: { sql: "SELECT message_id, text FROM messages WHERE message_id BETWEEN 90 AND 110" }, name: "sql" }],
+    [{ input: { sql: "SELECT message_id, text FROM messages WHERE user_id = 8" }, name: "sql" }],
+    [{ input: { sql: "SELECT message_id, text FROM messages ORDER BY message_id LIMIT 5" }, name: "sql" }],
+    [{ input: { sql: "SELECT topic FROM lore" }, name: "sql" }],
+    [{ input: {
+      answer: "Nobody. Nathu thinks hero worship is cringe.",
+      citations: [100, 999],
+      findings: [
+        { message_ids: [100], note: "Nathu: hero worship is cringe" },
+        { message_ids: [98], note: "Alice asked if he is a Jensen fan" },
+        { message_ids: [150], note: "Alice's hero is Batman, not Nathu's" },
+        { message_ids: [50], note: "an old member, unrelated" },
+      ],
+    }, name: "answer" }],
   ]);
   const { app, database, dependencies } = await fixture(async () => new Response("{}"), [], config(openRouter.url, ["mytransformerisfine"]));
   await seed(database);
@@ -211,6 +241,7 @@ test("search agent runs Pi with only the sql and answer tools and cites only ret
     expect(first.tools?.map((item) => item.function.name).sort()).toEqual(["answer", "sql"]);
     expect(openRouter.bodies[0]).toContain("who is nathu's hero");
     expect(openRouter.bodies[1]).toContain("hero worship is always cringe to me");
+    expect(openRouter.bodies[2]).toContain("Not sent: you ran 1 queries");
     expect(openRouter.bodies.join("\n")).not.toContain("OPTED OUT");
     expect(result.citations).toEqual([100]);
     expect(result.answer).toContain("Nobody. Nathu thinks hero worship is cringe.");
@@ -225,7 +256,10 @@ test("search agent runs Pi with only the sql and answer tools and cites only ret
 test("search command syncs the chat copy, replies with the agent answer and logs it", async () => {
   const openRouter = fakeOpenRouter([
     [{ input: { sql: "SELECT message_id, text FROM messages ORDER BY message_id DESC LIMIT 5" }, name: "sql" }],
-    [{ input: { answer: "Nathu just posted a new hero line.", citations: [160] }, name: "answer" }],
+    // Thin research is refused twice, then accepted so a search always ends.
+    [{ input: { answer: "Nathu just posted a new hero line.", citations: [160], findings: [] }, name: "answer" }],
+    [{ input: { answer: "Nathu just posted a new hero line.", citations: [160], findings: [] }, name: "answer" }],
+    [{ input: { answer: "Nathu just posted a new hero line.", citations: [160], findings: [] }, name: "answer" }],
   ]);
   const { app, bot, database, fake } = await fixture(async () => new Response("{}"), [
     FakeBotApiReply.ok(true),

@@ -66,7 +66,19 @@ export function runQuery(path: string, sql: string, signal?: AbortSignal): Promi
 }
 
 const Sql = Schema.Struct({ sql: Schema.String.annotate({ description: "One read-only SQLite query." }) });
+// The answer tool refuses thin research, so no model can answer off its first
+// search hit. A pick needs several grounded findings from several queries;
+// "I don't know" needs a real attempt. After two refusals it accepts anyway.
+export const research = { minimumFindings: 4, minimumQueries: 5, minimumQueriesForNoAnswer: 6, refusals: 2 } as const;
+
+const Finding = Schema.Struct({
+  note: Schema.String.annotate({ description: "One thing you found: who, what happened or what was said, and why it matters for the question." }),
+  message_ids: Schema.Array(Schema.Int).annotate({ description: "message_id values from your query results that show it." }),
+});
 const Answer = Schema.Struct({
+  findings: Schema.Array(Finding).annotate({
+    description: "Your research notes, one per distinct finding: different people, incidents, angles or time periods. For a pick or ranking, include the strongest candidates you compared, not only the winner.",
+  }),
   answer: Schema.String.annotate({
     description: `The reply in Telegram Rich Markdown, with no message IDs, footnotes or links. If nothing supports an answer, exactly: ${noAnswer}`,
   }),
@@ -99,7 +111,7 @@ How to work:
 - Each member or rankings: cover everyone in active_members. Search lore and messages for each person so every line has something specific, not just their profile.
 - Creative writing: mine lore and quotes first, then write the piece around real details.
 - The prompt lists your recent answers. They are not a source: never reuse their picks, jokes or receipts. If a question repeats, find a different angle with fresh receipts; the group is bored of repeats, so spread picks around the group.
-Use as many queries as the question deserves: a lookup may take two, a good roast often takes five to ten. For roundups, keep it to a handful of broad queries (all profiles at once, one lore_fts search with every name OR-ed, per-member samples filtered by user_id), never a window or random sort over all messages. Always select message_id when reading messages.
+Research like an investigator, not a search box. The first hit is rarely the best answer: run several searches with different wordings before deciding, read around the promising hits, check what others say, and compare rivals. Expect eight to fifteen queries for most questions; the answer tool refuses fewer than ${research.minimumQueries} queries or fewer than ${research.minimumFindings} grounded findings. For roundups, keep it to a handful of broad queries (all profiles at once, one lore_fts search with every name OR-ed, per-member samples filtered by user_id), never a window or random sort over all messages. Always select message_id when reading messages.
 
 How to answer:
 - Answer first with the pick, then the receipt: a short verbatim quote (keep Hinglish as written) or the incident, with who said it. One to three punchy sentences; one short line per member for roundups.
@@ -127,11 +139,18 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
   const model = normalizeModelName(yield* getModel(dependencies, "search"));
   const seen = new Set<number>();
   let finished: typeof Answer.Type | undefined;
+  let queries = 0;
+  let refusals = 0;
 
   const tools = {
     answer: tool({
-      description: "Send the final answer. Call this exactly once, then stop.",
+      description: "Send the final answer with your research findings. It is refused if the research is too thin; then keep searching and call it again.",
       execute: (input: typeof Answer.Type) => {
+        const gap = refusals < research.refusals ? reviewResearch(input, seen, queries) : undefined;
+        if (gap !== undefined) {
+          refusals += 1;
+          return Promise.resolve(gap);
+        }
         finished = input;
         return Promise.resolve("sent");
       },
@@ -141,6 +160,7 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
       description: `Run one read-only SQLite query over this group's history.\n\n${schemaGuide}`,
       execute: async (input: typeof Sql.Type) => {
         const result = await runQuery(storePath, input.sql, searchSignal);
+        queries += 1;
         for (const row of result.rows ?? []) {
           const id = row["message_id"];
           if (typeof id === "number") seen.add(id);
@@ -159,7 +179,8 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
         baseUrl: dependencies.config.api.openrouterBaseUrl ?? "https://openrouter.ai/api/v1",
         models: [{
           contextWindow: 272_000,
-          cost: { cacheRead: 0.01, cacheWrite: 0.125, input: 0.1, output: 0.5 },
+          // OpenRouter bills the real price; Pi only uses this for its own estimate.
+          cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
           id: model,
           input: ["text"],
           maxTokens: 16_000,
@@ -168,7 +189,9 @@ export const answerSearch = Effect.fn("answerSearch")(function* (
         }],
       },
     },
-    thinkingLevel: "low",
+    // Low reasoning made every model answer off its first search hit; high
+    // costs a few seconds and plans much better searches.
+    thinkingLevel: "high",
   });
   const agent = new HarnessAgent({
     activeTools: ["sql", "answer"],
@@ -241,16 +264,46 @@ function recentAnswers(storePath: string): string {
   }
 }
 
+export function reviewResearch(
+  input: Pick<typeof Answer.Type, "answer" | "findings">,
+  seen: ReadonlySet<number>,
+  queries: number,
+): string | undefined {
+  if (input.answer.trim() === noAnswer) {
+    return queries >= research.minimumQueriesForNoAnswer
+      ? undefined
+      : `Not sent: you ran ${queries} queries. Before giving up, try at least ${research.minimumQueriesForNoAnswer}: other wordings and stems, Hinglish, names and aliases, lore_fts, and the messages around any near miss.`;
+  }
+  const grounded = input.findings.filter((finding) => finding.message_ids.some((id) => seen.has(id)));
+  const people = new Set(grounded.flatMap((finding) => finding.message_ids.filter((id) => seen.has(id))));
+  const gaps: Array<string> = [];
+  if (queries < research.minimumQueries) gaps.push(`you ran ${queries} queries; dig with at least ${research.minimumQueries}`);
+  if (grounded.length < research.minimumFindings) {
+    gaps.push(`only ${grounded.length} findings cite messages your queries returned; collect at least ${research.minimumFindings} distinct ones`);
+  }
+  if (people.size < research.minimumFindings) gaps.push("the findings rest on too few messages");
+  return gaps.length === 0
+    ? undefined
+    : `Not sent: ${gaps.join("; ")}. Search wider before answering: different wordings, what others say, lore, other time periods, and for a pick, the strongest rival candidates. Then call answer again with all findings.`;
+}
+
 export function renderAnswer(
-  output: typeof Answer.Type | undefined,
+  output: Pick<typeof Answer.Type, "answer" | "citations"> | undefined,
   seen: ReadonlySet<number>,
   chatId: number,
 ): { readonly answer: string; readonly citations: ReadonlyArray<number> } {
-  // Models sometimes leave raw message IDs like "[3211038, 3047076]" or footnotes like "[1]" in the text.
-  const answer = (output?.answer ?? "").replace(/\s*\[\d+(?:\s*,\s*\d+)*\](?!\()/gu, "").trim();
+  // Models sometimes leave raw message IDs like "[3211038, 3047076]" or
+  // "(3297993, 3297997)", footnotes like "[1]", or "[citation]" in the text.
+  // IDs found there still count as citations when a query returned them.
+  const raw = output?.answer ?? "";
+  const inline = [...raw.matchAll(/[[(](\d{4,}(?:\s*,\s*\d{4,})*)[\])]/gu)].flatMap((match) => match[1]!.split(",").map((id) => Number(id.trim())));
+  const answer = raw
+    .replace(/\s*[[(]\d+(?:\s*,\s*\d+)*[\])](?!\()/gu, "")
+    .replace(/\s*\[(?:citation|source)s?\]/giu, "")
+    .trim();
   if (answer.length === 0 || answer === noAnswer) return { answer: noAnswer, citations: [] };
   // Only cite messages a query actually returned, so the model cannot invent links.
-  const citations = [...new Set(output?.citations ?? [])].filter((id) => seen.has(id)).slice(0, 3);
+  const citations = [...new Set([...(output?.citations ?? []), ...inline])].filter((id) => id > 0 && seen.has(id)).slice(0, 3);
   const links = citations.flatMap((messageId, index) => {
     const link = messageLink(chatId, messageId);
     return link === undefined ? [] : [`[${index + 1}](${link})`];
