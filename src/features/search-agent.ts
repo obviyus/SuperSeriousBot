@@ -77,10 +77,10 @@ const Finding = Schema.Struct({
 });
 const Answer = Schema.Struct({
   findings: Schema.Array(Finding).annotate({
-    description: "Your research notes, one per distinct finding: different people, incidents, angles or time periods. For a pick or ranking, include the strongest candidates you compared, not only the winner.",
+    description: "Your research notes, one per distinct finding: different people, incidents, angles or time periods. For a pick or ranking, include the strongest candidates you compared, not only the winner. Private: the group never sees these.",
   }),
   answer: Schema.String.annotate({
-    description: `The reply in Telegram Rich Markdown, with no message IDs, footnotes or links. If nothing supports an answer, exactly: ${noAnswer}`,
+    description: `What the group sees: the pick and its one best receipt in one or two sentences (a roundup: one short line per member). Everything else stays in findings. Telegram Rich Markdown, no message IDs, footnotes or links. If nothing supports an answer, exactly: ${noAnswer}`,
   }),
   citations: Schema.Array(Schema.Int).annotate({
     description: "Up to three message_id values from query results behind the quotes or incidents in the answer.",
@@ -114,7 +114,9 @@ How to work:
 Research like an investigator, not a search box. The first hit is rarely the best answer: run several searches with different wordings before deciding, read around the promising hits, check what others say, and compare rivals. Expect eight to fifteen queries for most questions; the answer tool refuses fewer than ${research.minimumQueries} queries or fewer than ${research.minimumFindings} grounded findings. For roundups, keep it to a handful of broad queries (all profiles at once, one lore_fts search with every name OR-ed, per-member samples filtered by user_id), never a window or random sort over all messages. Always select message_id when reading messages.
 
 How to answer:
-- Short and tight: the pick, then its single best receipt (a short verbatim quote, Hinglish as written, or the incident, with who said it). One or two punchy sentences in a single paragraph. Mention a runner-up only inside those sentences, never as its own line or paragraph. No bullets for a single pick. Roundups: one short line per member, no intro or closing paragraph.
+- Short and tight. Research wide, then show only the single best receipt and stop: the group wants a punchline, not a case file. A runner-up is a few words at most. No bullets or extra paragraphs for a single pick. Roundups: one short line per member with one quote fragment, no intro or outro. The right length:
+  "**Avi.** He's already announced it: "if I go to jail, I'm going to snitch on each and every one of you." Woos has the actual record, but Avi pre-booked the whole roster."
+  "**Deep.** Sid asked "do you overthink every message like this" and Deep just said "Yes.""
 - Cite the message_id values behind every quote or incident, banter included, up to three. Never write message IDs in the text.
 - At most one emoji, usually none.
 - Be playful and confident; treat absurd premises and mock charges as banter and always make a definite pick or full ranking. No hedging, disclaimers, "affectionate charge", "the evidence suggests", or puns on someone's name as the whole joke.
@@ -123,7 +125,8 @@ How to answer:
 ${schemaGuide}
 
 ${richMarkdownPrompt}
-For this command, ignore the source-link guidance above: never put links in the answer, because the application appends citation links.`;
+For this command, ignore the source-link guidance above: never put links in the answer, because the application appends citation links.
+Also override its depth guidance: /search answers are punchlines. Your findings are private notes; the reply shows only the pick and its single best receipt, one or two sentences, never a list of evidence.`;
 
 export const answerSearch = Effect.fn("answerSearch")(function* (
   dependencies: AppDependencies,
